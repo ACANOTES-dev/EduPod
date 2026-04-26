@@ -1172,9 +1172,11 @@ See `wellbeing_new/IMPLEMENTATION_LOG.md §2b` for the full rules + rationale.
 
 ## DZ-Regulatory-1: Response-envelope unwrap at the call site
 
-**Risk**: `apps/api`'s `ResponseTransformInterceptor` wraps every non-paginated, non-null response body in `{ data: ... }`. Several regulatory pages were written expecting a bare payload (`summary.calendar.upcoming_deadlines`) and crash at runtime with `Cannot read properties of undefined (reading 'calendar')` because the actual payload is `{ data: { calendar: { ... } } }`. This is the same bug commit `633b4f08` fixed for `/v1/leave/balance`.
+**Status update (2026-04-26, engagement-fix Impl 01)**: `apiClient<T>` now auto-unwraps single-key `{ data: T }` envelopes safely (see DZ-Engagement-1 below). The "do NOT modify `apiClient`" advice in this entry is superseded — the auto-unwrap was implemented conservatively and ships in production. Existing regulatory pages that type the response as `{ data: T }` and read `r.data.field` continue to work because the back-compat shim in `autoUnwrap()` installs a non-enumerable `.data` getter that returns the inner value itself. Per-call unwrapping is no longer required for new regulatory code, but it does no harm.
 
-**Convention for the regulatory rebuild**:
+**Risk (historic)**: `apps/api`'s `ResponseTransformInterceptor` wraps every non-paginated, non-null response body in `{ data: ... }`. Several regulatory pages were written expecting a bare payload (`summary.calendar.upcoming_deadlines`) and crash at runtime with `Cannot read properties of undefined (reading 'calendar')` because the actual payload is `{ data: { calendar: { ... } } }`. This is the same bug commit `633b4f08` fixed for `/v1/leave/balance`.
+
+**Convention (legacy — pre-engagement-fix Impl 01)**:
 
 - **Unwrap at the call site.** Every regulatory page that fetches a non-paginated endpoint types the response as `{ data: T }` and unwraps in the `.then` handler:
 
@@ -1182,13 +1184,29 @@ See `wellbeing_new/IMPLEMENTATION_LOG.md §2b` for the full rules + rationale.
   apiClient<{ data: SummaryPayload }>('/v1/regulatory/summary').then((r) => setSummary(r.data));
   ```
 
-- **Do NOT modify `apiClient` to auto-unwrap.** The helper is shared with non-envelope endpoints (paginated lists, file downloads, legacy routes) and a global unwrap would silently break them. Contain the change to regulatory.
-- Paginated endpoints already return `{ data, meta }` — those stay unchanged and are consumed as-is. The unwrap convention applies ONLY to non-paginated payloads.
+- ~~**Do NOT modify `apiClient` to auto-unwrap.**~~ Superseded — see status update above.
+- Paginated endpoints already return `{ data, meta }` — those stay unchanged and are consumed as-is. The unwrap behaviour applies ONLY to non-paginated payloads.
 - If you see a regulatory page with `setFoo(response.foo)` where `response` typed as raw `T`, suspect envelope mismatch before chasing a backend bug.
 
-**How to detect**: grep for `apiClient<` calls in `apps/web/src/app/[locale]/(school)/regulatory/**` that do NOT destructure `.data` — each is a potential crash site.
+**How to detect**: grep for `apiClient<` calls in `apps/web/src/app/[locale]/(school)/regulatory/**` that do NOT destructure `.data` — historic crash sites; with auto-unwrap they now resolve correctly.
 
 **Reference**: `regulatory-new/01-foundation.md` (Phase 1 of the regulatory redesign) and commit `633b4f08 fix(leave): unwrap /v1/leave/balance response envelope` for the precedent.
+
+## DZ-Engagement-1: `apiClient` envelope auto-unwrap (engagement-fix Impl 01)
+
+**Risk**: The frontend `apiClient<T>()` at `apps/web/src/lib/api-client.ts` auto-unwraps single-key `{ data: T }` response envelopes. This was added during the engagement-fix rebuild to resolve a class of bugs where pages read `response.someField` directly off a wrapped `{ data: { someField } }` envelope.
+
+The behaviour is conservative: it only strips the wrap when the response body is a plain object with EXACTLY one key called `data` and a non-array value. Paginated responses (`{data, meta}`), error envelopes (`{error: {...}}`), raw arrays, and already-unwrapped objects all flow through unchanged.
+
+**Implication for new code**: when calling `apiClient<T>(...)`, declare `T` as the inner shape (e.g. `apiClient<EventRecord>(...)`), not the wrapped envelope (`apiClient<{data: EventRecord}>(...)`). Reading `response.someField` will work directly on the unwrapped value.
+
+**Back-compat shim**: for object and array inner values, the helper installs a non-enumerable `.data` getter on the unwrapped value that returns the inner itself. So legacy callsites typed `apiClient<{ data: T }>` and reading `.data.field` continue to work without per-file migration. Primitive inner values can't carry a getter — the only known callsite, `NotificationPanel.fetchUnreadCount`, was retyped to `apiClient<number>`.
+
+**The legacy `unwrap()` helper at the same path remains available** for explicit opt-in unwrapping. It is idempotent on already-unwrapped values, so existing defensive `unwrap(await apiClient(...))` callsites continue to work after this change.
+
+**How to detect a regression**: if a page surfaces `Cannot read properties of undefined` on a field that exists in the API response, the auto-unwrap may have been bypassed (e.g. a custom fetch instead of `apiClient`, or a primitive-returning endpoint typed as a wrapped object — see `feedback_deploy_route_choice.md` and `notifications/unread-count` precedent).
+
+**Reference**: `engagement-fix/PLAN.md` §3.1 and `engagement-fix/IMPLEMENTATION_LOG.md` Impl 01 completion record (commit `39c30036`).
 
 ## DZ-Reports-1: AI cost spiral — flag default-off + per-call audit
 

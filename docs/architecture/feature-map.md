@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-25 (Reports module rebuild Waves 1–5 shipped — KPI dashboard, custom builder, scheduled reports, alerts, AI features, board + compliance, share-to-inbox)
+> **Last verified**: 2026-04-26 (Engagement module fix rebuild Waves 1–4 shipped — apiClient envelope auto-unwrap, hub-landing tile dashboard, form-template editor polish, event sub-pages + parent flow polish, parent permission backfill, i18n + mobile sweep. No route or count changes; the engagement section is unchanged.)
 
 ---
 
