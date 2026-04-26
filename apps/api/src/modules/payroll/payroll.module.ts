@@ -13,6 +13,7 @@ import { CalculationService } from './calculation.service';
 import { ClassDeliveryService } from './class-delivery.service';
 import { CompensationController } from './compensation.controller';
 import { CompensationService } from './compensation.service';
+import { FinalisationService } from './finalisation.service';
 import { PayrollAdjustmentsService } from './payroll-adjustments.service';
 import { PayrollAllowancesService } from './payroll-allowances.service';
 import { PayrollAnalyticsService } from './payroll-analytics.service';
@@ -25,6 +26,7 @@ import { PayrollEnhancedController } from './payroll-enhanced.controller';
 import { PayrollEntriesController } from './payroll-entries.controller';
 import { PayrollEntriesService } from './payroll-entries.service';
 import { PayrollExportsService } from './payroll-exports.service';
+import { PayrollInputResolver } from './payroll-input-resolver.service';
 import { PayrollOneOffsService } from './payroll-one-offs.service';
 import { PayrollReportsController } from './payroll-reports.controller';
 import { PayrollReportsService } from './payroll-reports.service';
@@ -73,6 +75,9 @@ import { StaffAttendanceService } from './staff-attendance.service';
     PayrollAnalyticsService,
     PayrollAnomalyService,
     PayrollCalendarService,
+    // Payroll Overhaul (Wave 2) — input resolver + unified finalisation
+    PayrollInputResolver,
+    FinalisationService,
   ],
   exports: [
     PayrollRunsService,
@@ -80,6 +85,8 @@ import { StaffAttendanceService } from './staff-attendance.service';
     ClassDeliveryService,
     PayrollAllowancesService,
     PayrollDeductionsService,
+    PayrollInputResolver,
+    FinalisationService,
   ],
 })
 export class PayrollModule {}
