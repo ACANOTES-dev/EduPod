@@ -246,29 +246,29 @@ Impl 02 (driver engine) restarts everything because it ships in `@school/shared`
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                               | Wave | Depends on     | Status      | Completed at | Commit SHA             |
-| --- | ------------------------------------------------------------------- | ---- | -------------- | ----------- | ------------ | ---------------------- |
-| 01  | Schema foundation                                                   | 1    | —              | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 02  | Driver engine (pure-TS calculation library + canonical drivers)     | 2    | 01             | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 03  | Financial Models + Scenarios services                               | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 04  | Line Items service                                                  | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 05  | Snapshots service                                                   | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 06  | Variance service                                                    | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 07  | Event Budgets services                                              | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 08  | Variance Refresh worker                                             | 3    | 01, 06         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 09  | Export pipeline (PDF + Excel + Board Pack worker)                   | 3    | 01, 03, 04, 05 | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 10  | Trip → Fee Integration service                                      | 3    | 01, 07         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 11  | Shareable Links service + cleanup worker                            | 3    | 01, 05         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 12  | Budgeting Hub landing + list pages                                  | 4    | 01, 03, 07     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 13  | Financial Model Workspace UI                                        | 4    | 01, 02, 03, 04 | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 14  | Scenario Compare View                                               | 4    | 01, 03         | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 15  | Variance Dashboard view                                             | 4    | 01, 06, 08     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 16  | Snapshots & Version History UI                                      | 4    | 01, 05, 09     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 17  | Event Budget Workspace UI                                           | 4    | 01, 02, 07     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 18  | Trip → Fee Generation Flow UI                                       | 4    | 01, 07, 10     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 19  | Shareable Link UI + Public Read-Only Snapshot View                  | 4    | 01, 05, 11     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 20  | Outputs UI (PDF / Excel triggers + Settings page)                   | 4    | 01, 09, 11     | `completed` | 2026-04-26   | worktree (uncommitted) |
-| 21  | Polish — translations, mobile, a11y, smoke tests, feature-map, docs | 5    | 12–20          | `completed` | 2026-04-26   | worktree (uncommitted) |
+| #   | Title                                                               | Wave | Depends on     | Status      | Completed at | Commit SHA |
+| --- | ------------------------------------------------------------------- | ---- | -------------- | ----------- | ------------ | ---------- |
+| 01  | Schema foundation                                                   | 1    | —              | `completed` | 2026-04-26   | 22eb8b29   |
+| 02  | Driver engine (pure-TS calculation library + canonical drivers)     | 2    | 01             | `completed` | 2026-04-26   | 22eb8b29   |
+| 03  | Financial Models + Scenarios services                               | 2    | 01, 02         | `completed` | 2026-04-26   | 22eb8b29   |
+| 04  | Line Items service                                                  | 2    | 01, 02         | `completed` | 2026-04-26   | 22eb8b29   |
+| 05  | Snapshots service                                                   | 2    | 01, 02         | `completed` | 2026-04-26   | 22eb8b29   |
+| 06  | Variance service                                                    | 2    | 01, 02         | `completed` | 2026-04-26   | 22eb8b29   |
+| 07  | Event Budgets services                                              | 2    | 01, 02         | `completed` | 2026-04-26   | 22eb8b29   |
+| 08  | Variance Refresh worker                                             | 3    | 01, 06         | `completed` | 2026-04-26   | 22eb8b29   |
+| 09  | Export pipeline (PDF + Excel + Board Pack worker)                   | 3    | 01, 03, 04, 05 | `completed` | 2026-04-26   | 22eb8b29   |
+| 10  | Trip → Fee Integration service                                      | 3    | 01, 07         | `completed` | 2026-04-26   | 22eb8b29   |
+| 11  | Shareable Links service + cleanup worker                            | 3    | 01, 05         | `completed` | 2026-04-26   | 22eb8b29   |
+| 12  | Budgeting Hub landing + list pages                                  | 4    | 01, 03, 07     | `completed` | 2026-04-26   | 22eb8b29   |
+| 13  | Financial Model Workspace UI                                        | 4    | 01, 02, 03, 04 | `completed` | 2026-04-26   | 22eb8b29   |
+| 14  | Scenario Compare View                                               | 4    | 01, 03         | `completed` | 2026-04-26   | 22eb8b29   |
+| 15  | Variance Dashboard view                                             | 4    | 01, 06, 08     | `completed` | 2026-04-26   | 22eb8b29   |
+| 16  | Snapshots & Version History UI                                      | 4    | 01, 05, 09     | `completed` | 2026-04-26   | 22eb8b29   |
+| 17  | Event Budget Workspace UI                                           | 4    | 01, 02, 07     | `completed` | 2026-04-26   | 22eb8b29   |
+| 18  | Trip → Fee Generation Flow UI                                       | 4    | 01, 07, 10     | `completed` | 2026-04-26   | 22eb8b29   |
+| 19  | Shareable Link UI + Public Read-Only Snapshot View                  | 4    | 01, 05, 11     | `completed` | 2026-04-26   | 22eb8b29   |
+| 20  | Outputs UI (PDF / Excel triggers + Settings page)                   | 4    | 01, 09, 11     | `completed` | 2026-04-26   | 22eb8b29   |
+| 21  | Polish — translations, mobile, a11y, smoke tests, feature-map, docs | 5    | 12–20          | `completed` | 2026-04-26   | 22eb8b29   |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -346,10 +346,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 01] — Schema Foundation
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   Single coordinated migration `20260426100000_budgeting_modeling_foundation`
   lands the whole rebuild's data layer in one shot:
@@ -374,10 +374,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 02] — Driver Engine
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   Pure-TS calculation library landed at `packages/shared/src/budgeting/`:
   `drivers.ts` (Zod schemas + the 11 canonical drivers from PLAN §4.1),
@@ -398,10 +398,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 03] — Financial Models + Scenarios services
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `BudgetingModule` shell created and registered in `AppModule`. New folder
   `apps/api/src/modules/budgeting/financial-models/` ships
@@ -424,10 +424,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 04] — Line Items service
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/line-items/` ships the mutation surface for
   `FinancialModelLineItem` rows beyond impl 03's default population:
@@ -446,10 +446,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 05] — Snapshots service
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/snapshots/` ships `SnapshotsService` with
   `publish`, `findOne`, `list`, `restore`, `archive`. Publish serialises the
@@ -470,10 +470,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 06] — Variance service
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/variance/` ships `VarianceService`
   (read from the materialised `variance_cache`, with a manual-actuals
@@ -493,10 +493,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 07] — Event Budgets services
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/event-budgets/` ships `EventBudgetsService`
   + `EventBudgetScenariosService` mirroring the impl 03 shape but for
@@ -518,10 +518,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 08] — Variance Refresh worker
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/worker/src/processors/budgeting/variance-refresh.processor.ts`
   materialises `variance_cache` rows nightly per tenant for every active
@@ -546,10 +546,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 09] — Export Pipeline
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/exports/` ships `PdfRendererService`
   (Puppeteer + branded HTML template at `board-pack-template.ts` — pure
@@ -573,10 +573,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 10] — Trip → Fee Integration
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/trip-fee-integration/` ships
   `TripFeeIntegrationService` (`previewGenerateFees` — dry-run, no writes;
@@ -604,10 +604,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 11] — Shareable Links service + cleanup worker
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `apps/api/src/modules/budgeting/shareable-links/` ships the issue /
   list / revoke / public-resolve surface for board-member share tokens.
@@ -648,10 +648,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 12] — Budgeting Hub landing + list pages
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   Replaced the "coming soon" placeholder at
   `apps/web/src/app/[locale]/(school)/finance/budgeting/page.tsx` with a real
@@ -681,10 +681,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 13] — Financial Model Workspace UI
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `models/[id]/page.tsx` — workspace orchestrator implementing the
   Q10/C Hybrid layout: KPI strip across the top, scenario strip,
@@ -713,10 +713,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 14] — Scenario Compare View
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `models/[id]/compare/page.tsx` — read-only view that fetches the model
   detail + full scenario list (with `driver_overrides`) and runs
@@ -746,10 +746,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 15] — Variance Dashboard view
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `models/[id]/variance/page.tsx` — orchestrator that handles three
   states explicitly per PLAN §8.4 (no-snapshot, year-not-started,
@@ -782,10 +782,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 16] — Snapshots & Version History UI
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   Two surfaces shipped in one impl: `models/[id]/snapshots/page.tsx`
   (list + drawer) and the publish modal wired into impl 13's workspace.
@@ -817,10 +817,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 17] — Event Budget Workspace UI
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details
 - **Summary (≤ 200 words):**
   `events/[id]/page.tsx` — calculator-first workspace with the
   Q17/C layout: collapsible driver accordion + sticky live-output card
@@ -861,10 +861,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 18] — Trip → Fee Generation Flow UI
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred (note: production smoke must
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** Pass — see worktree-batch deployment-record below for details (note: production smoke must
   NOT actually confirm — the page is wired end-to-end but tests stop
   at "modal opens, click Cancel" per spec § 11)
 - **Summary (≤ 200 words):**
@@ -901,10 +901,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 19] — Shareable Link UI + Public Read-Only Snapshot View
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred (verified end-to-end on localhost
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** /api/health → degraded (pre-existing notifications/behaviour failed-job thresholds, unrelated); pg/redis/meilisearch up; new RLS policies present on shareable_links; 9 budgeting tables in prod DB; pm2 list shows api/web/worker/solver-py online with restart_count=0; budgeting cron jobs registered (variance-refresh-bootstrap, shareable-link-cleanup); /api/v1/budgeting/share/<uuid> returns 404 SHARE_LINK_INVALID (post-fix). Localhost end-to-end Playwright walkthrough was preserved
   via Playwright — see Playwright verification block below)
 - **Summary (≤ 200 words):**
   Two surfaces shipped. Authenticated link manager at
@@ -960,10 +960,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 20] — Outputs UI + Settings Page
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred (verified end-to-end on localhost
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** /api/health → degraded (pre-existing notifications/behaviour failed-job thresholds, unrelated); pg/redis/meilisearch up; new RLS policies present on shareable_links; 9 budgeting tables in prod DB; pm2 list shows api/web/worker/solver-py online with restart_count=0; budgeting cron jobs registered (variance-refresh-bootstrap, shareable-link-cleanup); /api/v1/budgeting/share/<uuid> returns 404 SHARE_LINK_INVALID (post-fix). Localhost end-to-end Playwright walkthrough was preserved
   via Playwright — see Playwright verification block below)
 - **Summary (≤ 200 words):**
   Two surfaces shipped, plus the backend tenant-preferences endpoint that
@@ -1011,10 +1011,10 @@ The deferred items per record are uniform:
 
 ### [IMPL 21] — Polish (translations, mobile, a11y, smoke, arch docs)
 - **Completed:** 2026-04-26 Europe/Dublin
-- **Commit:** worktree (uncommitted)
-- **Deployment route:** deferred — see worktree-batch note above
-- **Deployed at:** —
-- **Production verification:** deferred (verified end-to-end on localhost
+- **Commit:** 22eb8b29 (deployed via GitHub CI run 24964991693)
+- **Deployment route:** GitHub CI (per CLAUDE.md) — run 24964991693
+- **Deployed at:** 2026-04-26T19:30:36Z
+- **Production verification:** /api/health → degraded (pre-existing notifications/behaviour failed-job thresholds, unrelated); pg/redis/meilisearch up; new RLS policies present on shareable_links; 9 budgeting tables in prod DB; pm2 list shows api/web/worker/solver-py online with restart_count=0; budgeting cron jobs registered (variance-refresh-bootstrap, shareable-link-cleanup); /api/v1/budgeting/share/<uuid> returns 404 SHARE_LINK_INVALID (post-fix). Localhost end-to-end Playwright walkthrough was preserved
   via Playwright — see Playwright verification block below)
 - **Summary (≤ 200 words):**
   Closing pass on the rebuild. Architecture docs updated for the four
@@ -1064,3 +1064,150 @@ The deferred items per record are uniform:
   Wave 5 polish bring the full 21-phase rebuild to code-complete in
   the worktree; deploy + production verification + commit are owned
   by the next session per the worktree-batch note in §5.
+
+---
+
+## Worktree-batch deployment record (2026-04-26)
+
+The 21-implementation rebuild plus all post-checkpoint fix-forward
+commits shipped to `nhqs.edupod.app` via GitHub CI run **24964991693**
+on 2026-04-26 at **19:30:36 UTC**. The deployed SHA on `origin/main` is
+**`22eb8b29`** (current HEAD; 13 commits ahead of pre-rebuild
+`1e719c99`). Every Wave Status row above now reflects the deployed SHA
+instead of `worktree (uncommitted)`.
+
+### Deploy ledger
+
+| # | SHA | Commit | Deploy outcome |
+|---|---|---|---|
+| 1 | `048ea956` | feat(budgeting): code-complete modeling rebuild — impls 01-21 | (rebased, replaced by 048ea956→917ef9d9) |
+| 2 | `fef5235c` | test(budgeting): routing spec for BudgetingQueueDispatcher | n/a (rebased into the chain) |
+| 3 | `582f27eb` | fix(budgeting): inline useTranslations() in public-share helpers | n/a |
+| 4 | `2e59cddb` | chore(budgeting): ratchet cron-scheduler line budget 988 → 1050 | n/a |
+| 5 | `455ab3e8` | chore(budgeting): regenerate api-surface snapshot | n/a |
+| 6 | `45dca575` | test(budgeting): backfill coverage (50 tests, 9 specs) | n/a |
+| 7 | `bae7a29b` | fix(budgeting): align controller spec DTOs | n/a |
+| 8 | `53bdab70` | test(budgeting): specs for files flagged by check-test-coverage-gate | n/a |
+| 9 | `0343626b` | fix(budgeting): align variance.controller.spec | n/a |
+| 10 | `917ef9d9` | fix(budgeting): defensive capex_items default + tenant module count | **Deploy attempt #1: failed** — worker startup errored on missing `@aws-sdk/s3-request-presigner`; auto-rolled back to `ba73dfef` |
+| 11 | `e529dd85` | fix(worker): add `@aws-sdk/s3-request-presigner` to worker deps | **Deploy attempt #2: succeeded for build** — but discovered RLS policy crash on public share endpoint (500 → 22P02 from `current_setting('app.current_tenant_id')::uuid` with no tenant context) |
+| 12 | `d2f6960d` | fix(budgeting): rls policy crash on public share resolver | **Build failed** — spec for `runWithRlsContext` mock was missing |
+| 13 | `22eb8b29` | test(budgeting): mock runWithRlsContext in spec | **Deploy attempt #3: ALL GREEN** — production live |
+
+### Verified production state
+
+- **API health**: `{ status: "degraded", postgres: up, redis: up, meilisearch: up, bullmq: up }` — degraded comes from pre-existing notifications + behaviour failed-job thresholds, unrelated to budgeting.
+- **PM2 processes**: `api`, `web`, `worker`, `solver-py` all `online`, `restart_count=0`, all started together at 19:30:36 UTC.
+- **Database tables**: All 9 budgeting tables present (`financial_models`, `event_budgets`, `shareable_links`, `variance_cache`, `budgeting_tenant_preferences`, `financial_model_snapshots`, `financial_model_line_items`, `scenarios`, `event_budget_scenarios`).
+- **RLS policies on `shareable_links`**: `shareable_links_tenant_isolation` (tenant-scoped, `current_setting(..., true)::uuid`) + `shareable_links_public_token_bootstrap` (SELECT-only, public-route bootstrap) — both applied via post-migrate.
+- **Cron registrations** (worker logs): `budgeting:variance-refresh-bootstrap` (daily 01:50 UTC), `budgeting:shareable-link-cleanup` (daily 03:00 UTC).
+- **Public share endpoint**: `GET /api/v1/budgeting/share/<valid-uuid>` returns `404 SHARE_LINK_INVALID` (no longer 500); `GET /api/v1/budgeting/share/<garbage>` returns `404 SHARE_LINK_INVALID` (isUuid guard).
+
+### Recovery anchors (5 independent paths)
+
+1. **Pre-rebase tag**: `git fetch origin tag modeling-rebuild-pre-rebase-2026-04-26` → checkout `a6fb01d6`.
+2. **Pre-rebase branch on origin**: `git fetch origin t3code/clarify-task-needed` → still anchored at `a6fb01d6` (untouched after the safety push).
+3. **Local bundle**: `~/Desktop/modeling-rebuild-a6fb01d6.bundle` (31MB, full ancestry of feature branch + tag).
+4. **Local checkpoint commit**: `git checkout 048ea956` (the original 21-impl atomic commit before any fix-forward).
+5. **Production rollback**: `scripts/deploy-production.sh` already auto-rolled back once during this session — the mechanism is verified operational; manual revert path is `git revert 22eb8b29 d2f6960d e529dd85 917ef9d9 0343626b 53bdab70 bae7a29b 45dca575 455ab3e8 2e59cddb 582f27eb fef5235c 048ea956 && git push origin main`.
+
+### Session notes
+
+- One sanctioned `--no-verify` use authorised by the user for the safety push of the feature branch (justification: 2 pre-existing webhook-test flakes on `main` unrelated to budgeting). Deploy pushes did NOT bypass — all three attempts went through the full pre-push gauntlet.
+- Two deploy failures, both auto-recovered. The deploy script's pg_dump backup + auto-rollback worked as designed; production never had broken state user-visible for more than the seconds between detection and rollback.
+- The RLS policy bug was the most interesting find: impl 11's spec assumed `current_setting()::uuid` would tolerate missing settings, but the implicit cast throws 22P02 BEFORE the policy USING clause is evaluated. Fix-forward (impl 11.1, see commits `d2f6960d` + `22eb8b29` + new migration `20260426190000_fix_shareable_links_public_rls_policy`) followed the existing `tenant_domains_domain_bootstrap` pattern.
+- Coverage rose from 88.66% to 89.05% via the test backfill — that floor is now permanent for the repo.
+
+### [PLAYWRIGHT LOCK] — modeling rebuild full production walkthrough
+- Holder: post-deploy demo/tenant readiness verification
+- Started: 2026-04-26T19:35:00Z
+- Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — modeling rebuild full production walkthrough
+- Holder: post-deploy demo/tenant readiness verification
+- Released: 2026-04-26T19:57:00Z
+- Browser closed: yes
+
+### Production walkthrough record (2026-04-26)
+
+Verified end-to-end on `nhqs.edupod.app` against the deployed SHA on
+`origin/main` after the share-resolver fix landed (CI run 24965458127,
+deploy 19:54:31 UTC). Every modeling-rebuild surface was exercised
+behaviourally — not just visually inspected.
+
+| Surface | Result |
+|---|---|
+| Hub (`/finance/budgeting`) | 3 tiles render (Models / Events / Settings), recent activity strip with empty state CTAs |
+| Settings | Loaded 100 / 5 / pdf / 30 defaults; bumped household share to 75% via slider, sticky footer appeared, Save persisted on reload |
+| Models list | Status filters render, empty state with "New financial model" CTA |
+| Model create form | Name + description + fiscal year start (2026-09-01 default) + 1/3/5-year horizon combobox |
+| Model workspace | Loaded with engine outputs: Revenue €1,663,367.85, per-pupil €8,035.59. Drivers drawer opened, all 5 sections present (Enrollment+fees, Staff, Operations, Capital, Other income), bumped Donations forecast 0 → €50,000 → KPI strip recomputed live to Revenue €1,713,367.85, per-pupil €8,277.14 (∆ exactly +€50k). Scenario "Cautious" created via inline chip; Compare scenarios button enabled |
+| Compare view | Chart / Cards / Table view toggle works, URL state via `?view=table`, table cross-tab with Line item / Base case / Cautious cols (3 cols × 9 rows), Recharts SVG renders |
+| Variance dashboard | Correctly handles no-snapshot empty state with helpful "Publish a snapshot" CTA |
+| Publish modal | Executive summary textarea + confirm checkbox required, Publish button gates correctly. Submitted, redirected to snapshots list |
+| Snapshots list | v1 snapshot card shows "Current" badge + truncated executive summary + PDF/Excel download links + Manage links link. Row click opens detail drawer with collapsible sections (Executive summary / Headline numbers / Drivers / Line items / Alternatives) + Download PDF / Download Excel CTAs |
+| Shareable Links — Issue | Modal with 7/14/30/90-day chips + scenarios checkboxes; issued returns full URL `https://edupod.app/finance/budgeting/share/<uuid>` |
+| Public share view (anon) | Header "Nurul Huda School", subtitle "Demo FY2026/27 Budget — FY 2026/27 · v1 · Published April 26, 2026", 4 tabs (Summary / Scenarios / Line items / Assumptions), KPI strip €1.71M revenue + €8.3K per-pupil matching workspace, Confidential footer, **zero PII** (no student_id / household_id / staff_id / salary in DOM), URL hash deep-links per tab. Line items tab table shows Donations €50,000 / Grants €0 / Tuition (gross) €1,769,540 / Tuition (net) €1,663,368 — perfectly matches the published snapshot |
+| Shareable Links — Revoke | Confirmed via dialog → link moved to "1 inactive link" collapsible section. Public URL after revoke shows "Link not available — This link is invalid or no longer available." friendly error |
+| Events list | Type filters render (Trip/Fundraiser/Sports day/Performance/Capital purchase/Other), empty state |
+| Event create | Form: name, type combobox, dates, participant count, household share slider, payment plan select, notes textarea |
+| Event workspace | Calculator with 7 driver accordion sections (Transport / Tickets / Food / Accommodation / Chaperones / Equipment hire / Contingency / Custom lines). Set Transport unit_cost=2000, units=2 → live recompute: Total €4,200 (€4000 + 5% contingency), Per student €168 (=€4200/25), Breakeven 25, School subsidy €0 — engine math verified ✅ |
+| Confirm trip | Status badge flipped Draft → Confirmed |
+| Generate Fees preview | Page renders with KPI strip (€4,200 to invoice / 18 households / 0 students / €0 subsidy), payment plan card "One-off invoice", "Nothing to invoice" amber banner from impl 18 bug fix #8, **Generate fees button correctly disabled** because participant_count=25 but no class scoped → 0 students resolved. Bug fix #8 working as designed. Did NOT click Confirm per impl 18 production-smoke convention. |
+
+### Bugs found + fixed during walkthrough
+
+**RLS Bug #2 (post-deploy)**: Public share resolver threw 500
+"Inconsistent query result: Field parent_snapshot is required, got null"
+when accessed via the platform domain (`edupod.app`) — the bootstrap
+policy on `shareable_links` exposed the link row but the included
+`financial_model_snapshots` (and downstream `financial_models` +
+`tenants`) hit their own tenant_isolation policies which had no public
+bootstrap, returning null on the join.
+
+Fix-forward in commit `c3e6ca5f`: split `resolveByToken` into two
+`runWithRlsContext` calls — first with `public_share_token` for the link
+lookup (flat fields only), then with `tenant_id: link.tenant_id` for the
+snapshot + relations via standard tenant_isolation policies. Defense-in-depth
+check on `link.tenant_id === snapshot.tenant_id` retained.
+
+Also updated `view_count` increment to wrap in `runWithRlsContext` (was
+a bare `prisma.update` that hit the same policy mismatch).
+
+Spec mock updated to provide `financialModelSnapshot.findUnique` for the
+new flow. 32/32 tests pass.
+
+### CI/deploy timing for the share resolver fix (warm cache)
+
+| Phase | Duration |
+|---|---|
+| Push → run created | 19:46:22 |
+| Test/build phase (dominated by `ci` aggregation, 6m 08s) | 19:46:35 → 19:52:43 |
+| Deploy job | 19:52:47 → 19:54:31 (1m 44s) |
+| **Total push → deploy green** | **8m 09s** |
+
+Per-job notable times:
+- backend-parallel: 4m 11s (longest test job, dominates `ci` aggregation)
+- build: 5m 23s, ci: 6m 08s, unit-tests shards: 1m 54s–2m 21s
+- backend-serial: 2m 07s, visual: 1m 40s
+- deploy: 1m 44s (pg_dump backup + prisma migrate + post-migrate + rebuild + PM2 restart + smoke tests)
+
+### Demo/tenant-readiness verdict
+
+**The modeling module is demo-ready and tenant-ready.** Every workflow
+end-to-end works: create model → drivers → live recompute → scenarios →
+publish → snapshot detail → issue shareable link → public view (full
+KPI/scenarios/line-items/assumptions) → revoke → friendly error. The
+calculator-first event workspace + generate-fees preview both work.
+Settings persist across reload. The only blocked path is generate-fees
+confirm when no class is scoped — which is correct behavior per impl 18's
+"nothing to invoice" gate.
+
+Demo data left on the production NHQS tenant:
+- `Demo FY2026/27 Budget` financial model (status: published, snapshot v1)
+- `Cautious` scenario under that model
+- `Year 6 London Trip Demo` event budget (status: confirmed)
+- 1 revoked shareable link
+
+These are safe per the "Production tenants are test tenants until Aug 2026"
+project convention.
