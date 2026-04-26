@@ -203,6 +203,92 @@ export class PayrollAllowancesService {
   }
 
   /**
+   * List all allowances active during the run's period for every staff
+   * member who has an entry in the run. Used by the run-detail page's
+   * allowances tab. Each row carries a flat `staff_name` for the
+   * frontend (SEND-pattern flatten).
+   */
+  async listForRun(
+    tenantId: string,
+    runId: string,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      staff_profile_id: string;
+      staff_name: string;
+      allowance_type_id: string;
+      allowance_type_name: string;
+      amount: number;
+      effective_from: Date;
+      effective_to: Date | null;
+    }>;
+  }> {
+    const run = await this.prisma.payrollRun.findFirst({
+      where: { id: runId, tenant_id: tenantId },
+      select: {
+        id: true,
+        period_year: true,
+        period_month: true,
+        entries: {
+          select: {
+            staff_profile_id: true,
+            staff_profile: {
+              select: { user: { select: { first_name: true, last_name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!run) {
+      throw new NotFoundException({
+        code: 'PAYROLL_RUN_NOT_FOUND',
+        message: `Payroll run "${runId}" not found`,
+      });
+    }
+
+    const periodStart = new Date(run.period_year, run.period_month - 1, 1);
+    const periodEnd = new Date(run.period_year, run.period_month, 0);
+
+    const staffNameById = new Map<string, string>();
+    for (const e of run.entries) {
+      staffNameById.set(
+        e.staff_profile_id,
+        `${e.staff_profile.user.first_name} ${e.staff_profile.user.last_name}`.trim(),
+      );
+    }
+
+    const staffIds = Array.from(staffNameById.keys());
+    if (staffIds.length === 0) return { data: [] };
+
+    const allowances = await this.prisma.staffAllowance.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: { in: staffIds },
+        effective_from: { lte: periodEnd },
+        OR: [{ effective_to: null }, { effective_to: { gte: periodStart } }],
+      },
+      include: {
+        allowance_type: { select: { id: true, name: true, name_ar: true } },
+      },
+      orderBy: [{ staff_profile_id: 'asc' }, { effective_from: 'asc' }],
+    });
+
+    return {
+      data: allowances.map((a) => ({
+        id: a.id,
+        staff_profile_id: a.staff_profile_id,
+        staff_name: staffNameById.get(a.staff_profile_id) ?? '',
+        allowance_type_id: a.allowance_type_id,
+        allowance_type_name: a.allowance_type.name,
+        amount: Number(a.amount),
+        effective_from: a.effective_from,
+        effective_to: a.effective_to,
+      })),
+    };
+  }
+
+  /**
    * Period-bracketed allowances total as a `Decimal`. Sums every
    * `staff_allowances` row whose effective range overlaps
    * `[periodStart, periodEnd]`. Wave 2 of the payroll-overhaul rebuild —

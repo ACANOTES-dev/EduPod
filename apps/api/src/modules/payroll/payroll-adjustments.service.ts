@@ -68,6 +68,68 @@ export class PayrollAdjustmentsService {
     });
   }
 
+  /**
+   * List every adjustment attached to entries in this run, flattened with
+   * staff_name. Used by the run-detail page's adjustments tab (Wave 3).
+   */
+  async listForRun(
+    tenantId: string,
+    runId: string,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      payroll_entry_id: string;
+      staff_profile_id: string;
+      staff_name: string;
+      adjustment_type: string;
+      amount: number;
+      description: string | null;
+      reference_period: string | null;
+      created_at: Date;
+    }>;
+  }> {
+    const run = await this.prisma.payrollRun.findFirst({
+      where: { id: runId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!run) {
+      throw new NotFoundException({
+        code: 'PAYROLL_RUN_NOT_FOUND',
+        message: `Payroll run "${runId}" not found`,
+      });
+    }
+
+    const adjustments = await this.prisma.payrollAdjustment.findMany({
+      where: { tenant_id: tenantId, payroll_run_id: runId },
+      include: {
+        payroll_entry: {
+          select: {
+            staff_profile_id: true,
+            staff_profile: {
+              select: { user: { select: { first_name: true, last_name: true } } },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return {
+      data: adjustments.map((a) => ({
+        id: a.id,
+        payroll_entry_id: a.payroll_entry_id,
+        staff_profile_id: a.payroll_entry.staff_profile_id,
+        staff_name:
+          `${a.payroll_entry.staff_profile.user.first_name} ${a.payroll_entry.staff_profile.user.last_name}`.trim(),
+        adjustment_type: a.adjustment_type,
+        amount: Number(a.amount),
+        description: a.description,
+        reference_period: a.reference_period,
+        created_at: a.created_at,
+      })),
+    };
+  }
+
   async listAdjustments(tenantId: string, entryId: string) {
     const entry = await this.prisma.payrollEntry.findFirst({
       where: { id: entryId, tenant_id: tenantId },

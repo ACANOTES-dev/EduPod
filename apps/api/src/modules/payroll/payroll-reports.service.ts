@@ -301,6 +301,222 @@ export class PayrollReportsService {
     };
   }
 
+  // ─── Run comparison + variance + forecast (Wave 3) ───────────────────────
+  //
+  // `getRunComparison` powers GET /v1/payroll/runs/:runId/comparison.
+  // `getVariance` powers GET /v1/payroll/reports/variance (no runId =>
+  // latest finalised run vs the prior one). `getForecast` is a lightweight
+  // alias around the analytics service's existing forecast.
+
+  async getRunComparison(tenantId: string, runId: string) {
+    const thisRun = await this.prisma.payrollRun.findFirst({
+      where: { id: runId, tenant_id: tenantId },
+      select: {
+        id: true,
+        period_label: true,
+        period_year: true,
+        period_month: true,
+        total_basic_pay: true,
+        total_bonus_pay: true,
+        total_pay: true,
+        headcount: true,
+        status: true,
+      },
+    });
+
+    if (!thisRun) {
+      throw new NotFoundException({
+        code: 'PAYROLL_RUN_NOT_FOUND',
+        message: `Payroll run "${runId}" not found`,
+      });
+    }
+
+    const priorRun = await this.prisma.payrollRun.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'finalised',
+        OR: [
+          { period_year: { lt: thisRun.period_year } },
+          { period_year: thisRun.period_year, period_month: { lt: thisRun.period_month } },
+        ],
+      },
+      orderBy: [{ period_year: 'desc' }, { period_month: 'desc' }],
+      select: {
+        id: true,
+        period_label: true,
+        period_year: true,
+        period_month: true,
+        total_basic_pay: true,
+        total_bonus_pay: true,
+        total_pay: true,
+        headcount: true,
+      },
+    });
+
+    const summarise = (r: {
+      total_basic_pay: unknown;
+      total_bonus_pay: unknown;
+      total_pay: unknown;
+      headcount: number;
+    }) => ({
+      gross: Number(r.total_basic_pay) + Number(r.total_bonus_pay),
+      net: Number(r.total_pay),
+      headcount: r.headcount,
+    });
+
+    const thisSummary = summarise(thisRun);
+    const priorSummary = priorRun ? summarise(priorRun) : null;
+
+    return {
+      this_run: {
+        id: thisRun.id,
+        period_label: thisRun.period_label,
+        period_year: thisRun.period_year,
+        period_month: thisRun.period_month,
+        gross: thisSummary.gross,
+        net: thisSummary.net,
+        headcount: thisSummary.headcount,
+      },
+      prior_run: priorRun
+        ? {
+            id: priorRun.id,
+            period_label: priorRun.period_label,
+            period_year: priorRun.period_year,
+            period_month: priorRun.period_month,
+            gross: priorSummary?.gross ?? 0,
+            net: priorSummary?.net ?? 0,
+            headcount: priorSummary?.headcount ?? 0,
+          }
+        : null,
+      deltas: priorSummary
+        ? {
+            gross: Number((thisSummary.gross - priorSummary.gross).toFixed(2)),
+            net: Number((thisSummary.net - priorSummary.net).toFixed(2)),
+            headcount: thisSummary.headcount - priorSummary.headcount,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Tenant-wide variance report. Defaults to comparing the latest
+   * finalised run against the prior finalised run when no `runId` is
+   * supplied. Returns a two-key envelope `{ data, summary }` so the
+   * frontend can read both `res.data` and `res.summary`.
+   */
+  async getVariance(
+    tenantId: string,
+    runId?: string,
+  ): Promise<{
+    data: Array<{
+      staff_profile_id: string;
+      staff_name: string;
+      this_total: number;
+      prior_total: number;
+      delta: number;
+      delta_pct: number | null;
+    }>;
+    summary: {
+      this_run_id: string | null;
+      prior_run_id: string | null;
+      gross_delta: number;
+      net_delta: number;
+      headcount_delta: number;
+    };
+  }> {
+    const targetRun = runId
+      ? await this.prisma.payrollRun.findFirst({
+          where: { id: runId, tenant_id: tenantId, status: 'finalised' },
+          select: { id: true, period_year: true, period_month: true },
+        })
+      : await this.prisma.payrollRun.findFirst({
+          where: { tenant_id: tenantId, status: 'finalised' },
+          orderBy: [{ period_year: 'desc' }, { period_month: 'desc' }],
+          select: { id: true, period_year: true, period_month: true },
+        });
+
+    if (!targetRun) {
+      return {
+        data: [],
+        summary: {
+          this_run_id: null,
+          prior_run_id: null,
+          gross_delta: 0,
+          net_delta: 0,
+          headcount_delta: 0,
+        },
+      };
+    }
+
+    const priorRun = await this.prisma.payrollRun.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: 'finalised',
+        OR: [
+          { period_year: { lt: targetRun.period_year } },
+          { period_year: targetRun.period_year, period_month: { lt: targetRun.period_month } },
+        ],
+      },
+      orderBy: [{ period_year: 'desc' }, { period_month: 'desc' }],
+      select: { id: true },
+    });
+
+    const [thisEntries, priorEntries] = await Promise.all([
+      this.prisma.payrollEntry.findMany({
+        where: { tenant_id: tenantId, payroll_run_id: targetRun.id },
+        include: {
+          staff_profile: {
+            select: { user: { select: { first_name: true, last_name: true } } },
+          },
+        },
+      }),
+      priorRun
+        ? this.prisma.payrollEntry.findMany({
+            where: { tenant_id: tenantId, payroll_run_id: priorRun.id },
+            select: { staff_profile_id: true, total_pay: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const priorByStaff = new Map<string, number>();
+    for (const e of priorEntries) {
+      priorByStaff.set(e.staff_profile_id, Number(e.total_pay));
+    }
+
+    let thisGross = 0;
+    let priorGross = 0;
+    const data = thisEntries.map((e) => {
+      const thisTotal = Number(e.total_pay);
+      const priorTotal = priorByStaff.get(e.staff_profile_id) ?? 0;
+      thisGross += thisTotal;
+      priorGross += priorTotal;
+      const delta = Number((thisTotal - priorTotal).toFixed(2));
+      const delta_pct =
+        priorTotal !== 0
+          ? Number((((thisTotal - priorTotal) / priorTotal) * 100).toFixed(2))
+          : null;
+      return {
+        staff_profile_id: e.staff_profile_id,
+        staff_name: `${e.staff_profile.user.first_name} ${e.staff_profile.user.last_name}`.trim(),
+        this_total: thisTotal,
+        prior_total: priorTotal,
+        delta,
+        delta_pct,
+      };
+    });
+
+    return {
+      data,
+      summary: {
+        this_run_id: targetRun.id,
+        prior_run_id: priorRun?.id ?? null,
+        gross_delta: Number((thisGross - priorGross).toFixed(2)),
+        net_delta: Number((thisGross - priorGross).toFixed(2)),
+        headcount_delta: thisEntries.length - priorEntries.length,
+      },
+    };
+  }
+
   async getStaffPaymentHistory(
     tenantId: string,
     staffProfileId: string,

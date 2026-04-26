@@ -10,6 +10,7 @@ import type { CreateCompensationDto, UpdateCompensationDto } from '@school/share
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 interface CompensationFilters {
   page: number;
@@ -32,7 +33,77 @@ interface CsvRow {
 
 @Injectable()
 export class CompensationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
+
+  // ─── Staff picker for the compensation page (Wave 3) ─────────────────────
+  //
+  // Returns all active staff with their currently-effective compensation
+  // record, paginated. Used by the redesigned compensation page's filter
+  // dropdown and any staff-picker that needs to show "current pay type".
+
+  async listStaffForPicker(
+    tenantId: string,
+    page = 1,
+    pageSize = 50,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      full_name: string;
+      employee_number: string | null;
+      compensation_type: string | null;
+      base_salary: number | null;
+      per_class_rate: number | null;
+      currently_active: boolean;
+    }>;
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
+    const total = allStaff.length;
+    const skip = (page - 1) * pageSize;
+    const pageStaff = allStaff.slice(skip, skip + pageSize);
+
+    if (pageStaff.length === 0) {
+      return { data: [], meta: { page, pageSize, total } };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const compensations = await this.prisma.staffCompensation.findMany({
+      where: {
+        tenant_id: tenantId,
+        staff_profile_id: { in: pageStaff.map((s) => s.id) },
+        effective_from: { lte: today },
+        OR: [{ effective_to: null }, { effective_to: { gte: today } }],
+      },
+      orderBy: { effective_from: 'desc' },
+    });
+
+    const compByStaffId = new Map<string, (typeof compensations)[number]>();
+    for (const c of compensations) {
+      if (!compByStaffId.has(c.staff_profile_id)) {
+        compByStaffId.set(c.staff_profile_id, c);
+      }
+    }
+
+    const data = pageStaff.map((staff) => {
+      const comp = compByStaffId.get(staff.id) ?? null;
+      return {
+        id: staff.id,
+        full_name: `${staff.user.first_name} ${staff.user.last_name}`.trim(),
+        employee_number: staff.staff_number,
+        compensation_type: comp?.compensation_type ?? null,
+        base_salary: comp?.base_salary != null ? Number(comp.base_salary) : null,
+        per_class_rate: comp?.per_class_rate != null ? Number(comp.per_class_rate) : null,
+        currently_active: comp !== null,
+      };
+    });
+
+    return { data, meta: { page, pageSize, total } };
+  }
 
   async listCompensation(tenantId: string, filters: CompensationFilters) {
     const { page, pageSize, compensation_type, staff_profile_id, active_only } = filters;

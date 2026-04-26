@@ -31,20 +31,33 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
+import { PayrollAdjustmentsService } from './payroll-adjustments.service';
+import { PayrollAllowancesService } from './payroll-allowances.service';
+import { PayrollAnomalyService } from './payroll-anomaly.service';
+import { PayrollReportsService } from './payroll-reports.service';
 import { PayrollRunsService } from './payroll-runs.service';
 import { PayslipsService } from './payslips.service';
 
 @Controller('v1/payroll/runs')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('payroll')
 export class PayrollRunsController {
   constructor(
     private readonly payrollRunsService: PayrollRunsService,
     private readonly payslipsService: PayslipsService,
+    private readonly allowancesService: PayrollAllowancesService,
+    private readonly adjustmentsService: PayrollAdjustmentsService,
+    private readonly anomalyService: PayrollAnomalyService,
+    private readonly reportsService: PayrollReportsService,
+    private readonly permissionCache: PermissionCacheService,
   ) {}
 
   @Get()
@@ -165,22 +178,85 @@ export class PayrollRunsController {
     return this.payslipsService.getMassExportStatus(tenant.tenant_id, id);
   }
 
+  // ─── Run sub-resources (Wave 3) ─────────────────────────────────────────
+  //
+  // Endpoints the redesigned run-detail page already calls. Each delegates
+  // to the owning service's `listForRun` / `getRunComparison` helper so
+  // controller stays thin.
+
+  @Get(':runId/allowances')
+  @RequiresPermission('payroll.view')
+  async listRunAllowances(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    return this.allowancesService.listForRun(tenant.tenant_id, runId);
+  }
+
+  @Get(':runId/adjustments')
+  @RequiresPermission('payroll.view')
+  async listRunAdjustments(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    return this.adjustmentsService.listForRun(tenant.tenant_id, runId);
+  }
+
+  @Get(':runId/anomalies')
+  @RequiresPermission('payroll.view')
+  async listRunAnomalies(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    // Wave 3 surfaces the in-memory anomaly scan as a GET. Wave 5 may
+    // add a `payroll_anomalies` table for ack/resolve workflows.
+    return this.anomalyService.scanForAnomalies(tenant.tenant_id, runId);
+  }
+
+  @Get(':runId/comparison')
+  @RequiresPermission('payroll.view')
+  async getRunComparison(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    return this.reportsService.getRunComparison(tenant.tenant_id, runId);
+  }
+
+  // ─── Aliases for the redesigned frontend (Wave 3) ────────────────────────
+
+  @Post(':id/auto-populate-classes')
+  @RequiresPermission('payroll.create_run')
+  @HttpCode(HttpStatus.OK)
+  async autoPopulateClasses(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.payrollRunsService.triggerSessionGeneration(tenant.tenant_id, id);
+  }
+
+  @Post(':id/send-payslips')
+  @RequiresPermission('payroll.generate_payslips')
+  @HttpCode(HttpStatus.OK)
+  async sendPayslips(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(massExportSchema)) dto: MassExportDto,
+  ) {
+    return this.payslipsService.triggerMassExport(tenant.tenant_id, id, dto.locale, user.sub);
+  }
+
   /**
-   * Simple check for school owner role.
-   * In a real implementation this would look up the membership roles.
-   * For now, we treat any user with the finalise_run permission as having authority
-   * unless the tenant settings require explicit school_owner role check.
+   * Resolve whether the actor holds an owner-tier membership role.
+   * Wave 3 wires this to the same `PermissionCacheService.isOwner`
+   * helper used by `InboxAdminTierOnlyGuard`. The pre-rebuild method
+   * returned a hardcoded `false`, forcing every finalisation through
+   * the approval flow regardless of role.
    */
   private async checkIsSchoolOwner(user: JwtPayload): Promise<boolean> {
-    // If no membership, they can't be a school owner
     if (!user.membership_id) {
       return false;
     }
-
-    // This is a simplified check. The full implementation would query
-    // MembershipRole to see if the user has the school_owner system role.
-    // For now, we return false to ensure the approval flow is always checked.
-    // The approval service's hasDirectAuthority parameter controls bypass.
-    return false;
+    return this.permissionCache.isOwner(user.membership_id);
   }
 }
