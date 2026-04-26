@@ -54,6 +54,9 @@
       "reports": [
         "src/reports/index.ts"
       ],
+      "budgeting": [
+        "src/budgeting/index.ts"
+      ],
       "households/*": [
         "src/households/*.ts"
       ]
@@ -143,6 +146,10 @@
     "./reports": {
       "types": "./src/reports/index.ts",
       "default": "./dist/reports/index.js"
+    },
+    "./budgeting": {
+      "types": "./src/budgeting/index.ts",
+      "default": "./dist/budgeting/index.js"
     }
   },
   "scripts": {

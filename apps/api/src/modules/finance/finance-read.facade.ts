@@ -524,4 +524,45 @@ export class FinanceReadFacade {
       ...(options.take !== undefined && { take: options.take }),
     });
   }
+
+  /**
+   * Sum payment + refund amounts within a window. Used by the
+   * budgeting variance pipeline to derive `income.tuition_net` /
+   * `income.tuition_gross` per period (modeling/PLAN.md §8).
+   *
+   *  - `received` is the sum of Payment.amount where `status = 'posted'`
+   *    and `received_at` falls in `[from, to]`.
+   *  - `refunded` is the sum of Refund.amount where `status = 'executed'`
+   *    and `executed_at` falls in `[from, to]`.
+   *
+   * Returns plain numbers (Decimal → Number); zero when nothing matched.
+   */
+  async sumPaymentsForPeriod(
+    tenantId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{ received: number; refunded: number }> {
+    const [received, refunded] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          tenant_id: tenantId,
+          status: 'posted',
+          received_at: { gte: from, lte: to },
+        },
+      }),
+      this.prisma.refund.aggregate({
+        _sum: { amount: true },
+        where: {
+          tenant_id: tenantId,
+          status: 'executed',
+          executed_at: { gte: from, lte: to },
+        },
+      }),
+    ]);
+    return {
+      received: Number(received._sum.amount ?? 0),
+      refunded: Number(refunded._sum.amount ?? 0),
+    };
+  }
 }

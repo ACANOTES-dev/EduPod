@@ -1,59 +1,137 @@
 'use client';
 
-import { LineChart, Sparkles } from 'lucide-react';
+import { Compass, LineChart, SlidersHorizontal } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { HubTile } from '@/components/hub-tile';
 import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
-export default function FinanceBudgetingComingSoonPage() {
+import { RecentActivity, type RecentActivityItem } from './_components/recent-activity';
+
+interface FinancialModelRow {
+  id: string;
+  name: string;
+  status: 'draft' | 'published' | 'archived';
+  fiscal_year_start: string;
+  updated_at: string;
+}
+
+interface EventBudgetRow {
+  id: string;
+  name: string;
+  status: 'draft' | 'confirmed' | 'fees_generated' | 'completed' | 'cancelled';
+  event_date: string | null;
+  updated_at: string;
+}
+
+export default function BudgetingHubPage() {
   const t = useTranslations('financeBudgeting');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
+  const [recentItems, setRecentItems] = React.useState<RecentActivityItem[] | null>(null);
+  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+
+    void Promise.all([
+      apiClient<{ data: FinancialModelRow[] }>('/api/v1/budgeting/financial-models?pageSize=5', {
+        silent: true,
+      }).catch((err) => {
+        console.error('[BudgetingHub.recent.models]', err);
+        return { data: [] as FinancialModelRow[] };
+      }),
+      apiClient<{ data: EventBudgetRow[] }>('/api/v1/budgeting/event-budgets?pageSize=5', {
+        silent: true,
+      }).catch((err) => {
+        console.error('[BudgetingHub.recent.events]', err);
+        return { data: [] as EventBudgetRow[] };
+      }),
+    ]).then(([modelsRes, eventsRes]) => {
+      if (cancelled) return;
+
+      const modelsAsItems: RecentActivityItem[] = (modelsRes.data ?? []).map((m) => ({
+        kind: 'model',
+        id: m.id,
+        name: m.name,
+        status: m.status,
+        updated_at: m.updated_at,
+        fiscal_year_start: m.fiscal_year_start,
+      }));
+      const eventsAsItems: RecentActivityItem[] = (eventsRes.data ?? []).map((e) => ({
+        kind: 'event',
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        updated_at: e.updated_at,
+        event_date: e.event_date,
+      }));
+
+      const merged = [...modelsAsItems, ...eventsAsItems]
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .slice(0, 5);
+
+      setRecentItems(merged);
+      setIsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex min-w-0 flex-col gap-8 p-6 pb-10">
       <PageHeader
         title={t('title')}
         description={t('description')}
         back={{ href: `/${locale}/finance`, label: t('backToFinance') }}
       />
 
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-sky-50 via-white to-primary-50 p-10 text-center shadow-sm sm:p-14">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600" />
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 shadow-sm ring-1 ring-inset ring-black/5">
-          <LineChart className="h-8 w-8" />
-        </div>
-        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-text-primary">
-          {t('heroTitle')}
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <HubTile
+          icon={LineChart}
+          title={t('cards.models.title')}
+          description={t('cards.models.description')}
+          href="/finance/budgeting/models"
+          accent="from-emerald-400 via-emerald-500 to-emerald-600"
+          iconBg="bg-emerald-100 text-emerald-700"
+          glow="from-emerald-50/80"
+          animationIndex={0}
+        />
+        <HubTile
+          icon={Compass}
+          title={t('cards.events.title')}
+          description={t('cards.events.description')}
+          href="/finance/budgeting/events"
+          accent="from-amber-400 via-amber-500 to-amber-600"
+          iconBg="bg-amber-100 text-amber-700"
+          glow="from-amber-50/80"
+          animationIndex={1}
+        />
+        <HubTile
+          icon={SlidersHorizontal}
+          title={t('cards.settings.title')}
+          description={t('cards.settings.description')}
+          href="/finance/budgeting/settings"
+          accent="from-slate-400 via-slate-500 to-slate-600"
+          iconBg="bg-slate-100 text-slate-700"
+          glow="from-slate-50/80"
+          animationIndex={2}
+        />
+      </section>
+
+      <section className="flex min-w-0 flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-text-primary">
+          {t('recent.title')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-text-secondary">{t('heroBody')}</p>
-
-        <div className="mt-8 grid grid-cols-1 gap-4 text-start sm:grid-cols-3">
-          {(['forecasting', 'varianceAnalysis', 'departmentCosts'] as const).map((key) => (
-            <div
-              key={key}
-              className="rounded-2xl border border-border bg-surface p-4 shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-sky-600" />
-                <p className="text-sm font-semibold text-text-primary">
-                  {t(`preview.${key}.title`)}
-                </p>
-              </div>
-              <p className="mt-1.5 text-xs text-text-tertiary">
-                {t(`preview.${key}.description`)}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-          {t('badge')}
-        </div>
-      </div>
+        <RecentActivity items={recentItems} isLoading={isLoading} locale={locale} />
+      </section>
     </div>
   );
 }

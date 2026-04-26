@@ -1338,3 +1338,84 @@ Four new permissions: `ai_flag.manage`, `wellbeing.view_dashboard`, `safeguardin
 - `packages/prisma/scripts/grant-leave-manage-types-permission.ts` — grants `leave.manage_types` to `school_owner` / `school_principal` / `admin` roles on every tenant. Idempotent.
 
 **Depends on**: Scheduling (`SubstitutionCascadeService`, `CoverNotificationsService`), Staff Profiles (`StaffProfileReadFacade`), Academics (`AcademicReadFacade` for current-year balance window), Notifications (via `cover-notifications.service`).
+
+---
+
+## 41. Budgeting & Analysis ("Modeling")
+
+**What it does**: Driver-based annual financial modelling alongside a lightweight event/trip cost calculator. Annual financial models support 1/3/5-year horizons with a base case + up to 3 alternative scenarios driven by 11 canonical drivers (enrollment, fee uplift, staff headcount, salary uplift, discount/scholarship capture, utilities/materials inflation, capex, donations, grants, custom). Variance is materialised against live finance and payroll actuals. Snapshots are immutable on publish and render to PDF (Puppeteer) + Excel (exceljs) board packs with tenant-branded templates. Three output channels: PDF, Excel, public read-only shareable URLs (UUID token, optional password, expiry windows of 7/14/30/90 days). Event budgets push fees end-to-end into the Finance module via a single transactional cross-module write through `FeeAssignmentsService.bulkCreate()` gated by three permissions.
+
+**Backend**: `apps/api/src/modules/budgeting/`
+
+- `financial-models/` — model + scenarios CRUD (impl 03)
+- `line-items/` — driver-derived / custom / override / locked line-item management (impl 04)
+- `snapshots/` — immutable snapshot publish / restore / archive (impl 05)
+- `variance/` — read materialised variance cache; manual-actuals upsert (impl 06)
+- `event-budgets/` — event/trip workspace + scenarios (impl 07)
+- `exports/` — PDF + Excel renderers + signed-URL serving (impl 09)
+- `trip-fee-integration/` — preview + generate-fees + mark-school-funded (impl 10)
+- `shareable-links/` — issue / list / revoke + public open-route resolver (impl 11)
+- `tenant-preferences/` — per-tenant defaults (impl 20)
+
+**Endpoints** (all `/api/v1/budgeting/*` unless noted):
+
+| Method                      | Path                                                                     | Permission                                                          |
+| --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| GET / POST / PATCH / DELETE | `/financial-models[/:id]`                                                | `budgeting.view` / `.manage` / `.archive`                           |
+| GET / POST / PATCH          | `/financial-models/:id/scenarios[/:sid]`                                 | `budgeting.view` / `.manage`                                        |
+| POST                        | `/financial-models/:id/line-items/...` (custom / override / lock / etc.) | `budgeting.manage`                                                  |
+| GET / POST                  | `/financial-models/:id/snapshots[/publish/:sid]`                         | `budgeting.view` / `.publish`                                       |
+| GET / POST                  | `/financial-models/:id/variance[/refresh]`                               | `budgeting.view`                                                    |
+| GET / POST / PATCH / DELETE | `/event-budgets[/:id]`                                                   | `budgeting.view` / `.manage` / `.archive`                           |
+| GET / POST                  | `/event-budgets/:id/generate-fees[/preview]`                             | `budgeting.view` AND `budgeting.generate_fees` AND `finance.manage` |
+| POST                        | `/event-budgets/:id/mark-school-funded`                                  | `budgeting.generate_fees`                                           |
+| GET / POST                  | `/financial-models/:id/snapshots/:sid/exports/(pdf\|excel\|regenerate)`  | `budgeting.view` / `.publish`                                       |
+| GET / POST                  | `/financial-models/:id/snapshots/:sid/links[/:linkId/revoke]`            | `budgeting.view` / `.share`                                         |
+| GET (public)                | `/budgeting/share/:token`                                                | (open)                                                              |
+| GET / PATCH                 | `/budgeting/tenant-preferences`                                          | `budgeting.view` / `.manage`                                        |
+
+**Worker jobs**:
+
+- `budgeting:variance-refresh` — daily 02:00 in tenant timezone; rewrites `variance_cache` rows for all active published models (impl 08)
+- `budgeting:variance-refresh-bootstrap` — bootstrap iterator that registers per-tenant repeatables on worker startup
+- `budgeting:board-pack-render` — on-demand; renders PDF + Excel into Hetzner object storage and updates the snapshot row (impl 09)
+- `budgeting:shareable-link-cleanup` — daily 03:00 UTC cross-tenant; hard-deletes links expired more than 30 days (impl 11)
+
+**Frontend**: `apps/web/src/app/[locale]/(school)/finance/budgeting/`
+
+- `/finance/budgeting` — hub (Models / Events / Settings tiles + recent activity)
+- `/finance/budgeting/models[/new]` — model list + create form
+- `/finance/budgeting/models/[id]` — workspace (KPI strip, scenarios, drivers drawer, line-item table)
+- `/finance/budgeting/models/[id]/compare` — scenario comparison (chart / cards / table)
+- `/finance/budgeting/models/[id]/variance` — planned vs actual dashboard
+- `/finance/budgeting/models/[id]/snapshots` — version history + publish modal + detail drawer
+- `/finance/budgeting/models/[id]/share` — issue / list / revoke shareable links
+- `/finance/budgeting/events[/new]` — event list + create form
+- `/finance/budgeting/events/[id]` — calculator workspace
+- `/finance/budgeting/events/[id]/generate-fees` — trip → invoicing dry-run + confirm flow
+- `/finance/budgeting/settings` — tenant preferences (horizon / household share / contingency / format / max expiry / hidden KPIs)
+
+Public open route (outside `(school)` group):
+
+- `/finance/budgeting/share/[token]` — unauthenticated read-only renderer; 4 tabs (Summary / Scenarios / Line items / Assumptions); password prompt + lockout after 5 wrong attempts; PII scrubbed by backend before payload reaches the page.
+
+**Tables** (all RLS `<table>_tenant_isolation` policies in `post_migrate.sql` of `20260426100000_budgeting_modeling_foundation`):
+
+- `financial_models`, `scenarios`, `financial_model_line_items`, `financial_model_snapshots`
+- `event_budgets`, `event_budget_scenarios`
+- `variance_cache`
+- `shareable_links`
+- `budgeting_tenant_preferences`
+
+**Permissions**: `budgeting.view`, `budgeting.manage`, `budgeting.publish`, `budgeting.share`, `budgeting.generate_fees`, `budgeting.archive` — seeded by the schema migration; granted to `school_owner` / `school_principal` / `school_vice_principal` by default.
+
+**Shared types**: `packages/shared/src/budgeting/` — `drivers`, `engine`, `event-engine`, `scenario-merge`, `source-data`, plus per-entity Zod schemas (`financial-models`, `scenarios`, `line-items`, `snapshots`, `variance`, `event-budgets`, `trip-fee-integration`, `shareable-links`, `tenant-preferences`). The driver engine is pure-TS, dependency-free — backend services + the worker's board-pack renderer + the workspace's live-recompute all run identical math.
+
+**Cross-module dependencies**:
+
+- Reads: `FinanceReadFacade` (variance + fee structures), `PayrollReadFacade` (variance staff costs), `StudentReadFacade`, `StaffProfileReadFacade`, `ClassesReadFacade`, `HouseholdReadFacade`, `AcademicReadFacade`.
+- Writes: `FeeAssignmentsService.bulkCreate()` — single permitted cross-module write path, triggered by trip → fee generation. Three-permission gating (`budgeting.view` AND `budgeting.generate_fees` AND `finance.manage`); single `createRlsClient($transaction)` so partial invoicing is structurally impossible.
+
+**Snapshot immutability**: Once a `financial_model_snapshot` row is written, only `pdf_object_key` / `excel_object_key` / `rendered_at` may be updated (by the board-pack worker). The frontend trusts this invariant for the public renderer.
+
+**Public PII scrubbing**: `filterPayloadForPublic` in `shareable-links.service.ts` strips `households` / `students` / `staff` / `individual_payroll`, removes per-row arrays from `source_data_snapshot` / `source_snapshot`, and removes `computed_from` from line items at the top level and inside `base_case`. The frontend treats the payload as `Record<string, unknown>` and only reads documented safe keys.

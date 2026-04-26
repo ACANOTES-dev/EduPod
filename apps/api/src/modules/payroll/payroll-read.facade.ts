@@ -404,4 +404,88 @@ export class PayrollReadFacade {
       ...(select && { select }),
     });
   }
+
+  /**
+   * Sum payroll-entry pay grouped by staff department within a window.
+   * Used by the budgeting variance pipeline to derive
+   * `staff_costs.<department_slug>` actuals per period.
+   *
+   * Window semantics: a payroll run is "in the window" when its
+   * `(period_year, period_month)` cursor falls within the calendar
+   * range `[from, to]`. We compute the run's nominal mid-month date
+   * via `new Date(period_year, period_month - 1, 1)` for the filter.
+   *
+   * Department key is derived from `staff_profiles.department` (a free-form
+   * VARCHAR) via the same lowercase-kebab slug rule applied at model
+   * creation time (see `StaffProfileReadFacade.summariseByDepartmentForBudgeting`).
+   */
+  async sumPayrollEntriesByDepartmentForPeriod(
+    tenantId: string,
+    from: Date,
+    to: Date,
+  ): Promise<Array<{ department_id: string; total_pay: number }>> {
+    // Step 1: enumerate matching runs (cheap — one row per month).
+    const runs = await this.prisma.payrollRun.findMany({
+      where: {
+        tenant_id: tenantId,
+        OR: enumerateMonthsInRange(from, to).map((cursor) => ({
+          period_year: cursor.year,
+          period_month: cursor.month,
+        })),
+      },
+      select: { id: true },
+    });
+    if (runs.length === 0) return [];
+
+    // Step 2: pull entries for those runs with the staff member's
+    // department joined in.
+    const entries = await this.prisma.payrollEntry.findMany({
+      where: {
+        tenant_id: tenantId,
+        payroll_run_id: { in: runs.map((r) => r.id) },
+      },
+      select: {
+        total_pay: true,
+        override_total_pay: true,
+        staff_profile: { select: { department: true } },
+      },
+    });
+
+    // Step 3: bucket by department slug.
+    const bucket = new Map<string, number>();
+    for (const entry of entries) {
+      const departmentName = entry.staff_profile?.department ?? null;
+      const slug = slugifyDepartment(departmentName);
+      const pay = Number(entry.override_total_pay ?? entry.total_pay);
+      bucket.set(slug, (bucket.get(slug) ?? 0) + pay);
+    }
+    return Array.from(bucket.entries()).map(([department_id, total_pay]) => ({
+      department_id,
+      total_pay: Math.round(total_pay * 100) / 100,
+    }));
+  }
+}
+
+// ─── Pure helpers ─────────────────────────────────────────────────────────
+
+function enumerateMonthsInRange(from: Date, to: Date): Array<{ year: number; month: number }> {
+  const out: Array<{ year: number; month: number }> = [];
+  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+  while (cursor <= end) {
+    out.push({ year: cursor.getUTCFullYear(), month: cursor.getUTCMonth() + 1 });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return out;
+}
+
+function slugifyDepartment(name: string | null): string {
+  if (!name || name.trim().length === 0) return 'unassigned';
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'unassigned'
+  );
 }

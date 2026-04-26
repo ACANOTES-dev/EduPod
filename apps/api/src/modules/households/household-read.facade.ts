@@ -253,4 +253,16 @@ export class HouseholdReadFacade {
       ...(select && { select }),
     });
   }
+
+  /**
+   * Count households with `status = 'active'` for the tenant. Used by the
+   * budgeting source-data snapshot to populate
+   * `total_active_households` (drives revenue_per_household and
+   * per-household trip cost averages downstream).
+   */
+  async countActive(tenantId: string): Promise<number> {
+    return this.prisma.household.count({
+      where: { tenant_id: tenantId, status: 'active' },
+    });
+  }
 }

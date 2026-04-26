@@ -552,3 +552,72 @@ Before changing any queue, job name, or payload:
 5. re-check the owning state machine and danger-zone entries
 
 If one side changes and the other does not, the break is usually silent.
+
+---
+
+## Budgeting
+
+The Budgeting module owns one queue (`budgeting`) with three job types, all
+gated by the `BudgetingQueueDispatcher` `@Processor` that routes by job name
+to avoid the DZ-48 race (sibling processors on the same queue racing to
+claim each other's work).
+
+### budgeting:variance-refresh
+
+- **Queue**: `budgeting`
+- **Schedule**: cron — daily at 02:00 in tenant timezone (registered per-tenant
+  by `budgeting:variance-refresh-bootstrap` on worker startup)
+- **Payload**: `{ tenant_id }`
+- **Trigger**: cron only; manual trigger via the variance dashboard's
+  "Refresh now" button enqueues with the same payload
+- **Side effects**: rewrites `variance_cache` rows for the tenant's active
+  models (`status='published'`, `fiscal_year_start <= now <= fiscal_year_end`).
+  Idempotent — wipes the model's cache rows and rewrites them per refresh.
+  Wrapped in `createRlsClient(...).$transaction()`.
+- **Fan-out**: cron iterates active tenants; per-tenant work iterates active
+  models inside the tenant's RLS context.
+
+### budgeting:variance-refresh-bootstrap
+
+- **Queue**: `budgeting`
+- **Schedule**: cross-tenant cron at `50 1 * * *` (so all tenants are
+  registered before the 02:00 wave fires)
+- **Payload**: `{}`
+- **Trigger**: `CronSchedulerService`
+- **Side effects**: iterates active tenants and registers per-tenant
+  `budgeting:variance-refresh` repeatables at 02:00 in `tenant.timezone`.
+  Idempotent across runs (BullMQ deduplicates by `jobId`).
+
+### budgeting:board-pack-render
+
+- **Queue**: `budgeting`
+- **Schedule**: on-demand
+- **Payload**: `{ tenant_id, snapshot_id, format: 'pdf' | 'excel' | 'all' }`
+- **Trigger**:
+  - `POST /v1/budgeting/financial-models/:id/snapshots/:sid/exports/regenerate`
+    enqueues with `format: 'all'`
+  - `SnapshotsService.publish` enqueues automatically post-publish so the
+    board pack is ready by the time a user asks for it
+  - `GET …/exports/(pdf|excel)` enqueues lazily if the snapshot has no
+    `pdf_object_key` / `excel_object_key` yet
+- **Side effects**: renders PDF (Puppeteer + branded HTML template) and/or
+  Excel (multi-sheet exceljs workbook) and uploads to
+  `tenants/${tenantId}/budgeting/snapshots/${snapshotId}/board-pack-v${N}.{pdf,xlsx}`
+  in Hetzner object storage; updates the snapshot row's `pdf_object_key`,
+  `excel_object_key`, and `rendered_at`. Snapshot rows are otherwise
+  immutable — these three fields are the only mutations allowed post-publish.
+- **Render time**: typically 5–30s; large models (5k+ line items) can take
+  60–90s. Async via this queue so the API thread isn't blocked.
+
+### budgeting:shareable-link-cleanup
+
+- **Queue**: `budgeting`
+- **Schedule**: cron — daily at 03:00 UTC (cross-tenant)
+- **Payload**: `{}`
+- **Trigger**: cron only
+- **Side effects**: hard-deletes `shareable_links` rows where
+  `expires_at < now() - 30 days`. Per `modeling/PLAN.md §11.2`, links that
+  have been expired for more than 30 days are not retrievable in the audit
+  trail (the password hash is wiped at the same time).
+- **Fan-out**: single cross-tenant query; doesn't iterate tenants explicitly
+  (the `expires_at` filter is global).

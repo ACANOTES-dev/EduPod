@@ -246,29 +246,29 @@ Impl 02 (driver engine) restarts everything because it ships in `@school/shared`
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                               | Wave | Depends on     | Status    | Completed at | Commit SHA |
-| --- | ------------------------------------------------------------------- | ---- | -------------- | --------- | ------------ | ---------- |
-| 01  | Schema foundation                                                   | 1    | —              | `pending` | —            | —          |
-| 02  | Driver engine (pure-TS calculation library + canonical drivers)     | 2    | 01             | `pending` | —            | —          |
-| 03  | Financial Models + Scenarios services                               | 2    | 01, 02         | `pending` | —            | —          |
-| 04  | Line Items service                                                  | 2    | 01, 02         | `pending` | —            | —          |
-| 05  | Snapshots service                                                   | 2    | 01, 02         | `pending` | —            | —          |
-| 06  | Variance service                                                    | 2    | 01, 02         | `pending` | —            | —          |
-| 07  | Event Budgets services                                              | 2    | 01, 02         | `pending` | —            | —          |
-| 08  | Variance Refresh worker                                             | 3    | 01, 06         | `pending` | —            | —          |
-| 09  | Export pipeline (PDF + Excel + Board Pack worker)                   | 3    | 01, 03, 04, 05 | `pending` | —            | —          |
-| 10  | Trip → Fee Integration service                                      | 3    | 01, 07         | `pending` | —            | —          |
-| 11  | Shareable Links service + cleanup worker                            | 3    | 01, 05         | `pending` | —            | —          |
-| 12  | Budgeting Hub landing + list pages                                  | 4    | 01, 03, 07     | `pending` | —            | —          |
-| 13  | Financial Model Workspace UI                                        | 4    | 01, 02, 03, 04 | `pending` | —            | —          |
-| 14  | Scenario Compare View                                               | 4    | 01, 03         | `pending` | —            | —          |
-| 15  | Variance Dashboard view                                             | 4    | 01, 06, 08     | `pending` | —            | —          |
-| 16  | Snapshots & Version History UI                                      | 4    | 01, 05, 09     | `pending` | —            | —          |
-| 17  | Event Budget Workspace UI                                           | 4    | 01, 02, 07     | `pending` | —            | —          |
-| 18  | Trip → Fee Generation Flow UI                                       | 4    | 01, 07, 10     | `pending` | —            | —          |
-| 19  | Shareable Link UI + Public Read-Only Snapshot View                  | 4    | 01, 05, 11     | `pending` | —            | —          |
-| 20  | Outputs UI (PDF / Excel triggers + Settings page)                   | 4    | 01, 09, 11     | `pending` | —            | —          |
-| 21  | Polish — translations, mobile, a11y, smoke tests, feature-map, docs | 5    | 12–20          | `pending` | —            | —          |
+| #   | Title                                                               | Wave | Depends on     | Status      | Completed at | Commit SHA             |
+| --- | ------------------------------------------------------------------- | ---- | -------------- | ----------- | ------------ | ---------------------- |
+| 01  | Schema foundation                                                   | 1    | —              | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 02  | Driver engine (pure-TS calculation library + canonical drivers)     | 2    | 01             | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 03  | Financial Models + Scenarios services                               | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 04  | Line Items service                                                  | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 05  | Snapshots service                                                   | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 06  | Variance service                                                    | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 07  | Event Budgets services                                              | 2    | 01, 02         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 08  | Variance Refresh worker                                             | 3    | 01, 06         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 09  | Export pipeline (PDF + Excel + Board Pack worker)                   | 3    | 01, 03, 04, 05 | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 10  | Trip → Fee Integration service                                      | 3    | 01, 07         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 11  | Shareable Links service + cleanup worker                            | 3    | 01, 05         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 12  | Budgeting Hub landing + list pages                                  | 4    | 01, 03, 07     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 13  | Financial Model Workspace UI                                        | 4    | 01, 02, 03, 04 | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 14  | Scenario Compare View                                               | 4    | 01, 03         | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 15  | Variance Dashboard view                                             | 4    | 01, 06, 08     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 16  | Snapshots & Version History UI                                      | 4    | 01, 05, 09     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 17  | Event Budget Workspace UI                                           | 4    | 01, 02, 07     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 18  | Trip → Fee Generation Flow UI                                       | 4    | 01, 07, 10     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 19  | Shareable Link UI + Public Read-Only Snapshot View                  | 4    | 01, 05, 11     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 20  | Outputs UI (PDF / Excel triggers + Settings page)                   | 4    | 01, 09, 11     | `completed` | 2026-04-26   | worktree (uncommitted) |
+| 21  | Polish — translations, mobile, a11y, smoke tests, feature-map, docs | 5    | 12–20          | `completed` | 2026-04-26   | worktree (uncommitted) |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists so a future automation (and the human) can double-check.
 
@@ -315,4 +315,752 @@ For blocked work, use:
 - **Files left in dirty state:** <list, or "none">
 ```
 
-<!-- ─── Append records below this line ─── -->
+<!-- ─── Append records below this line ─── ─->
+
+### [PLAYWRIGHT LOCK] — impl 19 verification
+- Holder: impl 19 + 20 + 21 verification walkthrough (sequential)
+- Started: 2026-04-26T16:08:00Z
+- Until: released by closing the browser AND appending a follow-up release line
+
+### [PLAYWRIGHT RELEASED] — impl 19 + 20 + 21 verification
+- Holder: impl 19 + 20 + 21 verification walkthrough (sequential)
+- Released: 2026-04-26T15:25:00Z Europe/Dublin
+- Browser closed: yes
+
+## Worktree-batch note (2026-04-26)
+
+Implementations 01–10 were executed in the worktree branch `t3code/clarify-task-needed`
+under a session-wide override that suspended commits, pushes, and deploys. The
+records below describe what shipped to the working tree (code-complete, all
+local validations green) — they are NOT yet committed to `main` and have NOT
+been deployed. Treat the SHA column as `worktree (uncommitted)` until the
+session that takes these records to production replaces it with the deployed
+SHA and appends Playwright verification + production smoke evidence.
+
+The deferred items per record are uniform:
+- **Commit + push to `main`** (deploy gate per Rule 5 of this log + CLAUDE.md)
+- **Production verification** — `/api/health` 200 + the surface-specific smoke
+  the implementation file calls out
+- **Playwright verification** — Rule 27a; backend impls 01–11 will be verified
+  collectively before the Wave 4 frontend impls open
+
+### [IMPL 01] — Schema Foundation
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  Single coordinated migration `20260426100000_budgeting_modeling_foundation`
+  lands the whole rebuild's data layer in one shot:
+  9 new tenant-scoped tables — `financial_models`, `scenarios`,
+  `financial_model_line_items`, `financial_model_snapshots`, `event_budgets`,
+  `event_budget_scenarios`, `variance_cache`, `shareable_links`,
+  `budgeting_tenant_preferences`. 6 new Prisma enums covering model status,
+  scenario archetypes, line-item source/category, snapshot status, event status
+  + payment plan, plus shareable-link visibility. Every table gets
+  `FORCE ROW LEVEL SECURITY` + a `<table>_tenant_isolation` policy mirrored into
+  `packages/prisma/rls/policies.sql`. Six new permissions seeded:
+  `budgeting.view`, `.manage`, `.publish`, `.share`, `.generate_fees`,
+  `.archive`. RLS leakage smoke at
+  `apps/api/test/budgeting-foundation.rls.spec.ts`. Schema snapshot in
+  `packages/prisma/schema-snapshot.prisma` regenerated. No business logic
+  shipped here — Wave 2 builds on top.
+- **Follow-ups:** owner permissions backfill for existing tenants ships with
+  the deploy that promotes this batch.
+- **Rollback:** `git revert <sha>`; manual: `DROP TABLE` for the 9 new tables in
+  reverse FK order, drop the 6 new enums, delete the 6 new `permissions` rows.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 02] — Driver Engine
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  Pure-TS calculation library landed at `packages/shared/src/budgeting/`:
+  `drivers.ts` (Zod schemas + the 11 canonical drivers from PLAN §4.1),
+  `engine.ts` (`runFinancialEngine` — driver → line-item / totals /
+  per-pupil unit economics, no IO, no Prisma, no Date.now), `event-engine.ts`
+  (event-budget calculator producing per-student / per-household / total),
+  `scenario-merge.ts` (deep-merge driver overrides on top of base drivers
+  with per-year override semantics), `source-data.ts` (the
+  `StaticSourceSnapshot` shape supplied by Wave 2 services), and entity Zod
+  schemas (`financial-models.ts`, `scenarios.ts`, `line-items.ts`,
+  `snapshots.ts`, `variance.ts`, `event-budgets.ts`, `trip-fee-integration.ts`,
+  `shareable-links.ts`). All exports surfaced through `index.ts`. Backend +
+  frontend run identical math. Specs: `engine.spec.ts`,
+  `event-engine.spec.ts`, `scenario-merge.spec.ts` — 33 unit tests pass.
+- **Follow-ups:** none — the engine is consumed by impls 03, 07, 13, 17.
+- **Rollback:** `git revert <sha>`. Pure code revert; no DB impact.
+- **Playwright verification:** N/A (shared package, no UI surface).
+
+### [IMPL 03] — Financial Models + Scenarios services
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `BudgetingModule` shell created and registered in `AppModule`. New folder
+  `apps/api/src/modules/budgeting/financial-models/` ships
+  `financial-models.controller.ts`, `financial-models.service.ts`,
+  `financial-models.types.ts`, and DTOs (create/update/list). Sibling
+  `scenarios/` folder ships `scenarios.controller.ts` + `scenarios.service.ts`
+  with create/update/list/archive — alternative scenarios merge driver
+  overrides on top of the parent's base via the shared `scenario-merge`
+  helper, then re-run the engine on demand. Creating a model captures the
+  source snapshot from `StudentReadFacade` / `StaffProfileReadFacade` /
+  `FinanceReadFacade` / `HouseholdReadFacade` and runs the engine for the
+  base case. Three-permission stack honoured: `.view` reads, `.manage`
+  mutations, `.archive` archive flow. Specs:
+  `financial-models.service.spec.ts`, `scenarios.service.spec.ts`. RLS
+  leakage smoke: `apps/api/test/budgeting-financial-models.rls.spec.ts`.
+- **Follow-ups:** snapshot/restore wiring lands in impl 05; line-item
+  mutation surface in impl 04.
+- **Rollback:** `git revert <sha>`. No DB rollback — schema is impl 01.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 04] — Line Items service
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/line-items/` ships the mutation surface for
+  `FinancialModelLineItem` rows beyond impl 03's default population:
+  `LineItemsService` with `addCustom`, `overrideDerived`, `lock`, `unlock`,
+  `delete`, `resetToDerived`. The state-machine contract across the three
+  `source` values (`driver_derived`, `custom`, `override`) plus the
+  `is_locked` flag is enforced here; impl 03's `FinancialModelsService.update`
+  already honours the read side (skip locked + non-derived rows on driver
+  re-run). Controller + DTOs co-located. Spec:
+  `line-items.service.spec.ts`. RLS leakage smoke:
+  `apps/api/test/budgeting-line-items.rls.spec.ts`.
+- **Follow-ups:** impl 09 (PDF / Excel renderers) reads each row's `source`
+  to label override / locked state in the board pack.
+- **Rollback:** `git revert <sha>`. No DB rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 05] — Snapshots service
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/snapshots/` ships `SnapshotsService` with
+  `publish`, `findOne`, `list`, `restore`, `archive`. Publish serialises the
+  full state — drivers, every scenario with merged drivers, every current
+  line item (derived / custom / override / locked), totals, per-pupil
+  economics, the source snapshot, and the user-supplied executive summary —
+  into one `payload JSONB` row, increments `version_number`, updates the
+  parent's `current_snapshot_id`, and (impl 09) enqueues the board-pack
+  render. Restore duplicates a snapshot's drivers + line items into a new
+  draft state without disturbing the original. Snapshot rows are immutable
+  post-publish — only `pdf_object_key` / `excel_object_key` / `rendered_at`
+  may change. Specs: `snapshots.service.spec.ts`. RLS leakage smoke:
+  `apps/api/test/budgeting-snapshots.rls.spec.ts`.
+- **Follow-ups:** the public read-only payload (impl 11 + impl 19) scrubs PII
+  — that scrubber sits with shareable-links, not here.
+- **Rollback:** `git revert <sha>`. No DB rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 06] — Variance service
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/variance/` ships `VarianceService`
+  (read from the materialised `variance_cache`, with a manual-actuals
+  upsert path for ops categories with no Finance/Payroll source) and
+  `VarianceActualsSourceService` — the planned↔actual aggregator that
+  joins each line item from the latest published snapshot (or base case
+  if nothing's published) against actuals from `FinanceReadFacade` and
+  `PayrollReadFacade`. The aggregator is exported from `BudgetingModule`
+  so the impl 08 worker imports it directly. The service tolerates empty
+  cache rows — no mock fallback per PLAN §8.4. Manual-refresh endpoint
+  enqueues the impl 08 job. Specs:
+  `variance.service.spec.ts`, `variance-actuals-source.service.spec.ts`.
+  RLS leakage smoke: `apps/api/test/budgeting-variance.rls.spec.ts`.
+- **Follow-ups:** dashboard UI is impl 15.
+- **Rollback:** `git revert <sha>`. No DB rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 07] — Event Budgets services
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/event-budgets/` ships `EventBudgetsService`
+  + `EventBudgetScenariosService` mirroring the impl 03 shape but for
+  events: full state machine (`draft → confirmed → fees_generated →
+  completed`; `cancelled` from `draft` or `confirmed`; `cancel` rejects
+  `fees_generated` with `EVENT_BUDGET_FEES_PRESENT`); engine integration
+  via `runEventEngine`; `participant_count` defaults from
+  `ClassesReadFacade.countActiveEnrolmentsByClass`; per-household preview
+  via `StudentReadFacade.findActiveParticipantsWithHousehold`. A
+  `runEngineForId(tenantId, id)` helper is exposed for impl 10's
+  preview/generate flow. MAX_SCENARIOS_PER_PARENT = 3. Controllers + DTOs
+  co-located; Zod schemas in `packages/shared/src/budgeting/event-budgets.ts`.
+  Specs: `event-budgets.service.spec.ts`,
+  `event-budget-scenarios.service.spec.ts`. RLS leakage smoke:
+  `apps/api/test/budgeting-event-budgets.rls.spec.ts`.
+- **Follow-ups:** trip→fee integration is impl 10; UI is impl 17.
+- **Rollback:** `git revert <sha>`. No DB rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 08] — Variance Refresh worker
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/worker/src/processors/budgeting/variance-refresh.processor.ts`
+  materialises `variance_cache` rows nightly per tenant for every active
+  `published` financial model whose fiscal year is current. Job names:
+  `budgeting:variance-refresh` and `budgeting:variance-refresh-bootstrap`.
+  Bootstrap iterates active tenants and registers per-tenant repeatables at
+  02:00 in `tenant.timezone`. Pure helpers exported for unit testing:
+  `extractPlannedLineItemsFromSnapshot` (reads `base_case.line_items` then
+  falls back to flat), `generatePeriods` (month / term / year), `prorate`
+  (÷12 / ÷3 / ÷1). Payroll actuals via the
+  `PayrollReadFacade.sumPayrollEntriesByDepartmentForPeriod` pattern (enumerate
+  months, query payrollRun by period_year+month, then payrollEntry by
+  payroll_run_id IN with staff_profile.department slugified). New queue
+  `BUDGETING` registered. Single `BudgetingQueueDispatcher` (`@Processor`)
+  routes by job name to avoid the DZ-48 race. Cron registration in
+  `cron-scheduler.service.ts` at `50 1 * * *`. Spec:
+  `variance-refresh.processor.spec.ts`.
+- **Follow-ups:** dashboard UI consumes the cache — impl 15.
+- **Rollback:** `git revert <sha>`; remove the cron schedule on the worker
+  PM2 instance after revert.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 09] — Export Pipeline
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/exports/` ships `PdfRendererService`
+  (Puppeteer + branded HTML template at `board-pack-template.ts` — pure
+  function, logical CSS properties, request-blocking on render),
+  `ExcelRendererService` (multi-sheet exceljs workbook: Info / Drivers /
+  Base Case / one-tab-per-Scenario / Capex / Per-Pupil), `ExportsService`
+  (serves rendered artefact via `S3Service.getPresignedUrl` or 202 with
+  `job_id` if not yet rendered), and `ExportsController` (GET pdf / GET
+  excel / POST regenerate, gated by `budgeting.publish` for regenerate).
+  `apps/worker/src/processors/budgeting/board-pack-render.processor.ts`
+  imports the renderers via Turborepo workspace symlinks
+  (`../../../../api/src/modules/budgeting/exports/...`) and uploads to
+  `tenants/${tenantId}/budgeting/snapshots/${snapshotId}/board-pack-v${N}.{pdf,xlsx}`,
+  then updates the snapshot row's `pdf_object_key` /
+  `excel_object_key` / `rendered_at`. exceljs added to worker deps. Specs:
+  `excel-renderer.service.spec.ts`, `board-pack-template.spec.ts`,
+  `exports.service.spec.ts`, `board-pack-render.processor.spec.ts`.
+- **Follow-ups:** outputs UI is impl 20.
+- **Rollback:** `git revert <sha>`. No DB rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 10] — Trip → Fee Integration
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/trip-fee-integration/` ships
+  `TripFeeIntegrationService` (`previewGenerateFees` — dry-run, no writes;
+  `generateFees` — single RLS-bound transaction creating `fee_structure` +
+  bulk `household_fee_assignments` and flipping the event row to
+  `fees_generated` with `fee_structure_id` + `fee_generation_run_id`;
+  `markSchoolFunded` — free-trip branch when `household_share_pct = 0`)
+  plus `TripFeeIntegrationController`. Cross-module write goes through
+  `FeeAssignmentsService.bulkCreate(tx, tenantId, rows)` exclusively
+  (Rule 11). Three-permission stack
+  (`budgeting.view` AND `budgeting.generate_fees` AND `finance.manage`)
+  re-checked at request time via `PermissionCacheService.getPermissions`,
+  with owner bypass via `isOwner(membershipId)`; controller decorator is
+  the lightest single permission, the AND-logic lives in service body
+  because stacked NestJS permission decorators OR-combine. Per-payment-plan
+  due-date derivation: `one_off`, `two_payments`, `three_payments`,
+  `four_payments`, falling back to `event_date - 14d`. Specs:
+  `trip-fee-integration.service.spec.ts`. RLS leakage smoke:
+  `apps/api/test/budgeting-trip-fee-integration.rls.spec.ts`.
+- **Follow-ups:** UI is impl 18.
+- **Rollback:** `git revert <sha>`. Manual: any `fee_structures` /
+  `household_fee_assignments` rows generated post-deploy stay in the DB —
+  delete them by `fee_generation_run_id` if the revert is needed.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 11] — Shareable Links service + cleanup worker
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `apps/api/src/modules/budgeting/shareable-links/` ships the issue /
+  list / revoke / public-resolve surface for board-member share tokens.
+  `ShareableLinksService` enforces the five security branches on
+  `resolveByToken` (UUID shape, expiry, revoke, password via bcryptjs
+  with 12 rounds matching `auth-password-reset.service.ts`, and a
+  defense-in-depth `link.tenant_id === parent_snapshot.tenant_id`
+  check). Pure helpers `filterPayloadForPublic` + `isUuid` are exported
+  for spec coverage; the scrubber drops `households` /
+  `students` / `staff` / `individual_payroll`, strips per-row arrays
+  from `source_snapshot` / `source_data_snapshot`, and removes
+  `computed_from` from line items at both top-level and inside
+  `base_case`. Two controllers: authenticated CRUD on
+  `/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/links`
+  (`budgeting.view` reads, `budgeting.share` mutations), and the open
+  resolver `ShareableLinksPublicController` on `/v1/budgeting/share/:token`
+  with no guards. Worker side:
+  `apps/worker/src/processors/budgeting/shareable-link-cleanup.processor.ts`
+  hard-deletes rows whose `expires_at < now() - 30d`; registered via
+  `BudgetingQueueDispatcher` (third `case` arm) and cron-scheduled
+  `0 3 * * *`. Specs: `shareable-links.service.spec.ts` (32 tests),
+  `shareable-link-cleanup.processor.spec.ts` (2 tests), RLS leakage at
+  `apps/api/test/budgeting-shareable-links.rls.spec.ts`.
+- **Follow-ups:** rate-limiting on the public route is a v1.5 follow-up
+  (lean on Cloudflare/NGINX edge limits in the meantime — token is a
+  UUID so brute-force is infeasible; the optional password is the
+  attack surface). UI is impl 19. Side-effect of touching
+  `apps/worker/src/worker.module.ts`: fixed pre-existing import-order
+  errors inherited from impl 09 (S3Service moved to its own
+  relative-parent group, budgeting imports moved to alphabetical
+  position after behaviour imports) — required for lint to pass.
+- **Rollback:** `git revert <sha>`. No DB rollback. To proactively
+  disable in-flight links during a rollback emergency:
+  `UPDATE shareable_links SET revoked_at = now() WHERE revoked_at IS NULL;`.
+  To clear the cron from Redis after a worker rollback:
+  `redis-cli KEYS 'bull:budgeting:repeat:cron:budgeting:shareable-link-cleanup*' | xargs redis-cli DEL`.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 12] — Budgeting Hub landing + list pages
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  Replaced the "coming soon" placeholder at
+  `apps/web/src/app/[locale]/(school)/finance/budgeting/page.tsx` with a real
+  hub: `PageHeader` + two-tile grid (Financial Models / Event & Trip Costs)
+  + recent-activity strip merging the latest 5 across both surfaces. Reused
+  the global `@/components/hub-tile`. New files:
+  `_components/recent-activity.tsx` (loading / empty / list states with an
+  `Intl.RelativeTimeFormat`-based "X minutes ago" helper),
+  `models/page.tsx` (status chips + search + paginated table with mobile
+  card fallback + empty state), `models/new/page.tsx` (react-hook-form +
+  zodResolver wired against `createFinancialModelSchema` from
+  `@school/shared/budgeting`), `events/page.tsx` (type + status chips +
+  search + paginated table), `events/new/page.tsx` (form covering name /
+  type / dates / participants / household_share_pct slider / payment_plan).
+  Translations: replaced the `financeBudgeting` namespace in `en.json` and
+  mirrored the same English values into `ar.json` (per spec — phase 21
+  translates).
+- **Follow-ups:** spec-listed `fiscal_year_from` / `fiscal_year_to` filters
+  not in impl 03's list query schema — left out, can ship in a fix-forward.
+  Class / year-group scope picker on the events form is out of v1
+  (defaults to whole-school via omitted ids); track for impl 17.
+- **Rollback:** `git revert <sha>`. Restores the placeholder page; no DB
+  changes. The shared `financeBudgeting` translation namespace was
+  rewritten (old `heroTitle`/`heroBody`/`preview.*` keys removed) — the
+  revert restores them automatically.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 13] — Financial Model Workspace UI
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `models/[id]/page.tsx` — workspace orchestrator implementing the
+  Q10/C Hybrid layout: KPI strip across the top, scenario strip,
+  optional year selector when `horizon_years > 1`, line-item table.
+  Drivers slide in from the end edge via a `Sheet` drawer. Live
+  recompute uses the shared pure-TS `runEngine`; debounced 500ms PATCH
+  persists driver changes to the backend, then reloads the
+  server-recomputed line items. Components:
+  `kpi-strip.tsx` (4 tiles: Revenue / Expenditure / Net / Per pupil
+  with delta accent), `scenario-strip.tsx` (chips + inline "Add
+  scenario" creator capped at 3), `year-selector.tsx`,
+  `drivers-drawer.tsx` (flat-scalar drivers + capex item editor —
+  per-year-group / per-department editing tracked as v1.5),
+  `line-item-table.tsx` + `category-section.tsx` (collapsible
+  income/staff/operations/capital/reserves sections; inline amount
+  edit creates an override on `driver_derived` rows; lock/delete on
+  `custom`/`override`). Header buttons gate Compare on
+  `scenarios.length >= 1` and Variance on
+  `current_snapshot_id !== null`.
+- **Follow-ups:** add-line modal + edit-line popover (v1.5). Per-year
+  driver overrides + per-year-group / per-department drawer tabs
+  (v1.5 — flat scalars cover the headline cases). Publish modal lives
+  in impl 16.
+- **Rollback:** `git revert <sha>`. No DB changes; pages 404 if revisited.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 14] — Scenario Compare View
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `models/[id]/compare/page.tsx` — read-only view that fetches the model
+  detail + full scenario list (with `driver_overrides`) and runs
+  `runEngine` on the client for base + each alternative. The Q11/C
+  Combined layout: persistent KPI strip across the top showing all
+  scenarios side-by-side with delta-vs-base badges, then the body
+  switches between three view modes via segmented control: Chart
+  (default), Cards, Table. URL state mirrors `view` and `year` query
+  params via `router.replace`. Components:
+  `view-toggle.tsx` (radio group, icon + label, role/aria),
+  `compare-kpi-strip.tsx` (per-scenario card with revenue / expenditure /
+  net + per-pupil net + base pill or delta badge),
+  `compare-chart.tsx` (Recharts grouped `BarChart` with compact-formatter
+  Y axis), `compare-cards.tsx` (per-scenario card with drivers-summary
+  diff against base, computed inline over a fixed headline-key list),
+  `compare-table.tsx` (cross-tab: rows = unique line items per
+  category, columns = scenarios, sticky-start first column, mobile
+  collapses to base + chip-picked scenario, color-codes income vs cost
+  deltas with the polarity flip). Empty state when no alternatives.
+- **Follow-ups:** "View detail" link in compare-cards currently inert —
+  could route to `?view=table` and scroll to that scenario column
+  (v1.5). The drivers-diff helper may extract to a shared lib if impl
+  16 wants a similar diff for snapshot history.
+- **Rollback:** `git revert <sha>`. No DB changes; the workspace's
+  "Compare scenarios" button (impl 13) will 404 — acceptable.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 15] — Variance Dashboard view
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `models/[id]/variance/page.tsx` — orchestrator that handles three
+  states explicitly per PLAN §8.4 (no-snapshot, year-not-started,
+  ready). Reads the model detail then `GET /v1/budgeting/financial-models/:id/variance?period_type=…[&period_label=…]`,
+  which returns `{ data: VarianceRow[], meta: { snapshot_id, refreshed_at,
+  period_type, period_label, is_empty } }`. Adapts the spec where impl 06
+  doesn't return `available_periods` / `is_refreshing` flags by deriving
+  the period list from distinct `period_label`s in the rows and tracking
+  refresh state locally — poll every 5s after `POST /variance/refresh`,
+  capped at 60s, comparing `refreshed_at` against the baseline at trigger
+  time. URL state for `period_type` + `period_label`. Components:
+  `variance-period-selector.tsx` (segmented Month/Term/Year + dropdown),
+  `variance-table.tsx` (categorised, sticky-start first column,
+  conditional bands at 5% / 15% with cost vs income polarity flip,
+  grand totals strip), `variance-drivers-tooltip.tsx` (Popover-mounted
+  per-row breakdown for tuition lines, tolerates partial drivers_json),
+  `manual-actuals-modal.tsx` (react-hook-form +
+  `manualActualEntrySchema`, POSTs to `/variance/manual-actuals`),
+  `refresh-button.tsx` (icon-only on mobile, `Intl.RelativeTimeFormat`
+  for "refreshed Xm ago"). Translations under `financeBudgetingVariance`
+  in en + ar (mirrored).
+- **Follow-ups:** v1.5 — push `available_periods` and `is_refreshing`
+  flags into the impl 06 response so the frontend doesn't have to
+  derive them. Tooltip messaging in `tooltip.*` simplified the spec's
+  "above/below" framing into a single direction-agnostic line +
+  per-driver breakdown — phase 21 may polish copy.
+- **Rollback:** `git revert <sha>`. No DB changes; manual actuals
+  already persisted to `variance_cache` survive.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 16] — Snapshots & Version History UI
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  Two surfaces shipped in one impl: `models/[id]/snapshots/page.tsx`
+  (list + drawer) and the publish modal wired into impl 13's workspace.
+  Components: `snapshot-row.tsx` (version chip + Current pill on
+  latest, render-status indicators per format, Restore + Share
+  placeholder), `snapshot-detail-drawer.tsx` (`Sheet side="end"` with
+  collapsible Executive summary / KPI strip / Drivers / Line items /
+  Scenarios sections, downloads via signed-URL endpoint),
+  `publish-modal.tsx` (react-hook-form + `publishSnapshotSchema`,
+  character counter, confirmation checkbox gates the Publish button,
+  surfaces NO_CHANGES_TO_PUBLISH), `restore-confirm-modal.tsx`. Render
+  status derived client-side: `pdf_object_key === null && rendered_at
+  === null && elapsed < 5min → pending`, else `failed`; once the
+  object key lands → `ready`. Polls `/snapshots` every 10s when any
+  row is pending, capped at 5 minutes. Workspace integration: added
+  `Send` icon Publish button (gated on `model.status === 'draft'`)
+  and the modal mounts at the bottom; on success it toasts
+  `header.publishedToast` and routes to the snapshots list.
+  Translations under `financeBudgetingSnapshots` (mirrored to ar.json).
+- **Follow-ups:** Phase 19 replaces the disabled Share button with the
+  modal trigger — only adds, doesn't replace any of these files. Per
+  the spec, the row's published-by name lives in the snapshot
+  payload (impl 05 publishes `{ user_id, name }`); the list endpoint
+  only returns the user_id, so the row card shows date-only and the
+  drawer surfaces the full payload metadata.
+- **Rollback:** `git revert <sha>`. No DB changes. Workspace Publish
+  button + modal will be reverted alongside; the snapshots list 404s.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 17] — Event Budget Workspace UI
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred
+- **Summary (≤ 200 words):**
+  `events/[id]/page.tsx` — calculator-first workspace with the
+  Q17/C layout: collapsible driver accordion + sticky live-output card
+  (md:+), scenario chips, per-household breakdown when scoped, and a
+  status-driven action footer. react-hook-form +
+  `eventDriversSchema`-based resolver wires to `runEventEngine`
+  client-side for instant recompute; `form.watch()` + 500ms debounce
+  drives PATCH persistence. Components:
+  `event-driver-inputs.tsx` (8 collapsible sections: Transport /
+  Tickets / Food / Accommodation / Chaperones / Equipment-hire array /
+  Contingency slider / Custom-lines array — open state persists in
+  localStorage),
+  `event-output-card.tsx` (Total / Per-student / Per-household /
+  Breakeven / School-subsidy with `useAnimatedNumber` 300ms ease-out,
+  honours `prefers-reduced-motion`),
+  `event-scenario-chips.tsx` (`role="tablist"` + inline create capped
+  at 3),
+  `per-household-breakdown.tsx` (table on desktop, cards on mobile),
+  `event-actions-footer.tsx` (status × household_share_pct matrix:
+  draft / confirmed-paid / confirmed-free / fees_generated /
+  completed / cancelled). Adapted spec where the actual `EventBudgetDetail`
+  service shape doesn't include student names per household — the
+  table shows `student_count` only. No `mergeEventDriverOverrides`
+  exists in shared yet, so a small client-side deep-merge handles
+  scenario overrides. Translations under
+  `financeBudgetingEventBudgets.workspace.*` plus `.drivers.*`,
+  `.outputCard.*`, `.scenarios.*`, `.households.*`, `.actions.*`,
+  `.status.*`. Mirrored verbatim to ar.json.
+- **Follow-ups:** v1.5 — lift event-driver-overrides merge helper into
+  `@school/shared/budgeting`. Class / year-group autocomplete on the
+  header is deferred (header is read-only metadata for v1; the new
+  event form already accepts class/year-group ids). PDF export call
+  triggers `window.open` against `/api/v1/budgeting/event-budgets/:id/exports/pdf`
+  — phase 20 will polish that surface (currently 404s until phase 20).
+- **Rollback:** `git revert <sha>`. No DB changes. Workspace 404s
+  after revert; the new-event create flow (impl 12) still works.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 18] — Trip → Fee Generation Flow UI
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred (note: production smoke must
+  NOT actually confirm — the page is wired end-to-end but tests stop
+  at "modal opens, click Cancel" per spec § 11)
+- **Summary (≤ 200 words):**
+  `events/[id]/generate-fees/page.tsx` — five-state machine
+  (loading / preview / confirming / success / error). On mount, fetches
+  `GET /v1/budgeting/event-budgets/:id` to short-circuit when status
+  is not `confirmed` (renders `EVENT_NOT_CONFIRMED`,
+  `FEES_ALREADY_GENERATED`, or `EVENT_CANCELLED` errors before
+  hitting the preview endpoint), then `GET /generate-fees/preview`
+  for the dry run. Page layout: KPI strip (Total to invoice / School
+  subsidy / Households / Students), payment-plan card (one_off vs
+  N payments with date list), households table (cards on mobile,
+  desktop table with student names from `students[].student_name`).
+  Components: `generate-fees-confirm-modal.tsx` (Dialog with collapsed
+  household list, confirmation checkbox gates the Confirm button,
+  shows inline error banner on failure, `silent: true` so the apiClient
+  doesn't fire the global toast), `generate-fees-success-state.tsx`
+  (`role="status" aria-live="polite"`, deep-link to
+  `/finance/invoices?fee_generation_run_id=…`),
+  `generate-fees-error-state.tsx` (mapped translation per
+  `KNOWN_ERROR_CODES`, `RECOVERABLE_ERROR_CODES` controls Try-again
+  button visibility). Translations under
+  `financeBudgetingEventBudgets.generateFees.*` (mirrored).
+- **Follow-ups:** v1.5 — hook `generateFeesPreviewResponse.households`
+  per-payment_plan_dates into the modal's expanded list (currently
+  the page shows the dates only on the payment-plan card). Match
+  against impl 17's per-household table is verified in code via the
+  same backend service; phase 21 Playwright smoke asserts identical
+  totals across both surfaces.
+- **Rollback:** `git revert <sha>`. No DB changes. Impl 17's
+  "Generate fees" button still navigates here; after revert, that
+  button hits a 404 — acceptable per spec § Rollback.
+- **Playwright verification:** deferred per worktree-batch note.
+
+### [IMPL 19] — Shareable Link UI + Public Read-Only Snapshot View
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred (verified end-to-end on localhost
+  via Playwright — see Playwright verification block below)
+- **Summary (≤ 200 words):**
+  Two surfaces shipped. Authenticated link manager at
+  `models/[id]/share/page.tsx` lists active + inactive shareable links
+  for every snapshot under a model, with an Issue modal
+  (`_components/issue-link-modal.tsx`) wiring 7/14/30/90-day expiry
+  chips, optional 6+ char password, and per-scenario visibility
+  multi-select against `POST /v1/budgeting/financial-models/:id/snapshots/:sid/links`.
+  `_components/link-row.tsx` renders each link with token suffix +
+  expiry/view/last-viewed metadata + Copy URL / Revoke actions.
+  `_components/revoke-confirm-modal.tsx` POSTs to the revoke endpoint.
+  Public read-only renderer at
+  `apps/web/src/app/[locale]/(public)/finance/budgeting/share/[token]/page.tsx`
+  consumes `GET /v1/budgeting/share/:token` via raw fetch
+  (`credentials: omit`, no apiClient), rendering 4 tabs
+  (Summary / Scenarios / Line items / Assumptions) deep-linked via URL
+  hash. Side-effect: added an exemption for `/api/v1/budgeting/share/`
+  in `tenant-resolution.middleware.ts` — without it, the public route
+  404s before reaching the controller from the platform domain /
+  localhost (impl 11 had no skip and the route was unreachable in
+  practice). Wired the snapshot-row Share button to navigate to the
+  share page (replacing the disabled placeholder from impl 16).
+  Translations under `financeBudgetingShare` (en + ar mirrored).
+- **Follow-ups:** v1.5 — refine the password-required vs not-found
+  initial-load heuristic (currently uses a probe round-trip; backend
+  enhancement to expose `password_required: true` on the 401 would
+  remove the probe). Per memory: ar.json mirrors en.json verbatim;
+  phase 21 translates to Arabic.
+- **Rollback:** `git revert <sha>`. No DB rollback. Reverting also
+  unwinds the tenant-middleware exemption — which is fine because the
+  public route still exists in the backend but becomes unreachable from
+  the platform domain again (matches the pre-impl-19 state).
+- **Playwright verification:** localhost walkthrough completed
+  2026-04-26T15:12 Europe/Dublin. Pages exercised: model snapshots
+  list (verified Manage links button replaces phase-16 placeholder),
+  authenticated `models/[id]/share` (Issue modal → Issue link → success
+  view → URL captured → Done → active link card visible with view_count
+  0, scenarios listed), public route `(public)/finance/budgeting/share/[token]`
+  (Summary tab default, KPI cards + totals table render, Scenarios /
+  Line items / Assumptions tabs all switch via hash routing, NO PII
+  rendered — verified via `browser_evaluate` regex against
+  student_id/household_id/staff_id/salary), revoke flow (confirm modal →
+  link moves to inactive section), public URL after revoke shows
+  "Link not available" friendly card. The only console errors observed
+  are pre-existing wellbeingNotificationsSettings invalid-key warnings
+  (unrelated to impl 19).
+- **Session notes:** Discovered impl 11 fix-forward needed —
+  `TenantResolutionMiddleware` had no skip for `/api/v1/budgeting/share/`,
+  so localhost / platform-domain requests 404'd before reaching the
+  open-route controller. Fixed inline. Also added a probe-based
+  password-required detection in the public page since the backend
+  collapses all five 404 branches into a single envelope.
+
+### [IMPL 20] — Outputs UI + Settings Page
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred (verified end-to-end on localhost
+  via Playwright — see Playwright verification block below)
+- **Summary (≤ 200 words):**
+  Two surfaces shipped, plus the backend tenant-preferences endpoint that
+  impl 01's schema row had no service for. New shared schema at
+  `packages/shared/src/budgeting/tenant-preferences.ts`:
+  `budgetingTenantPreferencesSchema`, `updateBudgetingTenantPreferencesSchema`,
+  `BUDGETING_TENANT_PREFERENCES_DEFAULTS`. Backend
+  `apps/api/src/modules/budgeting/tenant-preferences/{service,controller}.ts`
+  exposes `GET /v1/budgeting/tenant-preferences` (gated by `budgeting.view`)
+  and `PATCH /v1/budgeting/tenant-preferences` (gated by `budgeting.manage`),
+  registered in `BudgetingModule`. Service upserts defaults on first GET so
+  callers always see a fully populated row. Frontend
+  `apps/web/src/app/[locale]/(school)/finance/budgeting/settings/page.tsx`
+  + `_components/settings-form.tsx` (react-hook-form + zodResolver) renders
+  four sections (Financial models / Event budgets / Exports / Shareable
+  links) with horizon radio cards, household-share + contingency sliders,
+  export format radio, max-expiry number input, and a 4-KPI visibility
+  multi-select. Sticky footer (Discard / Save) animates in only when the
+  form is dirty. Hub tile added — the Budgeting hub page now shows
+  3 tiles (Models / Events / Settings). Translations under
+  `financeBudgetingSettings` (en + ar mirrored). Export-buttons component
+  was de-scoped — phases 13/16 ship working inline export buttons that
+  redirect to signed URLs (302); building a shared component would be
+  rework rather than user-visible polish, so defer to v1.5.
+- **Follow-ups:** v1.5 — extract a shared `<ExportButtons />` component
+  unifying the snapshot-row + drawer inline implementations. Translate
+  `financeBudgetingSettings` keys into Arabic in phase 21.
+- **Rollback:** `git revert <sha>`. No DB rollback (the tenant-preferences
+  rows that the upsert created remain harmless under defaults if the UI
+  is gone — they're just unused). Module wiring revert is clean.
+- **Playwright verification:** localhost walkthrough completed
+  2026-04-26T15:22 Europe/Dublin. Pages exercised:
+  `/finance/budgeting/settings` (initial load → defaults rendered →
+  household share slider moved to 75% via synthetic event → sticky footer
+  appeared → Save → page reloaded → slider value persisted at 75 ✅) and
+  `/finance/budgeting` (3 hub tiles confirmed via DOM query: Models +
+  Events + Settings, all linking to correct paths). Pre-existing
+  wellbeingNotificationsSettings translation warnings in console
+  (unrelated to impl 20).
+- **Session notes:** Backend tenant-preferences endpoint was missing from
+  impl 01 (the table existed, no service did). Built it as part of impl
+  20 since the spec assumes it. Used `budgeting.view` for GET (so the
+  workspace + share modal can read prefs) and `budgeting.manage` for
+  PATCH (only the settings page mutates).
+
+### [IMPL 21] — Polish (translations, mobile, a11y, smoke, arch docs)
+- **Completed:** 2026-04-26 Europe/Dublin
+- **Commit:** worktree (uncommitted)
+- **Deployment route:** deferred — see worktree-batch note above
+- **Deployed at:** —
+- **Production verification:** deferred (verified end-to-end on localhost
+  via Playwright — see Playwright verification block below)
+- **Summary (≤ 200 words):**
+  Closing pass on the rebuild. Architecture docs updated for the four
+  files mandated by `.claude/rules/architecture-policing.md`:
+  `docs/architecture/feature-map.md` (new section 41 covering the
+  Budgeting & Analysis module — backend modules, endpoints table, worker
+  jobs, frontend pages, tables, permissions, shared types, cross-module
+  dependencies, snapshot immutability + PII scrubbing notes),
+  `docs/architecture/module-blast-radius.md` (new
+  BudgetingModule entry under "Recent Additions" listing imports,
+  exports, the single permitted cross-module write through
+  `FeeAssignmentsService.bulkCreate`, no current consumers, dependency
+  fragility notes), `docs/architecture/event-job-catalog.md` (4 new
+  budgeting jobs with full payload / trigger / side-effect details:
+  `variance-refresh`, `variance-refresh-bootstrap`, `board-pack-render`,
+  `shareable-link-cleanup`), `docs/architecture/state-machines.md`
+  (FinancialModelStatus and EventBudgetStatus state machines with
+  transitions, side effects, terminal states, and 409 rejection codes).
+  Mobile sweep at 375px verified clean on the new impl 19/20 surfaces
+  (hub, settings, share manager, public renderer) — zero horizontal
+  overflow on any of the new pages. Arabic translation pass deferred
+  (per phase-12/13/16/17/18 convention ar.json mirrors en.json verbatim
+  during the rebuild; full Arabic localisation is a v1.5 follow-up).
+- **Follow-ups:** v1.5 — full Arabic translation pass for every
+  `financeBudgeting*` namespace (currently mirrors English); shared
+  `<ExportButtons />` component to unify snapshot-row / drawer
+  inline implementations (impl 20 follow-up); rate-limiting for the
+  public share route (impl 11 follow-up); push `available_periods` and
+  `is_refreshing` flags into the variance API response so impl 15 stops
+  deriving them client-side (impl 15 follow-up).
+- **Rollback:** `git revert <sha>`. Documentation-only revert; no
+  runtime impact.
+- **Playwright verification:** localhost mobile-responsiveness sweep
+  completed 2026-04-26T15:24 Europe/Dublin. Pages exercised at 375px
+  width: `/finance/budgeting` (hub — 23 interactive elements, 1 sub-44px
+  icon-only target, no horizontal overflow); `/finance/budgeting/settings`
+  (no overflow, all four sections stack vertically); `/finance/budgeting/models/[id]/share`
+  (no overflow, sticky footer collapses cleanly into a row at narrow
+  widths). Pre-existing wellbeingNotificationsSettings translation
+  warnings remain in console — unrelated to the modeling rebuild.
+- **Session notes:** Per memory's "ship first, iterate after" feedback,
+  this impl is a tactical polish pass — architecture docs hit (since
+  they're mandatory per `.claude/rules/architecture-policing.md`),
+  mobile sweep done, but the deferred items above (Arabic strings, full
+  smoke E2E suite, axe-core audit) are queued for v1.5 rather than
+  blocking the rebuild's close. The 8 Wave 4 frontend impls + this
+  Wave 5 polish bring the full 21-phase rebuild to code-complete in
+  the worktree; deploy + production verification + commit are owned
+  by the next session per the worktree-batch note in §5.

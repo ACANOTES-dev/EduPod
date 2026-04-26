@@ -939,4 +939,18 @@ export class ClassesReadFacade {
     }
     return rows;
   }
+
+  /**
+   * Count active enrolments for a class. Used by Phase 07's event-budgets
+   * service to default the `participant_count` when a class is the scope.
+   */
+  async countActiveEnrolmentsByClass(tenantId: string, classId: string): Promise<number> {
+    return this.prisma.classEnrolment.count({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        status: 'active',
+      },
+    });
+  }
 }

@@ -17645,24 +17645,889 @@
     }
   },
   "financeBudgeting": {
-    "title": "الميزانية والتحليل",
-    "description": "تخطيط الميزانية المستقبلية وتحليل الانحرافات للمدرسة.",
-    "backToFinance": "العودة إلى المالية",
-    "heroTitle": "قريبًا",
-    "heroBody": "نعمل على مساحة عمل متكاملة للميزانية وتحليل الانحرافات حتى تتمكن من التخطيط مقابل ميزانية حقيقية ومقارنة الأرقام الفعلية ورصد انحراف التكاليف مبكرًا. حاليًا، التقارير ضمن كل الماليات تغطي العرض التاريخي.",
-    "badge": "قيد التطوير",
-    "preview": {
-      "forecasting": {
-        "title": "توقعات الميزانية",
-        "description": "توقع إيرادات الرسوم والرواتب والتكاليف التشغيلية على مدار العام الأكاديمي."
+    "title": "Budgeting & Analysis",
+    "description": "Plan, model, and analyse your school's finances",
+    "backToFinance": "Back to Finance",
+    "backToHub": "Back to Budgeting",
+    "cards": {
+      "models": {
+        "title": "Financial Models",
+        "description": "Annual revenue & expenditure forecasts. Multi-year. Scenario comparison. Variance tracking."
       },
-      "varianceAnalysis": {
-        "title": "تحليل الانحرافات",
-        "description": "قارن الأرقام الفعلية بالميزانية شهريًا ورصد الفئات التي تنحرف عن الخطة."
+      "events": {
+        "title": "Event & Trip Costs",
+        "description": "Quick cost calculators for trips, fundraisers, sports days. Per-student / per-household breakdown."
       },
-      "departmentCosts": {
-        "title": "تفصيل تكاليف الأقسام",
-        "description": "تفصيل التكاليف حتى مستوى المادة أو السنة الدراسية أو مركز التكلفة — مع مقارنات مرجعية."
+      "settings": {
+        "title": "Settings",
+        "description": "Defaults applied to new financial models and event budgets. Export format. Shareable link expiry."
+      }
+    },
+    "recent": {
+      "title": "Recent activity",
+      "empty": "No activity yet — create your first model or event to get started",
+      "emptyCtaModel": "+ New financial model",
+      "emptyCtaEvent": "+ New event budget",
+      "modelLabel": "Model",
+      "eventLabel": "Event"
+    },
+    "models": {
+      "title": "Financial Models",
+      "description": "Annual budgets and scenario forecasts",
+      "new": "New financial model",
+      "loadError": "Failed to load financial models. Try again.",
+      "filters": {
+        "searchPlaceholder": "Search models",
+        "all": "All",
+        "draft": "Draft",
+        "published": "Published",
+        "archived": "Archived"
+      },
+      "horizon": {
+        "1": "1 year",
+        "3": "3 years",
+        "5": "5 years"
+      },
+      "columns": {
+        "name": "Name",
+        "fy": "FY",
+        "horizon": "Horizon",
+        "status": "Status",
+        "lastEdited": "Last edited",
+        "netResult": "Net result"
+      },
+      "empty": "No models yet — create your first to get started",
+      "emptyFiltered": "No models match the current filters.",
+      "pagination": {
+        "summary": "Page {page} of {total} · {count} total",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "createForm": {
+        "title": "New financial model",
+        "name": "Name",
+        "description": "Description (optional)",
+        "fiscalYearStart": "Fiscal year start",
+        "horizon": "Horizon",
+        "horizonOptions": {
+          "1": "1 year",
+          "3": "3 years",
+          "5": "5 years"
+        },
+        "submit": "Create model",
+        "cancel": "Cancel",
+        "submitError": "Failed to create financial model"
+      }
+    },
+    "events": {
+      "title": "Event & Trip Budgets",
+      "description": "Quick calculators for trips and one-off events",
+      "new": "New event budget",
+      "loadError": "Failed to load event budgets. Try again.",
+      "filters": {
+        "type": "Type",
+        "status": "Status",
+        "searchPlaceholder": "Search events"
+      },
+      "types": {
+        "all": "All",
+        "trip": "Trip",
+        "fundraiser": "Fundraiser",
+        "sports_day": "Sports day",
+        "performance": "Performance",
+        "capital_purchase": "Capital purchase",
+        "other": "Other"
+      },
+      "statuses": {
+        "all": "All",
+        "draft": "Draft",
+        "confirmed": "Confirmed",
+        "fees_generated": "Fees generated",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "columns": {
+        "name": "Name",
+        "type": "Type",
+        "date": "Date",
+        "scope": "Scope",
+        "participants": "Participants",
+        "total": "Total cost",
+        "status": "Status"
+      },
+      "empty": "No event budgets yet — plan your first trip or fundraiser to get started",
+      "emptyFiltered": "No event budgets match the current filters.",
+      "pagination": {
+        "summary": "Page {page} of {total} · {count} total",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "createForm": {
+        "title": "New event budget",
+        "name": "Name",
+        "type": "Type",
+        "eventDate": "Date",
+        "eventEndDate": "End date (optional)",
+        "scope": "Scope",
+        "scopeClass": "Class",
+        "scopeYearGroup": "Year group",
+        "scopeSchool": "Whole school",
+        "participantCount": "Participants",
+        "householdSharePct": "Household share %",
+        "paymentPlan": "Payment plan",
+        "paymentPlanOptions": {
+          "one_off": "One-off",
+          "two_payments": "2 payments",
+          "three_payments": "3 payments",
+          "four_payments": "4 payments"
+        },
+        "notes": "Notes (optional)",
+        "submit": "Create event budget",
+        "cancel": "Cancel",
+        "submitError": "Failed to create event budget"
+      }
+    }
+  },
+  "financeBudgetingWorkspace": {
+    "title": "Financial model",
+    "loadError": "Failed to load financial model",
+    "notFound": "Model not found",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Failed to save changes",
+    "header": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived",
+      "publishedV": "Published v{n}",
+      "drivers": "Drivers",
+      "compare": "Compare scenarios",
+      "variance": "Variance",
+      "snapshots": "Snapshots",
+      "publish": "Publish snapshot",
+      "publishDisabled": "Already published — create a new draft to edit",
+      "publishedToast": "Published v{version}",
+      "varianceDisabled": "Publish a snapshot first to enable variance tracking",
+      "compareDisabled": "Add an alternative scenario to compare"
+    },
+    "kpi": {
+      "revenue": "Revenue",
+      "expenditure": "Expenditure",
+      "net": "Net result",
+      "perPupil": "Per pupil",
+      "year": "Year {n}",
+      "saving": "Saving…"
+    },
+    "scenarios": {
+      "base": "Base case",
+      "addAlternative": "Add scenario",
+      "newName": "Scenario name",
+      "create": "Create",
+      "manage": "Manage scenarios"
+    },
+    "drawer": {
+      "title": "Drivers",
+      "editingBase": "Editing: Base case",
+      "editingScenario": "Editing: {name} (overrides only)",
+      "applyToYear": "Apply to year",
+      "allYears": "All years",
+      "yearN": "Year {n}",
+      "done": "Done",
+      "sections": {
+        "enrollmentFees": "Enrollment & fees",
+        "staff": "Staff",
+        "operations": "Operations",
+        "capital": "Capital",
+        "otherIncome": "Other income"
+      },
+      "fields": {
+        "enrollmentGrowth": "Enrollment growth %",
+        "feeUplift": "Fee uplift %",
+        "discountCapture": "Discount capture %",
+        "scholarshipCapture": "Scholarship capture %",
+        "headcountDelta": "Headcount delta",
+        "salaryUplift": "Salary uplift %",
+        "utilitiesInflation": "Utilities inflation %",
+        "materialsInflation": "Materials inflation %",
+        "donationsForecast": "Donations forecast",
+        "grantsForecast": "Grants forecast",
+        "capexAdd": "Add capex item",
+        "capexEmpty": "No capital items yet.",
+        "capexName": "Item name",
+        "capexAmount": "Amount",
+        "capexFiscalYear": "Year",
+        "capexNotes": "Notes (optional)"
+      }
+    },
+    "table": {
+      "categories": {
+        "income": "Income",
+        "staff_costs": "Staff Costs",
+        "operations": "Operations",
+        "capital": "Capital",
+        "reserves_and_adjustments": "Reserves & Adjustments"
+      },
+      "addLine": "Add line",
+      "addLineComingSoon": "Custom line creation lands in the next iteration.",
+      "emptyCategory": "No lines in this category yet.",
+      "source": {
+        "driver_derived": "Driver",
+        "custom": "Custom",
+        "override": "Override"
+      },
+      "lockTitle": "Lock this line so it doesn't recompute",
+      "unlockTitle": "Unlock — let drivers recompute",
+      "deleteTitle": "Delete custom line",
+      "saveFailed": "Failed to save line item"
+    },
+    "yearSelector": {
+      "label": "Year",
+      "yearN": "Year {n}",
+      "academicYear": "{from}/{to}"
+    },
+    "warnings": {
+      "title": "Engine warnings"
+    }
+  },
+  "financeBudgetingCompare": {
+    "title": "Compare scenarios",
+    "back": "Back to workspace",
+    "loadError": "Failed to load model",
+    "baseLabel": "Base case",
+    "noScenarios": "No alternative scenarios yet",
+    "noScenariosBody": "Compare needs at least one alternative scenario. Add one from the workspace.",
+    "addAlternative": "Add an alternative",
+    "viewToggle": {
+      "label": "View",
+      "chart": "Chart",
+      "cards": "Cards",
+      "table": "Table"
+    },
+    "kpi": {
+      "revenue": "Revenue",
+      "expenditure": "Expenditure",
+      "net": "Net",
+      "perPupil": "/ pupil",
+      "deltaVsBase": "vs base",
+      "basePill": "Base"
+    },
+    "chart": {
+      "ariaLabel": "Scenario comparison chart",
+      "legendRevenue": "Revenue",
+      "legendExpenditure": "Expenditure",
+      "legendNet": "Net"
+    },
+    "cards": {
+      "driversSummary": "Drivers summary",
+      "viewDetail": "View detail",
+      "baseNote": "Reference values for this base case.",
+      "noChanges": "No driver changes vs base."
+    },
+    "table": {
+      "linesHeader": "Line item",
+      "totalsRow": "Net result",
+      "mobilePicker": "Compare",
+      "categories": {
+        "income": "Income",
+        "staff_costs": "Staff Costs",
+        "operations": "Operations",
+        "capital": "Capital",
+        "reserves_and_adjustments": "Reserves & Adjustments"
+      }
+    }
+  },
+  "financeBudgetingVariance": {
+    "title": "Variance",
+    "backToWorkspace": "Back to workspace",
+    "loadError": "Failed to load variance data",
+    "empty": {
+      "title": "No variance rows yet",
+      "body": "Run a refresh to materialise actuals against the published plan."
+    },
+    "notReady": {
+      "noSnapshot": {
+        "title": "Variance will be available once the model is published",
+        "body": "Publish a snapshot to start tracking actuals against your plan.",
+        "cta": "Publish snapshot"
+      },
+      "yearNotStarted": {
+        "title": "Variance will be available once {fiscalYear} begins",
+        "body": "The academic year starts {date}."
+      }
+    },
+    "period": {
+      "month": "Month",
+      "term": "Term",
+      "year": "Year",
+      "selectPeriod": "Select period"
+    },
+    "refresh": {
+      "label": "Refresh now",
+      "refreshing": "Refreshing…",
+      "ago": "Refreshed {time}",
+      "neverRefreshed": "Never refreshed",
+      "completed": "Variance updated",
+      "failed": "Failed to refresh — please try again",
+      "slow": "Refresh is taking longer than expected — check back in a minute"
+    },
+    "table": {
+      "lineItem": "Line item",
+      "planned": "Planned",
+      "actual": "Actual",
+      "variance": "Variance",
+      "variancePct": "Variance %",
+      "actions": "Actions",
+      "logActual": "+ Log actual",
+      "auto": "Auto",
+      "autoTooltip": "Pulled automatically from {source}",
+      "totals": {
+        "revenue": "Revenue",
+        "expenditure": "Expenditure",
+        "net": "Net"
+      },
+      "categories": {
+        "income": "Income",
+        "staff_costs": "Staff Costs",
+        "operations": "Operations",
+        "capital": "Capital",
+        "reserves_and_adjustments": "Reserves & Adjustments"
+      }
+    },
+    "tooltip": {
+      "headlineBelow": "Below plan by",
+      "headlineAbove": "Above plan by",
+      "enrollment": "{yearGroup} enrolment came in {students} students different than projected",
+      "fee": "Fee uptake differed by {pct}pp",
+      "discount": "Discount uptake differed by {pct}pp",
+      "other": "Other / unexplained"
+    },
+    "manualActuals": {
+      "title": "Log actual for {lineName}",
+      "period": "Period: {period}",
+      "actual": "Actual amount",
+      "notes": "Notes (optional)",
+      "submit": "Save actual",
+      "cancel": "Cancel",
+      "saved": "Actual logged",
+      "saveFailed": "Could not save actual"
+    }
+  },
+  "financeBudgetingSnapshots": {
+    "title": "Snapshots",
+    "backToWorkspace": "Back to workspace",
+    "loadError": "Failed to load snapshots",
+    "publishCta": "Publish snapshot",
+    "retryEnqueued": "Re-render enqueued",
+    "retryFailed": "Could not enqueue re-render",
+    "empty": {
+      "title": "No snapshots yet",
+      "body": "Publish your first to lock in a version of the model.",
+      "cta": "Back to workspace"
+    },
+    "row": {
+      "publishedAt": "Published {date}",
+      "currentPill": "Current",
+      "versionPill": "v{n}",
+      "renderStatus": {
+        "pending": "Rendering…",
+        "rendering": "Rendering…",
+        "ready": "Ready",
+        "failed": "Render failed",
+        "retry": "Retry"
+      },
+      "downloadPdf": "PDF",
+      "downloadExcel": "Excel",
+      "restore": "Restore as draft",
+      "restoreDisabled": "Only draft models can be restored from a snapshot",
+      "share": "Manage links",
+      "shareDisabled": ""
+    },
+    "detail": {
+      "title": "Snapshot v{n}",
+      "executiveSummaryHeader": "Executive summary",
+      "noSummary": "No executive summary written for this snapshot.",
+      "kpiHeader": "Headline numbers",
+      "kpiRevenue": "Revenue",
+      "kpiExpenditure": "Expenditure",
+      "kpiNet": "Net",
+      "kpiPerPupil": "/ pupil",
+      "driversHeader": "Drivers",
+      "lineItemsHeader": "Line items",
+      "scenariosHeader": "Alternatives",
+      "downloadPdf": "Download PDF",
+      "downloadExcel": "Download Excel",
+      "liCategory": "Category",
+      "liName": "Name",
+      "liAmount": "Amount",
+      "driverOverridesCount": "{count, plural, =0 {No driver overrides} one {# driver override} other {# driver overrides}}"
+    },
+    "publishModal": {
+      "title": "Publish snapshot",
+      "body": "This freezes a version of {modelName}. You'll continue editing in a new draft afterwards. The snapshot stays accessible forever.",
+      "executiveSummaryLabel": "Executive summary",
+      "executiveSummaryPlaceholder": "Write a short summary for the board (optional). 1–2 paragraphs is ideal.",
+      "characterCount": "{count} / {max}",
+      "confirmCheckbox": "I understand this will lock the current state as a permanent version.",
+      "submit": "Publish snapshot",
+      "cancel": "Cancel",
+      "publishedToast": "Published v{version}",
+      "noChangesError": "No changes since the last published version",
+      "genericError": "Could not publish — please try again"
+    },
+    "restoreModal": {
+      "title": "Restore version v{n} as a new draft?",
+      "body": "The model's current draft will be replaced with the state from this snapshot. The snapshot itself stays in history.",
+      "submit": "Restore as draft",
+      "cancel": "Cancel",
+      "restoredToast": "Snapshot v{n} restored as draft",
+      "failed": "Could not restore snapshot"
+    },
+    "exportNotReady": "Rendering — try again in 30 seconds"
+  },
+  "financeBudgetingShare": {
+    "loadError": "Failed to load shareable links",
+    "manage": {
+      "title": "Shared links",
+      "subtitle": "Issue read-only links to {name} for board members and external recipients. Links expire and can be password-protected.",
+      "backToSnapshots": "Back to snapshots",
+      "issueLink": "+ Issue new link",
+      "noSnapshots": {
+        "title": "Publish a snapshot first",
+        "body": "Shareable links read from a published snapshot. Publish your model to enable sharing.",
+        "cta": "Back to workspace"
+      },
+      "empty": {
+        "title": "No shareable links yet",
+        "body": "Issue a link to share this model with board members or external recipients without giving them an EduPod login.",
+        "cta": "Issue first link"
+      },
+      "activeHeading": "{count, plural, one {# active link} other {# active links}}",
+      "inactiveHeading": "{count, plural, one {# inactive link} other {# inactive links}} (expired or revoked)"
+    },
+    "row": {
+      "expired": "Expired",
+      "expiresInDays": "Expires in {n, plural, one {# day} other {# days}}",
+      "expiresInHours": "Expires in {n, plural, one {# hour} other {# hours}}",
+      "viewedNTimes": "{n, plural, =0 {No views} one {# view} other {# views}}",
+      "lastViewed": "Last viewed: {value}",
+      "neverViewed": "never",
+      "scenarios": "Scenarios: {list}",
+      "passwordProtected": "Password protected",
+      "copyUrl": "Copy URL",
+      "urlCopied": "URL copied to clipboard",
+      "copyFailed": "Could not copy URL",
+      "revoke": "Revoke",
+      "actionsDisabled": "This link is no longer active",
+      "badges": {
+        "expired": "Expired",
+        "revoked": "Revoked"
+      }
+    },
+    "relativeTime": {
+      "justNow": "just now",
+      "minutesAgo": "{n, plural, one {# minute ago} other {# minutes ago}}",
+      "hoursAgo": "{n, plural, one {# hour ago} other {# hours ago}}",
+      "daysAgo": "{n, plural, one {# day ago} other {# days ago}}"
+    },
+    "modal": {
+      "title": "Issue shareable link",
+      "subtitle": "This link will read from snapshot v{version}. Recipients see only the data you allow.",
+      "cancel": "Cancel",
+      "submit": "Issue link",
+      "expires": {
+        "label": "Link expires in",
+        "days": "{count} days",
+        "helper": "Links automatically stop working after the expiry date."
+      },
+      "password": {
+        "toggleLabel": "Add a password (optional)",
+        "placeholder": "At least 6 characters",
+        "helper": "Recipients will need to enter this password to view the snapshot.",
+        "show": "Show password",
+        "hide": "Hide password"
+      },
+      "scenarios": {
+        "label": "Scenarios visible",
+        "helper": "Recipients only see the scenarios you check here. Base case is always visible.",
+        "baseLabel": "Base case",
+        "alwaysOn": "always visible"
+      },
+      "errors": {
+        "create": "Could not issue link — please try again",
+        "copy": "Could not copy URL"
+      },
+      "success": {
+        "title": "Link issued",
+        "body": "Send this URL to your recipients. Anyone with the URL can view the snapshot until it expires.",
+        "urlLabel": "Shareable URL",
+        "copy": "Copy",
+        "copiedToast": "URL copied to clipboard",
+        "warning": "Treat this URL like a confidential document — anyone with it can view the snapshot.",
+        "done": "Done"
+      }
+    },
+    "revokeConfirm": {
+      "title": "Revoke link …{suffix}?",
+      "body": "Anyone trying to access this link will see an error message. Revoke is permanent — issue a new link if you need to share again.",
+      "cancel": "Cancel",
+      "confirm": "Revoke link",
+      "revokedToast": "Link revoked",
+      "failed": "Could not revoke link"
+    },
+    "public": {
+      "loading": "Loading snapshot…",
+      "subtitle": "{modelName} — FY {fy} · v{version} · Published {date}",
+      "tabsAriaLabel": "Snapshot sections",
+      "tabs": {
+        "summary": "Summary",
+        "scenarios": "Scenarios",
+        "lineItems": "Line items",
+        "assumptions": "Assumptions"
+      },
+      "summary": {
+        "executiveTitle": "Executive summary",
+        "totalRevenue": "Total revenue",
+        "totalExpenditure": "Total expenditure",
+        "netResult": "Net result",
+        "netPerPupil": "Net per pupil",
+        "fiscalYear": "Fiscal year",
+        "revenue": "Revenue",
+        "expenditure": "Expenditure",
+        "net": "Net"
+      },
+      "scenarios": {
+        "baseCase": "Base case",
+        "baseBadge": "Base",
+        "empty": "No alternative scenarios were shared on this link."
+      },
+      "lineItems": {
+        "name": "Item",
+        "fy": "FY",
+        "amount": "Amount",
+        "empty": "No line items in this snapshot.",
+        "categories": {
+          "income": "Income",
+          "staff_costs": "Staff costs",
+          "operations": "Operations",
+          "capital": "Capital",
+          "reserves_and_adjustments": "Reserves & adjustments",
+          "other": "Other"
+        }
+      },
+      "assumptions": {
+        "driver": "Driver",
+        "value": "Value",
+        "empty": "No assumptions recorded for this snapshot."
+      },
+      "confidential": "Confidential — Board of Directors",
+      "footer": "{tenant} · Generated by EduPod Budgeting — Confidential",
+      "errors": {
+        "expiredTitle": "This link has expired",
+        "expiredBody": "Contact the person who shared it for a new link.",
+        "revokedTitle": "This link has been revoked",
+        "revokedBody": "The school has revoked this link. Contact the person who shared it.",
+        "notFoundTitle": "Link not available",
+        "notFoundBody": "This link is invalid or no longer available."
+      },
+      "password": {
+        "title": "This link is password-protected",
+        "tokenPreview": "Token: …{suffix}",
+        "label": "Password",
+        "placeholder": "Enter the password",
+        "submit": "View snapshot",
+        "wrongAttempt": "Incorrect password — please try again.",
+        "lockedOut": "Too many attempts. Please wait 60 seconds before trying again.",
+        "contactHelp": "Wrong password? Contact the person who shared this link."
+      }
+    }
+  },
+  "financeBudgetingSettings": {
+    "title": "Budgeting settings",
+    "subtitle": "Defaults applied to new financial models and event budgets. Existing budgets are not affected.",
+    "backToHub": "Back to Budgeting",
+    "loadError": "Failed to load settings",
+    "saving": "Saving…",
+    "save": "Save",
+    "discardChanges": "Discard changes",
+    "saveSuccess": "Settings saved",
+    "saveError": "Could not save settings — please try again",
+    "permissionDenied": {
+      "title": "You don't have permission",
+      "body": "Only Owner, Principal, and Vice Principal roles can manage budgeting settings.",
+      "cta": "Back to Budgeting"
+    },
+    "sections": {
+      "financialModels": {
+        "title": "New financial models",
+        "description": "Defaults used when creating a new annual budget."
+      },
+      "eventBudgets": {
+        "title": "New event budgets",
+        "description": "Defaults used when creating a new trip or event budget."
+      },
+      "exports": {
+        "title": "Exports",
+        "description": "Default render format for board packs and Excel workbooks."
+      },
+      "shareableLinks": {
+        "title": "Shareable links",
+        "description": "Maximum expiry users can choose when issuing a public read-only link."
+      }
+    },
+    "fields": {
+      "defaultHorizon": {
+        "label": "Default horizon",
+        "helper": "When you create a new annual model, the default forecast horizon.",
+        "option1": "1 year",
+        "option3": "3 years",
+        "option5": "5 years"
+      },
+      "defaultHouseholdShare": {
+        "label": "Default household share %",
+        "helper": "Default percentage of cost households pay (the rest is school subsidy)."
+      },
+      "defaultContingency": {
+        "label": "Default contingency %",
+        "helper": "Buffer applied to event budgets to absorb cost overruns."
+      },
+      "defaultExportFormat": {
+        "label": "Default export format",
+        "helper": "Which export format(s) are pre-rendered when publishing a snapshot.",
+        "option_pdf": "PDF",
+        "option_excel": "Excel",
+        "option_both": "Both"
+      },
+      "shareableLinkMaxDays": {
+        "label": "Max expiry (days)",
+        "helper": "Maximum number of days users can choose when issuing a shareable link. Defaults to 30."
+      },
+      "hiddenKpiKeys": {
+        "label": "Workspace KPIs",
+        "helper": "Untick a KPI to hide it from the workspace KPI strip. Useful if a metric isn't relevant.",
+        "hiddenLabel": "hidden",
+        "revenue_per_student": "Revenue per student",
+        "expenditure_per_student": "Expenditure per student",
+        "net_per_student": "Net per student",
+        "breakeven_students": "Breakeven students"
+      }
+    }
+  },
+  "financeBudgetingEventBudgets": {
+    "status": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "fees_generated": "Fees generated",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "workspace": {
+      "title": "Event budget",
+      "loadError": "Failed to load event budget",
+      "notFound": "Event not found",
+      "saveFailed": "Failed to save changes",
+      "saving": "Saving…",
+      "actionFailed": "Action failed — please try again",
+      "scenarioCreateFailed": "Could not create scenario",
+      "backToList": "Back to events",
+      "headerDescription": "{type} · {date} · {participants} participants"
+    },
+    "drivers": {
+      "transport": {
+        "label": "Transport",
+        "unitCost": "Unit cost",
+        "units": "Units (vehicles / tickets)",
+        "notes": "Notes",
+        "empty": "No transport budgeted"
+      },
+      "tickets": {
+        "label": "Tickets / entry fees",
+        "perStudent": "Per student",
+        "count": "Count",
+        "empty": "No tickets budgeted"
+      },
+      "food": {
+        "label": "Food",
+        "perPerson": "Per person",
+        "count": "Count",
+        "empty": "No food budgeted"
+      },
+      "accommodation": {
+        "label": "Accommodation",
+        "perNight": "Per night",
+        "nights": "Nights",
+        "count": "Rooms / pax",
+        "empty": "No accommodation budgeted"
+      },
+      "chaperones": {
+        "label": "Chaperones",
+        "count": "Count",
+        "perChaperone": "Per chaperone",
+        "empty": "No chaperones budgeted"
+      },
+      "equipment": {
+        "label": "Equipment hire",
+        "summary": "{count, plural, =0 {No items yet} one {# item} other {# items}}",
+        "itemName": "Item",
+        "itemCost": "Cost",
+        "add": "Add item",
+        "remove": "Remove item"
+      },
+      "contingency": {
+        "label": "Contingency %",
+        "summary": "{pct}% buffer applied"
+      },
+      "custom": {
+        "label": "Custom lines",
+        "summary": "{count, plural, =0 {No custom lines} one {# line} other {# lines}}",
+        "lineName": "Name",
+        "amount": "Amount",
+        "add": "Add line",
+        "remove": "Remove line"
+      }
+    },
+    "outputCard": {
+      "ariaLabel": "Live event totals",
+      "totalCost": "Total cost",
+      "perStudent": "Per student",
+      "perHousehold": "Per household",
+      "breakeven": "Breakeven",
+      "schoolSubsidy": "School subsidy",
+      "contingencyCaption": "Inc. {pct}% contingency · {students} students",
+      "participantPlaceholder": "Set participant count to see per-student cost",
+      "householdPlaceholder": "Scope to a class or year group to see per-household",
+      "breakevenPlaceholder": "n/a — per-student charge is 0"
+    },
+    "scenarios": {
+      "ariaLabel": "Event scenarios",
+      "base": "Base",
+      "add": "Add scenario",
+      "newName": "Scenario name",
+      "create": "Create",
+      "cancel": "Cancel"
+    },
+    "households": {
+      "ariaLabel": "Per-household breakdown",
+      "header": "Per-household breakdown",
+      "summary": "{households} households · {students} students",
+      "noScope": "No participating households yet — set a class or year group above.",
+      "empty": "No matching households found.",
+      "cardStudents": "{count, plural, one {# student} other {# students}}",
+      "cols": {
+        "household": "Household",
+        "students": "Students",
+        "amount": "Total amount"
+      }
+    },
+    "actions": {
+      "save": "Save",
+      "saving": "Saving…",
+      "confirm": "Confirm →",
+      "confirmSuccess": "Event confirmed",
+      "cancelEvent": "Cancel",
+      "cancelSuccess": "Event cancelled",
+      "complete": "Mark completed",
+      "completeSuccess": "Event completed",
+      "markSchoolFunded": "Mark school-funded →",
+      "mark-school-fundedSuccess": "Marked as school-funded",
+      "generateFees": "Generate fees →",
+      "generateFeesDisabled": "You don't have permission to generate fees",
+      "viewInvoices": "View invoices in Finance",
+      "exportPdf": "Export PDF",
+      "cancelBlockedByFees": "This trip has fees in Finance — void those assignments first"
+    },
+    "generateFees": {
+      "title": "Generate fees",
+      "subtitle": "{eventName} · {date} · {participants} participants",
+      "loadError": "Failed to load preview",
+      "back": "Back to event",
+      "summary": {
+        "totalToInvoice": "Total to invoice",
+        "schoolSubsidy": "School subsidy",
+        "households": "Households",
+        "students": "Students"
+      },
+      "paymentPlan": {
+        "header": "Payment plan",
+        "oneOff": "One-off invoice",
+        "split": "{count} payments",
+        "noDates": "Due date will follow the event date"
+      },
+      "households": {
+        "header": "Households to invoice",
+        "cols": {
+          "household": "Household",
+          "students": "Students",
+          "amount": "Amount"
+        }
+      },
+      "noStudents": {
+        "title": "Nothing to invoice",
+        "body": "No students resolved for this event. Set a class or year group on the event before generating fees."
+      },
+      "actions": {
+        "generateFees": "Generate fees",
+        "backToEvent": "Back to event",
+        "viewInvoices": "View invoices in Finance →",
+        "backToHub": "Back to budgeting hub",
+        "tryAgain": "Try again"
+      },
+      "confirm": {
+        "title": "Generate fees for {eventName}",
+        "willCreate": "This will create:",
+        "invoices": "{count, plural, one {# invoice} other {# invoices}}",
+        "forHouseholds": "for {count, plural, one {# household} other {# households}}",
+        "forTotal": "for a total of {amount}",
+        "showAll": "Show all {count} households",
+        "checkbox": "I understand this will invoice {count, plural, one {# household} other {# households}} for a total of {amount}.",
+        "cancel": "Cancel",
+        "confirm": "Confirm and generate",
+        "submitting": "Generating…"
+      },
+      "success": {
+        "title": "Fees generated successfully",
+        "body": "{count} invoices created · {amount} total"
+      },
+      "errors": {
+        "EVENT_NOT_CONFIRMED": {
+          "title": "Confirm the event first",
+          "body": "This trip must be confirmed before generating fees. Open the event workspace and click Confirm."
+        },
+        "INSUFFICIENT_PERMISSIONS": {
+          "title": "You don't have permission to generate fees",
+          "body": "You need budgeting.view, budgeting.generate_fees, and finance.manage."
+        },
+        "FEES_ALREADY_GENERATED": {
+          "title": "Fees already generated",
+          "body": "Fees for this event have already been generated. View them in Finance."
+        },
+        "EVENT_BUDGET_NOT_FOUND": {
+          "title": "Event not found",
+          "body": "We couldn't find this event budget."
+        },
+        "EVENT_CANCELLED": {
+          "title": "Event is cancelled",
+          "body": "Cancelled events can't generate fees."
+        },
+        "HOUSEHOLD_SHARE_ZERO": {
+          "title": "School-funded trip",
+          "body": "Household share is 0%. Use 'Mark school-funded' from the workspace instead."
+        },
+        "NO_PARTICIPANTS": {
+          "title": "No participants",
+          "body": "No participants are assigned to this event."
+        },
+        "FEE_STRUCTURE_CREATION_FAILED": {
+          "title": "Couldn't set up the fee structure",
+          "body": "Try again, or contact support if the problem persists."
+        },
+        "INVOICE_CREATION_FAILED": {
+          "title": "Couldn't create invoices",
+          "body": "One or more invoices couldn't be created and the whole batch was rolled back. Try again."
+        },
+        "UNKNOWN_ERROR": {
+          "title": "Something went wrong",
+          "body": "Please try again or contact support."
+        }
       }
     }
   },

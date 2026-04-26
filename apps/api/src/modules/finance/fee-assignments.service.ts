@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import {
   BadRequestException,
   ConflictException,
@@ -277,6 +279,44 @@ export class FeeAssignmentsService {
         ? { ...updated.discount, value: Number(updated.discount.value) }
         : null,
     };
+  }
+
+  /**
+   * Bulk-create fee assignments inside an existing transaction (the caller
+   * is responsible for the `createRlsClient(prisma).$transaction(...)`
+   * boundary). Used by the budgeting module's
+   * `TripFeeIntegrationService` to push a confirmed event budget's
+   * per-student cost onto the household billing surface in one shot.
+   *
+   * Returns a stable `run_id` so the caller can persist the run on the
+   * source aggregate (`event_budgets.fee_generation_run_id`). Each row
+   * is created with `effective_from = today` and `effective_to = null`.
+   */
+  async bulkCreate(
+    tx: PrismaService,
+    tenantId: string,
+    rows: Array<{
+      household_id: string;
+      student_id?: string | null;
+      fee_structure_id: string;
+      discount_id?: string | null;
+      effective_from?: string;
+    }>,
+  ): Promise<{ run_id: string; count: number }> {
+    if (rows.length === 0) return { run_id: randomUUID(), count: 0 };
+    const today = new Date();
+    await tx.householdFeeAssignment.createMany({
+      data: rows.map((r) => ({
+        tenant_id: tenantId,
+        household_id: r.household_id,
+        student_id: r.student_id ?? null,
+        fee_structure_id: r.fee_structure_id,
+        discount_id: r.discount_id ?? null,
+        effective_from: r.effective_from ? new Date(r.effective_from) : today,
+        effective_to: null,
+      })),
+    });
+    return { run_id: randomUUID(), count: rows.length };
   }
 
   async endAssignment(tenantId: string, id: string) {

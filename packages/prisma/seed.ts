@@ -48,6 +48,7 @@ const MODULE_KEYS = [
   'behaviour',
   'pastoral',
   'ai_functions',
+  'budgeting',
 ];
 
 const NOTIFICATION_TYPES = [

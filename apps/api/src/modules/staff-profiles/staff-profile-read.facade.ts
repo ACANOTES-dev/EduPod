@@ -325,4 +325,78 @@ export class StaffProfileReadFacade {
       skip,
     });
   }
+
+  /**
+   * Aggregate active staff by `department` for the budgeting source-data
+   * snapshot (modeling/PLAN.md §4). Returns one row per non-empty
+   * department string with:
+   *   - `department_id`: lowercase, trimmed slug of the department name
+   *     (stable identifier the engine uses to key
+   *     `staff_headcount_delta_by_department` overrides).
+   *   - `department_name`: the canonical-cased value as stored.
+   *   - `headcount`: count of `employment_status = 'active'` staff.
+   *   - `total_annual_payroll`: sum of the most recent active
+   *     `staff_compensation.base_salary` per staff (effective_from <= today
+   *     AND (effective_to IS NULL OR effective_to >= today)).
+   *
+   * Staff with `department IS NULL` are excluded (no department to track
+   * head-count deltas against). Compensation rows with NULL `base_salary`
+   * (e.g. per-class-rate-only contracts) contribute 0 to the payroll
+   * total but still count toward headcount.
+   */
+  async summariseByDepartmentForBudgeting(tenantId: string): Promise<
+    Array<{
+      department_id: string;
+      department_name: string;
+      headcount: number;
+      total_annual_payroll: number;
+    }>
+  > {
+    const today = new Date();
+    const profiles = await this.prisma.staffProfile.findMany({
+      where: {
+        tenant_id: tenantId,
+        employment_status: 'active',
+        department: { not: null },
+      },
+      select: {
+        id: true,
+        department: true,
+        compensations: {
+          where: {
+            effective_from: { lte: today },
+            OR: [{ effective_to: null }, { effective_to: { gte: today } }],
+          },
+          select: { base_salary: true, effective_from: true },
+          orderBy: { effective_from: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const buckets = new Map<
+      string,
+      { department_name: string; headcount: number; total_annual_payroll: number }
+    >();
+    for (const profile of profiles) {
+      const department = (profile.department ?? '').trim();
+      if (!department) continue;
+      const id = department.toLowerCase().replace(/\s+/g, '-');
+      const existing = buckets.get(id) ?? {
+        department_name: department,
+        headcount: 0,
+        total_annual_payroll: 0,
+      };
+      existing.headcount += 1;
+      const baseSalary = profile.compensations[0]?.base_salary;
+      if (baseSalary !== null && baseSalary !== undefined) {
+        existing.total_annual_payroll += Number(baseSalary);
+      }
+      buckets.set(id, existing);
+    }
+
+    return Array.from(buckets.entries())
+      .map(([department_id, value]) => ({ department_id, ...value }))
+      .sort((a, b) => a.department_name.localeCompare(b.department_name));
+  }
 }

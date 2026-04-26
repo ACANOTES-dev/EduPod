@@ -153,6 +153,15 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'early_warning.manage',
       'early_warning.acknowledge',
       'early_warning.assign',
+      // Budgeting & Analysis ("Modeling") rebuild (Impl 01) — owner has full
+      // financial-modeling access including fee generation (paired with
+      // existing finance.manage)
+      'budgeting.view',
+      'budgeting.manage',
+      'budgeting.publish',
+      'budgeting.share',
+      'budgeting.generate_fees',
+      'budgeting.archive',
       // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
@@ -283,6 +292,14 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'early_warning.manage',
       'early_warning.acknowledge',
       'early_warning.assign',
+      // Budgeting & Analysis ("Modeling") rebuild (Impl 01) — principal has
+      // full financial-modeling access including fee generation
+      'budgeting.view',
+      'budgeting.manage',
+      'budgeting.publish',
+      'budgeting.share',
+      'budgeting.generate_fees',
+      'budgeting.archive',
     ],
   },
   {
@@ -446,6 +463,12 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       // Wellbeing rebuild (Impl 01) — staff-visible dashboard
       'wellbeing.view_dashboard',
+      // Budgeting & Analysis ("Modeling") rebuild (Impl 01) — accounting
+      // can build models, log event budgets, and push trip fees through
+      // the Finance module (paired with their existing finance.manage)
+      'budgeting.view',
+      'budgeting.manage',
+      'budgeting.generate_fees',
     ],
   },
   {
@@ -461,6 +484,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'inbox.send',
       // Wellbeing rebuild (Impl 01) — staff-visible dashboard
       'wellbeing.view_dashboard',
+      // Budgeting & Analysis ("Modeling") rebuild (Impl 01) — read-only
+      // access for the trip calculator
+      'budgeting.view',
     ],
   },
   {
@@ -524,6 +550,14 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'early_warning.view',
       'early_warning.acknowledge',
       'early_warning.assign',
+      // Budgeting & Analysis ("Modeling") rebuild (Impl 01) — VP has full
+      // financial-modeling access mirroring principal
+      'budgeting.view',
+      'budgeting.manage',
+      'budgeting.publish',
+      'budgeting.share',
+      'budgeting.generate_fees',
+      'budgeting.archive',
     ],
   },
   {
