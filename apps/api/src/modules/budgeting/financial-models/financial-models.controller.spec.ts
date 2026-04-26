@@ -48,13 +48,19 @@ describe('FinancialModelsController', () => {
 
   describe('GET /v1/budgeting/financial-models', () => {
     it('delegates to FinancialModelsService.findAll with tenant + query', async () => {
-      const query = { page: 1, pageSize: 20 };
+      const query = { page: 1, pageSize: 20, order: 'desc' as const };
       await controller.findAll(TENANT, query);
       expect(service.findAll).toHaveBeenCalledWith(TENANT_ID, query);
     });
 
     it('forwards filter overrides through unchanged', async () => {
-      const query = { page: 2, pageSize: 50, status: 'published' as const, search: 'budget' };
+      const query = {
+        page: 2,
+        pageSize: 50,
+        order: 'asc' as const,
+        status: 'published' as const,
+        search: 'budget',
+      };
       await controller.findAll(TENANT, query);
       expect(service.findAll).toHaveBeenCalledWith(TENANT_ID, query);
     });
@@ -73,9 +79,7 @@ describe('FinancialModelsController', () => {
       const dto = {
         name: 'FY 2026/27',
         fiscal_year_start: '2026-09-01',
-        fiscal_year_end: '2027-08-31',
         horizon_years: 1 as const,
-        description: null,
       };
       await controller.create(TENANT, USER, dto);
       expect(service.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);

@@ -50,7 +50,7 @@ describe('ScenariosController', () => {
   });
 
   it('POST / delegates to ScenariosService.create with tenant + model + user + dto', async () => {
-    const dto = { name: 'Cautious', notes: null, driver_overrides: {} };
+    const dto = { name: 'Cautious', driver_overrides: {} };
     await controller.create(TENANT, USER, MODEL_ID, dto);
     expect(service.create).toHaveBeenCalledWith(TENANT_ID, MODEL_ID, USER_ID, dto);
   });
