@@ -148,7 +148,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Foundation: envelope unwrap + pagination + my-schedule | 1    | foundation     | serial               | —              | `completed`   | 2026-04-26T00:04 Europe/Dublin | `39c30036` |
 | 02  | Hub landing + retire in-page strip                     | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:23 Europe/Dublin | `16484131` |
 | 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:47 Europe/Dublin | `f2c8d257` |
-| 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `deploying`   |                                |            |
+| 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `completed`   | 2026-04-26T01:45 Europe/Dublin | `b5032bb6` |
 | 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `completed`   | 2026-04-26T00:59 Europe/Dublin | `b5699918` |
 | 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `pending`     |                                |            |
 
@@ -466,3 +466,97 @@ progressComplete,progressTotal}` to messages/en.json + messages/ar.json
     both pass clean for the rewritten script.
   - Throwaway role-inspection script (`/tmp/inspect-roles.ts`) used to
     diagnose the RLS issue was deleted from local + remote after use.
+
+### [IMPL 04] — Event sub-pages + parent flow polish
+
+- **Completed:** 2026-04-26T01:45 Europe/Dublin
+- **Commit:** `b5032bb6` (latest); spans `b98c5694` → `a332beba` → `b5032bb6`
+- **Deployed to production:** yes (rsync + `chown` + clean `@school/shared`
+  rebuild + force `--filter=@school/api --filter=@school/web` build +
+  `pm2 restart api web --update-env`)
+- **Summary (≤ 200 words):**
+  Three code commits shipped six logical fixes:
+  - `b98c5694` (sibling-session) — wired the parent Pay button on
+    `parent/events/page.tsx` + `parent/events/[id]/page.tsx` to
+    `/${locale}/dashboard?tab=finances&invoice=${id}` with `disabled`
+    state when no `invoice_id` is present, and added `invoice_id` to
+    the `parent-events.controller.ts` select clause + the
+    `ParentEventRow.participants` and `ParentEventDetail.my_participants`
+    types. Translation call sites were buggy (`t('engagement.parent.events.payNotOpen')`
+    inside a `useTranslations('engagement')` namespace).
+  - `a332beba` (this session) — fixed the namespacing bug to
+    `t('parent.events.payNotOpen')`, added the `engagement.parent.events.payNotOpen`
+    key to `messages/en.json` + `messages/ar.json` (deep-merged), replaced
+    the staff-tab raw `user_id` UUID with `humanizeStatus(assignment.role)`
+    on `events/[id]/page.tsx`, and dropped the App-Router-incompatible
+    `<style jsx global>` block on `conferences/[id]/my-schedule/page.tsx`
+    in favour of Tailwind `print:` variants.
+  - `b5032bb6` (this session) — moved the events-list date filter
+    server-side: `listEventsQuerySchema` in `@school/shared`,
+    `start_date_from/_to` in `EventListFilters` + `findAll` (gte/lte on
+    `start_date`), `events.controller.ts` query params, frontend drops
+    `React.useMemo filteredEvents` and passes the params on the URL.
+    3 new `events.service.spec.ts` tests for from-only, to-only, and
+    bracket cases.
+
+  Trip-pack download (sub-step 5) was already correct: the on-disk file
+  uses `getAccessToken()` and attaches `Authorization: Bearer ${token}`
+  manually per the `project_frontend_bearer_for_blob_downloads` pattern.
+
+  Production verified at `https://nhqs.edupod.app`: staff tab on the
+  School Trip event detail now shows three rows with subtitle
+  "Organiser" (was UUID); events list with `start_date_from=2026-05-01`
+  filters out the April 2026 event server-side and clearing the filter
+  brings it back; `engagement/conferences/<id>/my-schedule` renders
+  with zero `<style jsx>` blocks; translation keys deployed and resolve
+  correctly.
+
+- **Follow-ups:**
+  - **Lifecycle action verification (sub-step 6) deferred to Wave 4 / Impl 06.**
+    Only smoke-tested rendering; did not exercise publish → open → close →
+    complete or risk-assessment approve/reject flows on production.
+    Wave 4 / Impl 06's full Playwright revisit is the right place.
+  - **Parent Pay button cannot be exercised end-to-end on production today.**
+    The only event in NHQS is in `draft` status, and the parent endpoint
+    filters to `open|closed|in_progress|completed`. Parent has 0 events
+    visible. Code-reviewed-only verification of `invoice_id` flow.
+    Wave 4 / Impl 06 should publish + open the existing event to fully
+    smoke-test parent registration and the Pay-button hand-off.
+  - **`engagement.pages.eventDetail.riskAssessment` translation key
+    missing.** Showed up as raw key text on the event detail page's
+    "Trip logistics" section. Pre-existing — not in scope here.
+    Wave 4 / Impl 06 i18n parity sweep should pick it up.
+  - **`total={events.length}` on the DataTable** in `engagement/events/page.tsx`
+    is still wrong (uses page count, not paginated total). Pre-existing
+    — not changed by this impl. Wave 4 / Impl 06 polish.
+
+- **Session notes:**
+  - Session opened with three "untaken" pieces of state from prior
+    sessions: `be0ad988` had marked Impl 04 in-progress, `b98c5694` had
+    committed sub-step 2 (Pay button) with a translation-namespace bug,
+    and `apps/web/src/app/[locale]/(school)/engagement/conferences/[id]/my-schedule/page.tsx`
+    was modified-but-uncommitted in the working tree (sub-step 3 work).
+    All three were inherited and rolled into this session's commits per
+    the impl-04 ownership claim.
+  - Wave 3 sibling Impl 05 reached `completed` status during this
+    session's work but did not contend on any deployment target (per
+    the matrix Impl 05 has no API/web/worker restart). No serialisation
+    needed.
+  - **CP-SAT scheduler regression test is a pre-existing flake.** During
+    `pnpm turbo run test --filter=@school/{api,web,shared}`,
+    `packages/shared/src/scheduler/__tests__/cp-sat-regression.test.ts`
+    failed with non-deterministic `start_time` and `weekday` differences
+    between two solver runs. The file's git history shows multiple
+    determinism fix attempts (`50e94757`, `e18958d9`). Re-running it
+    alone reproduced the same failure. NOT a regression introduced by
+    this impl — my changes touch zero scheduler code.
+  - Local `pnpm turbo run type-check` clean across api+web+shared.
+    Lint clean for every file I touched (api lint task itself OOM'd at
+    Node level, but per-file ESLint reports zero errors, only
+    pre-existing warnings).
+  - Pre-push hooks not relevant here — deployment is via rsync + SSH,
+    not `git push`. Local commits only.
+  - Untracked workspace files (`.claude/commands/EN.md`,
+    `docs/architecture/communication-architecture.md`, plus directory
+    `modeling/` from another rebuild) were left untouched throughout
+    per Rule H6.
