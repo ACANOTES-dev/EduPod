@@ -30,10 +30,14 @@ jest.mock('puppeteer', () => ({
 import { Job } from 'bullmq';
 
 import {
-  type MassExportPayload,
+  buildMassExportPdfKey,
+  buildMassExportStatusKey,
+  MASS_EXPORT_PDF_TTL_SECONDS,
+  MASS_EXPORT_STATUS_TTL_SECONDS,
   PAYROLL_MASS_EXPORT_JOB,
-  PayrollMassExportProcessor,
-} from './mass-export.processor';
+} from '@school/shared/payroll';
+
+import { type MassExportPayload, PayrollMassExportProcessor } from './mass-export.processor';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const PAYROLL_RUN_ID = '22222222-2222-2222-2222-222222222222';
@@ -122,26 +126,28 @@ describe('PayrollMassExportProcessor', () => {
     await processor.process(buildJob());
 
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:mass-export:${PAYROLL_RUN_ID}`,
+      buildMassExportStatusKey(TENANT_ID, PAYROLL_RUN_ID),
       JSON.stringify({ status: 'completed', progress: 100, count: 0 }),
       'EX',
-      600,
+      MASS_EXPORT_STATUS_TTL_SECONDS,
     );
     expect(mockLaunch).not.toHaveBeenCalled();
-    expect(mockRedisClient.quit).toHaveBeenCalled();
+    // Wave 3 — Redis client is owned by the processor (constructor-level
+    // singleton); .quit() only happens in onModuleDestroy.
+    expect(mockRedisClient.quit).not.toHaveBeenCalled();
   });
 
-  it('should render the PDF bundle and store the export in redis', async () => {
+  it('should render the PDF bundle and store the export with the canonical 1200s TTL', async () => {
     const mockTx = buildMockTx();
     mockTx.payslip.findMany.mockResolvedValue([
       {
         id: 'payslip-1',
-        payslip_number: 'PS-202603-00001',
+        payslip_number: 'PSL-202603-000001',
         snapshot_payload_json: {
           calculations: { basic_pay: 3000, bonus_pay: 0, total_pay: 3000 },
           compensation: { type: 'salaried' },
           period: { label: 'March 2026' },
-          payslip_number: 'PS-202603-00001',
+          payslip_number: 'PSL-202603-000001',
           school: { currency_code: 'EUR' },
           staff: { department: 'Primary', full_name: 'Amina OBrien', job_title: 'Teacher' },
         },
@@ -159,16 +165,17 @@ describe('PayrollMassExportProcessor', () => {
       margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
     });
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:mass-export:${PAYROLL_RUN_ID}:pdf`,
+      buildMassExportPdfKey(TENANT_ID, PAYROLL_RUN_ID),
       Buffer.from('pdf-content').toString('base64'),
       'EX',
-      300,
+      MASS_EXPORT_PDF_TTL_SECONDS,
     );
+    expect(MASS_EXPORT_PDF_TTL_SECONDS).toBe(1200); // explicit guard against TTL drift
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:mass-export:${PAYROLL_RUN_ID}`,
+      buildMassExportStatusKey(TENANT_ID, PAYROLL_RUN_ID),
       expect.stringContaining('"status":"completed"'),
       'EX',
-      600,
+      MASS_EXPORT_STATUS_TTL_SECONDS,
     );
   });
 
@@ -177,7 +184,7 @@ describe('PayrollMassExportProcessor', () => {
     mockTx.payslip.findMany.mockResolvedValue([
       {
         id: 'payslip-1',
-        payslip_number: 'PS-202603-00001',
+        payslip_number: 'PSL-202603-000001',
         snapshot_payload_json: {},
       },
     ]);
@@ -187,11 +194,19 @@ describe('PayrollMassExportProcessor', () => {
     await expect(processor.process(buildJob())).rejects.toThrow('render exploded');
 
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:mass-export:${PAYROLL_RUN_ID}`,
+      buildMassExportStatusKey(TENANT_ID, PAYROLL_RUN_ID),
       JSON.stringify({ status: 'failed', error: 'render exploded' }),
       'EX',
-      600,
+      MASS_EXPORT_STATUS_TTL_SECONDS,
     );
+  });
+
+  it('should disconnect the redis client on module destroy', async () => {
+    const mockTx = buildMockTx();
+    const processor = new PayrollMassExportProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.onModuleDestroy();
+
     expect(mockRedisClient.quit).toHaveBeenCalled();
   });
 });

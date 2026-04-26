@@ -1,7 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Redis from 'ioredis';
+
+import {
+  buildMassExportPdfKey,
+  buildMassExportStatusKey,
+  MASS_EXPORT_PDF_TTL_SECONDS,
+  MASS_EXPORT_STATUS_TTL_SECONDS,
+  PAYROLL_MASS_EXPORT_JOB,
+} from '@school/shared/payroll';
 
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -14,8 +22,12 @@ export interface MassExportPayload extends TenantJobPayload {
 }
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
+//
+// Re-exports the canonical name from `@school/shared/payroll` so anyone who
+// already imported the constant from this file keeps the identical string.
+// New code should import directly from `@school/shared/payroll`.
 
-export const PAYROLL_MASS_EXPORT_JOB = 'payroll:mass-export-payslips';
+export { PAYROLL_MASS_EXPORT_JOB };
 
 // ─── Template renderers ─────────────────────────────────────────────────────
 // Payslip templates are duplicated inline to avoid cross-app imports.
@@ -47,17 +59,13 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
     const fontFamily = isAr
       ? "'Noto Sans Arabic', 'Arial', sans-serif"
       : "'Helvetica Neue', Arial, sans-serif";
-    const title = isAr ? '\u0643\u0634\u0641 \u0627\u0644\u0631\u0627\u062A\u0628' : 'PAYSLIP';
+    const title = isAr ? 'كشف الراتب' : 'PAYSLIP';
     const schoolName = isAr
       ? branding.school_name_ar || branding.school_name
       : branding.school_name;
-    const basicLabel = isAr
-      ? '\u0627\u0644\u0631\u0627\u062A\u0628 \u0627\u0644\u0623\u0633\u0627\u0633\u064A'
-      : 'Basic Pay';
-    const bonusLabel = isAr ? '\u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629' : 'Bonus Pay';
-    const totalLabel = isAr
-      ? '\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0631\u0627\u062A\u0628'
-      : 'Total Pay';
+    const basicLabel = isAr ? 'الراتب الأساسي' : 'Basic Pay';
+    const bonusLabel = isAr ? 'المكافأة' : 'Bonus Pay';
+    const totalLabel = isAr ? 'إجمالي الراتب' : 'Total Pay';
 
     const fmt = (n: unknown): string => `${currency} ${Number(n || 0).toFixed(2)}`;
     const esc = (s: unknown): string => {
@@ -86,8 +94,8 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
       </div>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
         <tr style="background: ${primaryColor}; color: white;">
-          <th style="padding: 8px 12px; text-align: ${isAr ? 'right' : 'left'}; font-weight: 600;">${isAr ? '\u0627\u0644\u0628\u0646\u062F' : 'Component'}</th>
-          <th style="padding: 8px 12px; text-align: ${isAr ? 'left' : 'right'}; font-weight: 600;">${isAr ? '\u0627\u0644\u0645\u0628\u0644\u063A' : 'Amount'}</th>
+          <th style="padding: 8px 12px; text-align: ${isAr ? 'right' : 'left'}; font-weight: 600;">${isAr ? 'البند' : 'Component'}</th>
+          <th style="padding: 8px 12px; text-align: ${isAr ? 'left' : 'right'}; font-weight: 600;">${isAr ? 'المبلغ' : 'Amount'}</th>
         </tr>
         <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${basicLabel}</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: ${isAr ? 'left' : 'right'};" dir="ltr">${fmt(calculations?.basic_pay)}</td></tr>
         <tr><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${bonusLabel}</td><td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: ${isAr ? 'left' : 'right'};" dir="ltr">${fmt(calculations?.bonus_pay)}</td></tr>
@@ -98,12 +106,28 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
 }
 
 // ─── Processor ───────────────────────────────────────────────────────────────
+//
+// Wave 3 of the payroll-overhaul rebuild — job name + Redis keys come from
+// `@school/shared/payroll` so the API enqueue site and the worker handler
+// cannot drift again. The Redis client is now created once per processor
+// instance (a constructor-level singleton), not once per job invocation —
+// the legacy `new Redis(...)` inside the inner job class was burning
+// connections under load.
 
 @Injectable()
-export class PayrollMassExportProcessor {
+export class PayrollMassExportProcessor implements OnModuleDestroy {
   private readonly logger = new Logger(PayrollMassExportProcessor.name);
+  private readonly redis: Redis;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554', {
+      maxRetriesPerRequest: null,
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.redis.quit().catch(() => undefined);
+  }
 
   async process(job: Job<MassExportPayload>): Promise<void> {
     if (job.name !== PAYROLL_MASS_EXPORT_JOB) {
@@ -120,7 +144,7 @@ export class PayrollMassExportProcessor {
       `Processing ${PAYROLL_MASS_EXPORT_JOB} — tenant ${tenant_id}, run ${job.data.payroll_run_id}, locale ${job.data.locale}`,
     );
 
-    const exportJob = new PayrollMassExportJob(this.prisma);
+    const exportJob = new PayrollMassExportJob(this.prisma, this.redis);
     await exportJob.execute(job.data);
   }
 }
@@ -129,17 +153,18 @@ export class PayrollMassExportProcessor {
 
 class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
   private readonly logger = new Logger(PayrollMassExportJob.name);
-  private readonly redis: Redis;
 
-  constructor(prisma: PrismaClient) {
+  constructor(
+    prisma: PrismaClient,
+    private readonly redis: Redis,
+  ) {
     super(prisma);
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554');
   }
 
   protected async processJob(data: MassExportPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, payroll_run_id, locale } = data;
-    const statusKey = `payroll:mass-export:${payroll_run_id}`;
-    const pdfKey = `payroll:mass-export:${payroll_run_id}:pdf`;
+    const statusKey = buildMassExportStatusKey(tenant_id, payroll_run_id);
+    const pdfKey = buildMassExportPdfKey(tenant_id, payroll_run_id);
 
     try {
       // Set initial status
@@ -147,7 +172,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
         statusKey,
         JSON.stringify({ status: 'running', progress: 0 }),
         'EX',
-        600,
+        MASS_EXPORT_STATUS_TTL_SECONDS,
       );
 
       // Fetch all payslips for this run
@@ -171,7 +196,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
           statusKey,
           JSON.stringify({ status: 'completed', progress: 100, count: 0 }),
           'EX',
-          600,
+          MASS_EXPORT_STATUS_TTL_SECONDS,
         );
         this.logger.log(`No payslips found for run ${payroll_run_id}`);
         return;
@@ -218,7 +243,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
             statusKey,
             JSON.stringify({ status: 'running', progress }),
             'EX',
-            600,
+            MASS_EXPORT_STATUS_TTL_SECONDS,
           );
         }
       }
@@ -231,7 +256,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
         statusKey,
         JSON.stringify({ status: 'rendering', progress: 85 }),
         'EX',
-        600,
+        MASS_EXPORT_STATUS_TTL_SECONDS,
       );
 
       const puppeteer = await import('puppeteer');
@@ -252,9 +277,9 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
 
         await page.close();
 
-        // Store PDF as base64 in Redis with short TTL
+        // Store PDF as base64 in Redis (20-min TTL — gives the UI a fair download window).
         const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
-        await this.redis.set(pdfKey, base64Pdf, 'EX', 300);
+        await this.redis.set(pdfKey, base64Pdf, 'EX', MASS_EXPORT_PDF_TTL_SECONDS);
 
         // Update status to completed
         await this.redis.set(
@@ -266,7 +291,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
             completed_at: new Date().toISOString(),
           }),
           'EX',
-          600,
+          MASS_EXPORT_STATUS_TTL_SECONDS,
         );
 
         this.logger.log(
@@ -283,11 +308,9 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
           error: err instanceof Error ? err.message : 'Unknown error',
         }),
         'EX',
-        600,
+        MASS_EXPORT_STATUS_TTL_SECONDS,
       );
       throw err;
-    } finally {
-      await this.redis.quit();
     }
   }
 }

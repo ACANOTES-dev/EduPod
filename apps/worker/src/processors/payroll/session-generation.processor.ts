@@ -1,7 +1,13 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Redis from 'ioredis';
+
+import {
+  buildSessionGenStatusKey,
+  PAYROLL_SESSION_GENERATION_JOB,
+  SESSION_GEN_STATUS_TTL_SECONDS,
+} from '@school/shared/payroll';
 
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -12,19 +18,40 @@ export interface SessionGenerationPayload extends TenantJobPayload {
 }
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
+//
+// The legacy `'payroll:generate-sessions'` constant has been retired in
+// favour of `PAYROLL_SESSION_GENERATION_JOB` from `@school/shared/payroll`.
+// `PAYROLL_GENERATE_SESSIONS_JOB` is kept as a re-export so the dispatcher
+// (which still imports it under the old name) keeps working — both names
+// resolve to the literal string the API enqueues with.
 
-export const PAYROLL_GENERATE_SESSIONS_JOB = 'payroll:generate-sessions';
+export const PAYROLL_GENERATE_SESSIONS_JOB = PAYROLL_SESSION_GENERATION_JOB;
 
 // ─── Processor ───────────────────────────────────────────────────────────────
+//
+// Wave 3 of the payroll-overhaul rebuild — the session-generation worker
+// now uses the canonical job name and Redis-key format, and counts
+// CONFIRMED class delivery records (status = `delivered`) bracketed to
+// the run's period — not raw `schedule.count()`. The legacy code counted
+// scheduled slots, ignoring whether they were actually taught.
 
 @Injectable()
-export class PayrollSessionGenerationProcessor {
+export class PayrollSessionGenerationProcessor implements OnModuleDestroy {
   private readonly logger = new Logger(PayrollSessionGenerationProcessor.name);
+  private readonly redis: Redis;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554', {
+      maxRetriesPerRequest: null,
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.redis.quit().catch(() => undefined);
+  }
 
   async process(job: Job<SessionGenerationPayload>): Promise<void> {
-    if (job.name !== PAYROLL_GENERATE_SESSIONS_JOB) {
+    if (job.name !== PAYROLL_SESSION_GENERATION_JOB) {
       return;
     }
 
@@ -35,10 +62,10 @@ export class PayrollSessionGenerationProcessor {
     }
 
     this.logger.log(
-      `Processing ${PAYROLL_GENERATE_SESSIONS_JOB} — tenant ${tenant_id}, run ${job.data.payroll_run_id}`,
+      `Processing ${PAYROLL_SESSION_GENERATION_JOB} — tenant ${tenant_id}, run ${job.data.payroll_run_id}`,
     );
 
-    const generationJob = new PayrollSessionGenerationJob(this.prisma);
+    const generationJob = new PayrollSessionGenerationJob(this.prisma, this.redis);
     await generationJob.execute(job.data);
   }
 }
@@ -47,28 +74,23 @@ export class PayrollSessionGenerationProcessor {
 
 class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayload> {
   private readonly logger = new Logger(PayrollSessionGenerationJob.name);
-  private readonly redis: Redis;
 
-  constructor(prisma: PrismaClient) {
+  constructor(
+    prisma: PrismaClient,
+    private readonly redis: Redis,
+  ) {
     super(prisma);
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554');
   }
 
   protected async processJob(data: SessionGenerationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, payroll_run_id } = data;
-    const redisKey = `payroll:session-gen:${payroll_run_id}`;
+    const statusKey = buildSessionGenStatusKey(tenant_id, payroll_run_id);
 
     try {
       // Fetch the payroll run to get period info
       const payrollRun = await tx.payrollRun.findFirst({
-        where: {
-          id: payroll_run_id,
-          tenant_id,
-        },
-        select: {
-          period_month: true,
-          period_year: true,
-        },
+        where: { id: payroll_run_id, tenant_id },
+        select: { period_month: true, period_year: true },
       });
 
       if (!payrollRun) {
@@ -81,14 +103,14 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
 
       // Set Redis status to running
       await this.redis.set(
-        redisKey,
+        statusKey,
         JSON.stringify({
           status: 'running',
           updated_entry_count: 0,
           started_at: new Date().toISOString(),
         }),
         'EX',
-        600,
+        SESSION_GEN_STATUS_TTL_SECONDS,
       );
 
       // Get all per_class entries for this run
@@ -111,22 +133,28 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
       let updatedCount = 0;
 
       for (const entry of perClassEntries) {
-        // Count schedules for the teacher active during this month
-        const scheduleCount = await tx.schedule.count({
+        // Wave 3 — count CONFIRMED delivery records (status = 'delivered')
+        // bracketed to the run period. The pre-rebuild code counted
+        // `tx.schedule.count(...)` which over-counted by every scheduled
+        // slot, including ones that never happened.
+        const deliveredCount = await tx.classDeliveryRecord.count({
           where: {
             tenant_id,
-            teacher_staff_id: entry.staff_profile_id,
-            effective_start_date: { lte: lastDayOfMonth },
-            OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDayOfMonth } }],
+            staff_profile_id: entry.staff_profile_id,
+            status: 'delivered',
+            delivery_date: {
+              gte: firstDayOfMonth,
+              lte: lastDayOfMonth,
+            },
           },
         });
 
-        // Update the entry with the schedule count
+        // Update the entry with the delivered class count
         await tx.payrollEntry.update({
           where: { id: entry.id },
           data: {
-            classes_taught: scheduleCount,
-            auto_populated_class_count: scheduleCount,
+            classes_taught: deliveredCount,
+            auto_populated_class_count: deliveredCount,
           },
         });
 
@@ -135,7 +163,7 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
 
       // Update Redis with completed status
       await this.redis.set(
-        redisKey,
+        statusKey,
         JSON.stringify({
           status: 'completed',
           updated_entry_count: updatedCount,
@@ -143,7 +171,7 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
           completed_at: new Date().toISOString(),
         }),
         'EX',
-        600,
+        SESSION_GEN_STATUS_TTL_SECONDS,
       );
 
       this.logger.log(
@@ -152,18 +180,16 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
     } catch (err) {
       // Update Redis with failed status so the UI knows
       await this.redis.set(
-        redisKey,
+        statusKey,
         JSON.stringify({
           status: 'failed',
           error: err instanceof Error ? err.message : 'Unknown error',
           failed_at: new Date().toISOString(),
         }),
         'EX',
-        600,
+        SESSION_GEN_STATUS_TTL_SECONDS,
       );
       throw err;
-    } finally {
-      await this.redis.quit();
     }
   }
 }

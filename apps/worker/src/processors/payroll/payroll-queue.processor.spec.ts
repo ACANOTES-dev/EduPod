@@ -1,15 +1,15 @@
 import { Job } from 'bullmq';
 
 import {
-  PAYROLL_APPROVAL_CALLBACK_JOB,
-  PayrollApprovalCallbackProcessor,
-} from './approval-callback.processor';
-import { PAYROLL_MASS_EXPORT_JOB, PayrollMassExportProcessor } from './mass-export.processor';
+  PAYROLL_MASS_EXPORT_JOB,
+  PAYROLL_ON_APPROVAL_JOB,
+  PAYROLL_SESSION_GENERATION_JOB,
+} from '@school/shared/payroll';
+
+import { PayrollApprovalCallbackProcessor } from './approval-callback.processor';
+import { PayrollMassExportProcessor } from './mass-export.processor';
 import { PayrollQueueDispatcher } from './payroll-queue.processor';
-import {
-  PAYROLL_GENERATE_SESSIONS_JOB,
-  PayrollSessionGenerationProcessor,
-} from './session-generation.processor';
+import { PayrollSessionGenerationProcessor } from './session-generation.processor';
 
 // ─── Test doubles ────────────────────────────────────────────────────────────
 // Auto-generated spec — verifies the dispatcher routes each job.name to its
@@ -43,9 +43,9 @@ describe('PayrollQueueDispatcher', () => {
   }
 
   it.each([
-    [PAYROLL_APPROVAL_CALLBACK_JOB, 'payrollApprovalCallback'],
+    [PAYROLL_ON_APPROVAL_JOB, 'payrollApprovalCallback'],
     [PAYROLL_MASS_EXPORT_JOB, 'payrollMassExport'],
-    [PAYROLL_GENERATE_SESSIONS_JOB, 'payrollSessionGeneration'],
+    [PAYROLL_SESSION_GENERATION_JOB, 'payrollSessionGeneration'],
   ])('routes %s to the %s processor', async (jobName, targetKey) => {
     const harness = buildDispatcher();
     const job = { id: 'job-1', name: jobName, data: {} } as Job;

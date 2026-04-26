@@ -11,9 +11,14 @@ jest.mock('ioredis', () => {
 import { Job } from 'bullmq';
 
 import {
-  PAYROLL_GENERATE_SESSIONS_JOB,
-  type SessionGenerationPayload,
+  buildSessionGenStatusKey,
+  PAYROLL_SESSION_GENERATION_JOB,
+  SESSION_GEN_STATUS_TTL_SECONDS,
+} from '@school/shared/payroll';
+
+import {
   PayrollSessionGenerationProcessor,
+  type SessionGenerationPayload,
 } from './session-generation.processor';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
@@ -34,8 +39,8 @@ function buildMockTx() {
         period_year: 2026,
       }),
     },
-    schedule: {
-      count: jest.fn().mockResolvedValue(6),
+    classDeliveryRecord: {
+      count: jest.fn().mockResolvedValue(4),
     },
   };
 }
@@ -49,7 +54,7 @@ function buildMockPrisma(mockTx: MockTx) {
 }
 
 function buildJob(
-  name: string = PAYROLL_GENERATE_SESSIONS_JOB,
+  name: string = PAYROLL_SESSION_GENERATION_JOB,
   data: Partial<SessionGenerationPayload> = {},
 ): Job<SessionGenerationPayload> {
   return {
@@ -86,38 +91,45 @@ describe('PayrollSessionGenerationProcessor', () => {
     const processor = new PayrollSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
 
     await expect(
-      processor.process(buildJob(PAYROLL_GENERATE_SESSIONS_JOB, { tenant_id: '' })),
+      processor.process(buildJob(PAYROLL_SESSION_GENERATION_JOB, { tenant_id: '' })),
     ).rejects.toThrow('Job rejected: missing tenant_id in payload.');
   });
 
-  it('should populate class counts and write completed status to redis', async () => {
+  it('should populate confirmed delivery counts and write completed status', async () => {
     const mockTx = buildMockTx();
     const processor = new PayrollSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
 
     await processor.process(buildJob());
 
-    expect(mockTx.schedule.count).toHaveBeenCalledWith({
+    // Wave 3 — counts confirmed delivery records, not raw schedule slots,
+    // bracketed to the run's period (March 2026 = day 1 to day 31).
+    expect(mockTx.classDeliveryRecord.count).toHaveBeenCalledWith({
       where: {
         tenant_id: TENANT_ID,
-        teacher_staff_id: STAFF_ID,
-        effective_start_date: { lte: new Date(2026, 3, 0) },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date(2026, 2, 1) } }],
+        staff_profile_id: STAFF_ID,
+        status: 'delivered',
+        delivery_date: {
+          gte: new Date(2026, 2, 1),
+          lte: new Date(2026, 3, 0),
+        },
       },
     });
     expect(mockTx.payrollEntry.update).toHaveBeenCalledWith({
       where: { id: ENTRY_ID },
       data: {
-        classes_taught: 6,
-        auto_populated_class_count: 6,
+        classes_taught: 4,
+        auto_populated_class_count: 4,
       },
     });
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:session-gen:${PAYROLL_RUN_ID}`,
+      buildSessionGenStatusKey(TENANT_ID, PAYROLL_RUN_ID),
       expect.stringContaining('"status":"completed"'),
       'EX',
-      600,
+      SESSION_GEN_STATUS_TTL_SECONDS,
     );
-    expect(mockRedisClient.quit).toHaveBeenCalled();
+    // Wave 3 — Redis client is owned by the processor (constructor-level
+    // singleton); .quit() only happens in onModuleDestroy.
+    expect(mockRedisClient.quit).not.toHaveBeenCalled();
   });
 
   it('should write failed status to redis and rethrow when the payroll run is missing', async () => {
@@ -130,11 +142,19 @@ describe('PayrollSessionGenerationProcessor', () => {
     );
 
     expect(mockRedisClient.set).toHaveBeenCalledWith(
-      `payroll:session-gen:${PAYROLL_RUN_ID}`,
+      buildSessionGenStatusKey(TENANT_ID, PAYROLL_RUN_ID),
       expect.stringContaining('"status":"failed"'),
       'EX',
-      600,
+      SESSION_GEN_STATUS_TTL_SECONDS,
     );
+  });
+
+  it('should disconnect the redis client on module destroy', async () => {
+    const mockTx = buildMockTx();
+    const processor = new PayrollSessionGenerationProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.onModuleDestroy();
+
     expect(mockRedisClient.quit).toHaveBeenCalled();
   });
 });
