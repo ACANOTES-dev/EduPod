@@ -15,8 +15,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@school/ui';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -25,7 +25,6 @@ import { fmtLocale } from '@/lib/i18n-format';
 
 import { BulkImportDialog } from './_components/bulk-import-dialog';
 import { CompensationForm } from './_components/compensation-form';
-
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -85,7 +84,7 @@ interface AllowanceType {
 
 interface StaffOption {
   id: string;
-  name: string;
+  full_name: string;
 }
 
 type CompTab = 'compensation' | 'allowances' | 'deductions';
@@ -146,42 +145,48 @@ export default function CompensationListPage() {
       const res = await apiClient<{
         data: CompensationRecord[];
         meta: { total: number };
-      }>(`/api/v1/payroll/compensation?${params.toString()}`);
+      }>(`/api/v1/payroll/compensation?${params.toString()}`, { silent: true });
       setData(res.data);
       setTotal(res.meta.total);
     } catch (err) {
-      // silent
-      console.error('[setTotal]', err);
+      const message = err instanceof Error ? err.message : t('compensationLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [page, typeFilter]);
+  }, [page, typeFilter, t]);
 
   const fetchAllowances = React.useCallback(async () => {
     try {
       const [aRes, atRes, staffRes] = await Promise.all([
-        apiClient<{ data: StaffAllowance[] }>('/api/v1/payroll/staff-allowances'),
-        apiClient<{ data: AllowanceType[] }>('/api/v1/payroll/allowance-types'),
-        apiClient<{ data: StaffOption[] }>('/api/v1/payroll/staff?pageSize=200'),
+        // Wave 3 added `?include=all` so callers can fetch tenant-wide
+        // allowances without supplying a `staff_profile_id`.
+        apiClient<{ data: StaffAllowance[] }>('/api/v1/payroll/staff-allowances?include=all', {
+          silent: true,
+        }),
+        apiClient<{ data: AllowanceType[] }>('/api/v1/payroll/allowance-types', { silent: true }),
+        apiClient<{ data: StaffOption[] }>('/api/v1/payroll/staff?pageSize=200', { silent: true }),
       ]);
       setAllowances(aRes.data);
       setAllowanceTypes(atRes.data);
       setStaffOptions(staffRes.data);
     } catch (err) {
-      // silent
-      console.error('[setStaffOptions]', err);
+      const message = err instanceof Error ? err.message : t('allowancesLoadFailed');
+      toast.error(message);
     }
-  }, []);
+  }, [t]);
 
   const fetchDeductions = React.useCallback(async () => {
     try {
-      const res = await apiClient<{ data: StaffDeduction[] }>('/api/v1/payroll/staff-deductions');
+      const res = await apiClient<{ data: StaffDeduction[] }>('/api/v1/payroll/staff-deductions', {
+        silent: true,
+      });
       setDeductions(res.data);
     } catch (err) {
-      // silent
-      console.error('[setDeductions]', err);
+      const message = err instanceof Error ? err.message : t('deductionsLoadFailed');
+      toast.error(message);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void fetchCompensation();
@@ -219,11 +224,11 @@ export default function CompensationListPage() {
       const res = await apiClient<{
         data: CompensationRecord[];
         meta: { total: number };
-      }>(`/api/v1/payroll/compensation?${params.toString()}`);
+      }>(`/api/v1/payroll/compensation?${params.toString()}`, { silent: true });
       setHistoryRecords(res.data);
     } catch (err) {
-      // silent
-      console.error('[setHistoryRecords]', err);
+      const message = err instanceof Error ? err.message : t('historyLoadFailed');
+      toast.error(message);
     } finally {
       setHistoryLoading(false);
     }
@@ -236,7 +241,9 @@ export default function CompensationListPage() {
       await apiClient('/api/v1/payroll/staff-allowances', {
         method: 'POST',
         body: JSON.stringify({ ...newAllowance, amount }),
+        silent: true,
       });
+      toast.success(t('allowanceCreated'));
       setAllowanceForm(false);
       setNewAllowance({
         staff_profile_id: '',
@@ -246,18 +253,22 @@ export default function CompensationListPage() {
       });
       void fetchAllowances();
     } catch (err) {
-      // silent
-      console.error('[fetchAllowances]', err);
+      const message = err instanceof Error ? err.message : t('saveFailed');
+      toast.error(message);
     }
   };
 
   const handleDeleteAllowance = async (id: string) => {
     try {
-      await apiClient(`/api/v1/payroll/staff-allowances/${id}`, { method: 'DELETE' });
+      await apiClient(`/api/v1/payroll/staff-allowances/${id}`, {
+        method: 'DELETE',
+        silent: true,
+      });
+      toast.success(t('allowanceDeleted'));
       setAllowances((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
-      // silent
-      console.error('[setAllowances]', err);
+      const message = err instanceof Error ? err.message : t('deleteFailed');
+      toast.error(message);
     }
   };
 
@@ -279,7 +290,9 @@ export default function CompensationListPage() {
           total_amount: total,
           monthly_amount: monthly,
         }),
+        silent: true,
       });
+      toast.success(t('deductionCreated'));
       setDeductionForm(false);
       setNewDeduction({
         staff_profile_id: '',
@@ -290,8 +303,8 @@ export default function CompensationListPage() {
       });
       void fetchDeductions();
     } catch (err) {
-      // silent
-      console.error('[fetchDeductions]', err);
+      const message = err instanceof Error ? err.message : t('saveFailed');
+      toast.error(message);
     }
   };
 
@@ -300,11 +313,13 @@ export default function CompensationListPage() {
       await apiClient(`/api/v1/payroll/staff-deductions/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: false }),
+        silent: true,
       });
+      toast.success(t('deductionDeactivated'));
       setDeductions((prev) => prev.map((d) => (d.id === id ? { ...d, active: false } : d)));
     } catch (err) {
-      // silent
-      console.error('[setDeductions]', err);
+      const message = err instanceof Error ? err.message : t('saveFailed');
+      toast.error(message);
     }
   };
 
@@ -355,7 +370,8 @@ export default function CompensationListPage() {
     {
       key: 'effective_from',
       header: t('effectiveFrom'),
-      render: (row: CompensationRecord) => new Date(row.effective_from).toLocaleDateString(fmtLocale(locale)),
+      render: (row: CompensationRecord) =>
+        new Date(row.effective_from).toLocaleDateString(fmtLocale(locale)),
     },
     {
       key: 'actions',
@@ -457,7 +473,7 @@ export default function CompensationListPage() {
                     <SelectValue placeholder={t('compensationType')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('allStaff')}</SelectItem>
+                    <SelectItem value="all">{t('allTypes')}</SelectItem>
                     <SelectItem value="salaried">{t('salaried')}</SelectItem>
                     <SelectItem value="per_class">{t('perClass')}</SelectItem>
                   </SelectContent>
@@ -562,7 +578,7 @@ export default function CompensationListPage() {
                     <SelectContent>
                       {staffOptions.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.name}
+                          {s.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -702,7 +718,7 @@ export default function CompensationListPage() {
                     <SelectContent>
                       {staffOptions.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.name}
+                          {s.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>

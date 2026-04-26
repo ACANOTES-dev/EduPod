@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  toast,
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
@@ -27,6 +28,9 @@ interface BulkImportDialogProps {
   onSuccess: () => void;
 }
 
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPTED_MIME = ['text/csv', 'application/vnd.ms-excel', ''];
+
 export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDialogProps) {
   const t = useTranslations('payroll');
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -37,6 +41,23 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
+    if (!selected) {
+      setFile(null);
+      setResult(null);
+      return;
+    }
+    const isCsv =
+      ACCEPTED_MIME.includes(selected.type) || selected.name.toLowerCase().endsWith('.csv');
+    if (!isCsv) {
+      toast.error(t('invalidCsvType'));
+      e.target.value = '';
+      return;
+    }
+    if (selected.size > MAX_FILE_BYTES) {
+      toast.error(t('csvTooLarge'));
+      e.target.value = '';
+      return;
+    }
     setFile(selected);
     setResult(null);
   };
@@ -48,18 +69,28 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await apiClient<{ data: ImportResult }>('/api/v1/payroll/compensation/import', {
-        method: 'POST',
-        body: formData,
-        headers: {},
-      });
+      // Wave-3 endpoint name: `/bulk-import` (was `/import` pre-rebuild).
+      const res = await apiClient<{ data: ImportResult }>(
+        '/api/v1/payroll/compensation/bulk-import',
+        {
+          method: 'POST',
+          body: formData,
+          // Drop the default JSON content-type so the browser sets the
+          // multipart boundary itself.
+          headers: {},
+          silent: true,
+        },
+      );
       setResult(res.data);
       if (res.data.errors.length === 0) {
+        toast.success(t('bulkImportSucceeded', { count: res.data.imported }));
         onSuccess();
+      } else {
+        toast.error(t('bulkImportPartial', { count: res.data.errors.length }));
       }
     } catch (err) {
-      // handled by apiClient
-      console.error('[onSuccess]', err);
+      const message = err instanceof Error ? err.message : t('bulkImportFailed');
+      toast.error(message);
     } finally {
       setIsImporting(false);
     }
@@ -81,18 +112,29 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>{t('csvFile')}</Label>
-            <Input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} />
+            <Label htmlFor="csv-file">{t('csvFile')}</Label>
+            <Input
+              id="csv-file"
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+            />
+            <p className="text-xs text-text-tertiary">{t('csvHint')}</p>
           </div>
 
           {result && (
             <div className="space-y-2">
-              <p className="text-sm text-text-primary">{t('imported')}<span className="font-semibold">{result.imported}</span>
+              <p className="text-sm text-text-primary">
+                {t('imported')}
+                <span className="font-semibold">{result.imported}</span>
               </p>
               {result.errors.length > 0 && (
                 <div className="max-h-40 overflow-y-auto rounded-lg border border-danger-border bg-danger-50 p-3">
                   {result.errors.map((err, i) => (
-                    <p key={i} className="text-xs text-danger-text">{t('row')}{err.row}: {err.message}
+                    <p key={i} className="text-xs text-danger-text">
+                      {t('row')}
+                      {err.row}: {err.message}
                     </p>
                   ))}
                 </div>
@@ -105,7 +147,7 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
             {t('cancel')}
           </Button>
           <Button onClick={handleImport} disabled={!file || isImporting}>
-            {isImporting ? '...' : t('bulkImport')}
+            {isImporting ? '…' : t('bulkImport')}
           </Button>
         </DialogFooter>
       </DialogContent>
