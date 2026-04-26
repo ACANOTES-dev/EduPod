@@ -412,6 +412,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1009.0
         version: 3.1009.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.1009.0
+        version: 3.1009.0
       '@bull-board/api':
         specifier: ^6.20.6
         version: 6.20.6(@bull-board/ui@6.20.6)
