@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:55Z | 7afa15ca   |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:35Z | bfb63e21   |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:55Z | 7afa15ca   |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed`   | 2026-04-26T23:35Z | bfb63e21   |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `in-progress` |                   |            |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`     |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
