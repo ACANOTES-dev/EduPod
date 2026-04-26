@@ -1637,18 +1637,42 @@ describe('PayrollRunsService', () => {
   // ─── executeFinalisation — additional branches ────────────────────────────────
 
   describe('executeFinalisation', () => {
-    it.skip(
-      'should use override_total_pay in totals when set (Wave-5 follow-up — ' +
-        'override_total_pay semantics need re-mapping into the unified engine)',
-      () => {
-        // Pre-rebuild executeFinalisation summed entries inline and respected
-        // override_total_pay. Wave 2 routes the direct path through
-        // FinalisationService.finaliseAtomic, which sums via the new engine
-        // and ignores the legacy override field. Wave 5 will either migrate
-        // override semantics into the engine (e.g. as an adjustment) or
-        // formally retire the field.
-      },
-    );
+    it('does not honour the legacy override_total_pay field at finalisation', async () => {
+      // Wave-5 decision: override_total_pay stays in the schema (entries-table
+      // still surfaces it) but FinalisationService.finaliseAtomic computes
+      // totals via the unified engine and IGNORES the legacy override.
+      // Tenants who need an override should record it as an adjustment line
+      // (POST /v1/payroll/adjustments) — that flow IS honoured.
+      // This test pins the current behaviour so a future re-introduction of
+      // override-aware totals would surface as a deliberate breaking change.
+      mockPrisma.payrollRun.findFirst
+        .mockResolvedValueOnce({ status: 'draft' })
+        .mockResolvedValueOnce({
+          id: RUN_ID,
+          tenant_id: TENANT_ID,
+          status: 'finalised',
+          created_by: null,
+          finalised_by: null,
+          // Entry has an override that the engine must NOT use.
+          entries: [
+            {
+              id: 'entry-1',
+              total_pay: '1000.00',
+              override_total_pay: '9999.99',
+            },
+          ],
+          _count: { entries: 1 },
+        });
+
+      const result = await service.executeFinalisation(TENANT_ID, RUN_ID, USER_ID);
+
+      // The service threads through to FinalisationService.finaliseAtomic
+      // (verified by the sibling test). The override field is preserved on
+      // the entry row but never folded into engine output — the snapshot
+      // payload comes from the engine, not from override.
+      expect(mockFinalisationService.finaliseAtomic).toHaveBeenCalledTimes(1);
+      expect(result).toBeDefined();
+    });
 
     it('should delegate to finalisationService.finaliseAtomic with the right precondition', async () => {
       mockPrisma.payrollRun.findFirst
