@@ -2314,10 +2314,7 @@
     "path": "/v1/behaviour/tasks/:id/complete",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": [
-      "behaviour.view",
-      "behaviour.manage"
-    ]
+    "permission": ["behaviour.view", "behaviour.manage"]
   },
   {
     "method": "GET",
@@ -2367,6 +2364,335 @@
     "controller": "BrandingController",
     "module": "configuration",
     "permission": "branding.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/event-budgets",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/budgeting/event-budgets/:id",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.archive"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/event-budgets/:id",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/event-budgets/:id",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/cancel",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/complete",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/confirm",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/generate-fees",
+    "controller": "TripFeeIntegrationController",
+    "module": "budgeting",
+    "permission": "budgeting.generate_fees"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/event-budgets/:id/generate-fees/preview",
+    "controller": "TripFeeIntegrationController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/mark-school-funded",
+    "controller": "TripFeeIntegrationController",
+    "module": "budgeting",
+    "permission": "budgeting.generate_fees"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/event-budgets/:id/scenarios",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/event-budgets/:id/scenarios",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/budgeting/event-budgets/:id/scenarios/:sid",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/event-budgets/:id/scenarios/:sid",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/event-budgets/:id/scenarios/:sid",
+    "controller": "EventBudgetsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/budgeting/financial-models/:id",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.archive"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:id",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/financial-models/:id",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:id/restore",
+    "controller": "FinancialModelsController",
+    "module": "budgeting",
+    "permission": "budgeting.archive"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:id/snapshots/:snapshotId/exports/excel",
+    "controller": "ExportsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:id/snapshots/:snapshotId/exports/pdf",
+    "controller": "ExportsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:id/snapshots/:snapshotId/exports/regenerate",
+    "controller": "ExportsController",
+    "module": "budgeting",
+    "permission": "budgeting.publish"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:id/variance",
+    "controller": "VarianceController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:id/variance/manual-actuals",
+    "controller": "VarianceController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:id/variance/refresh",
+    "controller": "VarianceController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/line-items",
+    "controller": "LineItemsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/budgeting/financial-models/:modelId/line-items/:lineId",
+    "controller": "LineItemsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/financial-models/:modelId/line-items/:lineId",
+    "controller": "LineItemsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/line-items/:lineId/reset-to-derived",
+    "controller": "LineItemsController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:modelId/scenarios",
+    "controller": "ScenariosController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/scenarios",
+    "controller": "ScenariosController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/budgeting/financial-models/:modelId/scenarios/:scenarioId",
+    "controller": "ScenariosController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:modelId/scenarios/:scenarioId",
+    "controller": "ScenariosController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/financial-models/:modelId/scenarios/:scenarioId",
+    "controller": "ScenariosController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots",
+    "controller": "SnapshotsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId",
+    "controller": "SnapshotsController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/links",
+    "controller": "ShareableLinksController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/links",
+    "controller": "ShareableLinksController",
+    "module": "budgeting",
+    "permission": "budgeting.share"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/links/:linkId/revoke",
+    "controller": "ShareableLinksController",
+    "module": "budgeting",
+    "permission": "budgeting.share"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/restore",
+    "controller": "SnapshotsController",
+    "module": "budgeting",
+    "permission": "budgeting.publish"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/budgeting/financial-models/:modelId/snapshots/publish",
+    "controller": "SnapshotsController",
+    "module": "budgeting",
+    "permission": "budgeting.publish"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/share/:token",
+    "controller": "ShareableLinksPublicController",
+    "module": "budgeting",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/budgeting/tenant-preferences",
+    "controller": "TenantPreferencesController",
+    "module": "budgeting",
+    "permission": "budgeting.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/budgeting/tenant-preferences",
+    "controller": "TenantPreferencesController",
+    "module": "budgeting",
+    "permission": "budgeting.manage"
   },
   {
     "method": "GET",
@@ -2877,10 +3203,7 @@
     "path": "/v1/diary/:studentId/parent-notes",
     "controller": "HomeworkDiaryController",
     "module": "homework",
-    "permission": [
-      "homework.write_diary",
-      "parent.homework"
-    ]
+    "permission": ["homework.write_diary", "parent.homework"]
   },
   {
     "method": "PATCH",
@@ -7864,10 +8187,7 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "POST",
@@ -9610,30 +9930,21 @@
     "path": "/v1/reports/builder/:reportId/duplicate",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": [
-      "analytics.manage_reports",
-      "reports.builder"
-    ]
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "GET",
     "path": "/v1/reports/builder/:reportId/execute",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": [
-      "analytics.manage_reports",
-      "reports.builder"
-    ]
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "POST",
     "path": "/v1/reports/builder/:reportId/export",
     "controller": "ReportSharingController",
     "module": "reports",
-    "permission": [
-      "reports.builder",
-      "analytics.manage_reports"
-    ]
+    "permission": ["reports.builder", "analytics.manage_reports"]
   },
   {
     "method": "POST",
@@ -9675,10 +9986,7 @@
     "path": "/v1/reports/builder/preview",
     "controller": "ReportsEnhancedController",
     "module": "reports",
-    "permission": [
-      "analytics.manage_reports",
-      "reports.builder"
-    ]
+    "permission": ["analytics.manage_reports", "reports.builder"]
   },
   {
     "method": "POST",
