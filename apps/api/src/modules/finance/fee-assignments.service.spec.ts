@@ -16,6 +16,7 @@ const mockPrisma = {
     count: jest.fn(),
     findFirst: jest.fn(),
     create: jest.fn(),
+    createMany: jest.fn(),
     update: jest.fn(),
   },
   household: {
@@ -352,6 +353,55 @@ describe('FeeAssignmentsService', () => {
       await expect(service.endAssignment(TENANT_ID, ASSIGNMENT_ID)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe('bulkCreate', () => {
+    // Used by the budgeting module's TripFeeIntegrationService to push a
+    // confirmed event budget's per-student costs onto household billing
+    // inside one transaction (impl 10).
+
+    it('returns a stable run_id with count=0 for an empty rows array', async () => {
+      const result = await service.bulkCreate(mockPrisma as never, TENANT_ID, []);
+      expect(result.count).toBe(0);
+      expect(typeof result.run_id).toBe('string');
+      expect(mockPrisma.householdFeeAssignment.createMany).not.toHaveBeenCalled();
+    });
+
+    it('creates one assignment per row inside the supplied transaction', async () => {
+      mockPrisma.householdFeeAssignment.createMany.mockResolvedValue({ count: 2 });
+      const rows = [
+        {
+          household_id: HOUSEHOLD_ID,
+          student_id: _STUDENT_ID,
+          fee_structure_id: FEE_STRUCTURE_ID,
+        },
+        {
+          household_id: 'household-uuid-2222',
+          fee_structure_id: FEE_STRUCTURE_ID,
+        },
+      ];
+      const result = await service.bulkCreate(mockPrisma as never, TENANT_ID, rows);
+      expect(mockPrisma.householdFeeAssignment.createMany).toHaveBeenCalledTimes(1);
+      expect(result.count).toBe(2);
+      expect(typeof result.run_id).toBe('string');
+    });
+
+    it('honours an explicit effective_from override', async () => {
+      mockPrisma.householdFeeAssignment.createMany.mockResolvedValue({ count: 1 });
+      await service.bulkCreate(mockPrisma as never, TENANT_ID, [
+        {
+          household_id: HOUSEHOLD_ID,
+          fee_structure_id: FEE_STRUCTURE_ID,
+          effective_from: '2027-01-15',
+        },
+      ]);
+      const callArgs = mockPrisma.householdFeeAssignment.createMany.mock.calls[0]?.[0] as {
+        data: Array<{ effective_from: Date }>;
+      };
+      // Pulling the date back out of the call args proves the override was
+      // forwarded; allow some leeway in the millisecond representation.
+      expect(callArgs.data[0]?.effective_from?.toISOString().slice(0, 10)).toBe('2027-01-15');
     });
   });
 });
