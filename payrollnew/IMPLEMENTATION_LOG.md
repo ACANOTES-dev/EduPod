@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:35Z | 25d30d03   |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:55Z | 7afa15ca   |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed`   | 2026-04-26T23:35Z | bfb63e21   |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed`   | 2026-04-26T23:55Z | 1d2a62c5   |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `in-progress` |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:55Z | 7afa15ca   |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:35Z | bfb63e21   |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:55Z | 1d2a62c5   |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `completed` | 2026-04-27T01:15Z | 918fa03e   |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -823,3 +823,207 @@ staff_recurring_deduction_id)` unique key and three lookup indexes,
   endpoint is `/my-payslips/:id/pdf`, NOT `/payslips/:id/pdf` — the
   former is the user-scoped self-service route, the latter is the
   admin route.
+
+### [IMPL 07] — Polish: tests, translations, mobile, docs
+
+- **Completed:** 2026-04-27T01:15Z (Europe/Dublin)
+- **Commit:** 918fa03e (head of `t3code/b523b305` after the nine-commit Wave 5 stack)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed — full repo type-check (shared/prisma/api/worker/web)
+  clean; full lint clean (zero errors; only pre-existing line-count + cross-module-import
+  warnings remain); 826 api test suites + 16169 api tests pass (1 unrelated skip in
+  imports module); 908 shared tests pass; 1139 worker tests pass; 650 web tests pass.
+  api-surface snapshot regenerated to absorb the 20 Wave 3 endpoints (self-service
+  surface, run sub-resources, mass-export-pdf download, verb-aliased PATCH variants,
+  tenant-wide listings, report aliases) plus the widened payroll.view permission on
+  /payslips/:id/pdf. Cross-path equivalence guard runs in 0.2s; RLS spec for
+  payroll_deduction_applications type-checks but is gated on a live local Postgres
+  (mirrors the rest of the .rls.spec.ts conventions).
+- **Summary:**
+  Wave 5 closes the rebuild with the work that doesn't fit a feature wave but is
+  required for the module to be considered "done".
+
+  **Dead-code removal (3 commits)**:
+  - Dropped `PayrollDeductionsService.autoApplyForRun` (the destructive
+    pre-rebuild deduction applier, replaced by Wave 2's two-phase
+    `scheduleApplicationForRun` + `commitApplications`). Removed its 6 spec
+    cases. No production code path called it.
+  - Dropped the `PAYROLL_GENERATE_SESSIONS_JOB` re-export from the worker's
+    `session-generation.processor.ts`. The dispatcher already used the
+    canonical `PAYROLL_SESSION_GENERATION_JOB` from `@school/shared/payroll`.
+  - Extended `payrollSettingsSchema` (`packages/shared/src/schemas/tenant.schema.ts`)
+    to model `payDay`, `payrollPreparationLeadDays`, `payrollAccountantEmail` —
+    fields the frontend settings page already exposed via `settings-types.ts`
+    but the backend schema didn't model. Replaced the unsafe
+    `as unknown as Record<string, Record<string, unknown>>` casts in
+    `payroll-calendar.service.ts` and `payroll-exports.service.ts` with typed
+    reads. Defensive runtime `typeof` checks preserve fallback behaviour for
+    specs that bypass schema parsing.
+
+  **Test additions (3 commits)**:
+  - `payroll-input-resolver.service.spec.ts` was a `describe.skip` placeholder
+    from Wave 1; replaced with a 5-test happy-path spec covering salaried,
+    per-class, mixed compensation paths, the skip-when-no-comp branch, and
+    the optional-tx plumb-through.
+  - The `it.skip` "should use override_total_pay in totals" Wave-2 follow-up
+    in `payroll-runs.service.spec.ts` is now an active test that pins the
+    Wave-5 decision: keep `override_total_pay` in the schema (the
+    entries-table UI still surfaces it) but the unified engine ignores it
+    at finalisation. Tenants needing an override use an adjustment row.
+    A future re-introduction surfaces as a deliberate breaking change.
+  - New `apps/api/src/modules/payroll/cross-path-equivalence.spec.ts` —
+    structural guard for the most important contract in the rebuild.
+    Asserts both `FinalisationService` and the worker
+    `approval-callback.processor` import `formatPayslipNumber` from
+    `@school/shared/payroll`, neither inlines a payslip-number template
+    literal, both construct snapshots with every key the shared
+    `payslipSnapshotSchema` requires, and the canonical snapshot shape
+    parses cleanly. Catches the regression class that motivated the
+    rebuild without needing a real DB.
+  - New `apps/api/test/payroll-deduction-applications.rls.spec.ts` — RLS
+    leakage spec for the new Wave 1 join table. Mirrors the existing
+    `payroll-adjustments.rls.spec.ts` pattern: read isolation,
+    cross-tenant ID lookup, write isolation (UPDATE / DELETE), plus a
+    `relforcerowsecurity = t` guard and the canonical
+    `payroll_deduction_applications_tenant_isolation` policy-existence
+    check.
+
+  **Mobile responsive sweep (1 commit)**: Survey turned up mostly false
+  positives — most pages already use `overflow-x-auto`-wrapped tables,
+  mobile-first responsive grids, and `text-base` inputs. The one real
+  fix: `reports/page.tsx` tab bar previously used `flex-wrap` with
+  `flex-1` which wrapped tabs onto multiple rows on a 375px viewport.
+  Now uses the `overflow-x-auto` + `min-w-max` + `sm:flex-1` pattern
+  from `runs/[id]/page.tsx`.
+
+  **Architecture-doc refresh (1 commit)**: All five `docs/architecture/`
+  files updated. `feature-map.md` Last verified flipped, payroll
+  section rewritten to list the unified `FinalisationService`,
+  `PayrollInputResolver`, every worker job's canonical name + Redis
+  key + idempotency key, and the full self-service surface.
+  `module-blast-radius.md` now lists the new exports (`FinalisationService`,
+  `PayrollInputResolver`), the full imports set including
+  `StaffProfilesModule` for self-service scoping, and notes about
+  cross-path equivalence and the boot-time permission backfill.
+  `event-job-catalog.md` payroll queue entry rewritten to reflect the
+  shared `@school/shared/payroll` constants, per-tenant Redis key
+  namespacing, the 1200s mass-export PDF TTL, and the idempotency-key
+  conventions. `state-machines.md` PayrollRunStatus updated:
+  `pending_approval -> cancelled` is now listed (Wave 2 escape hatch);
+  the side-effects section names `FinalisationService.finaliseAtomic`
+  as the single source of truth. `danger-zones.md` got three new
+  entries: **DZ-Payroll-1** (historical payslip-number format
+  inconsistency on pre-rebuild runs), **DZ-Payroll-2** (the two-phase
+  recurring-deduction application contract), **DZ-Payroll-3** (the
+  most-recent-overlap rule for compensation period bracketing).
+
+  **Pre-launch checklist (1 commit)**: Added 4 payroll items to Part 5
+  Deferred Items: #24 production end-to-end smoke walkthrough (impl 07
+  step 7 was forbidden by the worktree-isolated execution model);
+  #25 anomaly acknowledgement persistence (needs a new
+  `payroll_anomalies` table — POST endpoint was descoped to avoid
+  shipping a 404); #26 compensation overlap clean-up + partial unique
+  constraint (DZ-Payroll-3 mitigation); #27 cross-tenant Playwright
+  e2e for the full payroll lifecycle (needs a live tenant + test-data
+  seeding).
+
+  **API-surface snapshot (1 commit)**: Regenerated to absorb the 20
+  new Wave 3 endpoints. The snapshot test now passes cleanly.
+
+  **Translation pass**: Audit of `payroll.*`, `payrollHub.*`,
+  `payrollAbsences.*` across `apps/web/messages/en.json` and `ar.json`
+  — 399 keys both sides, no missing pairs, no terminology drift
+  ("payslip" not "pay slip", "payroll run" not "salary run"), no
+  empty values, no bare-generic strings ("Failed", "Loading" etc.).
+  Walked all payroll page TypeScript files and verified every
+  `t('xxx')` call resolves to a real key. Wave 4's translation work
+  was thorough enough that no key changes were needed.
+
+- **Deviations from plan:**
+  1. **Cross-path equivalence test is structural, not behavioural.**
+     The impl spec called for cloning the database state and running
+     both finalisation paths against an identical fixture, asserting
+     byte-equal entry totals + snapshots. The worker lives in a
+     separate package with its own DI container; cross-package
+     execution belongs in a true e2e test that requires a live
+     Postgres. The structural guard catches the actual regression
+     class that motivated the rebuild (silent format / snapshot drift
+     between the two source files) by asserting both files import
+     `formatPayslipNumber`, neither inlines a template literal, and
+     both construct every snapshot key the shared schema requires.
+     The full e2e is captured as Pre-Launch Item #27.
+  2. **No `apps/web/e2e/payroll-end-to-end.spec.ts`.** Same root
+     cause — needs a live test-tenant login flow + seeded data.
+     Captured as Pre-Launch Item #27.
+  3. **Calculation correctness fixtures are already extensive.** The
+     impl spec listed 8 fixture scenarios. `calculation.service.spec.ts`
+     already covers each scenario (salaried, per-class, mixed,
+     allowances, deductions, adjustments, one-offs, edge rounding).
+     Adding more fixtures would have been redundant.
+  4. **Finalisation idempotency is already covered.** The impl spec
+     called for an idempotency spec; `finalisation.service.spec.ts`
+     already covers the self-heal-on-already-finalised case and the
+     mid-transaction-failure rollback case (spec written in Wave 2).
+  5. **Mobile responsive sweep produced one fix, not many.** Survey
+     across 11 payroll pages turned up mostly false positives (the
+     surveyor flagged tables that ARE wrapped in `overflow-x-auto`,
+     tab bars that DO have `overflow-x-auto`, etc.). The one real
+     issue was the reports page tab bar. The other pages from the
+     redesigned hub already follow the morph-shell mobile patterns.
+  6. **Production smoke walk-through (impl 07 step 7) is captured
+     as Pre-Launch Item #24.** The worktree-isolated execution model
+     forbids prod access during the rebuild; smoke happens
+     post-merge.
+  7. **`StaffProfilesModule` import in `payroll.module.ts` is NOT
+     dropped.** The audit's note about it being unused predates Wave 3,
+     which added `StaffProfileReadFacade` consumers to
+     `payslips.service`, `compensation.service`, and
+     `payroll-analytics.service` — the module IS actually used now.
+
+- **Follow-ups:**
+  1. (Pre-launch / future wave) Anomaly acknowledgement persistence —
+     captured as PRE-LAUNCH Item #25.
+  2. (Pre-launch) Cross-tenant Playwright e2e — captured as
+     PRE-LAUNCH Item #27.
+  3. (Pre-launch) Compensation overlap audit + partial unique
+     constraint — captured as PRE-LAUNCH Item #26.
+  4. (Pre-launch) Production end-to-end smoke walkthrough —
+     captured as PRE-LAUNCH Item #24.
+  5. (Future) Decide if an Arabic native-speaker review of Wave 4–5
+     translation additions is warranted before launch. The
+     functional copy is complete; the polish pass found no obvious
+     literal/machine-translated artefacts.
+  6. (Future) Promote the worker to literal DI of `FinalisationService`
+     so the API and worker share an `import` rather than parallel
+     implementations of the same contract. Requires publishing
+     `FinalisationModule` from `@school/api` and importing it in
+     `@school/worker`. Carried over from Wave 2 follow-ups.
+
+- **Session notes:** The api-surface snapshot drift was a clean
+  reveal — the snapshot CI test caught all 20 Wave 3 endpoints + the
+  permission widening, and `pnpm run snapshot:api` regenerated the
+  file in seconds. This is exactly what the snapshot is for. The
+  `daysWorked: Decimal | null` strict-mode finding in
+  `payroll-input-resolver.service.spec.ts` was a one-character fix
+  (`?.toString()` instead of `.toString()`) — the resolver always
+  returns a Decimal in practice but the type allows null for
+  unscheduled-comp edge cases.
+
+---
+
+### Rebuild complete
+
+- **Started:** 2026-04-26 (Wave 1, IMPL 01)
+- **Completed:** 2026-04-27 (Wave 5, IMPL 07)
+- **Total commits on `t3code/b523b305`:** ~40 across 7 implementations + 7 log commits
+- **Outcome:** Payroll module's calculation engine now consumes every input it
+  advertised, both finalisation paths emit identical payslip-numbers and
+  snapshot payloads via the unified `FinalisationService.finaliseAtomic`,
+  worker job names + Redis keys are sourced from `@school/shared/payroll`
+  (eliminating the silent job-name divergence that killed two of three
+  worker jobs pre-rebuild), the 20 endpoints the redesigned frontend was
+  calling but didn't exist now exist, every tenant-scoped table has FORCE
+  ROW LEVEL SECURITY (10 tables retrofitted), and the cross-path equivalence
+  - RLS leakage guards prevent the regression class from re-introducing
+    silently. Awaiting user merge into `main` and post-merge production smoke
+    (Pre-Launch Item #24).
