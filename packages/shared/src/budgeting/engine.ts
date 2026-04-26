@@ -116,7 +116,13 @@ export const runEngine = (inputs: EngineInputs): EngineOutputs => {
   // Capex items declared outside the horizon are silently dropped by
   // computeCapitalLines; surface a single info warning so the UI can flag
   // them on the drivers panel.
-  for (const capex of drivers.capex_items) {
+  //
+  // Defensive `?? []`: a `drivers` blob deserialised from JSONB may have an
+  // absent `capex_items` array if it was persisted from a partial create
+  // path (test fixtures, migrated rows). The Drivers type marks it required
+  // and `buildDefaultDrivers()` always returns `[]`, but runtime
+  // tolerates missing.
+  for (const capex of drivers.capex_items ?? []) {
     if (capex.fiscal_year > horizon_years) {
       warnings.push({
         level: 'info',
@@ -328,7 +334,7 @@ const computeOperationsLines = (
 // ─── Section: Capital ──────────────────────────────────────────────────────
 
 const computeCapitalLines = (drivers: Drivers, year: number): ComputedLineItem[] =>
-  drivers.capex_items
+  (drivers.capex_items ?? [])
     .filter((item) => item.fiscal_year === year)
     .map((item) => ({
       category: 'capital' as const,

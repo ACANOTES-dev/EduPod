@@ -255,7 +255,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
   // ─── Test 11: List tenant modules ───────────────────────────────────────────
 
-  it('should list tenant modules and return all 16 modules', async () => {
+  it('should list tenant modules and return all 17 modules', async () => {
     const listRes = await authGet(
       app,
       '/api/v1/admin/tenants?pageSize=100&order=asc',
@@ -272,7 +272,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data).toHaveLength(16);
+    expect(res.body.data).toHaveLength(17);
 
     const moduleKeys = res.body.data.map((m: { module_key: string }) => m.module_key);
     expect(moduleKeys).toEqual(
@@ -293,6 +293,9 @@ describe('Tenants Admin Endpoints (e2e)', () => {
         'behaviour',
         'pastoral',
         'ai_functions',
+        // Added by the modeling rebuild (impl 01) — Budgeting & Analysis
+        // sub-module under Finance.
+        'budgeting',
       ]),
     );
   });
