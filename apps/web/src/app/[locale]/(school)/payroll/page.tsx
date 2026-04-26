@@ -34,6 +34,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { toast } from '@school/ui';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { fmtLocale } from '@/lib/i18n-format';
@@ -78,17 +80,35 @@ interface DashboardData {
   }[];
   anomalies: {
     entry_id: string;
+    staff_profile_id: string;
     staff_name: string;
+    anomaly_type: string;
     description: string;
-    severity: 'low' | 'medium' | 'high';
+    /** Wave 3 contract: scanForAnomalies only emits 'error' or 'warning'. */
+    severity: 'error' | 'warning';
   }[];
+  /**
+   * Wave 3 dashboard contract: just the next pay date and a "preparation
+   * deadline soon" boolean. The richer countdown shape used pre-rebuild
+   * (`days_until_pay`, `preparation_deadline`, `days_until_preparation`)
+   * is computed client-side here.
+   */
   payroll_calendar: {
     next_pay_date: string | null;
-    days_until_pay: number | null;
-    preparation_deadline: string | null;
-    days_until_preparation: number | null;
+    preparation_due: boolean;
   } | null;
   current_draft_id: string | null;
+}
+
+/** Compute days from today to a given ISO date string, ignoring time-of-day. */
+function daysUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(iso);
+  target.setHours(0, 0, 0, 0);
+  const ms = target.getTime() - today.getTime();
+  return Math.round(ms / 86_400_000);
 }
 
 // ─── Hub card catalogue ───────────────────────────────────────────────────────
@@ -334,24 +354,47 @@ export default function PayrollHubPage() {
 
   const [data, setData] = React.useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [accessDenied, setAccessDenied] = React.useState(false);
 
   const fetchDashboard = React.useCallback(async () => {
     try {
-      const res = await apiClient<{ data: DashboardData }>('/api/v1/payroll/dashboard');
-      setData(res.data);
+      const res = await apiClient<DashboardData>('/api/v1/payroll/dashboard', { silent: true });
+      setData(res);
+      setAccessDenied(false);
     } catch (err) {
-      console.error('[PayrollHubPage]', err);
+      // The backend RBAC guard returns 403 when the user lacks `payroll.view`.
+      // Render a friendly placeholder rather than a stuck loader.
+      const status =
+        err && typeof err === 'object' && 'status' in (err as object)
+          ? Number((err as { status?: number }).status)
+          : null;
+      if (status === 403) {
+        setAccessDenied(true);
+      } else {
+        const message = err instanceof Error ? err.message : t('hubLoadFailed');
+        toast.error(message);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void fetchDashboard();
   }, [fetchDashboard]);
 
+  if (accessDenied) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 p-6 text-center">
+        <h2 className="text-lg font-semibold text-text-primary">{t('noAccessTitle')}</h2>
+        <p className="text-sm text-text-tertiary">{t('noAccessBody')}</p>
+      </div>
+    );
+  }
+
   const latest = data?.latest_finalised ?? data?.latest_run ?? null;
   const cal = data?.payroll_calendar;
+  const daysUntilPay = daysUntil(cal?.next_pay_date ?? null);
   const hasDraft = data?.latest_run?.status === 'draft';
 
   return (
@@ -401,27 +444,18 @@ export default function PayrollHubPage() {
                 })}
               </p>
               <p className="text-xs text-text-tertiary">
-                {cal.days_until_pay === 0
+                {daysUntilPay === 0
                   ? t('payDay.today')
-                  : cal.days_until_pay && cal.days_until_pay > 0
-                    ? t('payDay.daysAway', { count: cal.days_until_pay })
+                  : daysUntilPay !== null && daysUntilPay > 0
+                    ? t('payDay.daysAway', { count: daysUntilPay })
                     : t('payDay.overdue')}
               </p>
             </div>
           </div>
-          {cal.preparation_deadline && (
+          {cal.preparation_due && (
             <div className="rounded-xl border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
-              {t('payDay.prepDeadline', {
-                date: new Date(cal.preparation_deadline).toLocaleDateString(fmtLocale(locale), {
-                  day: 'numeric',
-                  month: 'short',
-                }),
-              })}
-              {cal.days_until_preparation !== null &&
-                cal.days_until_preparation !== undefined &&
-                cal.days_until_preparation <= 5 && (
-                  <span className="ms-2 font-semibold">⚠ {t('payDay.soon')}</span>
-                )}
+              {t('payDay.prepDueSoon')}
+              <span className="ms-2 font-semibold">⚠ {t('payDay.soon')}</span>
             </div>
           )}
         </section>
@@ -542,16 +576,12 @@ export default function PayrollHubPage() {
               <ul className="space-y-1.5">
                 {data.anomalies.slice(0, 5).map((a) => (
                   <li
-                    key={a.entry_id}
+                    key={`${a.entry_id}-${a.anomaly_type}`}
                     className="flex items-start gap-2 text-sm text-warning-800/90"
                   >
                     <span
                       className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                        a.severity === 'high'
-                          ? 'bg-danger-500'
-                          : a.severity === 'medium'
-                            ? 'bg-warning-500'
-                            : 'bg-info-400'
+                        a.severity === 'error' ? 'bg-danger-500' : 'bg-warning-500'
                       }`}
                     />
                     <span>
