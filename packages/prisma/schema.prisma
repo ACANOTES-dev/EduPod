@@ -650,6 +650,9 @@ model Tenant {
   payroll_one_off_items      PayrollOneOffItem[]
   staff_recurring_deductions StaffRecurringDeduction[]
 
+  // Payroll Overhaul (Wave 1) Relations
+  payroll_deduction_applications PayrollDeductionApplication[]
+
   // P7 Relations
   announcements            Announcement[]
   notification_templates   NotificationTemplate[]
@@ -5651,8 +5654,12 @@ model PayrollRun {
   adjustments PayrollAdjustment[]
   export_logs PayrollExportLog[]
 
+  // Payroll Overhaul (Wave 1) Relations
+  deduction_applications PayrollDeductionApplication[]
+
   @@index([tenant_id], name: "idx_payroll_runs_tenant")
   @@index([tenant_id, status], name: "idx_payroll_runs_tenant_status")
+  @@index([tenant_id, period_year, period_month], name: "idx_payroll_runs_tenant_period")
   @@map("payroll_runs")
 }
 
@@ -5678,6 +5685,17 @@ model PayrollEntry {
   override_by_user_id           String?          @db.Uuid
   override_at                   DateTime?        @db.Timestamptz()
   notes                         String?          @db.VarChar(1000)
+  // Payroll Overhaul (Wave 1) — new aggregate columns, populated by the
+  // Wave 2 calculation engine + finalisation. The old basic_pay/bonus_pay/
+  // total_pay/override_total_pay columns above are retained for
+  // backwards-compatible dashboard reads (see PLAN.md §5).
+  gross_pay                     Decimal          @default(0) @db.Decimal(12, 2)
+  total_deductions              Decimal          @default(0) @db.Decimal(12, 2)
+  net_pay                       Decimal          @default(0) @db.Decimal(12, 2)
+  allowances_total              Decimal          @default(0) @db.Decimal(12, 2)
+  deductions_total              Decimal          @default(0) @db.Decimal(12, 2)
+  adjustments_total             Decimal          @default(0) @db.Decimal(12, 2)
+  one_off_total                 Decimal          @default(0) @db.Decimal(12, 2)
   created_at                    DateTime         @default(now()) @db.Timestamptz()
   updated_at                    DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
@@ -5692,9 +5710,13 @@ model PayrollEntry {
   adjustments   PayrollAdjustment[]
   one_off_items PayrollOneOffItem[]
 
+  // Payroll Overhaul (Wave 1) Relations
+  deduction_applications PayrollDeductionApplication[]
+
   @@unique([tenant_id, payroll_run_id, staff_profile_id], name: "idx_payroll_entries_unique")
   @@index([tenant_id, payroll_run_id], name: "idx_payroll_entries_run")
   @@index([tenant_id, staff_profile_id], name: "idx_payroll_entries_staff")
+  @@index([tenant_id, compensation_type], name: "idx_payroll_entries_tenant_comp_type")
   @@map("payroll_entries")
 }
 
@@ -6342,8 +6364,44 @@ model StaffRecurringDeduction {
   staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
   created_by    User         @relation("deduction_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
 
+  // Payroll Overhaul (Wave 1) Relations
+  applications PayrollDeductionApplication[]
+
   @@index([tenant_id, staff_profile_id], name: "idx_staff_deductions_tenant_staff")
   @@map("staff_recurring_deductions")
+}
+
+// ─── Payroll Overhaul (Wave 1) — Idempotent recurring-deduction application ─
+//
+// Records each application of a `staff_recurring_deduction` to a particular
+// payroll run/entry. The two-phase shape (`applied_at` for the schedule,
+// `committed_at` for the balance decrement) lets `requestFinalisation` plan
+// applications safely (idempotent via the unique key) and `finaliseAtomic`
+// decrement balances exactly once. See payrollnew/PLAN.md §5.
+
+model PayrollDeductionApplication {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String    @db.Uuid
+  payroll_run_id               String    @db.Uuid
+  payroll_entry_id             String    @db.Uuid
+  staff_recurring_deduction_id String    @db.Uuid
+  applied_amount               Decimal   @db.Decimal(12, 2)
+  applied_at                   DateTime  @default(now()) @db.Timestamptz()
+  committed_at                 DateTime? @db.Timestamptz()
+  created_at                   DateTime  @default(now()) @db.Timestamptz()
+  updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                    Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payroll_run               PayrollRun              @relation(fields: [payroll_run_id], references: [id], onDelete: Cascade)
+  payroll_entry             PayrollEntry            @relation(fields: [payroll_entry_id], references: [id], onDelete: Cascade)
+  staff_recurring_deduction StaffRecurringDeduction @relation(fields: [staff_recurring_deduction_id], references: [id])
+
+  @@unique([payroll_run_id, staff_recurring_deduction_id], name: "uniq_deduction_per_run")
+  @@index([tenant_id, payroll_run_id], name: "idx_deduction_apps_run")
+  @@index([tenant_id, payroll_entry_id], name: "idx_deduction_apps_entry")
+  @@index([tenant_id, staff_recurring_deduction_id], name: "idx_deduction_apps_deduction")
+  @@map("payroll_deduction_applications")
 }
 
 // ─── Reports World-Class Models ──────────────────────────────────────────────
