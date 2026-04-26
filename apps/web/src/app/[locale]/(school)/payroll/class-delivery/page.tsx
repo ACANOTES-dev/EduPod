@@ -3,18 +3,16 @@
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -34,25 +32,25 @@ interface DeliveryRecord {
   notes?: string;
 }
 
+/**
+ * Per-teacher tally derived client-side from the records list. The backend
+ * does not expose a `/class-delivery/summary` aggregate endpoint, so the
+ * frontend rolls it up from the records the user is already paginating
+ * through. Wave 5 may add a server-side summary for very large months.
+ */
 interface TeacherSummary {
   staff_profile_id: string;
   staff_name: string;
-  prescribed: number;
   delivered: number;
   absent_covered: number;
   absent_uncovered: number;
   cancelled: number;
-}
-
-interface MonthlyComparisonPoint {
-  period_label: string;
-  prescribed: number;
-  delivered: number;
+  total: number;
 }
 
 interface StaffOption {
   id: string;
-  name: string;
+  full_name: string;
 }
 
 const STATUS_OPTIONS: DeliveryStatus[] = [
@@ -77,6 +75,25 @@ function currentMonthRange(): { from: string; to: string } {
   return { from: `${y}-${m}-01`, to: `${y}-${m}-${lastDay}` };
 }
 
+function summarise(records: DeliveryRecord[]): TeacherSummary[] {
+  const map = new Map<string, TeacherSummary>();
+  for (const r of records) {
+    const existing = map.get(r.staff_profile_id) ?? {
+      staff_profile_id: r.staff_profile_id,
+      staff_name: r.staff_name,
+      delivered: 0,
+      absent_covered: 0,
+      absent_uncovered: 0,
+      cancelled: 0,
+      total: 0,
+    };
+    existing[r.status] += 1;
+    existing.total += 1;
+    map.set(r.staff_profile_id, existing);
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
 export default function ClassDeliveryPage() {
   const t = useTranslations('payroll');
   const pathname = usePathname();
@@ -88,10 +105,10 @@ export default function ClassDeliveryPage() {
   const [teacherFilter, setTeacherFilter] = React.useState<string>('all');
   const [staffOptions, setStaffOptions] = React.useState<StaffOption[]>([]);
   const [records, setRecords] = React.useState<DeliveryRecord[]>([]);
-  const [summaries, setSummaries] = React.useState<TeacherSummary[]>([]);
-  const [comparison, setComparison] = React.useState<MonthlyComparisonPoint[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAutoPopulating, setIsAutoPopulating] = React.useState(false);
+
+  const summaries = React.useMemo(() => summarise(records), [records]);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
@@ -99,27 +116,23 @@ export default function ClassDeliveryPage() {
       const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
       if (teacherFilter !== 'all') params.set('staff_profile_id', teacherFilter);
 
-      const [recordsRes, summariesRes, comparisonRes, staffRes] = await Promise.all([
+      const [recordsRes, staffRes] = await Promise.all([
         apiClient<{ data: DeliveryRecord[] }>(
           `/api/v1/payroll/class-delivery?${params.toString()}`,
+          { silent: true },
         ),
-        apiClient<{ data: TeacherSummary[] }>(
-          `/api/v1/payroll/class-delivery/summary?${params.toString()}`,
-        ),
-        apiClient<{ data: MonthlyComparisonPoint[] }>('/api/v1/payroll/class-delivery/comparison'),
-        apiClient<{ data: StaffOption[] }>('/api/v1/payroll/staff?pageSize=200'),
+        // Wave 3 endpoint that flattens `full_name`.
+        apiClient<{ data: StaffOption[] }>('/api/v1/payroll/staff?pageSize=200', { silent: true }),
       ]);
       setRecords(recordsRes.data);
-      setSummaries(summariesRes.data);
-      setComparison(comparisonRes.data);
       setStaffOptions(staffRes.data);
     } catch (err) {
-      // silent
-      console.error('[setStaffOptions]', err);
+      const message = err instanceof Error ? err.message : t('classDeliveryLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [dateFrom, dateTo, teacherFilter]);
+  }, [dateFrom, dateTo, teacherFilter, t]);
 
   React.useEffect(() => {
     void fetchData();
@@ -127,28 +140,35 @@ export default function ClassDeliveryPage() {
 
   const handleStatusChange = async (recordId: string, status: DeliveryStatus) => {
     try {
+      // Wave 3 added the PATCH alias on top of PUT /:id/confirm.
       await apiClient(`/api/v1/payroll/class-delivery/${recordId}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
+        silent: true,
       });
+      toast.success(t('deliveryUpdated'));
       setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, status } : r)));
     } catch (err) {
-      // silent
-      console.error('[map]', err);
+      const message = err instanceof Error ? err.message : t('deliveryUpdateFailed');
+      toast.error(message);
     }
   };
 
   const handleAutoPopulate = async () => {
     setIsAutoPopulating(true);
     try {
+      const month = Number(dateFrom.split('-')[1]);
+      const year = Number(dateFrom.split('-')[0]);
       await apiClient('/api/v1/payroll/class-delivery/auto-populate', {
         method: 'POST',
-        body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
+        body: JSON.stringify({ month, year }),
+        silent: true,
       });
+      toast.success(t('autoPopulateStarted'));
       void fetchData();
     } catch (err) {
-      // silent
-      console.error('[fetchData]', err);
+      const message = err instanceof Error ? err.message : t('autoPopulateFailed');
+      toast.error(message);
     } finally {
       setIsAutoPopulating(false);
     }
@@ -174,7 +194,7 @@ export default function ClassDeliveryPage() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -183,7 +203,7 @@ export default function ClassDeliveryPage() {
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <Select value={teacherFilter} onValueChange={setTeacherFilter}>
@@ -194,14 +214,15 @@ export default function ClassDeliveryPage() {
             <SelectItem value="all">{t('allTeachers')}</SelectItem>
             {staffOptions.map((s) => (
               <SelectItem key={s.id} value={s.id}>
-                {s.name}
+                {s.full_name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Summary cards per teacher */}
+      {/* Per-teacher rollup — derived from `records` because the backend
+          does not yet expose an aggregate summary endpoint. */}
       {!isLoading && summaries.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((s) => (
@@ -212,8 +233,8 @@ export default function ClassDeliveryPage() {
               <p className="text-sm font-semibold text-text-primary">{s.staff_name}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-text-secondary">{t('prescribed')}</span>
-                  <p className="text-base font-semibold text-text-primary">{s.prescribed}</p>
+                  <span className="text-text-secondary">{t('total')}</span>
+                  <p className="text-base font-semibold text-text-primary">{s.total}</p>
                 </div>
                 <div>
                   <span className="text-text-secondary">{t('delivered')}</span>
@@ -231,50 +252,16 @@ export default function ClassDeliveryPage() {
                 </div>
               </div>
               {/* Mini progress bar */}
-              {s.prescribed > 0 && (
+              {s.total > 0 && (
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary">
                   <div
                     className="h-full rounded-full bg-success-500 transition-all"
-                    style={{ width: `${Math.min(100, (s.delivered / s.prescribed) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (s.delivered / s.total) * 100)}%` }}
                   />
                 </div>
               )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Prescribed vs Actual bar chart */}
-      {!isLoading && comparison.length > 0 && (
-        <div className="rounded-2xl border border-border bg-surface p-5">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">
-            {t('prescribedVsDelivered')}
-          </h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={comparison}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                dataKey="period_label"
-                tick={{ fontSize: 11 }}
-                stroke="var(--color-text-tertiary)"
-              />
-              <YAxis tick={{ fontSize: 11 }} stroke="var(--color-text-tertiary)" />
-              <Tooltip />
-              <Legend />
-              <Bar
-                dataKey="prescribed"
-                name={t('prescribed')}
-                fill="hsl(var(--color-primary) / 0.4)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="delivered"
-                name={t('delivered')}
-                fill="hsl(var(--color-success))"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       )}
 

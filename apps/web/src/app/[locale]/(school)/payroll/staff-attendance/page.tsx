@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
+import { Button, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -91,33 +91,35 @@ export default function StaffAttendancePage() {
   const fetchDaily = React.useCallback(async () => {
     setIsLoading(true);
     try {
+      // Wave 3 endpoint path: `/payroll/attendance/daily` (was `/payroll/staff-attendance`).
       const res = await apiClient<{ data: StaffAttendanceRecord[] }>(
-        `/api/v1/payroll/staff-attendance?date=${selectedDate}`,
+        `/api/v1/payroll/attendance/daily?date=${selectedDate}`,
+        { silent: true },
       );
       setStaff(res.data);
       setPendingChanges({});
     } catch (err) {
-      // silent
-      console.error('[setPendingChanges]', err);
+      const message = err instanceof Error ? err.message : t('attendanceLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, t]);
 
   const fetchMonthly = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await apiClient<{
         data: Record<string, Record<string, AttendanceStatus>>;
-      }>(`/api/v1/payroll/staff-attendance/monthly?year=${year}&month=${month + 1}`);
+      }>(`/api/v1/payroll/attendance/monthly?year=${year}&month=${month + 1}`, { silent: true });
       setMonthlyData(res.data);
     } catch (err) {
-      // silent
-      console.error('[setMonthlyData]', err);
+      const message = err instanceof Error ? err.message : t('attendanceLoadFailed');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [year, month]);
+  }, [year, month, t]);
 
   React.useEffect(() => {
     if (view === 'daily') {
@@ -147,7 +149,7 @@ export default function StaffAttendancePage() {
     if (Object.keys(pendingChanges).length === 0) return;
     setIsSaving(true);
     try {
-      await apiClient('/api/v1/payroll/staff-attendance/bulk', {
+      await apiClient('/api/v1/payroll/attendance/bulk', {
         method: 'POST',
         body: JSON.stringify({
           date: selectedDate,
@@ -156,11 +158,13 @@ export default function StaffAttendancePage() {
             status,
           })),
         }),
+        silent: true,
       });
+      toast.success(t('attendanceSaved'));
       setPendingChanges({});
     } catch (err) {
-      // silent
-      console.error('[setPendingChanges]', err);
+      const message = err instanceof Error ? err.message : t('attendanceSaveFailed');
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -217,7 +221,7 @@ export default function StaffAttendancePage() {
           ))}
         </div>
 
-        {/* Date picker */}
+        {/* Date picker — text-base prevents iOS auto-zoom on focus */}
         <input
           type={view === 'daily' ? 'date' : 'month'}
           value={view === 'daily' ? selectedDate : `${year}-${String(month + 1).padStart(2, '0')}`}
@@ -231,7 +235,7 @@ export default function StaffAttendancePage() {
               }
             }
           }}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
