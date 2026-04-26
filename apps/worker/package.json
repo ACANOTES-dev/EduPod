@@ -32,6 +32,7 @@
     "cockatiel": "^3.2.1",
     "cron-parser": "^4.9.0",
     "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
     "handlebars": "^4.7.9",
     "ioredis": "^5.4.2",
     "puppeteer": "^23.11.0",

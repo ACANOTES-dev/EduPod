@@ -856,6 +856,17 @@ model Tenant {
   complianceReportGenerations    ComplianceReportGeneration[]
   ai_ask_ai_history              AiAskAiHistory[]
 
+  // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
+  financial_models             FinancialModel[]
+  scenarios                    Scenario[]
+  financial_model_line_items   FinancialModelLineItem[]
+  financial_model_snapshots    FinancialModelSnapshot[]
+  event_budgets                EventBudget[]
+  event_budget_scenarios       EventBudgetScenario[]
+  variance_cache               VarianceCache[]
+  shareable_links              ShareableLink[]
+  budgeting_tenant_preferences BudgetingTenantPreferences?
+
   @@map("tenants")
 }
 
@@ -1410,6 +1421,12 @@ model User {
   oversight_actions           OversightAccessLog[]         @relation("oversight_actor")
   complianceReportGenerations ComplianceReportGeneration[]
   ai_ask_ai_history           AiAskAiHistory[]             @relation("ai_ask_ai_history")
+
+  // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
+  financial_models_created            FinancialModel[]         @relation("financial_model_creator")
+  financial_model_snapshots_published FinancialModelSnapshot[] @relation("financial_model_snapshot_publisher")
+  event_budgets_created               EventBudget[]            @relation("event_budget_creator")
+  shareable_links_created             ShareableLink[]          @relation("shareable_link_creator")
 
   @@map("users")
 }
@@ -2445,6 +2462,9 @@ model YearGroup {
   // SCHED-022: cross-year-group class visibility.
   class_links ClassYearGroupLink[]
 
+  // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
+  event_budgets EventBudget[]
+
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
   @@map("year_groups")
@@ -2571,6 +2591,9 @@ model Class {
 
   // SCHED-022: additional year-group links for cross-year-group classes.
   year_group_links ClassYearGroupLink[]
+
+  // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
+  event_budgets EventBudget[]
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -11102,4 +11125,293 @@ model OversightAccessLog {
   @@index([tenant_id, actor_user_id, created_at(sort: Desc)], name: "idx_oversight_log_actor")
   @@index([tenant_id, action, created_at(sort: Desc)], name: "idx_oversight_log_action")
   @@map("oversight_access_log")
+}
+
+// ─── Budgeting & Analysis ("Modeling") Foundation (Impl 01) ─────────────────
+//
+// Drives the Finance hub's Budgeting & Analysis sub-module. Two distinct
+// workspaces — annual financial models (driver-based forecasts with scenarios
+// + variance + snapshots) and event/trip budgets (lightweight per-event
+// calculator that can push fees end-to-end into Finance via
+// FeeAssignmentsService.bulkCreate()).
+//
+// All tables are tenant-scoped with FORCE ROW LEVEL SECURITY. Policies live
+// in the matching post_migrate.sql and are mirrored into
+// packages/prisma/rls/policies.sql. See modeling/PLAN.md for context and
+// modeling/implementations/01-schema-foundation.md for the per-column spec.
+
+enum FinancialModelStatus {
+  draft
+  published
+  archived
+}
+
+enum FinancialModelLineItemSource {
+  driver_derived
+  custom
+  override
+}
+
+enum FinancialModelLineItemCategory {
+  income
+  staff_costs
+  operations
+  capital
+  reserves_and_adjustments
+}
+
+enum EventBudgetType {
+  trip
+  fundraiser
+  sports_day
+  performance
+  capital_purchase
+  other
+}
+
+enum EventBudgetStatus {
+  draft
+  confirmed
+  fees_generated
+  completed
+  cancelled
+}
+
+enum EventBudgetPaymentPlan {
+  one_off
+  two_payments
+  three_payments
+  four_payments
+}
+
+enum VarianceCachePeriodType {
+  month
+  term
+  year
+}
+
+model FinancialModel {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String               @db.Uuid
+  name                 String               @db.VarChar(255)
+  description          String?              @db.Text
+  fiscal_year_start    DateTime             @db.Date
+  fiscal_year_end      DateTime             @db.Date
+  horizon_years        Int                  @default(1) @db.SmallInt
+  drivers              Json                 @db.JsonB
+  source_snapshot_json Json                 @db.JsonB
+  status               FinancialModelStatus @default(draft)
+  current_snapshot_id  String?              @db.Uuid
+  created_by           String               @db.Uuid
+  created_at           DateTime             @default(now()) @db.Timestamptz()
+  updated_at           DateTime             @default(now()) @updatedAt @db.Timestamptz()
+  archived_at          DateTime?            @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  creator         User                     @relation("financial_model_creator", fields: [created_by], references: [id])
+  scenarios       Scenario[]
+  line_items      FinancialModelLineItem[]
+  snapshots       FinancialModelSnapshot[]
+  variance_cache  VarianceCache[]
+  shareable_links ShareableLink[]
+
+  @@index([tenant_id, fiscal_year_start(sort: Desc)], map: "idx_financial_models_tenant_fy")
+  @@index([tenant_id, status], map: "idx_financial_models_tenant_status")
+  @@map("financial_models")
+}
+
+model Scenario {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  parent_model_id  String   @db.Uuid
+  name             String   @db.VarChar(64)
+  position         Int      @default(0) @db.SmallInt
+  driver_overrides Json     @db.JsonB
+  notes            String?  @db.Text
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_model FinancialModel           @relation(fields: [parent_model_id], references: [id], onDelete: Cascade)
+  line_items   FinancialModelLineItem[]
+
+  @@unique([parent_model_id, position], map: "uq_scenarios_parent_position")
+  @@index([tenant_id, parent_model_id], map: "idx_scenarios_tenant_parent")
+  @@map("scenarios")
+}
+
+model FinancialModelLineItem {
+  id                         String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String                         @db.Uuid
+  parent_model_id            String                         @db.Uuid
+  scenario_id                String?                        @db.Uuid
+  category                   FinancialModelLineItemCategory
+  subcategory                String                         @db.VarChar(128)
+  name                       String                         @db.VarChar(255)
+  fiscal_year                Int                            @db.SmallInt
+  source                     FinancialModelLineItemSource
+  amount                     Decimal                        @db.Decimal(12, 2)
+  is_locked                  Boolean                        @default(false)
+  notes                      String?                        @db.Text
+  references_event_budget_id String?                        @db.Uuid
+  created_at                 DateTime                       @default(now()) @db.Timestamptz()
+  updated_at                 DateTime                       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                  Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_model            FinancialModel @relation(fields: [parent_model_id], references: [id], onDelete: Cascade)
+  scenario                Scenario?      @relation(fields: [scenario_id], references: [id], onDelete: Cascade)
+  referenced_event_budget EventBudget?   @relation(fields: [references_event_budget_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, parent_model_id, scenario_id, fiscal_year], map: "idx_fmli_tenant_parent_scenario_year")
+  @@index([tenant_id, parent_model_id, category, subcategory], map: "idx_fmli_category")
+  @@map("financial_model_line_items")
+}
+
+model FinancialModelSnapshot {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  parent_model_id   String    @db.Uuid
+  version_number    Int       @db.SmallInt
+  payload           Json      @db.JsonB
+  executive_summary String?   @db.Text
+  published_at      DateTime  @default(now()) @db.Timestamptz()
+  published_by      String    @db.Uuid
+  pdf_object_key    String?   @db.VarChar(512)
+  excel_object_key  String?   @db.VarChar(512)
+  rendered_at       DateTime? @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_model    FinancialModel  @relation(fields: [parent_model_id], references: [id], onDelete: Cascade)
+  publisher       User            @relation("financial_model_snapshot_publisher", fields: [published_by], references: [id])
+  shareable_links ShareableLink[]
+
+  @@unique([parent_model_id, version_number], map: "uq_snapshot_parent_version")
+  @@index([tenant_id, published_at(sort: Desc)], map: "idx_snapshots_tenant_recent")
+  @@map("financial_model_snapshots")
+}
+
+model EventBudget {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String                 @db.Uuid
+  name                  String                 @db.VarChar(255)
+  event_type            EventBudgetType
+  event_date            DateTime?              @db.Date
+  event_end_date        DateTime?              @db.Date
+  class_id              String?                @db.Uuid
+  year_group_id         String?                @db.Uuid
+  participant_count     Int                    @db.Integer
+  drivers               Json                   @db.JsonB
+  status                EventBudgetStatus      @default(draft)
+  household_share_pct   Decimal                @default(100) @db.Decimal(5, 2)
+  payment_plan          EventBudgetPaymentPlan @default(one_off)
+  fee_generation_run_id String?                @db.Uuid
+  fee_structure_id      String?                @db.Uuid
+  notes                 String?                @db.Text
+  created_by            String                 @db.Uuid
+  created_at            DateTime               @default(now()) @db.Timestamptz()
+  updated_at            DateTime               @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  creator              User                     @relation("event_budget_creator", fields: [created_by], references: [id])
+  class                Class?                   @relation(fields: [class_id], references: [id], onDelete: SetNull)
+  year_group           YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
+  scenarios            EventBudgetScenario[]
+  line_item_references FinancialModelLineItem[]
+
+  @@index([tenant_id, event_date(sort: Desc)], map: "idx_event_budgets_tenant_date")
+  @@index([tenant_id, status], map: "idx_event_budgets_tenant_status")
+  @@map("event_budgets")
+}
+
+model EventBudgetScenario {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  parent_event_budget_id String   @db.Uuid
+  name                   String   @db.VarChar(64)
+  position               Int      @default(0) @db.SmallInt
+  driver_overrides       Json     @db.JsonB
+  notes                  String?  @db.Text
+  created_at             DateTime @default(now()) @db.Timestamptz()
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_event_budget EventBudget @relation(fields: [parent_event_budget_id], references: [id], onDelete: Cascade)
+
+  @@unique([parent_event_budget_id, position], map: "uq_event_budget_scenarios_parent_position")
+  @@index([tenant_id, parent_event_budget_id], map: "idx_event_budget_scenarios_tenant_parent")
+  @@map("event_budget_scenarios")
+}
+
+model VarianceCache {
+  id              String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String                  @db.Uuid
+  parent_model_id String                  @db.Uuid
+  snapshot_id     String?                 @db.Uuid
+  period_type     VarianceCachePeriodType
+  period_label    String                  @db.VarChar(32)
+  line_item_key   String                  @db.VarChar(128)
+  planned         Decimal                 @db.Decimal(12, 2)
+  actual          Decimal                 @db.Decimal(12, 2)
+  variance        Decimal                 @db.Decimal(12, 2)
+  variance_pct    Decimal                 @db.Decimal(7, 2)
+  drivers_json    Json?                   @db.JsonB
+  refreshed_at    DateTime                @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_model FinancialModel @relation(fields: [parent_model_id], references: [id], onDelete: Cascade)
+
+  @@unique([parent_model_id, period_type, period_label, line_item_key], map: "uq_variance_cache_unique_row")
+  @@index([tenant_id, parent_model_id, period_type, period_label], map: "idx_variance_cache_lookup")
+  @@map("variance_cache")
+}
+
+model ShareableLink {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
+  token              String    @unique @db.Uuid
+  parent_model_id    String    @db.Uuid
+  parent_snapshot_id String    @db.Uuid
+  expires_at         DateTime  @db.Timestamptz()
+  password_hash      String?   @db.VarChar(255)
+  scenarios_visible  Json      @db.JsonB
+  view_count         Int       @default(0)
+  last_viewed_at     DateTime? @db.Timestamptz()
+  revoked_at         DateTime? @db.Timestamptz()
+  created_by         String    @db.Uuid
+  created_at         DateTime  @default(now()) @db.Timestamptz()
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent_model    FinancialModel         @relation(fields: [parent_model_id], references: [id], onDelete: Cascade)
+  parent_snapshot FinancialModelSnapshot @relation(fields: [parent_snapshot_id], references: [id], onDelete: Cascade)
+  creator         User                   @relation("shareable_link_creator", fields: [created_by], references: [id])
+
+  @@index([tenant_id, expires_at], map: "idx_shareable_links_tenant_expiry")
+  @@map("shareable_links")
+}
+
+model BudgetingTenantPreferences {
+  id                          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String   @unique @db.Uuid
+  default_horizon_years       Int      @default(1) @db.SmallInt
+  default_household_share_pct Decimal  @default(100) @db.Decimal(5, 2)
+  default_contingency_pct     Decimal  @default(5) @db.Decimal(5, 2)
+  hidden_kpi_keys             String[] @default([])
+  default_export_format       String   @default("pdf") @db.VarChar(16)
+  shareable_link_max_days     Int      @default(30) @db.SmallInt
+  updated_at                  DateTime @default(now()) @updatedAt @db.Timestamptz()
+  updated_by                  String?  @db.Uuid
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("budgeting_tenant_preferences")
 }

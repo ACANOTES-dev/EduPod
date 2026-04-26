@@ -1065,4 +1065,36 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'Configure wellbeing notification channel preferences',
     permission_tier: 'admin',
   },
+
+  // ─── Budgeting & Analysis ("Modeling") rebuild (Impl 01 foundation) ────────
+  {
+    permission_key: 'budgeting.view',
+    description: 'View financial models and event budgets',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'budgeting.manage',
+    description: 'Create and edit financial models, scenarios, line items, and event budgets',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'budgeting.publish',
+    description: 'Publish a financial model snapshot (immutable versioned record)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'budgeting.share',
+    description: 'Issue and revoke read-only shareable links for published snapshots',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'budgeting.generate_fees',
+    description: 'Push trip costs end-to-end into the Finance module as fee assignments',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'budgeting.archive',
+    description: 'Archive financial models and event budgets',
+    permission_tier: 'admin',
+  },
 ];

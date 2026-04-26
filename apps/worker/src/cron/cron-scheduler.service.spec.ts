@@ -72,12 +72,14 @@ function buildService() {
   const schedulingQueue = buildQueue();
   const attendanceQueue = buildQueue();
   const reportsQueue = buildQueue();
+  const budgetingQueue = buildQueue();
 
   return {
     admissionsQueue,
     approvalsQueue,
     attendanceQueue,
     behaviourQueue,
+    budgetingQueue,
     complianceQueue,
     earlyWarningQueue,
     engagementQueue,
@@ -110,6 +112,7 @@ function buildService() {
       schedulingQueue,
       attendanceQueue,
       reportsQueue,
+      budgetingQueue,
     ),
     wellbeingQueue,
   };

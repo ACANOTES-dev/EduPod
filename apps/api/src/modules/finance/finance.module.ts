@@ -113,6 +113,10 @@ import { StripeService } from './stripe.service';
     FinanceReadFacade,
     StripeService,
     FeesInArrearsProvider,
+    // Phase 10 (trip → fee integration) consumes these from the budgeting
+    // module to push event budgets onto the household billing surface.
+    FeeAssignmentsService,
+    FeeStructuresService,
   ],
 })
 export class FinanceModule implements OnModuleInit {

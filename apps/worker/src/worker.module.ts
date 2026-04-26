@@ -3,6 +3,8 @@ import { BeforeApplicationShutdown, Inject, Logger, Module, OnModuleDestroy } fr
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
+import { S3Service } from '../../api/src/modules/s3/s3.service';
+
 import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { envValidation } from './env.validation';
@@ -39,6 +41,10 @@ import { RetentionCheckProcessor } from './processors/behaviour/retention-check.
 import { StuckNotificationAlertProcessor } from './processors/behaviour/stuck-notification-alert.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
+import { BoardPackRenderProcessor } from './processors/budgeting/board-pack-render.processor';
+import { BudgetingQueueDispatcher } from './processors/budgeting/budgeting-queue.processor';
+import { ShareableLinkCleanupProcessor } from './processors/budgeting/shareable-link-cleanup.processor';
+import { VarianceRefreshProcessor } from './processors/budgeting/variance-refresh.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
 import { InboxDispatchChannelsProcessor } from './processors/communications/inbox-dispatch-channels.processor';
@@ -325,6 +331,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         },
       },
       {
+        name: QUEUE_NAMES.BUDGETING,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
+      },
+      {
         name: QUEUE_NAMES.PDF_RENDERING,
         defaultJobOptions: {
           attempts: 2,
@@ -590,6 +605,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // raced for jobs and the losers' guard-return path silently marked jobs
     // complete without running them.
     BehaviourQueueDispatcher,
+    BudgetingQueueDispatcher,
     ComplianceQueueDispatcher,
     EngagementQueueDispatcher,
     FinanceQueueDispatcher,
@@ -604,6 +620,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     SearchSyncQueueDispatcher,
     SecurityQueueDispatcher,
     WellbeingQueueDispatcher,
+    // Budgeting queue handlers — routed via BudgetingQueueDispatcher.
+    VarianceRefreshProcessor,
+    BoardPackRenderProcessor,
+    ShareableLinkCleanupProcessor,
+    // S3Service is imported from the API workspace via relative path — it
+    // depends on ConfigService (already provided by ConfigModule.forRoot
+    // above), so registering it here gives the BoardPackRenderProcessor a
+    // working uploader without duplicating the implementation.
+    S3Service,
   ],
 })
 export class WorkerModule implements BeforeApplicationShutdown, OnModuleDestroy {

@@ -28,6 +28,8 @@ import {
   REFRESH_MV_EXPOSURE_RATES_JOB,
   REFRESH_MV_STUDENT_SUMMARY_JOB,
 } from '../processors/behaviour/refresh-mv.processor';
+import { BUDGETING_SHAREABLE_LINK_CLEANUP_JOB } from '../processors/budgeting/shareable-link-cleanup.processor';
+import { BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB } from '../processors/budgeting/variance-refresh.processor';
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
 import { RETRY_FAILED_NOTIFICATIONS_JOB } from '../processors/communications/retry-failed.processor';
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
@@ -90,6 +92,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.SCHEDULING) private readonly schedulingQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ATTENDANCE) private readonly attendanceQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REPORTS) private readonly reportsQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.BUDGETING) private readonly budgetingQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -115,6 +118,55 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerSchedulingCronJobs();
     await this.registerAttendanceCronJobs();
     await this.registerReportsCronJobs();
+    await this.registerBudgetingCronJobs();
+  }
+
+  // ─── Budgeting (Phase 08) ──────────────────────────────────────────────────
+  //
+  // The budgeting queue runs:
+  //   - `budgeting:variance-refresh-bootstrap` daily at 01:50 UTC (here).
+  //     The bootstrap iterates active tenants and registers per-tenant
+  //     repeatables on the same queue (`cron:budgeting:variance-refresh:<id>`)
+  //     scheduled for 02:00 in each tenant's timezone.
+  //   - `budgeting:variance-refresh` per-tenant at 02:00 tenant tz, registered
+  //     by the bootstrap. Newly-onboarded tenants are picked up the next day.
+  //   - `budgeting:variance-refresh` one-off when a user clicks "Refresh"
+  //     on the variance dashboard (Phase 06's manual-refresh endpoint).
+  //
+  // This `registerBudgetingCronJobs` only registers the bootstrap. The
+  // per-tenant repeatables are owned by the bootstrap so onboarding a
+  // tenant does not require a worker redeploy.
+  private async registerBudgetingCronJobs(): Promise<void> {
+    await this.budgetingQueue.add(
+      BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB,
+      {},
+      {
+        repeat: { pattern: '50 1 * * *' },
+        jobId: `cron:${BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB} (daily 01:50 UTC)`,
+    );
+
+    // ── budgeting:shareable-link-cleanup (Phase 11) ─────────────────────────
+    // Daily at 03:00 UTC. Cross-tenant — empty payload. Hard-deletes
+    // `shareable_links` rows whose `expires_at` < now() - 30 days.
+    await this.budgetingQueue.add(
+      BUDGETING_SHAREABLE_LINK_CLEANUP_JOB,
+      {},
+      {
+        repeat: { pattern: '0 3 * * *' },
+        jobId: `cron:${BUDGETING_SHAREABLE_LINK_CLEANUP_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${BUDGETING_SHAREABLE_LINK_CLEANUP_JOB} (daily 03:00 UTC)`,
+    );
   }
 
   // ─── Attendance ────────────────────────────────────────────────────────────

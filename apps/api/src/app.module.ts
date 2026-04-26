@@ -20,6 +20,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BehaviourModule } from './modules/behaviour/behaviour.module';
+import { BudgetingModule } from './modules/budgeting/budgeting.module';
 import { ChildProtectionModule } from './modules/child-protection/child-protection.module';
 import { ClassRequirementsModule } from './modules/class-requirements/class-requirements.module';
 import { ClassSubjectRequirementsModule } from './modules/class-subject-requirements/class-subject-requirements.module';
@@ -112,6 +113,7 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: 'pastoral' }),
+    BullModule.registerQueue({ name: 'budgeting' }),
     PrismaModule,
     QueueAdminModule,
     RedisModule,
@@ -137,6 +139,7 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
     SchoolClosuresModule,
     AttendanceModule,
     BehaviourModule,
+    BudgetingModule,
     SafeguardingModule,
     CriticalIncidentsModule,
     HomeworkModule,

@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
   ATTENDANCE: 'attendance',
   AUDIT_LOG: 'audit-log',
   BEHAVIOUR: 'behaviour',
+  BUDGETING: 'budgeting',
   COMPLIANCE: 'compliance',
   EARLY_WARNING: 'early-warning',
   ENGAGEMENT: 'engagement',

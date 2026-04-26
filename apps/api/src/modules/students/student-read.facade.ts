@@ -626,6 +626,138 @@ export class StudentReadFacade {
     return result as unknown as Array<Record<string, unknown> & { _count: number }>;
   }
 
+  // ─── Event-budget participant resolution (Phase 07) ────────────────────
+
+  /**
+   * Find active students grouped by household for an event budget's scope.
+   * Either `class_id` or `year_group_id` must be provided. Returns one row
+   * per (student, household) pair so callers can aggregate sibling counts.
+   *
+   * Used by `EventBudgetsService` to build the per-household breakdown.
+   */
+  async findActiveParticipantsWithHousehold(
+    tenantId: string,
+    scope: { class_id?: string | null; year_group_id?: string | null },
+  ): Promise<
+    Array<{
+      household_id: string;
+      household: { id: string; household_name: string } | null;
+    }>
+  > {
+    if (!scope.class_id && !scope.year_group_id) return [];
+    const where: Prisma.StudentWhereInput = { tenant_id: tenantId, status: 'active' };
+    if (scope.year_group_id) where.year_group_id = scope.year_group_id;
+    if (scope.class_id) {
+      where.class_enrolments = {
+        some: {
+          tenant_id: tenantId,
+          class_id: scope.class_id,
+          status: 'active',
+        },
+      };
+    }
+    return this.prisma.student.findMany({
+      where,
+      select: {
+        household_id: true,
+        household: { select: { id: true, household_name: true } },
+      },
+    });
+  }
+
+  /**
+   * Same as `findActiveParticipantsWithHousehold` but returns the full
+   * student row (id + display name) alongside the household. Used by
+   * Phase 10's `TripFeeIntegrationService` so the trip→fee write knows
+   * which student each fee assignment is for.
+   */
+  async findActiveParticipantStudentsWithHousehold(
+    tenantId: string,
+    scope: { class_id?: string | null; year_group_id?: string | null },
+  ): Promise<
+    Array<{
+      student_id: string;
+      student_name: string;
+      household_id: string;
+      household_name: string;
+    }>
+  > {
+    if (!scope.class_id && !scope.year_group_id) return [];
+    const where: Prisma.StudentWhereInput = { tenant_id: tenantId, status: 'active' };
+    if (scope.year_group_id) where.year_group_id = scope.year_group_id;
+    if (scope.class_id) {
+      where.class_enrolments = {
+        some: {
+          tenant_id: tenantId,
+          class_id: scope.class_id,
+          status: 'active',
+        },
+      };
+    }
+    const rows = await this.prisma.student.findMany({
+      where,
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        full_name: true,
+        household_id: true,
+        household: { select: { id: true, household_name: true } },
+      },
+    });
+    return rows
+      .filter((s) => s.household)
+      .map((s) => ({
+        student_id: s.id,
+        student_name: s.full_name ?? `${s.first_name} ${s.last_name}`.trim(),
+        household_id: s.household_id,
+        household_name: s.household!.household_name,
+      }));
+  }
+
+  /**
+   * Count distinct households among the active participants for an event
+   * budget's scope. Returns 0 when neither `class_id` nor `year_group_id`
+   * is set; the caller can apply a heuristic in that branch.
+   */
+  async countDistinctParticipantHouseholds(
+    tenantId: string,
+    scope: { class_id?: string | null; year_group_id?: string | null },
+  ): Promise<number> {
+    if (!scope.class_id && !scope.year_group_id) return 0;
+    const where: Prisma.StudentWhereInput = { tenant_id: tenantId, status: 'active' };
+    if (scope.year_group_id) where.year_group_id = scope.year_group_id;
+    if (scope.class_id) {
+      where.class_enrolments = {
+        some: {
+          tenant_id: tenantId,
+          class_id: scope.class_id,
+          status: 'active',
+        },
+      };
+    }
+    const distinct = await this.prisma.student.findMany({
+      where,
+      select: { household_id: true },
+      distinct: ['household_id'],
+    });
+    return distinct.length;
+  }
+
+  /**
+   * Count active students in a year group. Used as the default
+   * `participant_count` when a year_group is the event budget's scope.
+   */
+  async countActiveByYearGroup(tenantId: string, yearGroupId: string): Promise<number> {
+    return this.prisma.student.count({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        year_group_id: yearGroupId,
+      },
+    });
+  }
+
   // ─── Student-user resolution ────────────────────────────────────────────
 
   /**

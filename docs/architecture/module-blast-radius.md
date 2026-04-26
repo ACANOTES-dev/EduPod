@@ -522,3 +522,55 @@ tenant-configurable leave-type catalogue and per-staff balance aggregator.
 
 - **Imports**: StaffProfilesModule (staff identity + facade-backed reads), SchedulingModule (generates substitution coverage when leave is approved), AcademicsModule (AcademicReadFacade.findCurrentYear drives the balance window)
 - **Consumed by**: HR/payroll workflows (payroll reads approved leave days via `GET /v1/payroll/absence-periods`; month-end UI at `/payroll/absences` consumes it directly)
+
+### BudgetingModule
+
+Driver-based annual financial models + event/trip budgets + variance tracking
+
+- snapshot publishing + PDF/Excel/shareable-URL outputs. Promoted from a
+  "coming soon" placeholder by the modeling rebuild (impls 01–21).
+
+* **Imports**: PrismaModule, RbacModule, AcademicsModule (year-group metadata),
+  ClassesModule (active enrolments per class), FinanceModule (`FinanceReadFacade`
+  for variance + fee structures, `FeeAssignmentsService` for the single
+  cross-module write), HouseholdsModule (active-household counts for trip
+  per-household preview), StaffProfilesModule (staff_by_department snapshot),
+  StudentsModule (active student counts per year group), TenantsModule
+  (currency_code + tenant metadata), S3Module (signed URLs for board-pack
+  artefacts), BullModule (`budgeting` queue local re-registration).
+
+* **Exports**:
+  - `FinancialModelsService`, `ScenariosService`, `LineItemsService`,
+    `SnapshotsService` — used by sibling sub-services and (potentially) the
+    worker-side board-pack processor.
+  - `VarianceActualsSourceService` — consumed by the variance-refresh worker
+    to compose actuals against the latest snapshot.
+  - `EventBudgetsService` — consumed by the trip-fee-integration service for
+    its `runEngineForId` helper.
+  - `PdfRendererService`, `ExcelRendererService` — exported so the worker's
+    `board-pack-render.processor.ts` can import them via Turborepo workspace
+    symlinks (avoiding a duplicate puppeteer + exceljs dep tree).
+
+* **Cross-module write (single permitted)**:
+  `FeeAssignmentsService.bulkCreate(tx, tenantId, rows)` from FinanceModule —
+  invoked exclusively from `TripFeeIntegrationService.generateFees()` inside
+  one `createRlsClient($transaction)`. Three-permission gate
+  (`budgeting.view` AND `budgeting.generate_fees` AND `finance.manage`)
+  re-checked at request time. No other budgeting code path mutates Finance
+  state.
+
+* **Consumed by**: (none in v1) — Budgeting is a leaf module today. Future
+  consumers should use a `BudgetingReadFacade`; no such facade exists yet.
+
+* **What breaks if dependencies change**:
+  - `FinanceReadFacade` shape changes break variance materialisation
+    (integration tests cover the contract).
+  - `FeeAssignmentsService.bulkCreate` signature changes break trip → fee
+    generation (impl 10 spec pins to the current signature).
+  - Source snapshots become stale (but valid) if students / staff / fees
+    move tables — historic snapshots stay correct because they captured
+    state at create time.
+
+* **Blast radius**: LOW (no external consumers); MEDIUM during deploy
+  because impl 02's driver engine ships in `@school/shared` so all three
+  apps rebuild on changes.

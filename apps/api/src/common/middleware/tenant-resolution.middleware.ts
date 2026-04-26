@@ -124,6 +124,19 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       return next();
     }
 
+    // Skip tenant resolution for the public budgeting share resolver — it's
+    // an anonymous-by-design endpoint scoped exclusively by the opaque token.
+    // The service does its own defense-in-depth tenant_id mismatch check
+    // against the parent snapshot, so no upstream tenant context is needed.
+    // Without this skip, requests from the platform domain / localhost return
+    // 404 before reaching the controller because the hostname doesn't map to
+    // a verified tenant_domain row.
+    if (req.originalUrl.startsWith('/api/v1/budgeting/share/')) {
+      const mutableReq = req as unknown as { tenantContext: TenantContext | null };
+      mutableReq.tenantContext = null;
+      return next();
+    }
+
     try {
       const hostname = this.getRequestHostname(req);
       const isProxyHostname = this.isProxyHostname(hostname);

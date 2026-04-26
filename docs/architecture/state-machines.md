@@ -1180,3 +1180,66 @@ pc_active -> [achieved, partially_achieved, not_achieved, escalated, withdrawn]
 - **Prisma enum**: `pc_active` → DB `"active"` (prefixed to avoid collision with other `active` enums)
 - **Terminal states**: `achieved`, `partially_achieved`, `not_achieved`, `escalated`, `withdrawn` — all terminal
 - **Side effects**: All terminal transitions require `outcome_notes`. `escalated` should trigger creation of a new higher-tier intervention or a behaviour referral.
+
+### FinancialModelStatus
+
+```
+draft → [published, archived]
+published → [archived]
+(restore: published → new draft, original published row untouched)
+```
+
+- **Guarded by**: `VALID_TRANSITIONS` in
+  `apps/api/src/modules/budgeting/financial-models/financial-models.service.ts`
+- **Prisma enum mapping**: `draft`, `published`, `archived`
+- **Side effects**:
+  - `publish` (draft → published): creates a `financial_model_snapshots` row
+    with `version_number = MAX + 1`, captures the full state (drivers, every
+    scenario with merged drivers, every line item, totals, per-pupil
+    economics, source snapshot, executive summary), updates the parent's
+    `current_snapshot_id`, enqueues `budgeting:board-pack-render` for both
+    PDF and Excel, writes an audit log entry. Snapshot rows are immutable
+    post-publish — only `pdf_object_key`, `excel_object_key`, and
+    `rendered_at` may change.
+  - `archive` (any → archived): sets `archived_at`, hides from default lists,
+    variance refresh stops including this model.
+  - `restore` (published → new draft): duplicates a specific snapshot's
+    payload (drivers + line items) into a new draft model row. The original
+    published row + snapshot stay intact.
+- **Terminal state**: `archived` (no transitions out)
+
+### EventBudgetStatus
+
+```
+draft → [confirmed, cancelled]
+confirmed → [fees_generated (paid), fees_generated (school-funded), cancelled]
+fees_generated → [completed]   (cancel rejected with EVENT_BUDGET_FEES_PRESENT)
+completed → (terminal)
+cancelled → (terminal)
+```
+
+- **Guarded by**: `VALID_TRANSITIONS` in
+  `apps/api/src/modules/budgeting/event-budgets/event-budgets.service.ts`
+- **Prisma enum mapping**: `draft`, `confirmed`, `fees_generated`, `completed`,
+  `cancelled`
+- **Side effects**:
+  - `confirm` (draft → confirmed): validates required fields (event_date,
+    participant_count > 0). Audit log entry.
+  - `generate-fees` (confirmed → fees_generated, when `household_share_pct > 0`):
+    delegated to `TripFeeIntegrationService.generateFees()` which calls
+    `FeeAssignmentsService.bulkCreate()` inside one
+    `createRlsClient($transaction)`. Sets `fee_structure_id` and
+    `fee_generation_run_id` on the event row. Three-permission gate
+    (`budgeting.view` AND `budgeting.generate_fees` AND `finance.manage`).
+    Audit log entry.
+  - `mark-school-funded` (confirmed → fees_generated, when
+    `household_share_pct = 0`): no FeeAssignment side effect; just records
+    that the trip is school-funded. Audit log entry.
+  - `complete` (confirmed | fees_generated → completed): post-trip closure.
+    Audit log entry.
+  - `cancel` (draft | confirmed → cancelled): audit log entry. **Rejected**
+    when status is `fees_generated` (returns 409 with code
+    `EVENT_BUDGET_FEES_PRESENT`) — the user must void invoices in Finance
+    first, then re-cancel manually if desired.
+  - `cancel` (completed → ): rejected — cannot cancel a completed event.
+- **Terminal states**: `completed`, `cancelled`

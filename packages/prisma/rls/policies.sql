@@ -2861,3 +2861,80 @@ DROP POLICY IF EXISTS ai_ask_ai_history_tenant_isolation ON ai_ask_ai_history;
 CREATE POLICY ai_ask_ai_history_tenant_isolation ON ai_ask_ai_history
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Budgeting & Analysis ("Modeling") Foundation RLS Policies
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260426100000_budgeting_modeling_foundation/post_migrate.sql
+
+-- financial_models (annual model header — drivers, status, source snapshot).
+ALTER TABLE financial_models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE financial_models FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS financial_models_tenant_isolation ON financial_models;
+CREATE POLICY financial_models_tenant_isolation ON financial_models
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- scenarios (alternative cases — driver overrides keyed off a parent model).
+ALTER TABLE scenarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scenarios FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS scenarios_tenant_isolation ON scenarios;
+CREATE POLICY scenarios_tenant_isolation ON scenarios
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- financial_model_line_items (driver-derived / custom / override rows).
+ALTER TABLE financial_model_line_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE financial_model_line_items FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS financial_model_line_items_tenant_isolation ON financial_model_line_items;
+CREATE POLICY financial_model_line_items_tenant_isolation ON financial_model_line_items
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- financial_model_snapshots (immutable versioned publishes — payload + render keys).
+ALTER TABLE financial_model_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE financial_model_snapshots FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS financial_model_snapshots_tenant_isolation ON financial_model_snapshots;
+CREATE POLICY financial_model_snapshots_tenant_isolation ON financial_model_snapshots
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- event_budgets (lightweight per-event calculator — trips / fundraisers / etc.).
+ALTER TABLE event_budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_budgets FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS event_budgets_tenant_isolation ON event_budgets;
+CREATE POLICY event_budgets_tenant_isolation ON event_budgets
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- event_budget_scenarios (alternative cases for event budgets).
+ALTER TABLE event_budget_scenarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_budget_scenarios FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS event_budget_scenarios_tenant_isolation ON event_budget_scenarios;
+CREATE POLICY event_budget_scenarios_tenant_isolation ON event_budget_scenarios
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- variance_cache (materialised planned-vs-actual per period per line item).
+ALTER TABLE variance_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE variance_cache FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS variance_cache_tenant_isolation ON variance_cache;
+CREATE POLICY variance_cache_tenant_isolation ON variance_cache
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- shareable_links (tokenised public read-only routes for published snapshots).
+ALTER TABLE shareable_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shareable_links FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS shareable_links_tenant_isolation ON shareable_links;
+CREATE POLICY shareable_links_tenant_isolation ON shareable_links
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- budgeting_tenant_preferences (per-tenant defaults — horizon, contingency %, etc.).
+ALTER TABLE budgeting_tenant_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budgeting_tenant_preferences FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS budgeting_tenant_preferences_tenant_isolation ON budgeting_tenant_preferences;
+CREATE POLICY budgeting_tenant_preferences_tenant_isolation ON budgeting_tenant_preferences
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
