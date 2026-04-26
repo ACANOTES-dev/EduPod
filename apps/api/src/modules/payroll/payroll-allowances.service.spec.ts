@@ -520,4 +520,181 @@ describe('PayrollAllowancesService', () => {
       expect(first['default_amount']).toBeNull();
     });
   });
+
+  describe('listStaffAllowancesForTenant (Wave 3 tenant-wide listing)', () => {
+    const mockTenantWideAllowance = {
+      ...mockAllowance,
+      staff_profile: {
+        id: STAFF_ID,
+        staff_number: 'EMP-001',
+        user: { first_name: 'Aisha', last_name: 'Khan' },
+      },
+    };
+
+    beforeEach(() => {
+      prisma.staffAllowance.findMany = jest.fn().mockResolvedValue([mockTenantWideAllowance]);
+    });
+
+    it('returns flat staff_name + staff_number on each row', async () => {
+      const result = await service.listStaffAllowancesForTenant(TENANT_ID);
+      expect(result.data).toHaveLength(1);
+      const first = result.data[0] as Record<string, unknown>;
+      expect(first['staff_name']).toBe('Aisha Khan');
+      expect(first['staff_number']).toBe('EMP-001');
+    });
+
+    it('filters to active when activeOnly=true (default)', async () => {
+      await service.listStaffAllowancesForTenant(TENANT_ID);
+      const callArgs = (
+        prisma.staffAllowance.findMany.mock.calls[0][0] as {
+          where: Record<string, unknown>;
+        }
+      ).where;
+      expect(callArgs).toHaveProperty('effective_from');
+      expect(callArgs).toHaveProperty('OR');
+    });
+
+    it('skips date filter when activeOnly=false', async () => {
+      await service.listStaffAllowancesForTenant(TENANT_ID, false);
+      const callArgs = (
+        prisma.staffAllowance.findMany.mock.calls[0][0] as {
+          where: Record<string, unknown>;
+        }
+      ).where;
+      expect(callArgs).not.toHaveProperty('effective_from');
+      expect(callArgs).not.toHaveProperty('OR');
+    });
+  });
+
+  describe('listForRun (Wave 3 run-detail allowances tab)', () => {
+    const RUN_ID = '55555555-5555-5555-5555-555555555555';
+
+    it('throws NotFoundException when the run is missing', async () => {
+      const prismaWithoutRun = {
+        ...prisma,
+        payrollRun: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const module = await Test.createTestingModule({
+        providers: [
+          PayrollAllowancesService,
+          { provide: PrismaService, useValue: prismaWithoutRun },
+        ],
+      }).compile();
+      const svc = module.get<PayrollAllowancesService>(PayrollAllowancesService);
+
+      await expect(svc.listForRun(TENANT_ID, RUN_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns empty data when the run has no entries', async () => {
+      const prismaEmptyEntries = {
+        ...prisma,
+        payrollRun: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ id: RUN_ID, period_year: 2026, period_month: 4, entries: [] }),
+        },
+      };
+      const module = await Test.createTestingModule({
+        providers: [
+          PayrollAllowancesService,
+          { provide: PrismaService, useValue: prismaEmptyEntries },
+        ],
+      }).compile();
+      const svc = module.get<PayrollAllowancesService>(PayrollAllowancesService);
+
+      const result = await svc.listForRun(TENANT_ID, RUN_ID);
+      expect(result.data).toEqual([]);
+    });
+
+    it('flattens staff_name onto each allowance row', async () => {
+      const prismaWithRun = {
+        ...prisma,
+        payrollRun: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: RUN_ID,
+            period_year: 2026,
+            period_month: 4,
+            entries: [
+              {
+                staff_profile_id: STAFF_ID,
+                staff_profile: { user: { first_name: 'Omar', last_name: 'Said' } },
+              },
+            ],
+          }),
+        },
+        staffAllowance: {
+          ...prisma.staffAllowance,
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: ALLOWANCE_ID,
+              staff_profile_id: STAFF_ID,
+              allowance_type_id: TYPE_ID,
+              amount: '450.00',
+              effective_from: new Date('2026-04-01'),
+              effective_to: null,
+              allowance_type: { id: TYPE_ID, name: 'Transport', name_ar: null },
+            },
+          ]),
+        },
+      };
+      const module = await Test.createTestingModule({
+        providers: [PayrollAllowancesService, { provide: PrismaService, useValue: prismaWithRun }],
+      }).compile();
+      const svc = module.get<PayrollAllowancesService>(PayrollAllowancesService);
+
+      const result = await svc.listForRun(TENANT_ID, RUN_ID);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.staff_name).toBe('Omar Said');
+      expect(result.data[0]?.allowance_type_name).toBe('Transport');
+      expect(result.data[0]?.amount).toBe(450);
+    });
+  });
+
+  describe('calculateAllowancesTotalForPeriod (Wave 2 input resolver)', () => {
+    it('sums every overlapping allowance and returns a Decimal', async () => {
+      prisma.staffAllowance.findMany = jest
+        .fn()
+        .mockResolvedValue([{ amount: '500.00' }, { amount: '250.50' }, { amount: '99.49' }]);
+
+      const total = await service.calculateAllowancesTotalForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+      );
+
+      expect(total.toString()).toBe('849.99');
+    });
+
+    it('returns Decimal(0) when no allowances overlap', async () => {
+      prisma.staffAllowance.findMany = jest.fn().mockResolvedValue([]);
+
+      const total = await service.calculateAllowancesTotalForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+      );
+
+      expect(total.toString()).toBe('0');
+    });
+
+    it('uses the provided transaction client when supplied', async () => {
+      const txFindMany = jest.fn().mockResolvedValue([{ amount: '100' }]);
+      const tx = { staffAllowance: { findMany: txFindMany } } as unknown as Parameters<
+        typeof service.calculateAllowancesTotalForPeriod
+      >[4];
+
+      await service.calculateAllowancesTotalForPeriod(
+        TENANT_ID,
+        STAFF_ID,
+        new Date('2026-04-01'),
+        new Date('2026-04-30'),
+        tx,
+      );
+
+      expect(txFindMany).toHaveBeenCalledTimes(1);
+      expect(prisma.staffAllowance.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
