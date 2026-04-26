@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `in-progress` |                   |            |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `pending`     |                   |            |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`     |                   |            |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`     |                   |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`     |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `pending`   |                   |            |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -405,3 +405,157 @@ staff_recurring_deduction_id)` unique key and three lookup indexes,
   digit; the legacy engine's behaviour was the same). The lint hook
   reformatted several files via prettier on commit; whitespace-only
   changes were captured in the staged version.
+
+### [IMPL 03] — API contract + missing endpoints
+
+- **Completed:** 2026-04-26T22:35:00+01:00 (Europe/Dublin)
+- **Commit:** 25d30d03 (head of `t3code/b523b305` after the four-commit Wave 3 stack)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed — type-check (api 14336MB heap), lint
+  (api payroll module clean), 602 payroll tests + 908 shared tests
+  green, AppModule DI smoke compiles cleanly with the new
+  `PayrollPermissionsInit` registered. Postgres on docker port 5553,
+  Redis on docker port 5554. No dev-server boot needed for
+  controller-only changes; the integration-style payslip-PDF spec
+  exercises the new module wiring inside Jest.
+- **Summary:**
+  Wave 3a closes the contract drift between the redesigned frontend
+  and the backend without touching anything Wave 4 (worker) owns.
+
+  **Self-service surface** lands at `GET /v1/payroll/my-payslips`,
+  `GET /v1/payroll/my-payslips/ytd`, and `GET /v1/payroll/my-payslips/:id/pdf`.
+  Backed by new `listForUser`, `getYtdForUser`, and `renderOwnPayslipPdf`
+  on `PayslipsService`. All three scope strictly to the calling user's
+  own staff_profile via `StaffProfileReadFacade.findByUserId` — the
+  privacy invariant is enforced at the service level so the
+  `payroll.self_service` permission alone never authorises cross-staff
+  access. The PayslipsController moves from `@Controller('v1/payroll/payslips')`
+  to `@Controller('v1/payroll')` so admin and self-service surfaces
+  share the new `ModuleEnabledGuard + @ModuleEnabled('payroll')`
+  decoration; existing admin URLs (`/payslips`, `/payslips/:id`,
+  `/payslips/:id/pdf`) are preserved verbatim.
+
+  **Run sub-resources** the redesigned run-detail page already calls
+  ship under `PayrollRunsController`:
+  `GET /v1/payroll/runs/:runId/{allowances,adjustments,anomalies,comparison}`.
+  Each delegates to `PayrollAllowancesService.listForRun`,
+  `PayrollAdjustmentsService.listForRun`, `PayrollAnomalyService.scanForAnomalies`,
+  and `PayrollReportsService.getRunComparison` — all new methods that
+  flatten staff_name (SEND-pattern). Two POST aliases on the same
+  controller (`auto-populate-classes`, `send-payslips`) route to the
+  canonical `triggerSessionGeneration` and `triggerMassExport` handlers.
+
+  **`isSchoolOwner` is now resolved properly.** `PayrollRunsController.checkIsSchoolOwner`
+  used to return a hardcoded `false`, masking the dual-path bug that
+  let direct vs approval finalisation produce different totals. Wave 3
+  wires it to `PermissionCacheService.isOwner(user.membership_id)` —
+  the same helper used by `InboxAdminTierOnlyGuard`.
+
+  **Verb aliases + tenant-wide listings** land on
+  `PayrollEnhancedController`: `PATCH /export-templates/:id`,
+  `PATCH /class-delivery/:id`, `POST /runs/:runId/send-to-accountant`,
+  `GET /staff` (compensation picker via new `CompensationService.listStaffForPicker`),
+  `GET /staff-allowances?include=all` (tenant-wide via new
+  `PayrollAllowancesService.listStaffAllowancesForTenant`),
+  `GET /staff-deductions` (tenant-wide alias via new
+  `PayrollDeductionsService.listDeductionsForTenant`),
+  `GET /export-logs` and `POST /export-logs/:logId/send` (new
+  `PayrollExportsService.listExportLogsForTenant` + `resendExportLog`),
+  plus `GET /reports/variance` (new `PayrollReportsService.getVariance`
+  with optional `runId` query, two-key `{ data, summary }` response
+  envelope), `GET /reports/forecast` (alias of analytics forecast),
+  and `GET /reports/staff-history/:staffProfileId` (alias of the
+  pre-existing `/reports/staff/:id/history` route).
+
+  **`@ModuleEnabled('payroll')` retrofit** applied to all 5 controllers:
+  `PayrollRunsController`, `PayrollEnhancedController`,
+  `PayrollReportsController`, `PayrollDashboardController`,
+  `CompensationController`, plus the relocated `PayslipsController`.
+  Tenants without payroll subscribed cannot reach any endpoint
+  regardless of RBAC. The guard reads `tenant_modules` (Redis-cached
+  300s) and throws `MODULE_DISABLED` ForbiddenException on miss.
+
+  **Dashboard expansion** adds `anomalies` (top-5 from
+  `PayrollAnomalyService.scanForAnomalies` against the latest run) and
+  `payroll_calendar` (`{ next_pay_date, preparation_due }`) to
+  `PayrollDashboardService.getDashboard`. Both branches catch errors
+  defensively and fall back to empty/default values so a transient
+  anomaly-scan or calendar-config failure never breaks the dashboard
+  load.
+
+  **`PayrollPermissionsInit`** (new file, registered in
+  `payroll.module.ts` providers) mirrors `InboxPermissionsInit`
+  exactly: a two-pass idempotent backfill that upserts
+  `payroll.manage_attendance` and `payroll.self_service` permission
+  rows, then per-tenant grants `manage_attendance` to admin-tier roles
+  (school_owner / school_principal / school_vice_principal /
+  accounting) and `self_service` to ALL tenant roles. Per-tenant
+  failures are tolerated with a warning; the backfill never blocks
+  API boot.
+
+  Test coverage: 13 new tests (3 controller tests for self-service
+  delegation + 4 service tests for `listForUser`/`getYtdForUser`/
+  `renderOwnPayslipPdf` + new sub-resource controller delegations +
+  isSchoolOwner resolution + `PayrollPermissionsInit` happy path,
+  per-tenant tolerance, and onModuleInit safety). All 8 affected
+  controller spec files updated with `ModuleEnabledGuard` overrides
+  and any new dependency mocks. 602 payroll tests + 908 shared tests
+  green; type-check + lint clean.
+
+- **Deviations from plan:**
+  1. **Anomaly acknowledgement endpoint deferred.** The impl file
+     specified `POST /runs/:runId/anomalies/:anomalyId/acknowledge`
+     but `PayrollAnomalyService` produces results in-memory only
+     (no `payroll_anomalies` table). The GET endpoint (`/runs/:runId/anomalies`)
+     ships and surfaces the scan results; ack workflow is a Wave 5
+     follow-up that needs a new schema migration.
+  2. **Variance endpoint shape uses `{ data, summary }` two-key**
+     envelope; the `ResponseTransformInterceptor` passes through any
+     response that already has a `data` key, so the frontend reads
+     `res.data` and `res.summary` cleanly without a wrap.
+  3. **`payroll-calendar.service.ts` unsafe-cast removal** was not
+     attempted in this impl. The `as unknown as Record<string, ...>`
+     access in `getNextPayDate` and `emailToAccountant` predates Wave 3
+     and Wave 5 will replace it with a typed `payrollSettingsSchema`
+     reader. Out of scope here.
+  4. **Tenant-wide `staff-allowances` and `staff-deductions`** use
+     a wider parameter on the existing endpoint (`?include=all` or
+     omitted `staff_profile_id`) rather than a new sibling endpoint.
+     Cleaner contract, fewer routes.
+  5. **Implementation file mentioned `OR` permission decorator**
+     syntax. The repo's `RequiresPermission` already supports
+     vararg multi-permission OR-logic — used directly:
+     `@RequiresPermission('payroll.self_service', 'payroll.view')`.
+  6. **`payroll.self_service` granted to ALL tenant roles** (not just
+     staff) per the spec — the service-layer scoping enforces that
+     a self-service user only sees their own payslips. Confirmed by
+     the privacy test on `listForUser`.
+
+- **Follow-ups:**
+  1. (Wave 5) Add a `payroll_anomalies` table + persistence pass to
+     `PayrollAnomalyService` so the acknowledge endpoint can be
+     implemented. The current GET endpoint scans on demand.
+  2. (Wave 5) Drop the unsafe `as unknown as Record<...>` cast in
+     `payroll-calendar.service.ts:154` and `payroll-exports.service.ts:236`
+     in favour of a typed `payrollSettingsSchema` reader on the
+     settings service.
+  3. (Wave 4) The redesigned frontend should switch to the canonical
+     forms once Wave 4 ships. The aliases are transitional — a Wave 5
+     audit can decide which to deprecate.
+  4. (Wave 5) Cross-tenant RLS leakage tests for the new endpoints.
+     The service-level scoping is correct, but explicit e2e
+     leakage tests for `/my-payslips`, `/runs/:runId/allowances|adjustments|anomalies|comparison`,
+     and `/staff` should be added in `apps/api/test/payroll-rls.e2e-spec.ts`.
+  5. (Future) Decide whether `@RequiresPermission(a, b)` semantics
+     need formal documentation or a `@RequiresAnyPermission` /
+     `@RequiresAllPermissions` pair for clarity.
+
+- **Session notes:** The PayslipsController path move
+  (`'v1/payroll/payslips'` → `'v1/payroll'`) preserves URL paths for
+  every existing endpoint by adding the `payslips` prefix to each
+  method route — this lets one controller host both admin and
+  self-service surfaces under the same `@ModuleEnabled` guard. The
+  `findActiveStaff` facade returns all active staff in one shot;
+  pagination happens in the new `listStaffForPicker` to avoid adding
+  a new facade variant for now (Wave 5 can add `findActiveStaffPaginated`
+  if the picker becomes a hot path).
