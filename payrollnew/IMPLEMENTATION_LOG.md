@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status    | Completed at | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | --------- | ------------ | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `in-progress` |              |            |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `pending` |              |            |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `pending` |              |            |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `pending` |              |            |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending` |              |            |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending` |              |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending` |              |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `pending`   |                   |            |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `pending`   |                   |            |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `pending`   |                   |            |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `pending`   |                   |            |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -176,3 +176,83 @@ Append new records below in chronological order. Format:
 ```
 
 <!-- ─── Append records below this line ─── -->
+
+### [IMPL 01] — Schema + shared foundation
+
+- **Completed:** 2026-04-26T20:15:00+01:00 (Europe/Dublin)
+- **Commit:** 408b53b5 (head of `t3code/b523b305` after the seven-commit Wave 1 stack)
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed (3 migrations applied via `prisma migrate deploy`; `db:post-migrate` ran 23 new files; psql confirmed all 7 new `payroll_entries` columns + 5 new indexes + 11 tables with `relrowsecurity=t`/`relforcerowsecurity=t` and the canonical `_tenant_isolation` policy; full AppModule DI smoke compiles cleanly; shared/prisma/api/worker payroll test suites pass — 908 + 18 + 557 + 24 = 1507 tests green; lint + type-check clean across shared/prisma/api/worker/web).
+- **Summary:**
+  Wave 1 lands the schema + shared-type foundation Waves 2-7 build on. Three
+  small migrations: (a) seven `Decimal(12,2)` aggregate columns on
+  `payroll_entries` plus a `(tenant_id, compensation_type)` index and a
+  `(tenant_id, period_year, period_month)` index on `payroll_runs`, with a
+  post-migrate backfill copying historical `total_pay`/`override_total_pay`
+  into `net_pay` and `basic_pay+bonus_pay` into `gross_pay`; (b) the new
+  `payroll_deduction_applications` join table with a `(payroll_run_id,
+staff_recurring_deduction_id)` unique key and three lookup indexes,
+  enabling idempotent two-phase recurring-deduction application via
+  `applied_at` + `committed_at`; (c) a FORCE-RLS retrofit re-issuing the
+  canonical policy for the 10 tables the audit found missing inline FORCE.
+  Six new shared-package modules under the new `@school/shared/payroll`
+  subpath: `job-names.ts` (PAYROLL_QUEUE + three job constants),
+  `redis-keys.ts` (tenant-scoped key builders + TTLs; mass-export PDF TTL
+  bumped from 5 to 20 minutes), `payslip-number.ts` (canonical
+  `<PREFIX>-YYYYMM-NNNNNN` format both finalisation paths now share),
+  `schemas/payslip-snapshot.schema.ts` (Zod validator for the immutable
+  payslip snapshot — Decimal-as-string), `schemas/calc-input.schema.ts`
+  (TypeScript-only `CalcInput`/`CalcResult` contract using `decimal.js`),
+  and an `index.ts` barrel. Two `describe.skip` spec stubs at
+  `apps/api/src/modules/payroll/finalisation.service.spec.ts` and
+  `…/payroll-input-resolver.service.spec.ts` mark Wave 2's landing
+  spots. Two new permissions defined in seeds: `payroll.self_service`
+  added to the catalogue; `payroll.manage_attendance` (already in the
+  catalogue) and `payroll.self_service` granted to school_owner,
+  school_principal, school_vice_principal, and accounting in
+  system-roles.ts.
+- **Deviations from plan:**
+  1. The implementation file said to update `packages/shared/src/index.ts` to
+     `export * from './payroll'`, but that root barrel is explicitly FROZEN
+     (per the comment at its top: "All others must use subpath imports").
+     Adopted the subpath-only pattern instead — added `./payroll` to
+     `packages/shared/package.json` `exports` and `typesVersions` maps so
+     consumers import via `@school/shared/payroll`. The legacy
+     `export * from './payroll/state-machine'` line in the root barrel
+     stays in place for backwards compatibility with existing finance
+     callers; new consumers use the subpath.
+  2. `decimal.js@10.6.0` (already a transitive dep via Prisma) was elevated
+     to a direct dependency of `@school/shared` so `calc-input.schema.ts`
+     can express its Decimal-typed surface without taking a Prisma dep.
+  3. `payroll.manage_attendance` was already present in `permissions.ts` from
+     an earlier rebuild iteration; I only added `payroll.self_service` to
+     the catalogue. Spec said "add two new permissions" — corrected to one
+     new + one role-assignment-only.
+  4. HR role was named in the spec for `manage_attendance` but no canonical
+     HR system role exists; left as a follow-up.
+- **Follow-ups:**
+  1. (Wave 5) Drop the legacy `rls_<table>` policies (e.g.
+     `rls_staff_recurring_deductions`) once the audit confirms no other
+     code path depends on the old name. They co-exist additively today
+     (PostgreSQL ORs PERMISSIVE policies) so the retrofit is strictly
+     safe — but the catalogue should converge to a single canonical name
+     per table.
+  2. (Wave 3) The `OnModuleInit` backfill hook for `payroll.self_service`
+     and `payroll.manage_attendance` on existing tenants — modelled on
+     `InboxPermissionsInit`. Wave 1 only seeds new tenants.
+  3. (Future) Consider seeding an HR system role and granting it
+     `payroll.manage_attendance`. The spec named it but no canonical HR
+     role exists today.
+  4. The `nest start --watch` command in `apps/api/package.json` looks for
+     `dist/main` while `nest build` emits `dist/api/src/main`. Pre-existing
+     issue, not Wave 1's, but worth flagging for whoever does Wave 2 or 3
+     local verification — boot the API via `nest start` (without `--watch`)
+     after a `nest build`, OR run the DI smoke test in the CLAUDE.md
+     regression-prevention block.
+- **Session notes:** Postgres on docker port 5553 (not 5432 as the impl
+  file's `nc` example suggested — repo uses 5553 via docker-compose, with
+  pgbouncer at 6432 fronting it for the API). Redis on 5554. The
+  per-session commit hygiene was easy here — only this session in the
+  worktree, so no sibling races. Branch was renamed back to
+  `t3code/b523b305` at session start (t3 harness had auto-renamed to
+  `t3code/none` during the workflow setup).
