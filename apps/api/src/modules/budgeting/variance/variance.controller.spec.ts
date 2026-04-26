@@ -30,7 +30,7 @@ describe('VarianceController', () => {
   beforeEach(() => {
     service = {
       getVariance: jest.fn().mockResolvedValue({ data: [], meta: {} }),
-      enqueueRefresh: jest.fn().mockResolvedValue({ job_id: 'job-1' }),
+      enqueueRefresh: jest.fn().mockResolvedValue({ run_id: 'run-1', status: 'queued' as const }),
       upsertManualActual: jest.fn().mockResolvedValue({ id: 'actual-1' }),
     } as unknown as jest.Mocked<VarianceService>;
     controller = new VarianceController(service);
@@ -54,7 +54,7 @@ describe('VarianceController', () => {
   it('POST /refresh enqueues a refresh job via VarianceService.enqueueRefresh', async () => {
     const result = await controller.refresh(TENANT, MODEL_ID);
     expect(service.enqueueRefresh).toHaveBeenCalledWith(TENANT_ID, MODEL_ID);
-    expect(result.job_id).toBe('job-1');
+    expect(result.status).toBe('queued');
   });
 
   it('POST /manual-actuals delegates to VarianceService.upsertManualActual with tenant + model + user + dto', async () => {
@@ -62,7 +62,7 @@ describe('VarianceController', () => {
       line_item_key: 'staff_costs:operations',
       period_type: 'month' as const,
       period_label: 'Sep 2026',
-      actual_amount: 1000,
+      amount: 1000,
     };
     await controller.upsertManual(TENANT, USER, MODEL_ID, dto);
     expect(service.upsertManualActual).toHaveBeenCalledWith(TENANT_ID, MODEL_ID, USER_ID, dto);
