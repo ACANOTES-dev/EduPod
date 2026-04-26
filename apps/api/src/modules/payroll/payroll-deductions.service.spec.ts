@@ -46,13 +46,11 @@ function buildPrisma() {
       fn({
         staffRecurringDeduction: {
           findMany: jest.fn().mockResolvedValue([mockDeduction]),
-          update: jest
-            .fn()
-            .mockResolvedValue({
-              ...mockDeduction,
-              remaining_amount: '800.00',
-              months_remaining: 4,
-            }),
+          update: jest.fn().mockResolvedValue({
+            ...mockDeduction,
+            remaining_amount: '800.00',
+            months_remaining: 4,
+          }),
         },
       }),
     ),
@@ -406,6 +404,158 @@ describe('PayrollDeductionsService', () => {
       ) => Promise<unknown>;
       // The test verifies the function was called — the months computation is in the service
       expect(created.months_remaining).toBe(4);
+    });
+  });
+
+  // ─── Wave-2 two-phase application ──────────────────────────────────────
+
+  describe('scheduleApplicationForRun (Wave 2 — Phase 1)', () => {
+    it('should insert one application row per active deduction and return the total scheduled amount as a Decimal', async () => {
+      const upsert = jest.fn().mockResolvedValue({ id: 'app-1' });
+      const tx = {
+        payrollRun: {
+          findFirstOrThrow: jest.fn().mockResolvedValue({
+            id: RUN_ID,
+            tenant_id: TENANT_ID,
+            period_year: 2026,
+            period_month: 4,
+          }),
+        },
+        staffRecurringDeduction: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              ...mockDeduction,
+              monthly_amount: '200.00',
+              remaining_amount: '1000.00',
+            },
+          ]),
+        },
+        payrollDeductionApplication: { upsert },
+      } as unknown as NonNullable<Parameters<typeof service.scheduleApplicationForRun>[4]>;
+
+      const total = await service.scheduleApplicationForRun(
+        TENANT_ID,
+        RUN_ID,
+        ENTRY_ID,
+        STAFF_ID,
+        tx,
+      );
+
+      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(total.toString()).toBe('200');
+    });
+
+    it('should be idempotent — second call upserts (no-op on conflict) and returns the same total', async () => {
+      const upsert = jest.fn().mockResolvedValue({ id: 'app-1' });
+      const tx = {
+        payrollRun: {
+          findFirstOrThrow: jest.fn().mockResolvedValue({
+            id: RUN_ID,
+            tenant_id: TENANT_ID,
+            period_year: 2026,
+            period_month: 4,
+          }),
+        },
+        staffRecurringDeduction: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { ...mockDeduction, monthly_amount: '150.00', remaining_amount: '600.00' },
+            ]),
+        },
+        payrollDeductionApplication: { upsert },
+      } as unknown as NonNullable<Parameters<typeof service.scheduleApplicationForRun>[4]>;
+
+      const t1 = await service.scheduleApplicationForRun(TENANT_ID, RUN_ID, ENTRY_ID, STAFF_ID, tx);
+      const t2 = await service.scheduleApplicationForRun(TENANT_ID, RUN_ID, ENTRY_ID, STAFF_ID, tx);
+
+      expect(t1.toString()).toBe('150');
+      expect(t2.toString()).toBe('150');
+      expect(upsert).toHaveBeenCalledTimes(2); // called twice; uniqueness enforced at DB layer
+    });
+
+    it('should cap the applied amount by remaining_amount when monthly_amount > remaining', async () => {
+      const upsert = jest.fn().mockResolvedValue({ id: 'app-1' });
+      const tx = {
+        payrollRun: {
+          findFirstOrThrow: jest.fn().mockResolvedValue({
+            id: RUN_ID,
+            tenant_id: TENANT_ID,
+            period_year: 2026,
+            period_month: 4,
+          }),
+        },
+        staffRecurringDeduction: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { ...mockDeduction, monthly_amount: '500.00', remaining_amount: '120.00' },
+            ]),
+        },
+        payrollDeductionApplication: { upsert },
+      } as unknown as NonNullable<Parameters<typeof service.scheduleApplicationForRun>[4]>;
+
+      const total = await service.scheduleApplicationForRun(
+        TENANT_ID,
+        RUN_ID,
+        ENTRY_ID,
+        STAFF_ID,
+        tx,
+      );
+
+      expect(total.toString()).toBe('120');
+    });
+  });
+
+  describe('commitApplications (Wave 2 — Phase 2)', () => {
+    it('should decrement balance + months_remaining, mark deduction inactive when fully repaid', async () => {
+      const tx = {
+        payrollDeductionApplication: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'app-1',
+              applied_amount: '200.00',
+              staff_recurring_deduction: {
+                id: DEDUCTION_ID,
+                remaining_amount: '200.00',
+                months_remaining: 1,
+              },
+            },
+          ]),
+          update: jest.fn(),
+        },
+        staffRecurringDeduction: { update: jest.fn() },
+      } as unknown as NonNullable<Parameters<typeof service.commitApplications>[2]>;
+
+      await service.commitApplications(TENANT_ID, RUN_ID, tx);
+
+      expect(tx.staffRecurringDeduction.update).toHaveBeenCalledWith({
+        where: { id: DEDUCTION_ID },
+        data: {
+          remaining_amount: '0',
+          months_remaining: 0,
+          active: false, // fully repaid
+        },
+      });
+      expect(tx.payrollDeductionApplication.update).toHaveBeenCalledWith({
+        where: { id: 'app-1' },
+        data: { committed_at: expect.any(Date) },
+      });
+    });
+
+    it('should be a no-op on the second invocation (committed_at = NULL filter excludes them)', async () => {
+      const tx = {
+        payrollDeductionApplication: {
+          findMany: jest.fn().mockResolvedValue([]), // second call sees no un-committed rows
+          update: jest.fn(),
+        },
+        staffRecurringDeduction: { update: jest.fn() },
+      } as unknown as NonNullable<Parameters<typeof service.commitApplications>[2]>;
+
+      await service.commitApplications(TENANT_ID, RUN_ID, tx);
+
+      expect(tx.staffRecurringDeduction.update).not.toHaveBeenCalled();
+      expect(tx.payrollDeductionApplication.update).not.toHaveBeenCalled();
     });
   });
 });

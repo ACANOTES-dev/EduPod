@@ -13,6 +13,7 @@ import { ApprovalRequestsService } from '../../../modules/approvals/approval-req
 import { SettingsService } from '../../../modules/configuration/settings.service';
 import { EncryptionService } from '../../../modules/configuration/encryption.service';
 import { CalculationService } from '../../../modules/payroll/calculation.service';
+import { FinalisationService } from '../../../modules/payroll/finalisation.service';
 import { PayrollRunsService } from '../../../modules/payroll/payroll-runs.service';
 import { PayslipsService } from '../../../modules/payroll/payslips.service';
 import { PdfRenderingService } from '../../../modules/pdf-rendering/pdf-rendering.service';
@@ -106,6 +107,11 @@ describe('Payroll -> Payslip -> PDF flow', () => {
     decrypt: jest.fn(),
   };
 
+  // Wave-2 unified finalisation — direct path delegates here.
+  const mockFinalisationService = {
+    finaliseAtomic: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
@@ -120,6 +126,7 @@ describe('Payroll -> Payslip -> PDF flow', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: EncryptionService, useValue: mockEncryptionService },
+        { provide: FinalisationService, useValue: mockFinalisationService },
         { provide: getQueueToken('payroll'), useValue: mockQueue },
       ],
     }).compile();
@@ -257,22 +264,15 @@ describe('Payroll -> Payslip -> PDF flow', () => {
     );
 
     expect(result).toBeDefined();
-    // Payslips generated inside the finalisation
-    expect(mockPayslipsService.generatePayslipsForRun).toHaveBeenCalledWith(
-      TENANT_ID,
-      RUN_ID,
-      USER_ID,
-      expect.anything(),
-    );
-    // Run marked as finalised
-    expect(mockPrisma.payrollRun.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: RUN_ID },
-        data: expect.objectContaining({
-          status: 'finalised',
-        }),
-      }),
-    );
+    // Wave-2: direct path delegates to FinalisationService; assert the
+    // delegation occurred. Payslip generation + run.update happen inside
+    // the (mocked) FinalisationService and are exercised by its own spec.
+    expect(mockFinalisationService.finaliseAtomic).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      runId: RUN_ID,
+      actorUserId: USER_ID,
+      expectedFromState: 'draft',
+    });
   });
 
   it('should reject finalisation if entries are incomplete', async () => {

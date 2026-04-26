@@ -1,5 +1,9 @@
+import Decimal from 'decimal.js';
+
+import type { CalcInput as Wave2Input } from '@school/shared/payroll';
+
 import { CalculationService } from './calculation.service';
-import type { CalcInput } from './calculation.service';
+import type { LegacyCalcInput as CalcInput } from './calculation.service';
 
 describe('CalculationService', () => {
   let service: CalculationService;
@@ -282,5 +286,161 @@ describe('CalculationService', () => {
       expect(result.bonus_pay).toBe(75);
       expect(result.total_pay).toBe(1075);
     });
+  });
+});
+
+// ─── Wave-2 compute() tests — Decimal-safe full-input engine ─────────────
+
+function wave2Salaried(overrides: Partial<Wave2Input> = {}): Wave2Input {
+  return {
+    compensationType: 'salaried',
+    baseSalary: new Decimal(3000),
+    daysWorked: new Decimal(22),
+    totalWorkingDays: 22,
+    perClassRate: null,
+    classesDelivered: 0,
+    bonusClasses: 0,
+    bonusClassMultiplier: null,
+    allowancesTotal: new Decimal(0),
+    oneOffPositiveTotal: new Decimal(0),
+    oneOffNegativeTotal: new Decimal(0),
+    adjustmentPositiveTotal: new Decimal(0),
+    adjustmentNegativeTotal: new Decimal(0),
+    scheduledDeductionsTotal: new Decimal(0),
+    ...overrides,
+  };
+}
+
+function wave2PerClass(overrides: Partial<Wave2Input> = {}): Wave2Input {
+  return {
+    compensationType: 'per_class',
+    baseSalary: null,
+    daysWorked: null,
+    totalWorkingDays: 22,
+    perClassRate: new Decimal(100),
+    classesDelivered: 20,
+    bonusClasses: 0,
+    bonusClassMultiplier: null,
+    allowancesTotal: new Decimal(0),
+    oneOffPositiveTotal: new Decimal(0),
+    oneOffNegativeTotal: new Decimal(0),
+    adjustmentPositiveTotal: new Decimal(0),
+    adjustmentNegativeTotal: new Decimal(0),
+    scheduledDeductionsTotal: new Decimal(0),
+    ...overrides,
+  };
+}
+
+describe('CalculationService.compute (Wave 2 — Decimal-safe)', () => {
+  let service: CalculationService;
+
+  beforeEach(() => {
+    service = new CalculationService();
+  });
+
+  it('should pro-rate salaried basePay by days worked / total working days', () => {
+    const result = service.compute(wave2Salaried({ daysWorked: new Decimal(11) }));
+    // 3000 * (11/22) = 1500
+    expect(result.basePay.toString()).toBe('1500');
+    expect(result.grossPay.toString()).toBe('1500');
+    expect(result.netPay.toString()).toBe('1500');
+  });
+
+  it('should compute per_class basePay = perClassRate × classesDelivered', () => {
+    const result = service.compute(wave2PerClass({ classesDelivered: 20 }));
+    // 100 * 20 = 2000 — comes through as bonusPay (per the new model
+    // base/bonus split: per_class staff have basePay = 0 and bonusPay
+    // carries the class earnings).
+    expect(result.basePay.toString()).toBe('0');
+    expect(result.bonusPay.toString()).toBe('2000');
+    expect(result.grossPay.toString()).toBe('2000');
+  });
+
+  it('should add allowances + positive one-offs + positive adjustments to grossPay', () => {
+    const result = service.compute(
+      wave2Salaried({
+        allowancesTotal: new Decimal(200),
+        oneOffPositiveTotal: new Decimal(50),
+        adjustmentPositiveTotal: new Decimal(30),
+      }),
+    );
+    // 3000 + 200 + 50 + 30 = 3280
+    expect(result.grossPay.toString()).toBe('3280');
+  });
+
+  it('should subtract scheduled deductions + negative one-offs + negative adjustments to compute netPay', () => {
+    const result = service.compute(
+      wave2Salaried({
+        scheduledDeductionsTotal: new Decimal(150),
+        oneOffNegativeTotal: new Decimal(40),
+        adjustmentNegativeTotal: new Decimal(10),
+      }),
+    );
+    // gross = 3000, deductions = 150 + 40 + 10 = 200, net = 2800
+    expect(result.totalDeductions.toString()).toBe('200');
+    expect(result.netPay.toString()).toBe('2800');
+  });
+
+  it('should net signed adjustments and one-offs (positive minus negative)', () => {
+    const result = service.compute(
+      wave2Salaried({
+        adjustmentPositiveTotal: new Decimal(100),
+        adjustmentNegativeTotal: new Decimal(40),
+        oneOffPositiveTotal: new Decimal(80),
+        oneOffNegativeTotal: new Decimal(50),
+      }),
+    );
+    expect(result.adjustmentsTotal.toString()).toBe('60');
+    expect(result.oneOffTotal.toString()).toBe('30');
+  });
+
+  it('should return 0 base for per_class staff and 0 bonus for salaried staff', () => {
+    const perClass = service.compute(wave2PerClass());
+    expect(perClass.basePay.toString()).toBe('0');
+
+    const salaried = service.compute(wave2Salaried());
+    // Salaried staff with no positive one-offs/adjustments has bonusPay = 0
+    expect(salaried.bonusPay.toString()).toBe('0');
+  });
+
+  it('edge: returns 0 base for salaried with totalWorkingDays = 0 (no division by zero)', () => {
+    const result = service.compute(wave2Salaried({ totalWorkingDays: 0 }));
+    expect(result.basePay.toString()).toBe('0');
+    expect(result.netPay.toString()).toBe('0');
+  });
+
+  it('edge: per_class with bonus classes uses the multiplier', () => {
+    const result = service.compute(
+      wave2PerClass({
+        classesDelivered: 20,
+        bonusClasses: 5,
+        bonusClassMultiplier: new Decimal('1.5'),
+      }),
+    );
+    // 100*20 + 100*5*1.5 = 2000 + 750 = 2750
+    expect(result.bonusPay.toString()).toBe('2750');
+  });
+
+  it('edge: full mixed scenario — salaried with allowances, deductions, adjustments', () => {
+    const result = service.compute(
+      wave2Salaried({
+        baseSalary: new Decimal(5000),
+        daysWorked: new Decimal(20),
+        totalWorkingDays: 22,
+        allowancesTotal: new Decimal(300),
+        scheduledDeductionsTotal: new Decimal(200),
+        adjustmentPositiveTotal: new Decimal(100),
+        adjustmentNegativeTotal: new Decimal(50),
+      }),
+    );
+    // base = 5000 × (20/22) where 20/22 → toDecimalPlaces(4) = 0.9091
+    // → 5000 × 0.9091 = 4545.5 (already at 2dp)
+    // gross = 4545.5 + 300 + 100 = 4945.5
+    // deductions = 200 + 50 = 250
+    // net = 4945.5 - 250 = 4695.5
+    expect(result.basePay.toString()).toBe('4545.5');
+    expect(result.grossPay.toString()).toBe('4945.5');
+    expect(result.totalDeductions.toString()).toBe('250');
+    expect(result.netPay.toString()).toBe('4695.5');
   });
 });

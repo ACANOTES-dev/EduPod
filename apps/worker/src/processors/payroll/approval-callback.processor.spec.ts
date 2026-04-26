@@ -7,13 +7,31 @@ import {
   PayrollApprovalCallbackProcessor,
 } from './approval-callback.processor';
 
+// ─── Wave-2 callback spec ──────────────────────────────────────────────────
+//
+// The rewritten processor no longer recalculates pay inline. The API side
+// (PayrollRunsService.createRun / refreshEntries) now writes the new
+// gross_pay / net_pay / *_total columns via the unified
+// CalculationService, so the worker just:
+//   1. Commits scheduled recurring-deduction applications (Phase 2).
+//   2. Generates payslips with `formatPayslipNumber` from
+//      `@school/shared/payroll` — the canonical PSL-YYYYMM-NNNNNN format.
+//   3. Updates the run to `finalised` using the persisted entry totals.
+//   4. Marks the approval request executed.
+//
+// These tests exercise self-heal, skipped-state, the happy path, and
+// the idempotency guard. The fixture mock supplies the new entry
+// columns so the run-update assertion can verify totals from
+// `net_pay`/`basic_pay`/`bonus_pay`.
+
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const APPROVAL_REQUEST_ID = '22222222-2222-2222-2222-222222222222';
 const PAYROLL_RUN_ID = '33333333-3333-3333-3333-333333333333';
 const ENTRY_ID = '44444444-4444-4444-4444-444444444444';
 const USER_ID = '55555555-5555-5555-5555-555555555555';
+const STAFF_PROFILE_ID = '66666666-6666-6666-6666-666666666666';
 
-function buildEntry() {
+function buildEntry(overrides: Record<string, unknown> = {}) {
   return {
     classes_taught: null,
     compensation_type: 'salaried',
@@ -24,6 +42,18 @@ function buildEntry() {
     snapshot_bonus_class_rate: null,
     snapshot_bonus_day_multiplier: null,
     snapshot_per_class_rate: null,
+    staff_profile_id: STAFF_PROFILE_ID,
+    // Wave-2: pre-computed entry totals
+    basic_pay: new Decimal(3000),
+    bonus_pay: new Decimal(0),
+    total_pay: new Decimal(3000),
+    gross_pay: new Decimal(3000),
+    net_pay: new Decimal(3000),
+    total_deductions: new Decimal(0),
+    allowances_total: new Decimal(0),
+    deductions_total: new Decimal(0),
+    adjustments_total: new Decimal(0),
+    one_off_total: new Decimal(0),
     staff_profile: {
       bank_name: 'AIB',
       department: 'Primary',
@@ -35,6 +65,8 @@ function buildEntry() {
         last_name: 'OBrien',
       },
     },
+    payslip: null,
+    ...overrides,
   };
 }
 
@@ -46,17 +78,10 @@ function buildMockTx() {
     },
     payrollEntry: {
       findMany: jest.fn().mockResolvedValue([buildEntry()]),
-      findUniqueOrThrow: jest.fn().mockResolvedValue({
-        basic_pay: new Decimal(3000),
-        bonus_pay: new Decimal(0),
-        classes_taught: null,
-        days_worked: 20,
-        total_pay: new Decimal(3000),
-      }),
-      update: jest.fn().mockResolvedValue({ id: ENTRY_ID }),
     },
     payrollRun: {
       findFirst: jest.fn().mockResolvedValue({
+        approval_request_id: APPROVAL_REQUEST_ID,
         headcount: null,
         id: PAYROLL_RUN_ID,
         period_label: 'March 2026',
@@ -66,6 +91,13 @@ function buildMockTx() {
         total_working_days: 20,
       }),
       update: jest.fn().mockResolvedValue({ id: PAYROLL_RUN_ID }),
+    },
+    payrollDeductionApplication: {
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({ id: 'dedapp-1' }),
+    },
+    staffRecurringDeduction: {
+      update: jest.fn().mockResolvedValue({ id: 'ded-1' }),
     },
     payslip: {
       create: jest.fn().mockResolvedValue({ id: 'payslip-id' }),
@@ -82,6 +114,7 @@ function buildMockTx() {
         logo_url: 'https://example.com/logo.png',
         primary_color: '#2563eb',
         school_name_ar: null,
+        payslip_prefix: 'PSL',
       }),
     },
     tenantSequence: {
@@ -114,7 +147,7 @@ function buildJob(
   } as Job<ApprovalCallbackPayload>;
 }
 
-describe('PayrollApprovalCallbackProcessor', () => {
+describe('PayrollApprovalCallbackProcessor (Wave-2)', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -159,7 +192,7 @@ describe('PayrollApprovalCallbackProcessor', () => {
         status: 'executed',
         executed_at: expect.any(Date),
         callback_status: 'already_done',
-        callback_error: 'Self-healed: payroll run already in status "finalised"',
+        callback_error: 'Self-healed: payroll run already finalised',
       },
     });
   });
@@ -185,34 +218,40 @@ describe('PayrollApprovalCallbackProcessor', () => {
       data: {
         callback_status: 'skipped',
         callback_error:
-          'Skipped: payroll run was in unexpected status "draft", expected "pending_approval"',
+          'Skipped: run was in unexpected status "draft", expected "pending_approval"',
       },
     });
   });
 
-  it('should finalise the payroll run, generate a payslip, and mark the approval executed', async () => {
+  it('should commit deductions, generate a payslip with the canonical format, and mark the approval executed', async () => {
     const mockTx = buildMockTx();
     const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
 
     await processor.process(buildJob());
 
-    const entryUpdateCall = mockTx.payrollEntry.update.mock.calls[0]?.[0];
-    const runUpdateCall = mockTx.payrollRun.update.mock.calls[0]?.[0];
-    const totalPay = runUpdateCall?.data.total_pay as Decimal;
+    // Deductions Phase 2 — checked but no rows in the fixture
+    expect(mockTx.payrollDeductionApplication.findMany).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID, payroll_run_id: PAYROLL_RUN_ID, committed_at: null },
+      include: { staff_recurring_deduction: true },
+    });
 
-    expect(entryUpdateCall?.data.basic_pay.toString()).toBe('3000');
-    expect(entryUpdateCall?.data.total_pay.toString()).toBe('3000');
+    // Payslip uses the canonical PSL-YYYYMM-NNNNNN format from the shared formatter
     expect(mockTx.payslip.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         issued_by_user_id: USER_ID,
         payroll_entry_id: ENTRY_ID,
-        payslip_number: 'PS-202603-00001',
+        payslip_number: 'PSL-202603-000001',
         tenant_id: TENANT_ID,
       }),
     });
-    expect(totalPay.toString()).toBe('3000');
+
+    // Run finalised with totals aggregated from pre-computed entry columns
+    const runUpdateCall = mockTx.payrollRun.update.mock.calls[0]?.[0];
     expect(runUpdateCall?.data.status).toBe('finalised');
     expect(runUpdateCall?.data.headcount).toBe(1);
+    expect((runUpdateCall?.data.total_pay as Decimal).toString()).toBe('3000');
+
+    // Approval marked executed
     expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
       where: { id: APPROVAL_REQUEST_ID },
       data: {
@@ -224,74 +263,57 @@ describe('PayrollApprovalCallbackProcessor', () => {
     });
   });
 
-  it('should be idempotent when a payslip already exists for the payroll entry', async () => {
+  it('should be idempotent when a payslip already exists for the entry', async () => {
     const mockTx = buildMockTx();
-    mockTx.payslip.findFirst.mockResolvedValue({ id: 'existing-payslip' });
+    mockTx.payrollEntry.findMany.mockResolvedValue([
+      buildEntry({ payslip: { id: 'pre-existing-payslip' } }),
+    ]);
     const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
 
     await processor.process(buildJob());
 
     expect(mockTx.payslip.create).not.toHaveBeenCalled();
-    expect(mockTx.payrollRun.update).toHaveBeenCalled();
-    expect(mockTx.approvalRequest.update).toHaveBeenCalled();
+    // Run is still updated to finalised
+    const runUpdateCall = mockTx.payrollRun.update.mock.calls[0]?.[0];
+    expect(runUpdateCall?.data.status).toBe('finalised');
   });
 
-  // ─── Failure contract tests ───────────────────────────────────────────────
-
-  it('should throw when target entity is not found', async () => {
+  it('should commit a scheduled deduction application exactly once', async () => {
     const mockTx = buildMockTx();
-    mockTx.payrollRun.findFirst.mockResolvedValue(null);
-    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
-
-    await expect(processor.process(buildJob())).rejects.toThrow(
-      `Payroll run ${PAYROLL_RUN_ID} not found for tenant ${TENANT_ID}`,
-    );
-  });
-
-  it('should propagate database errors (not swallow them)', async () => {
-    const mockTx = buildMockTx();
-    mockTx.payrollRun.update.mockRejectedValue(new Error('DB connection lost'));
-    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
-
-    await expect(processor.process(buildJob())).rejects.toThrow('DB connection lost');
-  });
-
-  it('should throw when salaried entry has no snapshot_base_salary', async () => {
-    const mockTx = buildMockTx();
-    const entry = buildEntry();
-    entry.snapshot_base_salary = null as unknown as Decimal;
-    entry.compensation_type = 'salaried';
-    mockTx.payrollEntry.findMany.mockResolvedValue([entry]);
-    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
-
-    await expect(processor.process(buildJob())).rejects.toThrow(
-      `Entry ${ENTRY_ID} is salaried but has no snapshot_base_salary`,
-    );
-  });
-
-  it('should calculate per_class correctly with bonus classes', async () => {
-    const mockTx = buildMockTx();
-    const perClassEntry = {
-      ...buildEntry(),
-      classes_taught: 12,
-      compensation_type: 'per_class',
-      snapshot_assigned_class_count: 10,
-      snapshot_base_salary: null,
-      snapshot_bonus_class_rate: new Decimal(50),
-      snapshot_per_class_rate: new Decimal(100),
-    };
-    mockTx.payrollEntry.findMany.mockResolvedValue([perClassEntry]);
+    mockTx.payrollDeductionApplication.findMany.mockResolvedValue([
+      {
+        id: 'dedapp-1',
+        applied_amount: new Decimal(100),
+        staff_recurring_deduction: {
+          id: 'ded-1',
+          remaining_amount: new Decimal(500),
+          months_remaining: 5,
+        },
+      },
+    ]);
     const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
 
     await processor.process(buildJob());
 
-    // basic_pay = per_class_rate * min(classes_taught, assigned) = 100 * 10 = 1000
-    // bonus_pay = bonus_class_rate * extra_classes = 50 * 2 = 100
-    const entryUpdateCall = mockTx.payrollEntry.update.mock.calls[0]?.[0] as {
-      data: { basic_pay: Decimal; bonus_pay: Decimal; total_pay: Decimal };
-    };
-    expect(entryUpdateCall.data.basic_pay.toString()).toBe('1000');
-    expect(entryUpdateCall.data.bonus_pay.toString()).toBe('100');
-    expect(entryUpdateCall.data.total_pay.toString()).toBe('1100');
+    expect(mockTx.staffRecurringDeduction.update).toHaveBeenCalledWith({
+      where: { id: 'ded-1' },
+      data: {
+        remaining_amount: '400',
+        months_remaining: 4,
+        active: true,
+      },
+    });
+    expect(mockTx.payrollDeductionApplication.update).toHaveBeenCalledWith({
+      where: { id: 'dedapp-1' },
+      data: { committed_at: expect.any(Date) },
+    });
+  });
+
+  it('should propagate database errors (not swallow them)', async () => {
+    const mockTx = buildMockTx();
+    mockTx.payrollEntry.findMany.mockRejectedValue(new Error('DB connection lost'));
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow('DB connection lost');
   });
 });
