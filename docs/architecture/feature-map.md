@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-26 (Engagement module fix rebuild Waves 1–4 shipped — apiClient envelope auto-unwrap, hub-landing tile dashboard, form-template editor polish, event sub-pages + parent flow polish, parent permission backfill, i18n + mobile sweep. No route or count changes; the engagement section is unchanged.)
+> **Last verified**: 2026-04-26 (Payroll overhaul rebuild Waves 1–5 shipped — Decimal-safe calculation engine consuming every input source, unified `FinalisationService` powering both direct and approval-callback paths, worker job-name + Redis-key alignment via `@school/shared/payroll`, missing self-service / sub-resource / tenant-wide endpoints, cross-path equivalence guards, RHF + zod migration across operational pages, mobile sweep, dead-code removal. See `payrollnew/IMPLEMENTATION_LOG.md`.)
 
 ---
 
@@ -375,36 +375,41 @@
 
 ## 13. Payroll
 
-**What it does**: Payroll run management for salaried and class-based compensation with staff attendance, class delivery, allowances, deductions, finalisation approvals, payslip generation, exports, analytics, and self-service payslip access.
+**What it does**: Payroll run management for salaried, per-class, and mixed compensation with staff attendance, class delivery, allowances, recurring deductions, one-offs, adjustments, finalisation approvals, payslip generation, exports, analytics, anomaly detection, and staff self-service. The 2026-04-26 rebuild unified the dual finalisation paths under a single `FinalisationService.finaliseAtomic` and made every input the engine had advertised actually wire through. See `payrollnew/PLAN.md`.
 
 **Backend**: `apps/api/src/modules/payroll/`
 
-- Payroll runs and approvals
-- Compensation records
-- Staff attendance and class delivery
-- Allowances and deductions
-- Payslip generation and export support
-- Payroll reporting
+- Payroll runs, approvals, and unified finalisation (`FinalisationService`)
+- Period-bracketed compensation lookups (`CompensationService.findActiveForPeriod`)
+- Staff attendance, class delivery, allowances, recurring deductions (two-phase via `payroll_deduction_applications`), one-offs, adjustments — all consumed by `PayrollInputResolver`
+- Decimal-safe calculation engine (`CalculationService.compute`)
+- Payslip generation with shared `formatPayslipNumber` (`<PREFIX>-YYYYMM-NNNNNN`) and Zod-validated snapshot schema
+- Exports (templates + history + per-log re-send), tenant-wide allowances/deductions listings
+- Self-service surface (`/my-payslips`, `/my-payslips/ytd`, `/my-payslips/:id/pdf`) — strictly scoped to the calling user via `StaffProfileReadFacade.findByUserId`
+- Anomaly detection (in-memory scan), reports (variance + forecast + staff history)
+- Boot-time permission backfill (`PayrollPermissionsInit`) for `payroll.self_service` + `payroll.manage_attendance`
+- `@ModuleEnabled('payroll')` on every controller
 
 **Frontend**: `apps/web/src/app/[locale]/(school)/payroll/`
 
-- Payroll dashboard
-- Runs and run detail
-- Compensation
-- Staff attendance
-- Class delivery
-- Reports
-- Exports
-- Staff history
-- My payslips
+- Hub dashboard (KPIs, payday calendar, top anomalies, cost trend)
+- Runs (list + detail with entries / allowances / adjustments / anomalies / comparison tabs)
+- Compensation (RHF + `createCompensationSchema` form, bulk-import)
+- Staff attendance (daily grid + monthly heatmap + bulk-mark)
+- Class delivery (records + per-teacher rollup)
+- Reports (cost trend, YTD, bonus analysis, variance with run picker, forecast)
+- Exports (templates + tenant-wide history)
+- Staff history (per staff profile)
+- My payslips (YTD card + by-month chart + per-payslip PDF download)
+- Absences (cross-period leave summary)
 
-**Worker jobs**:
+**Worker jobs** (queue: `payroll`, names sourced from `@school/shared/payroll/job-names.ts`):
 
-- `payroll:generate-sessions`
-- `payroll:mass-export-payslips`
-- `payroll:on-approval`
+- `payroll:on-approval` — finalises a `pending_approval` run when its approval request executes; mirrors `FinalisationService` behaviour
+- `payroll:session-generation` — counts confirmed `class_delivery_records` (status `delivered`) bracketed to the run period; status surfaced via `buildSessionGenStatusKey`
+- `payroll:mass-export` — renders all payslips in a run to a single PDF cached in Redis under `buildMassExportPdfKey` (TTL 1200s); idempotent via `jobId: mass-export:{runId}:{locale}`
 
-**Depends on**: Staff profiles, schedules, PDF rendering, approvals, configuration.
+**Depends on**: Staff profiles, schedules, school closures, PDF rendering, approvals, configuration (typed `payrollSettingsSchema` exposes `payDay`, `payrollPreparationLeadDays`, `payrollAccountantEmail`).
 
 ---
 

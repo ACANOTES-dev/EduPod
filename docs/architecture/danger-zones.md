@@ -1266,3 +1266,60 @@ The behaviour is conservative: it only strips the wrap when the response body is
 - Watch for a new 500 on a previously-working endpoint after a Prisma upgrade — Prisma 5 → 6 was the trigger for this class of bug.
 
 **Reference**: `reports-rebuild/IMPLEMENTATION_LOG.md` impl 22 completion record (`fix(reports): demographics ageDistribution Prisma not-null on non-nullable field`).
+
+## DZ-Payroll-1: Historical payslip-number format inconsistency
+
+**Risk**: Pre-rebuild, runs finalised through the direct path produced `<PREFIX>-YYYYMM-NNNNNN` (6-digit padding) while runs finalised through the approval-callback worker produced `PS-YYYYMM-NNNNN` (5-digit padding, hardcoded `PS-` prefix). The 2026-04-26 payroll-overhaul rebuild standardised both paths to the 6-digit form via `formatPayslipNumber()` in `@school/shared/payroll`. **Pre-rebuild payslips retain their original numbers.** Tenants finalising new runs see a format change at the rebuild cutover. If a tenant queries by payslip number, the historical mix is by design.
+
+**Convention**:
+
+- The shared `formatPayslipNumber({prefix, periodYear, periodMonth, sequence})` is the single source of truth. Both `apps/api/src/modules/payroll/finalisation.service.ts` and `apps/worker/src/processors/payroll/approval-callback.processor.ts` MUST import and use it.
+- Inline format strings (`\`PSL-${year}${month}-${seq}\``) are blocked by `apps/api/src/modules/payroll/cross-path-equivalence.spec.ts` — that spec asserts neither path constructs a payslip-number with a template literal.
+- Tenant-specific prefix lives on `tenant_branding.payslip_prefix` (default `'PSL'`).
+
+**How to detect**:
+
+- A new finalisation path that calls `tenantSequence.upsert` directly and constructs a string without `formatPayslipNumber` — instant cross-path divergence.
+- Tenant reports of payslip numbers in different shapes for runs in the same period.
+
+**Reference**: `payrollnew/PLAN.md` §"Payslip-number unification"; `payrollnew/IMPLEMENTATION_LOG.md` impl 02 + impl 04 completion records.
+
+## DZ-Payroll-2: Deduction two-phase application
+
+**Risk**: Recurring deductions are applied in two phases via the `payroll_deduction_applications` table:
+
+1. `PayrollDeductionsService.scheduleApplicationForRun(tenantId, runId, entryId, staffId, tx)` — idempotent insert into `payroll_deduction_applications` (unique key `(payroll_run_id, staff_recurring_deduction_id)` — `uniq_deduction_per_run`). Computes `applied_amount = min(monthly_amount, remaining_amount)`; multiple calls for the same (run, deduction) pair are no-ops.
+2. `PayrollDeductionsService.commitApplications(tenantId, runId, tx)` — decrements `staff_recurring_deduction.remaining_amount` exactly once per scheduled application, stamps `committed_at` on the application row, marks the deduction `active = false` once `remaining_amount <= 0`.
+
+Calling `commitApplications` BEFORE `scheduleApplicationForRun` decrements zero applications (no-op). Calling `scheduleApplicationForRun` multiple times has no effect (unique key blocks). The two MUST be called in order, and the commit MUST happen inside the same transaction as run finalisation. Calling them out of sequence in a custom code path will leave deductions un-committed and silently double-deducted on retry.
+
+**Convention**:
+
+- `FinalisationService.finaliseAtomic` is the only authorised caller of the schedule + commit pair. Both happen inside one `$transaction` so atomicity is guaranteed.
+- `PayrollInputResolver.resolveForRun` calls `scheduleApplicationForRun` as the deduction-input source. Scheduling is intrinsic to input resolution — the commit happens later in the same transaction.
+- Bypass paths (raw SQL inserts into `payroll_deduction_applications`, manual `UPDATE staff_recurring_deductions SET remaining_amount = ...`) are prohibited and broken — the two-phase contract relies on the join table.
+
+**How to detect**:
+
+- A new payroll service method that touches `staffRecurringDeduction.remaining_amount` directly without going through `commitApplications` — that's a regression of the pre-rebuild destructive `autoApplyForRun` (which Wave 5 dropped).
+- Deduction balances drifting between expected and actual after a re-run of the same period — likely a missed `commitApplications` call.
+
+**Reference**: `payrollnew/PLAN.md` §"Two-phase deduction application"; `payrollnew/IMPLEMENTATION_LOG.md` impl 01 (schema) + impl 02 (service wiring) completion records.
+
+## DZ-Payroll-3: Compensation period-bracket "most-recent" rule
+
+**Risk**: When multiple `staff_compensation` rows for the same staff member overlap a payroll-run period (data integrity issue, but possible since the schema has no overlap-prevention constraint), the engine selects the row with the most recent `effective_from`. Tenants who have multiple active compensations for the same staff member see only the latest; older overlapping rows are silently ignored. The check happens in `CompensationService.findActiveForPeriod()` — it ORDERs by `effective_from DESC` and returns the first match.
+
+Adding a database-level partial unique constraint on `staff_compensation (staff_profile_id) WHERE effective_to IS NULL` would prevent the overlap entirely; this was not added during the rebuild because it could break tenants with existing overlapping rows. Future maintenance task: clean up overlaps then add the constraint.
+
+**Convention**:
+
+- `CompensationService.findActiveForPeriod(tenantId, staffProfileId, periodStart, periodEnd, tx?)` is the single API for resolving the active compensation for a payroll period. Used by `PayrollInputResolver.resolveForRun` and any future code path that needs "the comp that paid this staff member for this period".
+- Frontend should warn when creating a new compensation row that overlaps an existing active one (currently advisory only).
+
+**How to detect**:
+
+- A staff member's payslip totals change after re-finalising a draft run AND multiple compensations for that staff exist — the engine resolved a different "most-recent" row this time.
+- `SELECT staff_profile_id, COUNT(*) FROM staff_compensation WHERE effective_to IS NULL GROUP BY 1 HAVING COUNT(*) > 1;` returns rows on a tenant — that tenant has overlap and should be cleaned up before adding the constraint.
+
+**Reference**: `payrollnew/PLAN.md` §"Period-bracketed compensation"; `payrollnew/IMPLEMENTATION_LOG.md` impl 02 completion record.

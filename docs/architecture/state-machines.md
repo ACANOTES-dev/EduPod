@@ -302,14 +302,15 @@ revoked*
 
 ```
 draft             -> [pending_approval, finalised, cancelled]
-pending_approval  -> [draft (rejected), finalised (approved)]
+pending_approval  -> [draft (rejected), finalised (approved), cancelled]
 finalised*
 cancelled*
 ```
 
 - **Guarded by**: `packages/shared/src/payroll/state-machine.ts` — `isValidPayrollRunTransition()`. Wired in `payroll-runs.service.ts` (`finalise()`, `cancelRun()`, `executeFinalisation()`).
-- **Side effects**: `finalised` generates payslip numbers (SequenceService) and creates individual payslip records. This can happen directly from `draft` or through the approval callback path.
-- **Danger**: `finalised` via approval callback happens in the worker, not the API. If worker fails mid-generation, some payslips may be created and others not.
+- **Side effects**: `finalised` is now produced **only** through `FinalisationService.finaliseAtomic` (Wave 2 unification — single source of truth). Both the direct (school-owner) path and the worker approval-callback path call it; both emit `<PREFIX>-YYYYMM-NNNNNN` payslip numbers via the shared `formatPayslipNumber`. The atomic transaction generates payslip numbers (`tenant_sequences`), creates payslip rows, persists the new aggregate columns (`gross_pay` / `total_deductions` / `net_pay` / `*_total`) AND the legacy compatibility columns (`basic_pay` / `bonus_pay` / `total_pay`), commits the two-phase recurring deductions (see `danger-zones.md` **DZ-Payroll-2**), and flips the run status. Self-heals on already-finalised runs (no double payslips).
+- `pending_approval -> cancelled` (Wave 2 addition) is the escape hatch for stuck runs whose approval request never executes; `cancelRun()` is responsible for cancelling the dangling `ApprovalRequest`.
+- **Danger**: `finalised` via the approval-callback path happens in the worker, not the API. The unified atomic transaction means a worker mid-flight failure rolls the entire run back; partial payslip creation is no longer possible. If the worker dies after committing but before reporting success, the next retry of the same job sees the already-finalised state and is a clean no-op.
 
 ---
 

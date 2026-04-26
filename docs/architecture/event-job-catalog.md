@@ -351,11 +351,13 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 ### `payroll`
 
-- `payroll:on-approval`
-- `payroll:generate-sessions`
-- `payroll:mass-export-payslips`
-- **Sources**: approval callbacks and payroll-run lifecycle actions
-- **Major side effects**: run finalisation, payslip creation, export bundles
+Job names + Redis status/PDF keys + TTLs are **all** sourced from `packages/shared/src/payroll/{job-names,redis-keys}.ts` (single source of truth shared between API enqueue sites and worker processors). Inline format strings on either side are blocked by the cross-path equivalence guard.
+
+- `payroll:on-approval` (constant: `PAYROLL_ON_APPROVAL_JOB`) — approval-callback worker. Re-uses pre-computed entry totals written by `FinalisationService` and uses the shared `formatPayslipNumber` helper to emit `<PREFIX>-YYYYMM-NNNNNN` payslip numbers (canonical 6-digit padding). Mirrors `FinalisationService.finaliseAtomic` behaviour for the approval path.
+- `payroll:session-generation` (constant: `PAYROLL_SESSION_GENERATION_JOB`) — counts `class_delivery_records` with `status = 'delivered'` bracketed to the run period (NOT raw `schedule.count()` as in pre-rebuild). Status surfaced via `buildSessionGenStatusKey(tenantId, runId)`, TTL `SESSION_GEN_STATUS_TTL_SECONDS`. Idempotency: `jobId: session-gen:{runId}`.
+- `payroll:mass-export` (constant: `PAYROLL_MASS_EXPORT_JOB`) — renders all payslips in a finalised run to a single PDF; cached as a base64 buffer under `buildMassExportPdfKey(tenantId, runId)` with TTL `MASS_EXPORT_PDF_TTL_SECONDS = 1200` (20 min). Status under `buildMassExportStatusKey(tenantId, runId, locale)`. Idempotency: `jobId: mass-export:{runId}:{locale}`. Default 3 retries with exponential backoff at the API enqueue site.
+- **Sources**: approval callbacks (`payroll:on-approval`); `payroll-runs.service.triggerSessionGeneration` (`payroll:session-generation`); `payslips.service.triggerMassExport` (`payroll:mass-export`)
+- **Major side effects**: run finalisation (delegates to `FinalisationService.finaliseAtomic` — single source of truth), payslip creation, two-phase recurring-deduction application (`payroll_deduction_applications`), export bundles cached in Redis
 
 ### `pdf-rendering`
 

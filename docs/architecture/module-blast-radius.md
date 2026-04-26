@@ -211,11 +211,16 @@ If a module is not listed individually, it is either:
 
 ### PayrollModule
 
-- **Contract**: payroll runs, payroll read surface, payslip generation contract
+- **Contract**: payroll runs, payroll read surface, payslip generation contract, unified `FinalisationService.finaliseAtomic` (single source of truth for both direct and approval-callback paths), `PayrollInputResolver.resolveForRun` (assembles a fully-resolved `CalcInput` per entry from every input source — period-bracketed compensation, attendance, class delivery, allowances, scheduled deductions, one-offs, adjustments)
 - **Primary consumers**: approvals, wellbeing board/workload reports, exports, staff self-service
-- **Imports**: SchedulesModule, SchoolClosuresModule
+- **Imports**: SchedulesModule, SchoolClosuresModule, ApprovalsModule, ConfigurationModule, PdfRenderingModule, StaffProfilesModule (for `StaffProfileReadFacade.findByUserId` — self-service scoping), TenantsModule
+- **Exports**: PayrollRunsService, StaffAttendanceService, ClassDeliveryService, PayrollAllowancesService, PayrollDeductionsService, **PayrollInputResolver** (new), **FinalisationService** (new — Wave 2 unification)
 - **Blast radius**: HIGH
-- **Notes**: payroll finalisation crosses approvals, sequences, and PDF/export flows
+- **Notes**:
+  - Payroll finalisation crosses approvals, sequences, and PDF/export flows. Both finalisation paths now route through `FinalisationService.finaliseAtomic` — see `state-machines.md` PayrollRunStatus and `danger-zones.md` **DZ-Payroll-2**
+  - All worker job names + Redis keys are sourced from `@school/shared/payroll` (single source of truth shared across API and worker). Inline format strings are blocked by the cross-path equivalence guard (`apps/api/src/modules/payroll/cross-path-equivalence.spec.ts`)
+  - The new `payroll_deduction_applications` table backs the two-phase recurring-deduction application — see **DZ-Payroll-2**
+  - Boot-time permission backfill (`PayrollPermissionsInit`) idempotently grants `payroll.self_service` to ALL tenant roles and `payroll.manage_attendance` to admin-tier roles. Mirrors `InboxPermissionsInit`
 
 ### CommunicationsModule
 
