@@ -1,5 +1,5 @@
 ---
-description: 'Execute a specific implementation from the Payroll Overhaul rebuild. Reads the implementation log, validates prerequisites, executes the work, commits locally, deploys directly to production, and logs completion. Usage: /pay 03'
+description: 'Execute a specific implementation from the Payroll Overhaul rebuild. Reads the implementation log, validates prerequisites, executes the work, commits, pushes to GitHub, watches CI, and logs completion. Server access is granted for diagnostics only — all deploys go through GitHub CI. Usage: /pay 03'
 ---
 
 # Payroll Overhaul — Execute Implementation $ARGUMENTS
@@ -20,7 +20,7 @@ Do not skim these. Read them carefully. The log is the source of truth for what 
 
 From the implementation file, identify the `Depends on:` line in the frontmatter. For each prerequisite implementation number listed, check the **Wave Status table** in §4 of `IMPLEMENTATION_LOG.md`. Every prerequisite MUST show `status: completed` before you proceed.
 
-**Prerequisites are cross-wave dependencies only.** An in-wave sibling (another impl in the same wave number as yours) is NOT a prerequisite. You code in parallel with your wave siblings — only deployment serialises, and that wait is in Step 6, not here.
+**Prerequisites are cross-wave dependencies only.** An in-wave sibling (another impl in the same wave number as yours) is NOT a prerequisite. You code in parallel with your wave siblings — only the deploy step serialises, and CI handles that automatically (see Step 6).
 
 **If any cross-wave prerequisite is not yet `completed`, enter a polling wait loop:**
 
@@ -32,7 +32,7 @@ From the implementation file, identify the `Depends on:` line in the frontmatter
 
 Each poll must re-read the log file fresh (the file may have been updated by another session in parallel).
 
-**In-wave siblings are NOT a reason to wait at Step 1.** If implementation 03 and 04 are both in Wave 3 and 04 is already `in-progress` when you start 03, proceed immediately to Step 2 and code 03 in parallel with 04. The wave model assumes parallel coding — serialisation only happens at the deployment step.
+**In-wave siblings are NOT a reason to wait at Step 1.** If implementation 03 and 04 are both in Wave 3 and 04 is already `in-progress` when you start 03, proceed immediately to Step 2 and code 03 in parallel with 04. The wave model assumes parallel coding — serialisation only happens at the deploy step.
 
 If all cross-wave prerequisites are satisfied, continue immediately.
 
@@ -49,12 +49,15 @@ If a prerequisite's record mentions something that changes how you should execut
 
 ## Step 3 · Update the log — mark yourself as in-progress
 
-Before writing any code, flip your implementation's row in the Wave Status table from `pending` to `in-progress`. This signals to any other session that you've claimed the task. Commit this log update as a separate commit (per Rule H7):
+Before writing any code, flip your implementation's row in the Wave Status table from `pending` to `in-progress`. This signals to any other session that you've claimed the task. Commit the log update as a separate commit and push it immediately so other sessions and `origin/main` see the claim:
 
 ```bash
 git add payrollnew/IMPLEMENTATION_LOG.md
 git commit -m "docs(payroll): mark implementation $ARGUMENTS as in-progress"
+git push origin main
 ```
+
+A docs-only push is a fast CI run (mostly cache hits). If `git push` rejects because a sibling pushed first, run `git pull --rebase origin main` and try again — the log update is small and rebases cleanly.
 
 ## Step 4 · Execute the implementation
 
@@ -75,11 +78,11 @@ Before writing any code:
 
      Never `git add .` or `git add -A`. Sweeping up sibling work causes revert wars.
 
-   - If the sub-step involves translations, re-read `apps/web/messages/en.json` and `apps/web/messages/ar.json` immediately before writing your additions — deep-merge your keys into the current content, do not overwrite the file with a 30-minute-stale version.
+   - If the sub-step involves translations, re-read `apps/web/messages/en.json` and `apps/web/messages/ar.json` immediately before writing your additions — deep-merge your keys into the current content, do not overwrite the file with a stale version.
 
-   - Never bundle log updates with code commits. Log updates get their own commit in Step 7 after the code is deployed.
+   - Never bundle log updates with code commits. Log updates get their own commit in Step 7 after the deploy is verified.
 
-4. Run the implementation file's recipe. Commit after each sub-step that produces a working state.
+4. Run the implementation file's recipe. Commit after each sub-step that produces a working state — but do NOT push intermediate commits. Push happens once at Step 6.
 
 5. Before entering Step 5 (the final commit), do ALL shared-file edits that you deferred. This is the minimum-exposure window.
 
@@ -98,20 +101,15 @@ Follow CLAUDE.md rules and `.claude/rules/*` at all times:
 - **All worker job names and Redis keys come from `@school/shared/payroll`. Never hardcode the strings.**
 - **Both finalisation paths invoke `FinalisationService.finaliseAtomic` — never duplicate the calculation logic in the controller or worker.**
 
-Run `pnpm turbo run type-check` + `pnpm turbo run lint` + `pnpm turbo run test --filter=<affected>` locally and fix any failures before committing.
+Run `pnpm turbo run type-check` + `pnpm turbo run lint` + `pnpm turbo run test --filter=<affected>` locally and fix any failures before committing. CI runs the same checks; catching them locally saves the round-trip.
 
-## Step 5 · Commit locally — NEVER push
+## Step 5 · Commit locally (no push yet)
 
 When the implementation is complete and tests pass, finalise the last code commit:
 
 ```bash
-# Verify clean status
-git status
-
-# Stage only the files you own — explicit pathspec
-git add <list-of-your-files>
-
-# Commit
+git status                                     # verify clean staging set
+git add <list-of-your-files>                   # explicit pathspec only
 git commit -m "feat(payroll): <implementation title>
 
 <summary of what was built>
@@ -123,77 +121,95 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 "
 ```
 
-**NEVER run `git push`. NEVER run `gh pr create`. NEVER push to GitHub.**
+You may have several commits stacked locally from Step 4's sub-step cadence — that's fine. They all ship together at Step 6.
 
-The CI gate is slow; pushing during this rebuild blocks everything. The human owner will push the entire stack of accumulated commits manually at the end of the rebuild. If you push by accident, tell the user immediately.
+## Step 6 · Push to deploy (the only sanctioned deploy route)
 
-## Step 6 · Deploy directly to production
+**`git push origin main` is the only way to deploy.** GitHub Actions runs `.github/workflows/ci.yml` (parallel lint / type-check / unit + integration tests / build) → `scripts/deploy-production.sh` (pg_dump backup, Prisma migrations + post-migrate SQL, rebuild, PM2 restart, smoke tests, auto-rollback on failure). Direct rsync + SSH deploys are retired. SSH is for diagnostics only.
 
-Production lives at `root@46.62.244.139`. The repo is at `/opt/edupod/app` running under the `edupod` user via PM2. The production repo's `main` branch is already many commits ahead of `origin/main` — this is normal and expected. **Never run `git fetch origin` or `git pull` on the server — you will revert the accumulated local-only commits.**
+### 6a · Pre-push branch-state check
 
-### Step 6a · Pre-deploy serialisation check (poll every 3 minutes, no timeout)
+Before pushing, inspect what you're about to ship:
 
-Before touching the server, re-read `payrollnew/IMPLEMENTATION_LOG.md` and scan the Wave Status table for any other implementation in your wave that is currently `deploying` **and** shares a service restart target with you (consult the deployment matrix in §3 — API / worker / web).
+```bash
+git fetch origin main
+git log --oneline origin/main..HEAD
+```
 
-- If no conflicting sibling is `deploying`, proceed immediately to Step 6b.
-- If a conflicting sibling is `deploying`, enter a polling wait loop:
-  1. Tell the user: "Implementation $ARGUMENTS is waiting to deploy — sibling [N] is currently deploying on the same restart target. Polling every 3 minutes indefinitely."
-  2. Re-read the log every **3 minutes** via ScheduleWakeup. Do not busy-loop, do not set a timeout. A typical deploy takes 2–5 minutes, so the 3-minute cadence matches the expected duration without burning cache on too-frequent wakeups.
-  3. As soon as the conflicting sibling flips to `completed`, re-check (another session may have grabbed the slot in the meantime). If clear, proceed. If another conflicting sibling is now `deploying`, continue waiting.
-  4. If the conflicting sibling flips to `🛑 blocked` mid-deploy, STOP and tell the user — they may want to roll back or intervene before you add a patch on top of a half-deployed server.
+For each commit in the output, identify whether it's yours. For each non-yours commit, run `git show --stat <sha>` and verify:
 
-**Deploy order within a wave is first-come-first-served, NOT by implementation number.** Implementation 04 can deploy before implementation 03 if it finishes coding first. The wave structure's only constraint is "don't deploy concurrently on the same restart target". Whoever reaches Step 6a first, and finds no `deploying` sibling, takes the slot.
+- It looks like a complete, intentional sibling-session commit.
+- It is NOT a sweep-up of mixed working trees (e.g. files from your own area mixed with files you don't recognise).
 
-An in-wave sibling that is still `in-progress` (coding, not deploying) is NOT a blocker — they haven't started the deploy phase yet, so your deployment goes first and theirs will wait on you when they reach this step.
+If anything looks suspicious — STOP and investigate before pushing.
 
-### Step 6b · Apply and restart
+If `git log origin/main..HEAD` is empty, you're already even with origin (rebase ate your commits, or you forgot to commit). Investigate.
 
-Deployment steps:
+### 6b · Sibling CI check (optional but recommended)
 
-1. Flip your log row to `deploying` (separate commit per Rule H7).
-2. Generate patch: `git format-patch -1 HEAD --stdout > /tmp/pay-$ARGUMENTS.patch`
-3. Upload: `scp /tmp/pay-$ARGUMENTS.patch root@46.62.244.139:/tmp/pay-$ARGUMENTS.patch`
-4. Apply on server as edupod:
+If a sibling session pushed just before you, their CI run may already be in flight. Check:
 
-   ```bash
-   ssh root@46.62.244.139 'sudo -u edupod bash -lc "cd /opt/edupod/app && git -c user.name=ACANOTES-dev -c user.email=info@acanotes.com am /tmp/pay-$ARGUMENTS.patch && git log --oneline -1"'
-   ```
+```bash
+gh run list --workflow=ci.yml --branch=main --limit 3
+```
 
-5. **If the impl has a schema change** (Wave 1 only):
+If a sibling run is `in_progress` or `queued`, you have two choices:
 
-   ```bash
-   ssh root@46.62.244.139 'sudo -u edupod bash -lc "cd /opt/edupod/app && set -a && source .env && set +a && pnpm --filter @school/prisma migrate:deploy && DATABASE_URL=$DATABASE_MIGRATE_URL pnpm db:post-migrate"'
-   ```
+- **Push anyway.** GitHub's `concurrency: production-deploy` group serialises the deploy step automatically — your push queues behind theirs. The risk: if theirs fails and rolls back, your deploy lands on top of the rolled-back state. Usually harmless; occasionally needs a re-deploy.
+- **Wait for their run to finish green, then push.** Cleaner attribution. Recommended when your impl is a schema change (Wave 1) or has high blast radius — you want a clean before-state for verification.
 
-   Note: use `migrate:deploy`, NOT `pnpm db:migrate` — the latter runs `migrate:dev` which offers to reset the database on drift. We have memorised this lesson.
+For routine in-wave coordination, push and let CI handle it.
 
-6. **Rebuild the affected services** — consult the deployment matrix in §3 of the log to know which services to rebuild and restart:
-   - Schema (impl 01) → all three: `pnpm turbo run build --filter=@school/shared --filter=@school/api --filter=@school/worker --filter=@school/web` then `pm2 restart api worker web --update-env`.
-   - Backend services (impl 02, 03): API + sometimes worker. `pnpm turbo run build --filter=@school/api --filter=@school/worker` then `pm2 restart api worker --update-env` (or just `api` if worker isn't affected).
-   - Worker (impl 04): worker + API (small enqueue-site changes). `pnpm turbo run build --filter=@school/api --filter=@school/worker` then `pm2 restart api worker --update-env`.
-   - Frontend (impl 05, 06, 07): web only. Clear `.next` first: `rm -rf apps/web/.next` then `pnpm turbo run build --filter=@school/web` then `pm2 restart web --update-env`.
+### 6c · Push and watch
 
-7. **Smoke test** against the production URL. The implementation file's "Deployment notes" section has the specific smoke tests for that impl. Run them all. Common smokes:
-   - For an API impl, hit the new endpoints with `curl` against a known tenant.
-   - For a worker impl, trigger a job via the API and poll the status endpoint until completed.
-   - For a frontend impl, navigate to the affected page and verify no 404s in the network panel.
-   - For schema impls, `psql` and check the new columns / new tables / RLS policies via `\d <table>` and `SELECT relforcerowsecurity FROM pg_class WHERE relname = '<table>'`.
+```bash
+git push origin main
+gh run watch
+```
 
-8. If smoke test fails, investigate. Common issues: missed env var, stale `.next` build, module registration forgotten, `payroll_deduction_applications` RLS not applied. Fix forward with a follow-up commit.
+`gh run watch` blocks until the run finishes. The deploy job is the last step; CI green means the deploy script ran and smoke tests passed. While it runs, do not start another impl in the same session — a clean reading of the result keeps the audit trail simple.
 
-## Step 7 · Update the log — completion record
+### 6d · On failure
 
-After the deployment succeeds:
+If any CI job fails:
+
+```bash
+gh run view --log-failed
+```
+
+Read the failed log. Fix forward — never bypass CI by rsync. Common failures and fixes:
+
+- Lint / type-check / unit test red → fix locally, commit with explicit pathspec, push again.
+- Integration test red → check whether it's yours or a flake. Re-run only after ruling out a real regression.
+- `deploy-production.sh` red → it auto-rolls back; read the smoke-test output and the deploy-script log. Common causes: missed env var, schema migration drift, BullMQ queue name typo, module registration forgotten. Fix forward.
+- Schema migration failed → DO NOT touch `migrate:dev` to "fix" drift; that resets the database. Fix the migration SQL or the post-migrate SQL, commit, push.
+
+Each fix is a new commit on top, then another `git push origin main` and `gh run watch`.
+
+## Step 7 · Verify in production
+
+After CI green, the smoke tests in `deploy-production.sh` already passed — but those are health-endpoint level. Do a functional smoke yourself per the implementation file's "Deployment notes" / verification section. Common smokes:
+
+- For an API impl, hit the new endpoints with `curl` against a known tenant (e.g. `nhqs.edupod.app`). Remember the API prefix is `/api/v1/...`, not `/v1/...`.
+- For a worker impl, trigger a job via the API and poll the status endpoint until completed. SSH into prod and `pm2 logs worker --lines 200` to confirm the processor registered and ran.
+- For a frontend impl, navigate to the affected page and verify no 404s in network and no errors in console.
+- For a schema impl, SSH into prod and `psql` to check `\d <table>` and `SELECT relforcerowsecurity FROM pg_class WHERE relname = '<table>'` to confirm RLS policies. Confirm `payroll_deduction_applications` (or whichever new table) has the `<table>_tenant_isolation` policy.
+
+If the functional smoke fails despite CI green: there's a gap between CI's smoke and real prod behaviour. Fix forward with a follow-up commit, push, watch CI, re-verify.
+
+## Step 8 · Update the log — completion record (SEPARATE commit)
+
+After the deployment succeeds AND functional verification passes:
 
 1. Flip your row in the Wave Status table to `completed`.
-2. Fill in the `Completed at` and `Commit SHA` columns.
+2. Fill in the `Completed at` and `Commit SHA` columns. The deployed SHA is the head of `origin/main` after your push — `git rev-parse origin/main`.
 3. Append a completion record in §5 of the log using the exact template:
 
 ```
 ### [IMPL $ARGUMENTS] — <title>
 - **Completed:** <ISO timestamp> Europe/Dublin
 - **Commit:** <sha>
-- **Deployed to production:** yes
+- **Deployed to production:** yes (via GitHub CI)
 - **Summary (≤ 200 words):**
   <what was actually built, names of new files, endpoints, services,
    key design decisions made during implementation that subsequent waves
@@ -202,26 +218,27 @@ After the deployment succeeds:
 - **Session notes:** <optional — anything surprising>
 ```
 
-Commit this log update as a separate commit:
+Commit this log update as a SEPARATE commit and push it:
 
 ```bash
 git add payrollnew/IMPLEMENTATION_LOG.md
 git commit -m "docs(payroll): log completion of implementation $ARGUMENTS"
+git push origin main
 ```
 
-Also upload this log-update commit to production the same way — production should have an up-to-date log too.
+The log push triggers another CI run — that's expected, it's tiny and mostly cache hits. No need to `gh run watch` it; it's docs-only.
 
-## Step 8 · Report to the user
+## Step 9 · Report to the user
 
 Final message to the user:
 
 - ✅ Implementation $ARGUMENTS completed.
-- Commit: `<sha>`.
-- Deployed to production.
+- Code commit: `<sha>`. Log commit: `<sha>`.
+- Deployed to production via GitHub CI.
 - Summary: one sentence.
 - Any remaining siblings in your wave that are still `pending` or `in-progress` (list them — the user can run whichever is convenient; there's no required order).
 - If your wave is now fully `completed`, name the next wave and its first available implementation.
-- Anything the user should know before running the next one.
+- Anything the user should know before running the next one (e.g. new env var, new permission to grant, new admin action required).
 
 Keep it tight. The user can read the full record in the log.
 
@@ -229,17 +246,19 @@ Keep it tight. The user can read the full record in the log.
 
 ## Rules you must never break
 
-1. **Never push to GitHub.** Commit locally, deploy via SSH. Period.
+1. **`git push origin main` is the only deploy route.** Direct rsync to the production server is retired. SSH is diagnostics only — never for shipping code.
 2. **Never skip prerequisite checks.** If something says `pending`, it's pending.
-3. **Never run `git fetch origin` or `git pull` on the production server.** It reverts local-only commits.
-4. **Never skip the log update.** The log is the only coordination mechanism; if you don't update it, the next session is flying blind.
-5. **Never work around missing context.** If the implementation file is unclear or contradicts the plan, STOP and ask the user.
-6. **Never deploy without smoke testing.** Verify it works in production before writing the completion record.
-7. **Never mark an implementation completed if it didn't actually ship.** If deployment failed and you couldn't recover, mark it `🛑 blocked` with a description.
-8. **Never use `git add .` or `git add -A`.** Always explicit pathspec. The Wave 4 incident on the inbox rebuild taught us why.
-9. **Never bundle log updates with code commits.** Separate commits, every time.
-10. **Never coerce `Decimal` to `Number` for money arithmetic.** Use `Decimal.js` end-to-end.
-11. **Never hardcode worker job names or Redis keys.** Import from `@school/shared/payroll`.
-12. **Never duplicate finalisation logic.** Call `FinalisationService.finaliseAtomic` from any path that finalises a run.
-13. **Never let `/my-payslips` accept a `staff_profile_id` query param.** It scopes to the calling user only — privacy invariant.
-14. **Never re-introduce the legacy sidebar.** The morph-shell is the canonical layout for school-facing pages.
+3. **Never overwrite the production `.env` file.** It's `.gitignore`d so CI can't ship it. If you need to add or rotate an env var on the server, ask the user.
+4. **Never use `git add .` or `git add -A`.** Stage by explicit pathspec only. The Wave 4 incident on the inbox rebuild taught us why.
+5. **Never push without the pre-push branch-state check.** `git fetch origin main` → `git log origin/main..HEAD` → `git show --stat <sha>` for each non-yours commit.
+6. **Never bundle log updates with code commits.** Separate commits, every time.
+7. **Never bypass CI by rsyncing.** Fix forward with another commit + push.
+8. **Never run `migrate:dev` on the server.** It offers to reset the database on drift. CI's deploy script uses `migrate:deploy`, which is the only correct command for production.
+9. **Never skip the log update.** The log is the only coordination mechanism; if you don't update it, the next session is flying blind.
+10. **Never deploy without verifying.** CI smoke is health-level; do a functional check before flipping to `completed`.
+11. **Never mark an implementation completed if it didn't actually ship.** If CI failed and you couldn't recover, mark it `🛑 blocked` with a description.
+12. **Never coerce `Decimal` to `Number` for money arithmetic.** Use `Decimal.js` end-to-end.
+13. **Never hardcode worker job names or Redis keys.** Import from `@school/shared/payroll`.
+14. **Never duplicate finalisation logic.** Call `FinalisationService.finaliseAtomic` from any path that finalises a run.
+15. **Never let `/my-payslips` accept a `staff_profile_id` query param.** It scopes to the calling user only — privacy invariant.
+16. **Never re-introduce the legacy sidebar.** The morph-shell is the canonical layout for school-facing pages.

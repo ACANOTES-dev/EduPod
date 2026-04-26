@@ -104,18 +104,32 @@ The server is a live production environment. Every action carries real consequen
 - **Operational deletions are permitted** — removing corrupted files, reverting a bad commit, cleaning up a failed deployment. These are maintenance, not destruction.
 - **Never change credentials** (passwords, SSH keys, API keys, secrets) without explicit approval.
 - **Never upgrade packages on the server** — versions are controlled from the codebase, not ad-hoc on the server.
-- **NEVER overwrite the production `.env` file.** The `.env` on the server contains production secrets (Hetzner Object Storage, Resend, Sentry, database roles) that differ from the local dev template. When rsyncing to the server, `.env` and `.env.local` MUST always be excluded. Failing to do so will break email, file uploads, error monitoring, and application URLs.
+- **NEVER touch the production `.env` file.** The `.env` on the server contains production secrets (Hetzner Object Storage, Resend, Sentry, database roles) that differ from the local dev template. It is `.gitignore`d and never shipped through CI. If you need to add or rotate a production env var, ask the user — never edit it directly on the server, never commit it. The `.env` symlinks at `apps/api/.env` and `apps/worker/.env` point to `../../.env` and must stay that way.
 
 ## Deployment — Hard Rules
 
-Deploy via rsync + SSH, never `git push`. The rsync command **MUST** include these excludes:
+**Deploy only via `git push origin main`.** GitHub Actions runs `.github/workflows/ci.yml` (parallel lint / type-check / tests / build) → `scripts/deploy-production.sh` (pg_dump backup, migrations, rebuild, PM2 restart, smoke tests, auto-rollback on failure). Warm turbo cache: ~6 min push → live. Cold: ~11 min.
 
-```
---exclude='.git' --exclude='node_modules' --exclude='.next' --exclude='dist'
---exclude='.env' --exclude='.env.local' --exclude='.turbo' --exclude='*.tsbuildinfo'
-```
+**Direct rsync + SSH deploys are retired.** Do not use them, even for one-file tweaks. If CI fails, fix forward with another commit + push — never bypass CI by rsyncing. SSH access remains available for diagnostics only (logs, PM2 status, DB inspection), not for shipping code.
 
-After rsync: `chown -R edupod:edupod /opt/edupod/app/` and verify `.env` symlinks at `apps/api/.env` and `apps/worker/.env` still point to `../../.env`.
+### Per-session commit hygiene (parallel sessions share `main`)
+
+Multiple sessions may be working on `main` at the same time. The local working tree at any moment may contain uncommitted or untracked files belonging to other sessions. **Each session commits ONLY its own work:**
+
+- Stage by explicit pathspec only: `git add apps/web/src/foo.ts apps/web/src/bar.ts`. **Never** `git add .` or `git add -A` — those sweep up sibling sessions' files and trigger revert wars.
+- Run `git status` immediately before `git commit` and read the output. If the staged set contains files you did not touch, ABORT, unstage them, investigate.
+- Leave untracked files alone unless they belong to you.
+- For shared files (translations, nav config, log files): re-read the file content on disk immediately before writing, then deep-merge your additions. Don't overwrite with a stale version from earlier in your session.
+
+### Pre-push branch-state check
+
+`git push origin main` ships the whole branch, including legitimate commits from sibling sessions. Before every push:
+
+1. `git fetch origin main`
+2. `git log --oneline origin/main..HEAD` — list every commit about to ship
+3. For each commit not authored by your session: `git show --stat <sha>` — verify it looks like a complete, intentional sibling-session commit, not a sweep-up of mixed working trees
+4. If any commit looks suspicious, STOP and investigate before pushing
+5. If clean: `git push origin main`, then watch with `gh run watch` / `gh run view --log-failed`
 
 ---
 
