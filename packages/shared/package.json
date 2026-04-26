@@ -57,6 +57,9 @@
       "budgeting": [
         "src/budgeting/index.ts"
       ],
+      "payroll": [
+        "src/payroll/index.ts"
+      ],
       "households/*": [
         "src/households/*.ts"
       ]
@@ -150,6 +153,10 @@
     "./budgeting": {
       "types": "./src/budgeting/index.ts",
       "default": "./dist/budgeting/index.js"
+    },
+    "./payroll": {
+      "types": "./src/payroll/index.ts",
+      "default": "./dist/payroll/index.js"
     }
   },
   "scripts": {
@@ -160,6 +167,7 @@
     "test:changed": "jest --changedSince=main --passWithNoTests"
   },
   "dependencies": {
+    "decimal.js": "10.6.0",
     "undici": "7.24.4",
     "zod": "3.25.76"
   },

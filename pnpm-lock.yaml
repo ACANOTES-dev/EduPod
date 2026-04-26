@@ -613,6 +613,9 @@ importers:
 
   packages/shared:
     dependencies:
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
       undici:
         specifier: 7.24.4
         version: 7.24.4
