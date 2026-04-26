@@ -232,46 +232,38 @@ export class ShareableLinksService {
       throw new NotFoundException(PUBLIC_NOT_FOUND);
     }
 
-    // Public open-route lookup: the request has no tenant context, so the
-    // standard tenant_isolation RLS policy can't match any row. We use
-    // `runWithRlsContext({ public_share_token })` which sets a bootstrap
-    // setting that the `shareable_links_public_token_bootstrap` policy
-    // reads — making ONLY the row whose token matches visible for SELECT.
-    // The service then runs the application-level validations (expiry,
-    // revoke, password, tenant_id-vs-snapshot mismatch) below.
+    // Two-step lookup. The bootstrap RLS policy on shareable_links exposes
+    // ONE row by token; it does NOT expose the joined tables
+    // (financial_model_snapshots, financial_models, tenants), each of which
+    // has its own tenant_isolation policy. So:
+    //
+    //   1. Step 1 — `runWithRlsContext({ public_share_token: token })`:
+    //      lookup the link by token alone, no joins. Returns enough metadata
+    //      to validate (expiry, revoked, password, scenarios_visible) and to
+    //      learn the link's tenant_id.
+    //   2. Step 2 — `runWithRlsContext({ tenant_id: link.tenant_id })`:
+    //      switch to the link's tenant context and re-fetch the snapshot
+    //      with its joins through the standard tenant_isolation policies.
+    //
+    // The defense-in-depth check still verifies link.tenant_id ===
+    // snapshot.tenant_id, so a malicious actor can't impersonate a different
+    // tenant by minting a link with a mismatched tenant_id.
     const link = await runWithRlsContext(this.prisma, { public_share_token: token }, (tx) =>
       tx.shareableLink.findUnique({
         where: { token },
-        include: {
-          parent_snapshot: {
-            include: {
-              tenant: { select: { name: true, currency_code: true } },
-              parent_model: {
-                select: {
-                  id: true,
-                  name: true,
-                  fiscal_year_start: true,
-                  fiscal_year_end: true,
-                },
-              },
-            },
-          },
+        select: {
+          id: true,
+          tenant_id: true,
+          parent_model_id: true,
+          parent_snapshot_id: true,
+          expires_at: true,
+          revoked_at: true,
+          password_hash: true,
+          scenarios_visible: true,
         },
       }),
     );
     if (!link) throw new NotFoundException(PUBLIC_NOT_FOUND);
-
-    // Defense-in-depth: the RLS layer should already prevent cross-tenant
-    // mismatches reaching us, but verify explicitly so a bug elsewhere
-    // cannot become a cross-tenant escape via this open route.
-    if (link.tenant_id !== link.parent_snapshot.tenant_id) {
-      this.logger.error(
-        `Cross-tenant share-link mismatch detected — link ${link.id} ` +
-          `tenant ${link.tenant_id} vs snapshot tenant ${link.parent_snapshot.tenant_id}. ` +
-          `Returning 404. This indicates a data-integrity bug elsewhere.`,
-      );
-      throw new NotFoundException(PUBLIC_NOT_FOUND);
-    }
 
     if (link.expires_at < new Date()) throw new NotFoundException(PUBLIC_NOT_FOUND);
     if (link.revoked_at) throw new NotFoundException(PUBLIC_NOT_FOUND);
@@ -282,14 +274,48 @@ export class ShareableLinksService {
       if (!ok) throw new NotFoundException(PUBLIC_NOT_FOUND);
     }
 
+    // Step 2: switch RLS context to the link's tenant_id and fetch the
+    // snapshot + tenant + model via the standard tenant_isolation policies.
+    const snapshot = await runWithRlsContext(this.prisma, { tenant_id: link.tenant_id }, (tx) =>
+      tx.financialModelSnapshot.findUnique({
+        where: { id: link.parent_snapshot_id },
+        include: {
+          tenant: { select: { name: true, currency_code: true } },
+          parent_model: {
+            select: {
+              id: true,
+              name: true,
+              fiscal_year_start: true,
+              fiscal_year_end: true,
+            },
+          },
+        },
+      }),
+    );
+    if (!snapshot) throw new NotFoundException(PUBLIC_NOT_FOUND);
+
+    // Defense-in-depth: the RLS layer should already prevent cross-tenant
+    // mismatches reaching us, but verify explicitly so a bug elsewhere
+    // cannot become a cross-tenant escape via this open route.
+    if (link.tenant_id !== snapshot.tenant_id) {
+      this.logger.error(
+        `Cross-tenant share-link mismatch detected — link ${link.id} ` +
+          `tenant ${link.tenant_id} vs snapshot tenant ${snapshot.tenant_id}. ` +
+          `Returning 404. This indicates a data-integrity bug elsewhere.`,
+      );
+      throw new NotFoundException(PUBLIC_NOT_FOUND);
+    }
+
     // Increment view_count + update last_viewed_at. Scoped to the link's
     // primary key — a stale increment under concurrent reads is acceptable;
     // this is telemetry, not a security check.
     try {
-      await this.prisma.shareableLink.update({
-        where: { id: link.id },
-        data: { view_count: { increment: 1 }, last_viewed_at: new Date() },
-      });
+      await runWithRlsContext(this.prisma, { tenant_id: link.tenant_id }, (tx) =>
+        tx.shareableLink.update({
+          where: { id: link.id },
+          data: { view_count: { increment: 1 }, last_viewed_at: new Date() },
+        }),
+      );
     } catch (err) {
       // Telemetry only — do NOT fail the resolve on a write hiccup.
       this.logger.warn(
@@ -300,18 +326,18 @@ export class ShareableLinksService {
     const visible = Array.isArray(link.scenarios_visible)
       ? (link.scenarios_visible as string[])
       : ['base'];
-    const filteredPayload = filterPayloadForPublic(link.parent_snapshot.payload, visible);
+    const filteredPayload = filterPayloadForPublic(snapshot.payload, visible);
 
     return {
-      tenant_name: link.parent_snapshot.tenant.name,
-      currency_code: link.parent_snapshot.tenant.currency_code,
-      model_id: link.parent_snapshot.parent_model.id,
-      model_name: link.parent_snapshot.parent_model.name,
-      version_number: link.parent_snapshot.version_number,
-      published_at: link.parent_snapshot.published_at.toISOString(),
+      tenant_name: snapshot.tenant.name,
+      currency_code: snapshot.tenant.currency_code,
+      model_id: snapshot.parent_model.id,
+      model_name: snapshot.parent_model.name,
+      version_number: snapshot.version_number,
+      published_at: snapshot.published_at.toISOString(),
       fiscal_year_label: formatFy(
-        link.parent_snapshot.parent_model.fiscal_year_start,
-        link.parent_snapshot.parent_model.fiscal_year_end,
+        snapshot.parent_model.fiscal_year_start,
+        snapshot.parent_model.fiscal_year_end,
       ),
       payload: filteredPayload,
     };

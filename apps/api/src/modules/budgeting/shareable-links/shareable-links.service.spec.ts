@@ -32,12 +32,47 @@ interface BuildOptions {
 
 function build(options: BuildOptions = {}) {
   const { snapshot, link, links = [], findFirstLink } = options;
+  // resolveByToken now does TWO queries: findUnique on shareableLink (no
+  // joins, just flat fields) then findUnique on financialModelSnapshot
+  // (with tenant + parent_model includes). For backward compatibility with
+  // the existing test fixtures (which embed `parent_snapshot` on `link`),
+  // we keep the embedded structure on the link mock AND derive the
+  // financialModelSnapshot mock from it.
+  const linkAsAny = link as Record<string, unknown> | null;
+  const embeddedSnapshot = linkAsAny?.['parent_snapshot'] as Record<string, unknown> | undefined;
+  const snapshotMock =
+    embeddedSnapshot !== undefined
+      ? {
+          ...embeddedSnapshot,
+          // Synthesise the joined fields the new service flow expects.
+          tenant: embeddedSnapshot['tenant'] ?? { name: 'Acme', currency_code: 'EUR' },
+          parent_model: embeddedSnapshot['parent_model'] ?? {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'FY26',
+            fiscal_year_start: new Date('2026-09-01'),
+            fiscal_year_end: new Date('2027-06-30'),
+          },
+        }
+      : null;
+
+  // The new flat-link shape the service queries with `select` — strip
+  // parent_snapshot, add parent_snapshot_id.
+  const flatLink = linkAsAny
+    ? {
+        ...linkAsAny,
+        parent_snapshot_id:
+          linkAsAny['parent_snapshot_id'] ?? '44444444-4444-4444-8444-444444444444',
+        parent_model_id: linkAsAny['parent_model_id'] ?? '33333333-3333-4333-8333-333333333333',
+      }
+    : null;
+
   const prisma = {
     financialModelSnapshot: {
       findFirst: jest.fn().mockResolvedValue(snapshot ?? null),
+      findUnique: jest.fn().mockResolvedValue(snapshotMock),
     },
     shareableLink: {
-      findUnique: jest.fn().mockResolvedValue(link ?? null),
+      findUnique: jest.fn().mockResolvedValue(flatLink),
       findFirst: jest.fn().mockResolvedValue(findFirstLink ?? null),
       findMany: jest.fn().mockResolvedValue(links),
       create: jest.fn(async (args: { data: Record<string, unknown> }) => ({
