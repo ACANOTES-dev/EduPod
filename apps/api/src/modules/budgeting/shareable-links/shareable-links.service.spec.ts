@@ -7,6 +7,13 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn((prisma: unknown) => ({
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
   })),
+  // The public share resolver wraps its findUnique in runWithRlsContext
+  // so the public_token_bootstrap RLS policy can match the row. The mock
+  // delegates straight to fn(prisma) — no actual SET LOCAL needed in
+  // unit tests since we don't hit a real DB here.
+  runWithRlsContext: jest.fn(
+    async (prisma: unknown, _ctx: unknown, fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+  ),
 }));
 
 const TENANT_A = '11111111-1111-4111-8111-111111111111';
