@@ -143,15 +143,15 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 
 (`in-progress` = coding. `verifying` = code committed, dev server running, Playwright/curl in flight. `completed` = local verification passed AND log record appended. `🛑 blocked` = stuck — explain in §5.)
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at      | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ----------------- | ---------- |
-| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed`   | 2026-04-26T20:15Z | 408b53b5   |
-| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed`   | 2026-04-26T20:55Z | 2a787686   |
-| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:35Z | 25d30d03   |
-| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed`   | 2026-04-26T22:55Z | 7afa15ca   |
-| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed`   | 2026-04-26T23:35Z | bfb63e21   |
-| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `in-progress` |                   |            |
-| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`     |                   |            |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at      | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ----------------- | ---------- |
+| 01  | Schema + shared foundation                    | 1    | schema         | serial               | —          | `completed` | 2026-04-26T20:15Z | 408b53b5   |
+| 02  | Calculation engine + input integration        | 2    | backend        | serial               | 01         | `completed` | 2026-04-26T20:55Z | 2a787686   |
+| 03  | API contract + missing endpoints              | 3    | backend        | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:35Z | 25d30d03   |
+| 04  | Worker pipelines + payslip number unification | 3    | worker         | parallel-safe        | 01, 02     | `completed` | 2026-04-26T22:55Z | 7afa15ca   |
+| 05  | Frontend operational pages                    | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:35Z | bfb63e21   |
+| 06  | Frontend analytical + self-service            | 4    | frontend       | parallel-risky       | 01, 02, 03 | `completed` | 2026-04-26T23:55Z | 1d2a62c5   |
+| 07  | Polish — tests, translations, mobile, docs    | 5    | polish         | serial               | 01–06      | `pending`   |                   |            |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -770,3 +770,56 @@ staff_recurring_deduction_id)` unique key and three lookup indexes,
   `/runs/:id/mass-export-pdf` endpoint added in Wave 3 (impl 03 added
   the controller route but at the time the existing run-detail page
   pointed at the old `/runs/:id/payslips` path; this rebuild aligns it).
+
+### [IMPL 06] — Frontend analytical + self-service
+
+- **Completed:** 2026-04-26T23:55Z (Europe/Dublin)
+- **Commit:** 1d2a62c5
+- **Branch:** t3code/b523b305 (worktree-isolated, not yet merged to main)
+- **Local verification:** passed (`pnpm --filter @school/web run type-check`,
+  `pnpm --filter @school/web run lint`, `pnpm --filter @school/web run test`
+  — type-check clean, 650 web tests pass; only pre-existing line-count
+  warnings remain in payroll lint output)
+- **Summary (≤ 200 words):**
+  Wave 4 analytical rebuild aligns six pages with the Wave 3 contract.
+  `payroll/page.tsx` (hub) reads the actual Wave 3 calendar shape
+  (`{ next_pay_date, preparation_due }`), derives `days_until_pay`
+  client-side, fixes anomaly severity to `'error'|'warning'` (was the
+  pre-rebuild `'low'|'medium'|'high'`), surfaces 403 as a friendly
+  no-access placeholder. `reports/page.tsx` adds an optional run picker
+  to the variance tab (defaults to "latest finalised"), reads the
+  multi-key `{ data, summary }` envelope (auto-unwrap passes it through),
+  toasts on every catch. `exports/page.tsx` wires `PATCH` template
+  edits, the new tenant-wide `/export-logs` list, the per-log re-send
+  button, and replaces `window.confirm` with `<ConfirmDialog>`.
+  `staff/[staffProfileId]/page.tsx` reads `payslip_id` per row, downloads
+  via `downloadAuthenticatedPdf('/api/v1/payroll/payslips/:id/pdf')`,
+  fetches the staff name separately for the title (Wave 3 didn't add
+  `meta.staff_name`). `my-payslips/page.tsx` is a complete rewrite on
+  top of the new `/my-payslips` + `/my-payslips/ytd` endpoints —
+  YTD summary card, by-month bar chart, payslips list with PDF
+  download via `/my-payslips/:id/pdf`. `absences/page.tsx` swaps the
+  native `<select>` for `@school/ui` Select. 28 new translation keys
+  added across `payrollHub` and `payroll` namespaces in en + ar.
+- **Follow-ups:**
+  - The `cost_trend` chart's `total_allowances` series renders zero
+    because the dashboard service mapper does not yet sum per-period
+    allowances. Wave 5 should either add `total_allowances` to the
+    mapper or drop the third area from the stacked chart.
+  - The hub page checks for HTTP 403 by inspecting `err.status`. The
+    apiClient throws raw response bodies on error; if a future API
+    response shape changes, the gate will quietly degrade to a toast.
+    Wave 5 could centralise this via a typed `ApiError` instead.
+  - The variance run picker fetches up to 24 finalised runs at a time
+    — sufficient for two years of monthly runs. If a tenant exceeds
+    this, the picker truncates silently. Add server-side search if
+    that becomes a real concern.
+- **Session notes:** `useAuth()` exposes user/memberships only — no
+  `permissions` set — so frontend permission gates are inferred from
+  the API's 403 response rather than pre-checked client-side. The
+  approach follows existing patterns (e.g. `useIsAdmin` reads roles,
+  not permissions). Auto-unwrap shim correctly passes `{ data, summary }`
+  through unchanged for the variance endpoint. The my-payslips PDF
+  endpoint is `/my-payslips/:id/pdf`, NOT `/payslips/:id/pdf` — the
+  former is the user-scoped self-service route, the latter is the
+  admin route.
