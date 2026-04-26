@@ -159,6 +159,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'Create and manage staff recurring deductions',
     permission_tier: 'admin',
   },
+  {
+    permission_key: 'payroll.self_service',
+    description: 'View one’s own payslips and YTD summary (gates /my-payslips)',
+    permission_tier: 'staff',
+  },
 
   // ─── Admin tier — Schedule ─────────────────────────────────────────────────
   {

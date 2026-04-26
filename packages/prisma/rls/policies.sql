@@ -2954,3 +2954,16 @@ DROP POLICY IF EXISTS budgeting_tenant_preferences_tenant_isolation ON budgeting
 CREATE POLICY budgeting_tenant_preferences_tenant_isolation ON budgeting_tenant_preferences
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Payroll Overhaul (Wave 1) — idempotent recurring-deduction application
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260426100100_add_payroll_deduction_applications/post_migrate.sql
+
+-- payroll_deduction_applications (standard tenant isolation)
+ALTER TABLE payroll_deduction_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payroll_deduction_applications FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS payroll_deduction_applications_tenant_isolation ON payroll_deduction_applications;
+CREATE POLICY payroll_deduction_applications_tenant_isolation ON payroll_deduction_applications
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

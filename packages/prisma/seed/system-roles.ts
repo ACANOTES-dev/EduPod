@@ -54,6 +54,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'payroll.generate_payslips',
       'payroll.view_bank_details',
       'payroll.view_reports',
+      'payroll.manage_attendance',
+      'payroll.self_service',
       // Schedule
       'schedule.manage',
       'schedule.override_conflict',
@@ -195,6 +197,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'payroll.generate_payslips',
       'payroll.view_bank_details',
       'payroll.view_reports',
+      'payroll.manage_attendance',
+      'payroll.self_service',
       // Schedule (full admin)
       'schedule.manage',
       'schedule.override_conflict',
@@ -459,6 +463,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'finance.view',
       'finance.process_payments',
       'legal.view',
+      // Payroll — Finance manages staff attendance for payroll calculations + sees own payslips
+      'payroll.manage_attendance',
+      'payroll.self_service',
       // Inbox — finance staff can send
       'inbox.send',
       // Wellbeing rebuild (Impl 01) — staff-visible dashboard
@@ -527,6 +534,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'report_cards.view',
       'report_cards.comment',
       'report_cards.manage',
+      // Payroll — Vice Principals manage daily staff attendance + see their own payslips
+      'payroll.manage_attendance',
+      'payroll.self_service',
       // Leave & Cover — vice principals approve leave + manage substitutions
       'schedule.manage_substitutions',
       'leave.approve_requests',
