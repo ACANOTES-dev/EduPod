@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { CompensationService } from './compensation.service';
 
@@ -43,7 +44,14 @@ describe('CompensationService', () => {
     mockTx['staffCompensation'] = mockPrisma.staffCompensation;
 
     const module = await Test.createTestingModule({
-      providers: [CompensationService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        CompensationService,
+        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: { findActiveStaff: jest.fn().mockResolvedValue([]) },
+        },
+      ],
     }).compile();
 
     service = module.get<CompensationService>(CompensationService);

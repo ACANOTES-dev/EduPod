@@ -2,9 +2,16 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+import { PayrollAnomalyService } from './payroll-anomaly.service';
+import { PayrollCalendarService } from './payroll-calendar.service';
+
 @Injectable()
 export class PayrollDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly anomalyService: PayrollAnomalyService,
+    private readonly calendarService: PayrollCalendarService,
+  ) {}
 
   async getDashboard(tenantId: string) {
     // Get latest run (any status except cancelled)
@@ -117,6 +124,50 @@ export class PayrollDashboardService {
       }));
     }
 
+    // ─── Wave 3 — anomalies + calendar ─────────────────────────────────
+    //
+    // The redesigned dashboard reads `data.anomalies` and
+    // `data.payroll_calendar` directly. We surface a small slice of each
+    // (most recent first) so the dashboard renders without a follow-up
+    // round-trip.
+
+    type AnomalyResult = Awaited<ReturnType<PayrollAnomalyService['scanForAnomalies']>>;
+    let anomalies: AnomalyResult['anomalies'] = [];
+    if (latestRun?.id) {
+      try {
+        const scan = await this.anomalyService.scanForAnomalies(tenantId, latestRun.id);
+        anomalies = scan.anomalies.slice(0, 5);
+      } catch (err) {
+        // Anomaly scan is best-effort: a failure must not break the dashboard.
+        // eslint-disable-next-line no-console -- background fetch fallback per CLAUDE.md
+        console.error('[payroll-dashboard.anomalies]', err);
+        anomalies = [];
+      }
+    }
+
+    let payrollCalendar: { next_pay_date: Date | null; preparation_due: boolean } = {
+      next_pay_date: null,
+      preparation_due: false,
+    };
+    try {
+      const next = await this.calendarService.getNextPayDate(tenantId);
+      const due = await this.calendarService.checkPreparationDeadline(tenantId);
+      payrollCalendar = {
+        next_pay_date:
+          next && typeof next === 'object' && 'next_pay_date' in next
+            ? ((next as Record<string, unknown>)['next_pay_date'] as Date | null)
+            : null,
+        preparation_due:
+          due && typeof due === 'object' && 'preparation_due' in due
+            ? Boolean((due as Record<string, unknown>)['preparation_due'])
+            : false,
+      };
+    } catch (err) {
+      // Calendar config may not exist yet for new tenants. Default values stand.
+      // eslint-disable-next-line no-console -- background fetch fallback per CLAUDE.md
+      console.error('[payroll-dashboard.calendar]', err);
+    }
+
     return {
       latest_run: latestRun
         ? {
@@ -144,6 +195,8 @@ export class PayrollDashboardService {
         headcount: r.headcount,
       })),
       incomplete_entries: incompleteEntries,
+      anomalies,
+      payroll_calendar: payrollCalendar,
       current_draft_id: currentDraft?.id ?? null,
     };
   }

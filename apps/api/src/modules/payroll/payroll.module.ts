@@ -28,6 +28,7 @@ import { PayrollEntriesService } from './payroll-entries.service';
 import { PayrollExportsService } from './payroll-exports.service';
 import { PayrollInputResolver } from './payroll-input-resolver.service';
 import { PayrollOneOffsService } from './payroll-one-offs.service';
+import { PayrollPermissionsInit } from './payroll-permissions.init';
 import { PayrollReportsController } from './payroll-reports.controller';
 import { PayrollReportsService } from './payroll-reports.service';
 import { PayrollRunsController } from './payroll-runs.controller';
@@ -78,6 +79,8 @@ import { StaffAttendanceService } from './staff-attendance.service';
     // Payroll Overhaul (Wave 2) — input resolver + unified finalisation
     PayrollInputResolver,
     FinalisationService,
+    // Payroll Overhaul (Wave 3) — boot-time permission backfill (idempotent)
+    PayrollPermissionsInit,
   ],
   exports: [
     PayrollRunsService,

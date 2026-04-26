@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+import { PayrollAnomalyService } from './payroll-anomaly.service';
+import { PayrollCalendarService } from './payroll-calendar.service';
 import { PayrollDashboardService } from './payroll-dashboard.service';
 
 describe('PayrollDashboardService', () => {
@@ -20,13 +22,33 @@ describe('PayrollDashboardService', () => {
     },
   };
 
+  const mockAnomalyService = {
+    scanForAnomalies: jest.fn(),
+  };
+
+  const mockCalendarService = {
+    getNextPayDate: jest.fn(),
+    checkPreparationDeadline: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Sensible defaults for the new dashboard branches
+    mockAnomalyService.scanForAnomalies.mockResolvedValue({
+      run_id: 'placeholder',
+      anomaly_count: 0,
+      anomalies: [],
+    });
+    mockCalendarService.getNextPayDate.mockResolvedValue({ next_pay_date: null });
+    mockCalendarService.checkPreparationDeadline.mockResolvedValue({ preparation_due: false });
 
     const module = await Test.createTestingModule({
       providers: [
         PayrollDashboardService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: PayrollAnomalyService, useValue: mockAnomalyService },
+        { provide: PayrollCalendarService, useValue: mockCalendarService },
       ],
     }).compile();
 
@@ -45,6 +67,12 @@ describe('PayrollDashboardService', () => {
       expect(result.cost_trend).toEqual([]);
       expect(result.incomplete_entries).toEqual([]);
       expect(result.current_draft_id).toBeNull();
+      // Wave 3 — new keys are present even when latest_run is null
+      expect(result.anomalies).toEqual([]);
+      expect(result.payroll_calendar).toEqual({
+        next_pay_date: null,
+        preparation_due: false,
+      });
     });
 
     it('should return latest_run with numeric monetary fields when a run exists', async () => {
@@ -63,9 +91,9 @@ describe('PayrollDashboardService', () => {
       };
 
       mockPrisma.payrollRun.findFirst
-        .mockResolvedValueOnce(latestRun)   // latest run (non-cancelled)
-        .mockResolvedValueOnce(null)        // latest finalised
-        .mockResolvedValueOnce(null);       // current draft
+        .mockResolvedValueOnce(latestRun) // latest run (non-cancelled)
+        .mockResolvedValueOnce(null) // latest finalised
+        .mockResolvedValueOnce(null); // current draft
 
       mockPrisma.payrollRun.findMany.mockResolvedValue([]);
 
@@ -78,8 +106,24 @@ describe('PayrollDashboardService', () => {
 
     it('should return cost_trend in chronological order (reversed from DB)', async () => {
       const trendRuns = [
-        { period_month: 3, period_year: 2026, period_label: 'March 2026', total_basic_pay: 5000, total_bonus_pay: 0, total_pay: 5000, headcount: 8 },
-        { period_month: 2, period_year: 2026, period_label: 'February 2026', total_basic_pay: 4800, total_bonus_pay: 0, total_pay: 4800, headcount: 8 },
+        {
+          period_month: 3,
+          period_year: 2026,
+          period_label: 'March 2026',
+          total_basic_pay: 5000,
+          total_bonus_pay: 0,
+          total_pay: 5000,
+          headcount: 8,
+        },
+        {
+          period_month: 2,
+          period_year: 2026,
+          period_label: 'February 2026',
+          total_basic_pay: 4800,
+          total_bonus_pay: 0,
+          total_pay: 4800,
+          headcount: 8,
+        },
       ];
 
       // DB returns newest-first (desc), service reverses to chronological
@@ -100,8 +144,8 @@ describe('PayrollDashboardService', () => {
       const draftRun = { id: RUN_ID, tenant_id: TENANT_ID, status: 'draft' };
 
       mockPrisma.payrollRun.findFirst
-        .mockResolvedValueOnce(null)   // latest non-cancelled
-        .mockResolvedValueOnce(null)   // latest finalised
+        .mockResolvedValueOnce(null) // latest non-cancelled
+        .mockResolvedValueOnce(null) // latest finalised
         .mockResolvedValueOnce(draftRun); // current draft
 
       mockPrisma.payrollRun.findMany.mockResolvedValue([]);
