@@ -456,6 +456,12 @@
       "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
       "category": "backfill-script",
       "reason": "One-shot operational backfill (Category C, 2026-04-23): idempotent INSERT ... ON CONFLICT DO NOTHING to grant leave.manage_types to owner/principal/admin roles after the new settings/leave-types UI shipped. Sets RLS context via set_config, scans tenants via $queryRaw, inserts via $executeRaw. Runs manually against prod; not in request path."
+    },
+    {
+      "file": "packages/prisma/scripts/backfill-parent-engagement-permissions.ts",
+      "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
+      "category": "backfill-script",
+      "reason": "One-shot operational backfill (engagement-fix Impl 05, 2026-04-26): idempotent INSERT ... ON CONFLICT DO NOTHING to grant parent.view_engagement and parent.manage_engagement to the parent role at every tenant. Cross-tenant scan via $queryRaw, per-tenant set_config for RLS context via $executeRawUnsafe, role-permission insert via $executeRaw inside the per-tenant transaction. Runs manually against prod; not in request path."
     }
   ]
 }
