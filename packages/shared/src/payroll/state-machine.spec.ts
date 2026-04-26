@@ -34,8 +34,8 @@ describe('PayrollRunStatus state machine', () => {
     expect(isValidPayrollRunTransition('draft', 'draft')).toBe(false);
   });
 
-  it('should block pending_approval → cancelled', () => {
-    expect(isValidPayrollRunTransition('pending_approval', 'cancelled')).toBe(false);
+  it('should allow pending_approval → cancelled (Wave-2 escape hatch)', () => {
+    expect(isValidPayrollRunTransition('pending_approval', 'cancelled')).toBe(true);
   });
 
   it('should block pending_approval → pending_approval', () => {
@@ -92,8 +92,8 @@ describe('PayrollRunStatus state machine', () => {
 
   it('should return correct transitions for pending_approval', () => {
     const transitions = getValidPayrollRunTransitions('pending_approval');
-    expect(transitions).toEqual(expect.arrayContaining(['draft', 'finalised']));
-    expect(transitions).toHaveLength(2);
+    expect(transitions).toEqual(expect.arrayContaining(['draft', 'finalised', 'cancelled']));
+    expect(transitions).toHaveLength(3);
   });
 
   it('should return empty array for finalised (terminal)', () => {

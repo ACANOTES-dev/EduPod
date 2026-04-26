@@ -8,7 +8,11 @@ export type PayrollRunStatus = PayrollRun['status'];
 
 const VALID_TRANSITIONS: Record<PayrollRunStatus, PayrollRunStatus[]> = {
   draft: ['pending_approval', 'finalised', 'cancelled'],
-  pending_approval: ['draft', 'finalised'],
+  // Wave-2 update: pending_approval may also be cancelled — admin needs an
+  // escape hatch when an approval gets stuck or the run was created in error.
+  // The cancellation handler is responsible for cancelling the dangling
+  // ApprovalRequest so it does not block subsequent finalisation attempts.
+  pending_approval: ['draft', 'finalised', 'cancelled'],
   finalised: [],
   cancelled: [],
 };
