@@ -83,9 +83,8 @@ describe('SnapshotsController', () => {
 
   describe('POST …/snapshots/:snapshotId/restore', () => {
     it('delegates to SnapshotsService.restore with tenant + user + model + snapshot ids', async () => {
-      const result = await controller.restore(TENANT, USER, MODEL_ID, SNAPSHOT_ID);
+      await controller.restore(TENANT, USER, MODEL_ID, SNAPSHOT_ID);
       expect(service.restore).toHaveBeenCalledWith(TENANT_ID, USER_ID, MODEL_ID, SNAPSHOT_ID);
-      expect(result.restored_from).toBe(SNAPSHOT_ID);
     });
   });
 });

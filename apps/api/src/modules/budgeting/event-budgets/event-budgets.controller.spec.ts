@@ -126,7 +126,6 @@ describe('EventBudgetsController', () => {
     it('POST /:id/scenarios delegates to EventBudgetScenariosService.create', async () => {
       const dto = {
         name: 'Group rate',
-        notes: null,
         driver_overrides: {},
       };
       await controller.createScenario(TENANT, USER, EVENT_ID, dto);

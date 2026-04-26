@@ -19,11 +19,17 @@ const TENANT: TenantContext = {
   timezone: 'UTC',
 };
 
-function buildResponse(): jest.Mocked<Response> {
-  const res = {} as jest.Mocked<Response>;
-  res.redirect = jest.fn() as unknown as Response['redirect'];
-  res.status = jest.fn().mockReturnThis() as unknown as Response['status'];
-  res.json = jest.fn().mockReturnThis() as unknown as Response['json'];
+interface MockResponse {
+  redirect: jest.Mock;
+  status: jest.Mock;
+  json: jest.Mock;
+}
+
+function buildResponse(): MockResponse {
+  const res = {} as MockResponse;
+  res.redirect = jest.fn();
+  res.status = jest.fn().mockReturnThis();
+  res.json = jest.fn().mockReturnThis();
   return res;
 }
 
@@ -45,10 +51,9 @@ describe('ExportsController', () => {
       service.serveSnapshotArtifact.mockResolvedValue({
         status: 'rendered',
         signed_url: 'https://signed.example/board.pdf',
-        job_id: undefined,
       });
       const res = buildResponse();
-      await controller.getPdf(TENANT, MODEL_ID, SNAPSHOT_ID, res);
+      await controller.getPdf(TENANT, MODEL_ID, SNAPSHOT_ID, res as unknown as Response);
       expect(service.serveSnapshotArtifact).toHaveBeenCalledWith(
         TENANT_ID,
         MODEL_ID,
@@ -63,13 +68,14 @@ describe('ExportsController', () => {
     });
 
     it('returns 202 with the in-flight job_id when render is still pending', async () => {
+      // Service returns `status: 'pending'`; controller re-labels to
+      // `status: 'rendering'` in the 202 envelope (vocab differs by design).
       service.serveSnapshotArtifact.mockResolvedValue({
-        status: 'rendering',
-        signed_url: undefined,
+        status: 'pending',
         job_id: 'job-123',
       });
       const res = buildResponse();
-      await controller.getPdf(TENANT, MODEL_ID, SNAPSHOT_ID, res);
+      await controller.getPdf(TENANT, MODEL_ID, SNAPSHOT_ID, res as unknown as Response);
       expect(res.status).toHaveBeenCalledWith(HttpStatus.ACCEPTED);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'rendering', job_id: 'job-123' }),
@@ -83,10 +89,9 @@ describe('ExportsController', () => {
       service.serveSnapshotArtifact.mockResolvedValue({
         status: 'rendered',
         signed_url: 'https://signed.example/board.xlsx',
-        job_id: undefined,
       });
       const res = buildResponse();
-      await controller.getExcel(TENANT, MODEL_ID, SNAPSHOT_ID, res);
+      await controller.getExcel(TENANT, MODEL_ID, SNAPSHOT_ID, res as unknown as Response);
       expect(service.serveSnapshotArtifact).toHaveBeenCalledWith(
         TENANT_ID,
         MODEL_ID,
@@ -101,12 +106,11 @@ describe('ExportsController', () => {
 
     it('returns 202 with job_id when still rendering', async () => {
       service.serveSnapshotArtifact.mockResolvedValue({
-        status: 'rendering',
-        signed_url: undefined,
+        status: 'pending',
         job_id: 'job-456',
       });
       const res = buildResponse();
-      await controller.getExcel(TENANT, MODEL_ID, SNAPSHOT_ID, res);
+      await controller.getExcel(TENANT, MODEL_ID, SNAPSHOT_ID, res as unknown as Response);
       expect(res.status).toHaveBeenCalledWith(HttpStatus.ACCEPTED);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'rendering', job_id: 'job-456' }),
