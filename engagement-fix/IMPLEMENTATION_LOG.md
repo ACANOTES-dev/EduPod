@@ -150,7 +150,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 03  | Form templates editor polish                           | 2    | frontend       | parallel-risky       | 01             | `completed`   | 2026-04-26T00:47 Europe/Dublin | `f2c8d257` |
 | 04  | Event sub-pages + parent flow polish                   | 3    | full-stack     | parallel-safe        | 01, 02, 03     | `completed`   | 2026-04-26T01:45 Europe/Dublin | `b5032bb6` |
 | 05  | Parent permission backfill                             | 3    | data           | parallel-safe        | 01             | `completed`   | 2026-04-26T00:59 Europe/Dublin | `b5699918` |
-| 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `pending`     |                                |            |
+| 06  | Regression sweep + i18n + mobile + docs                | 4    | polish         | serial               | 02, 03, 04, 05 | `in-progress` |                                |            |
 
 ---
 
