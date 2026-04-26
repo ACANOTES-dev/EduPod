@@ -129,7 +129,7 @@ describe('PayrollInputResolver', () => {
     expect(input).toBeDefined();
     expect(input?.compensationType).toBe('salaried');
     expect(input?.baseSalary?.toString()).toBe('50000');
-    expect(input?.daysWorked.toString()).toBe('22');
+    expect(input?.daysWorked?.toString()).toBe('22');
     expect(input?.totalWorkingDays).toBe(22);
     expect(input?.allowancesTotal.toString()).toBe('1500');
     expect(input?.scheduledDeductionsTotal.toString()).toBe('200');
@@ -173,7 +173,7 @@ describe('PayrollInputResolver', () => {
     expect(input?.perClassRate?.toString()).toBe('100');
     expect(input?.bonusClassMultiplier?.toString()).toBe('1.5');
     // Per-class entries fall back to total_working_days for daysWorked
-    expect(input?.daysWorked.toString()).toBe('22');
+    expect(input?.daysWorked?.toString()).toBe('22');
     expect(attendance.calculateDaysWorkedForPeriod).not.toHaveBeenCalled();
   });
 
@@ -206,7 +206,7 @@ describe('PayrollInputResolver', () => {
     expect(input?.compensationType).toBe('mixed');
     expect(attendance.calculateDaysWorkedForPeriod).toHaveBeenCalledTimes(1);
     expect(classDelivery.calculateClassesDeliveredForPeriod).toHaveBeenCalledTimes(1);
-    expect(input?.daysWorked.toString()).toBe('20');
+    expect(input?.daysWorked?.toString()).toBe('20');
     expect(input?.classesDelivered).toBe(12);
   });
 

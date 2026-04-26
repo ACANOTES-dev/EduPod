@@ -7777,6 +7777,13 @@
     "permission": "payroll.view"
   },
   {
+    "method": "PATCH",
+    "path": "/v1/payroll/class-delivery/:id",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.create_run"
+  },
+  {
     "method": "PUT",
     "path": "/v1/payroll/class-delivery/:id/confirm",
     "controller": "PayrollEnhancedController",
@@ -7911,6 +7918,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/payroll/export-logs",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/payroll/export-logs/:logId/send",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.generate_payslips"
+  },
+  {
+    "method": "GET",
     "path": "/v1/payroll/export-templates",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
@@ -7938,11 +7959,39 @@
     "permission": "payroll.view"
   },
   {
+    "method": "PATCH",
+    "path": "/v1/payroll/export-templates/:id",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.generate_payslips"
+  },
+  {
     "method": "PUT",
     "path": "/v1/payroll/export-templates/:id",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
     "permission": "payroll.generate_payslips"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/my-payslips",
+    "controller": "PayslipsController",
+    "module": "payroll",
+    "permission": ["payroll.self_service", "payroll.view"]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/my-payslips/:id/pdf",
+    "controller": "PayslipsController",
+    "module": "payroll",
+    "permission": ["payroll.self_service", "payroll.view"]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/my-payslips/ytd",
+    "controller": "PayslipsController",
+    "module": "payroll",
+    "permission": ["payroll.self_service", "payroll.view"]
   },
   {
     "method": "DELETE",
@@ -7977,7 +8026,7 @@
     "path": "/v1/payroll/payslips/:id/pdf",
     "controller": "PayslipsController",
     "module": "payroll",
-    "permission": "payroll.generate_payslips"
+    "permission": ["payroll.generate_payslips", "payroll.view"]
   },
   {
     "method": "GET",
@@ -7989,6 +8038,13 @@
   {
     "method": "GET",
     "path": "/v1/payroll/reports/cost-trend",
+    "controller": "PayrollReportsController",
+    "module": "payroll",
+    "permission": "payroll.view_reports"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/reports/forecast",
     "controller": "PayrollReportsController",
     "module": "payroll",
     "permission": "payroll.view_reports"
@@ -8009,10 +8065,24 @@
   },
   {
     "method": "GET",
+    "path": "/v1/payroll/reports/staff-history/:staffProfileId",
+    "controller": "PayrollReportsController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/payroll/reports/staff/:staffProfileId/history",
     "controller": "PayrollReportsController",
     "module": "payroll",
     "permission": "payroll.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/reports/variance",
+    "controller": "PayrollReportsController",
+    "module": "payroll",
+    "permission": "payroll.view_reports"
   },
   {
     "method": "GET",
@@ -8058,6 +8128,13 @@
   },
   {
     "method": "POST",
+    "path": "/v1/payroll/runs/:id/auto-populate-classes",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.create_run"
+  },
+  {
+    "method": "POST",
     "path": "/v1/payroll/runs/:id/cancel",
     "controller": "PayrollRunsController",
     "module": "payroll",
@@ -8086,6 +8163,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/payroll/runs/:id/mass-export-pdf",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.generate_payslips"
+  },
+  {
+    "method": "GET",
     "path": "/v1/payroll/runs/:id/mass-export-status",
     "controller": "PayrollRunsController",
     "module": "payroll",
@@ -8097,6 +8181,13 @@
     "controller": "PayrollRunsController",
     "module": "payroll",
     "permission": "payroll.create_run"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/payroll/runs/:id/send-payslips",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.generate_payslips"
   },
   {
     "method": "GET",
@@ -8113,11 +8204,39 @@
     "permission": "payroll.create_run"
   },
   {
+    "method": "GET",
+    "path": "/v1/payroll/runs/:runId/adjustments",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
     "method": "POST",
     "path": "/v1/payroll/runs/:runId/adjustments",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
     "permission": "payroll.create_run"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/runs/:runId/allowances",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/runs/:runId/anomalies",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/runs/:runId/comparison",
+    "controller": "PayrollRunsController",
+    "module": "payroll",
+    "permission": "payroll.view"
   },
   {
     "method": "POST",
@@ -8143,6 +8262,20 @@
   {
     "method": "POST",
     "path": "/v1/payroll/runs/:runId/scan-anomalies",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/payroll/runs/:runId/send-to-accountant",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.generate_payslips"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/staff",
     "controller": "PayrollEnhancedController",
     "module": "payroll",
     "permission": "payroll.view"
@@ -8174,6 +8307,13 @@
     "controller": "PayrollEnhancedController",
     "module": "payroll",
     "permission": "payroll.manage_compensation"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/payroll/staff-deductions",
+    "controller": "PayrollEnhancedController",
+    "module": "payroll",
+    "permission": "payroll.view"
   },
   {
     "method": "GET",
