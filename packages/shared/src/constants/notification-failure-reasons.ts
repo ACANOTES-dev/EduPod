@@ -32,8 +32,12 @@ export type NotificationFailureReason =
   | `suppressed:${string}`
   | `provider_error:${string}`
   | 'sender_domain_unverified'
+  | 'invalid_from_email'
   | 'outside_service_window_no_template'
   | 'whatsapp_template_not_approved'
+  | 'template_not_approved_inside_window'
+  | 'whatsapp_payload_missing_body_and_template'
+  | 'verification_template_not_approved'
   | 'consent_revoked'
   | 'rate_limited';
 

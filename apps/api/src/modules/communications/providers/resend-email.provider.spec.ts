@@ -1,8 +1,10 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { EmailConfigService } from '../../configuration/email-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { EmailDomainService } from '../deliverability/email-domain.service';
 
 import { ResendEmailProvider } from './resend-email.provider';
 
@@ -13,11 +15,15 @@ describe('ResendEmailProvider', () => {
   let mockCircuitBreaker: { exec: jest.Mock };
   let mockEmailConfig: { getDecryptedConfig: jest.Mock };
   let mockCacheBus: { subscribe: jest.Mock };
+  let mockEmailDomain: { getVerified: jest.Mock };
+  let mockConfigService: { get: jest.Mock };
 
   beforeEach(async () => {
     mockCircuitBreaker = { exec: jest.fn() };
     mockEmailConfig = { getDecryptedConfig: jest.fn().mockResolvedValue(null) };
     mockCacheBus = { subscribe: jest.fn() };
+    mockEmailDomain = { getVerified: jest.fn().mockResolvedValue(null) };
+    mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -25,6 +31,8 @@ describe('ResendEmailProvider', () => {
         { provide: CircuitBreakerRegistry, useValue: mockCircuitBreaker },
         { provide: EmailConfigService, useValue: mockEmailConfig },
         { provide: CommsCacheBusService, useValue: mockCacheBus },
+        { provide: EmailDomainService, useValue: mockEmailDomain },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -80,13 +88,75 @@ describe('ResendEmailProvider', () => {
       expect(mockCircuitBreaker.exec).not.toHaveBeenCalled();
     });
 
-    it('uses tenant credentials when enabled', async () => {
+    it('returns skipped:sender_domain_unverified when domain is not verified', async () => {
       mockEmailConfig.getDecryptedConfig.mockResolvedValue({
         is_enabled: true,
         resend_api_key: 're_tenant',
         from_email: 'noreply@school.edu',
         from_name: null,
         reply_to_email: null,
+      });
+      mockEmailDomain.getVerified.mockResolvedValue(null);
+      const result = await provider.send(TENANT_ID, {
+        to: 'p@x.com',
+        subject: 'S',
+        html: '<p/>',
+      });
+      expect(result).toEqual({ skipped: true, reason: 'sender_domain_unverified' });
+      expect(mockEmailDomain.getVerified).toHaveBeenCalledWith(TENANT_ID, 'school.edu');
+      expect(mockCircuitBreaker.exec).not.toHaveBeenCalled();
+    });
+
+    it('returns skipped:invalid_from_email when from_email has no @', async () => {
+      mockEmailConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        resend_api_key: 're_tenant',
+        from_email: 'not-an-email',
+        from_name: null,
+        reply_to_email: null,
+      });
+      const result = await provider.send(TENANT_ID, {
+        to: 'p@x.com',
+        subject: 'S',
+        html: '<p/>',
+      });
+      expect(result).toEqual({ skipped: true, reason: 'invalid_from_email' });
+      expect(mockEmailDomain.getVerified).not.toHaveBeenCalled();
+    });
+
+    it('bypasses domain check when COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV=true', async () => {
+      mockEmailConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        resend_api_key: 're_tenant',
+        from_email: 'noreply@school.edu',
+        from_name: null,
+        reply_to_email: null,
+      });
+      mockConfigService.get.mockReturnValue('true');
+      mockEmailDomain.getVerified.mockResolvedValue(null);
+      mockCircuitBreaker.exec.mockResolvedValue({ data: { id: 'msg_dev' }, error: null });
+
+      const result = await provider.send(TENANT_ID, {
+        to: 'p@x.com',
+        subject: 'S',
+        html: '<p/>',
+      });
+      expect(result).toEqual({ messageId: 'msg_dev' });
+      expect(mockEmailDomain.getVerified).not.toHaveBeenCalled();
+    });
+
+    it('proceeds with send when sender domain IS verified', async () => {
+      mockEmailConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        resend_api_key: 're_tenant',
+        from_email: 'noreply@school.edu',
+        from_name: null,
+        reply_to_email: null,
+      });
+      mockEmailDomain.getVerified.mockResolvedValue({
+        id: 'd1',
+        domain: 'school.edu',
+        status: 'verified',
       });
       mockCircuitBreaker.exec.mockResolvedValue({ data: { id: 'msg_1' }, error: null });
 
@@ -106,6 +176,7 @@ describe('ResendEmailProvider', () => {
         from_name: null,
         reply_to_email: null,
       });
+      mockEmailDomain.getVerified.mockResolvedValue({ id: 'd', domain: 'b.c', status: 'verified' });
       mockCircuitBreaker.exec.mockResolvedValue({
         data: null,
         error: { message: 'Invalid API key', name: 'AuthError' },

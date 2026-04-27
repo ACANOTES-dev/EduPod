@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
 import type { CommsCacheBusEvent, EmailDispatchResult } from '@school/shared';
@@ -6,6 +7,7 @@ import type { CommsCacheBusEvent, EmailDispatchResult } from '@school/shared';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { EmailConfigService } from '../../configuration/email-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { EmailDomainService } from '../deliverability/email-domain.service';
 
 import { PerTenantClientCache } from './per-tenant-client-cache';
 
@@ -38,6 +40,8 @@ export class ResendEmailProvider implements OnModuleInit {
     private readonly circuitBreaker: CircuitBreakerRegistry,
     private readonly emailConfigService: EmailConfigService,
     private readonly cacheBus: CommsCacheBusService,
+    private readonly emailDomain: EmailDomainService,
+    private readonly configService: ConfigService,
   ) {}
 
   onModuleInit(): void {
@@ -85,6 +89,28 @@ export class ResendEmailProvider implements OnModuleInit {
       return { skipped: true, reason: 'channel_disabled' };
     }
 
+    // Impl 07: refuse to dispatch from a domain that hasn't completed
+    // SPF/DKIM/DMARC verification — Resend would land us in spam.
+    // Bypass for local dev only via COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV.
+    const senderDomain = this.extractDomain(params.from ?? tenantConfig.from_email);
+    if (!senderDomain) {
+      this.logger.warn(
+        `[ResendEmailProvider] tenant=${tenantId} from="${params.from ?? tenantConfig.from_email}" blocked — invalid_from_email`,
+      );
+      return { skipped: true, reason: 'invalid_from_email' };
+    }
+    const bypass =
+      this.configService.get<string>('COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV') === 'true';
+    if (!bypass) {
+      const verified = await this.emailDomain.getVerified(tenantId, senderDomain);
+      if (!verified) {
+        this.logger.warn(
+          `[ResendEmailProvider] tenant=${tenantId} from=${params.from ?? tenantConfig.from_email} domain=${senderDomain} blocked — sender_domain_unverified`,
+        );
+        return { skipped: true, reason: 'sender_domain_unverified' };
+      }
+    }
+
     const client = this.tenantClientCache.getOrCreate(
       tenantId,
       () => new Resend(tenantConfig.resend_api_key),
@@ -119,5 +145,25 @@ export class ResendEmailProvider implements OnModuleInit {
     const messageId = data?.id ?? '';
     this.logger.log(`Email sent tenant=${tenantId} messageId=${messageId}`);
     return { messageId };
+  }
+
+  /**
+   * Extract the domain part of an RFC 5321 `from` header. Tolerates the
+   * `Display Name <addr@host>` form by reading the `@` from the right.
+   * Returns null on malformed input.
+   */
+  private extractDomain(from: string): string | null {
+    if (!from) return null;
+    // Strip display-name wrapping if present
+    const angleStart = from.lastIndexOf('<');
+    const angleEnd = from.lastIndexOf('>');
+    const addr =
+      angleStart >= 0 && angleEnd > angleStart ? from.slice(angleStart + 1, angleEnd) : from;
+    const at = addr.lastIndexOf('@');
+    if (at < 0 || at >= addr.length - 1) return null;
+    return addr
+      .slice(at + 1)
+      .trim()
+      .toLowerCase();
   }
 }

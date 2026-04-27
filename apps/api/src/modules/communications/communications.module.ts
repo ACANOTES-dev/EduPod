@@ -18,6 +18,10 @@ import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { CommsCacheBusModule } from './cache-bus.module';
 import { CommunicationsReadFacade } from './communications-read.facade';
+import { EmailDomainNotifierAdapter } from './deliverability/email-domain-notifier.adapter';
+import { EMAIL_DOMAIN_NOTIFIER } from './deliverability/email-domain-notifier.token';
+import { EmailDomainController } from './deliverability/email-domain.controller';
+import { EmailDomainService } from './deliverability/email-domain.service';
 import { InboxBridgeService } from './inbox-bridge.service';
 import { IsEnabledCacheService } from './is-enabled-cache.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
@@ -64,6 +68,7 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     UnsubscribeController,
     WebhookController,
     CommunicationsWebhooksController,
+    EmailDomainController,
   ],
   providers: [
     AnnouncementsService,
@@ -86,6 +91,9 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     WebhookSignatureVerifierService,
     ResendWebhookHandlerService,
     TwilioWebhookHandlerService,
+    EmailDomainService,
+    EmailDomainNotifierAdapter,
+    { provide: EMAIL_DOMAIN_NOTIFIER, useExisting: EmailDomainNotifierAdapter },
   ],
   exports: [
     AnnouncementsService,
@@ -99,6 +107,7 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     InboxChannelProvider,
     IsEnabledCacheService,
     SuppressionListService,
+    EmailDomainService,
   ],
 })
 export class CommunicationsModule {}

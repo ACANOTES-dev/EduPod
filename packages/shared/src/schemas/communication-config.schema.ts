@@ -74,3 +74,41 @@ export const testWhatsAppSchema = z.object({
   template_key: z.string().min(1, 'template_key is required for WhatsApp test sends'),
 });
 export type TestWhatsAppDto = z.infer<typeof testWhatsAppSchema>;
+
+// ─── Email domain registration (Impl 07) ─────────────────────────────────────
+
+export const registerEmailDomainSchema = z.object({
+  domain: z
+    .string()
+    .min(3)
+    .max(255)
+    .regex(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i, {
+      message: 'Domain must be a valid hostname (e.g. school.example.org)',
+    })
+    .transform((s) => s.toLowerCase().trim()),
+});
+export type RegisterEmailDomainDto = z.infer<typeof registerEmailDomainSchema>;
+
+// ─── WhatsApp template (Impl 08) ─────────────────────────────────────────────
+
+export const submitWhatsAppTemplateSchema = z.object({
+  template_key: z
+    .string()
+    .min(1)
+    .max(128)
+    .regex(/^[a-z0-9._-]+$/i, 'template_key must be alphanumeric with . _ -'),
+  template_name: z.string().min(1).max(128).optional(),
+  language_code: z.string().min(2).max(16),
+  category: z.enum(['utility', 'authentication', 'marketing']),
+  body: z.string().min(1).max(2048),
+});
+export type SubmitWhatsAppTemplateDto = z.infer<typeof submitWhatsAppTemplateSchema>;
+
+export const listWhatsAppTemplatesQuerySchema = z.object({
+  status: z.enum(['pending', 'submitted', 'approved', 'rejected', 'paused']).optional(),
+  language_code: z.string().min(2).max(16).optional(),
+  template_key: z.string().min(1).max(128).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
+export type ListWhatsAppTemplatesQueryDto = z.infer<typeof listWhatsAppTemplatesQuerySchema>;
