@@ -2023,6 +2023,8 @@
       "notificationsDesc": "التحكم في الإشعارات المرسلة والقنوات المستخدمة.",
       "messagingPolicy": "سياسة الرسائل",
       "messagingPolicyDesc": "تحديد قواعد من يمكنه مراسلة من ومتى.",
+      "communications": "الاتصالات",
+      "communicationsDesc": "ربط بيانات اعتماد Resend و Twilio SMS و WhatsApp لكل مستأجر.",
       "financePayments": "المالية والمدفوعات",
       "financePaymentsDesc": "بوابة الدفع وتكاملات الفوترة.",
       "stripe": "Stripe",
@@ -2197,6 +2199,7 @@
     "enable": "مفعّل",
     "channelSms": "رسائل نصية",
     "channelPush": "دفع",
+    "channelWhatsapp": "واتساب",
     "notifSettingUpdated": "تم تحديث إعداد الإشعار.",
     "notifNoSettings": "لم يتم العثور على إعدادات إشعارات. ستظهر بعد تهيئة المدرسة.",
     "notifChannelsHint": "خيارات القنوات متاحة فقط عند تفعيل نوع الإشعار.",
@@ -2404,7 +2407,309 @@
     "englishLtr": "[AR] English (LTR)",
     "whsec": "[AR] whsec_...",
     "pkLive": "[AR] pk_live_...",
-    "skLive": "[AR] sk_live_..."
+    "skLive": "[AR] sk_live_...",
+    "communications": {
+      "title": "الاتصالات",
+      "subtitle": "تكوين كيفية تواصل مدرستك مع أولياء الأمور.",
+      "channels": {
+        "email": "البريد الإلكتروني",
+        "sms": "الرسائل النصية",
+        "whatsapp": "واتساب"
+      },
+      "providers": {
+        "email": "عبر Resend",
+        "sms": "عبر Twilio",
+        "whatsapp": "عبر Twilio"
+      },
+      "status": {
+        "configured": "تم التكوين",
+        "notConfigured": "لم يتم التكوين",
+        "verificationFailed": "يحتاج إلى تحقق",
+        "disabled": "معطل"
+      },
+      "lastVerified": {
+        "never": "لم يتم التحقق",
+        "justNow": "تم التحقق للتو",
+        "minutesAgo": "تم التحقق قبل {n} دقيقة",
+        "hoursAgo": "تم التحقق قبل {n} ساعة",
+        "daysAgo": "تم التحقق قبل {n} يوم"
+      },
+      "actions": {
+        "configure": "تكوين",
+        "update": "تحديث",
+        "save": "حفظ التغييرات",
+        "saving": "جارٍ الحفظ…",
+        "cancel": "إلغاء",
+        "delete": "حذف التكوين",
+        "backToCommunications": "العودة إلى الاتصالات"
+      },
+      "errors": {
+        "loadFailed": "تعذر تحميل حالة القناة. يرجى التحديث."
+      },
+      "noPermission": {
+        "title": "لا يوجد وصول",
+        "description": "ليس لديك إذن لإدارة الاتصالات. اطلب من مالك المدرسة أو المدير.",
+        "backToSettings": "العودة إلى الإعدادات"
+      },
+      "email": {
+        "title": "البريد الإلكتروني — Resend",
+        "subtitle": "تكوين موفر البريد الإلكتروني الذي يراه أولياء الأمور.",
+        "fields": {
+          "resendApiKey": "مفتاح Resend API",
+          "resendApiKeyHint": "احصل عليه من لوحة تحكم Resend → مفاتيح API.",
+          "fromEmail": "البريد الإلكتروني للمرسل",
+          "fromEmailHint": "العنوان الذي يراه أولياء الأمور في صندوق الوارد.",
+          "fromName": "اسم المرسل (اختياري)",
+          "fromNameHint": "الاسم المعروض في صندوق الوارد.",
+          "replyToEmail": "بريد الرد (اختياري)",
+          "replyToEmailHint": "أين تذهب ردود أولياء الأمور (افتراضيًا بريد المرسل).",
+          "webhookSecret": "سر Webhook",
+          "webhookSecretHint": "يستخدم للتحقق من ردود Resend → EduPod. عيّنه في تكوين webhook في Resend."
+        },
+        "summary": {
+          "configured": "تم تكوين البريد الإلكتروني.",
+          "rotated": "آخر تدوير {ts}.",
+          "apiKey": "مفتاح API",
+          "fromEmail": "من",
+          "replyTo": "الرد على",
+          "webhookSecret": "سر Webhook"
+        },
+        "save": {
+          "success": "تم حفظ تكوين البريد الإلكتروني.",
+          "error": "فشل في حفظ تكوين البريد الإلكتروني."
+        },
+        "delete": {
+          "confirm": "سيؤدي هذا إلى إزالة تكوين البريد الإلكتروني وتعطيل البريد الصادر. متابعة؟",
+          "success": "تم حذف تكوين البريد الإلكتروني.",
+          "error": "فشل في حذف التكوين."
+        },
+        "test": {
+          "title": "إرسال بريد اختبار",
+          "description": "أرسل بريدًا اختباريًا للتحقق من التكوين بشكل كامل.",
+          "recipientLabel": "البريد الإلكتروني للمستلم",
+          "recipientPlaceholder": "you@example.com",
+          "button": "إرسال رسالة اختبار",
+          "submitting": "جارٍ الإرسال…",
+          "success": "تم إرسال البريد التجريبي. تحقق من صندوق الوارد (1-2 دقيقة).",
+          "rateLimited": "إرسالات الاختبار محدودة بـ 3 لكل ساعة. حاول مرة أخرى خلال {n} دقيقة.",
+          "providerErrorTitle": "رفض الموفر إرسال الاختبار",
+          "error": "فشل إرسال الاختبار."
+        },
+        "domains": {
+          "title": "التحقق من نطاق الإرسال",
+          "description": "أضف وتحقق من النطاقات التي ترسل منها. بدون سجلات SPF و DKIM و DMARC المتحقق منها، تخاطر الرسائل بالوصول إلى مجلد الرسائل غير المرغوب فيها.",
+          "loading": "جارٍ تحميل النطاقات…",
+          "empty": "لم يتم تسجيل أي نطاقات بعد.",
+          "lastChecked": "آخر فحص: {ts}",
+          "viewRecords": "عرض سجلات DNS",
+          "hideRecords": "إخفاء سجلات DNS",
+          "add": {
+            "button": "+ إضافة نطاق",
+            "cancel": "إلغاء",
+            "domainLabel": "النطاق",
+            "domainPlaceholder": "school.example",
+            "submit": "تسجيل",
+            "submitting": "جارٍ التسجيل…",
+            "success": "تم تسجيل النطاق. سيبدأ التحقق من DNS قريبًا.",
+            "error": "فشل تسجيل النطاق."
+          },
+          "refresh": {
+            "button": "تحديث الآن",
+            "success": "تم تحديث حالة النطاق.",
+            "error": "فشل تحديث النطاق."
+          },
+          "delete": {
+            "button": "حذف",
+            "confirm": "إزالة النطاق {domain} من هذا المستأجر؟",
+            "success": "تم حذف النطاق.",
+            "error": "فشل حذف النطاق."
+          },
+          "status": {
+            "pending": "قيد الانتظار",
+            "verified": "تم التحقق",
+            "failed": "فشل"
+          },
+          "dns": {
+            "empty": "لم يتم إرجاع أي سجلات DNS من الموفر بعد.",
+            "headers": {
+              "type": "النوع",
+              "name": "الاسم",
+              "value": "القيمة",
+              "status": "الحالة"
+            },
+            "status": {
+              "pending": "قيد الانتظار",
+              "verified": "تم التحقق",
+              "failed": "فشل"
+            },
+            "copy": {
+              "aria": "نسخ القيمة",
+              "success": "تم النسخ إلى الحافظة.",
+              "error": "فشل النسخ."
+            }
+          }
+        }
+      },
+      "sms": {
+        "title": "الرسائل النصية — Twilio",
+        "subtitle": "تكوين الرسائل النصية الصادرة لأولياء الأمور.",
+        "fields": {
+          "accountSid": "Twilio Account SID",
+          "accountSidHint": "من وحدة تحكم Twilio → معلومات الحساب.",
+          "authToken": "رمز Twilio Auth",
+          "authTokenHint": "رمز Twilio Auth الخاص بك. تعامل معه ككلمة مرور.",
+          "fromNumber": "رقم المرسل",
+          "fromNumberHint": "تنسيق E.164. الرقم الذي خصصته Twilio لهذا المستأجر.",
+          "webhookSecret": "سر Webhook",
+          "webhookSecretHint": "يستخدم للتحقق من ردود Twilio → EduPod."
+        },
+        "summary": {
+          "configured": "تم تكوين الرسائل النصية.",
+          "accountSid": "Account SID",
+          "authToken": "رمز المصادقة",
+          "fromNumber": "رقم المرسل",
+          "webhookSecret": "سر Webhook"
+        },
+        "save": {
+          "success": "تم حفظ تكوين الرسائل النصية.",
+          "error": "فشل في حفظ تكوين الرسائل النصية."
+        },
+        "delete": {
+          "confirm": "سيؤدي هذا إلى إزالة تكوين الرسائل النصية. متابعة؟",
+          "success": "تم حذف التكوين.",
+          "error": "فشل في حذف التكوين."
+        },
+        "test": {
+          "title": "إرسال رسالة نصية تجريبية",
+          "description": "إرسال رسالة نصية تجريبية للتحقق من تكوين Twilio.",
+          "recipientLabel": "رقم هاتف المستلم (E.164)",
+          "recipientPlaceholder": "+44XXXXXXXXX",
+          "button": "إرسال رسالة نصية تجريبية",
+          "submitting": "جارٍ الإرسال…",
+          "success": "تم إرسال الرسالة النصية التجريبية.",
+          "rateLimited": "محدود بـ 3 إرسالات في الساعة. حاول مرة أخرى خلال {n} دقيقة.",
+          "providerErrorTitle": "رفض الموفر إرسال الاختبار",
+          "error": "فشل إرسال الاختبار."
+        }
+      },
+      "whatsapp": {
+        "title": "واتساب — Twilio Business",
+        "subtitle": "تكوين رسائل واتساب الصادرة عبر Twilio Business API.",
+        "fields": {
+          "accountSid": "Twilio Account SID",
+          "accountSidHint": "من وحدة تحكم Twilio → معلومات الحساب.",
+          "authToken": "رمز Twilio Auth",
+          "authTokenHint": "رمز Twilio Auth الخاص بك.",
+          "fromNumber": "رقم مرسل واتساب",
+          "fromNumberHint": "تنسيق E.164. رقم واتساب التجاري المسجل.",
+          "businessProfileId": "معرف الملف التجاري (اختياري)",
+          "businessProfileIdHint": "مطلوب فقط إذا كان حسابك يستخدم ملفات تجارية متعددة.",
+          "webhookSecret": "سر Webhook",
+          "webhookSecretHint": "يستخدم للتحقق من ردود Twilio → EduPod."
+        },
+        "summary": {
+          "configured": "تم تكوين واتساب.",
+          "accountSid": "Account SID",
+          "authToken": "رمز المصادقة",
+          "fromNumber": "رقم المرسل",
+          "businessProfileId": "الملف التجاري",
+          "webhookSecret": "سر Webhook"
+        },
+        "save": {
+          "success": "تم حفظ تكوين واتساب.",
+          "error": "فشل في حفظ تكوين واتساب."
+        },
+        "delete": {
+          "confirm": "سيؤدي هذا إلى إزالة تكوين واتساب. متابعة؟",
+          "success": "تم حذف التكوين.",
+          "error": "فشل الحذف."
+        },
+        "test": {
+          "title": "إرسال رسالة واتساب تجريبية",
+          "description": "أرسل اختبارًا باستخدام أحد القوالب المعتمدة.",
+          "recipientLabel": "رقم هاتف المستلم (E.164)",
+          "recipientPlaceholder": "+44XXXXXXXXX",
+          "templateLabel": "قالب معتمد",
+          "templatePlaceholder": "اختر قالبًا معتمدًا",
+          "noApprovedTemplates": "لا توجد قوالب واتساب معتمدة بعد — قدم واحدًا أدناه قبل الاختبار.",
+          "button": "إرسال اختبار",
+          "submitting": "جارٍ الإرسال…",
+          "success": "تم إرسال رسالة واتساب التجريبية.",
+          "rateLimited": "محدود بـ 3 إرسالات في الساعة. حاول مرة أخرى خلال {n} دقيقة.",
+          "providerErrorTitle": "رفض الموفر إرسال الاختبار",
+          "error": "فشل إرسال الاختبار."
+        },
+        "templates": {
+          "title": "القوالب",
+          "description": "يجب أن تستخدم رسائل واتساب خارج نافذة الخدمة لمدة 24 ساعة قالبًا معتمدًا مسبقًا.",
+          "loading": "جارٍ تحميل القوالب…",
+          "empty": "لا توجد قوالب بعد. قدم أول قالب أدناه.",
+          "showBody": "عرض النص",
+          "hideBody": "إخفاء النص",
+          "approvedAt": "تمت الموافقة {ts}",
+          "language": "اللغة",
+          "category": "الفئة",
+          "rejectedReason": "مرفوض: {reason}",
+          "status": {
+            "pending": "قيد الانتظار",
+            "submitted": "تم التقديم",
+            "approved": "تمت الموافقة",
+            "rejected": "مرفوض",
+            "paused": "متوقف مؤقتًا"
+          },
+          "categories": {
+            "transactional": "معاملات",
+            "marketing": "تسويق",
+            "authentication": "مصادقة",
+            "utility": "خدمي"
+          },
+          "actions": {
+            "submit": {
+              "button": "إرسال إلى Twilio",
+              "success": "تم إرسال القالب إلى Twilio للموافقة.",
+              "error": "فشل في إرسال القالب."
+            },
+            "sync": {
+              "button": "مزامنة الحالة",
+              "success": "تمت مزامنة حالة القالب.",
+              "error": "فشل في مزامنة حالة القالب."
+            },
+            "pause": {
+              "button": "إيقاف مؤقت",
+              "success": "تم إيقاف القالب مؤقتًا.",
+              "error": "فشل في إيقاف القالب مؤقتًا."
+            },
+            "resume": {
+              "button": "استئناف",
+              "success": "تم استئناف القالب.",
+              "error": "فشل في استئناف القالب."
+            },
+            "delete": {
+              "button": "حذف",
+              "confirm": "إزالة القالب {key}؟",
+              "success": "تم حذف القالب.",
+              "error": "فشل في حذف القالب."
+            }
+          },
+          "submitForm": {
+            "title": "تقديم قالب جديد",
+            "addButton": "+ إضافة قالب جديد",
+            "cancel": "إلغاء",
+            "templateKey": "مفتاح القالب",
+            "templateKeyHint": "أحرف صغيرة، snake_case، مثل parent_attendance_alert.",
+            "languageCode": "اللغة",
+            "category": "الفئة",
+            "body": "النص",
+            "bodyHint": "استخدم متغيرات. يجب ألا يتجاوز النص 1024 حرفًا.",
+            "saveAndSubmit": "حفظ وإرسال",
+            "submitting": "جارٍ الحفظ…",
+            "success": "تم إرسال القالب إلى Twilio.",
+            "partial": "تم حفظ القالب لكن فشل إرسال Twilio. يمكنك المحاولة مرة أخرى من القائمة.",
+            "error": "فشل في حفظ القالب."
+          }
+        }
+      }
+    }
   },
   "reports": {
     "80": "&lt;80%",
@@ -4663,6 +4968,8 @@
     "smsDescription": "استقبال التحديثات عبر الرسائل النصية",
     "push": "الإشعارات الفورية",
     "pushDescription": "استقبال الإشعارات داخل التطبيق",
+    "whatsapp": "إشعارات واتساب",
+    "whatsappDescription": "استقبال التحديثات عبر واتساب",
     "preferredLanguage": "اللغة المفضلة للتواصل",
     "save": "حفظ التفضيلات",
     "saving": "جارٍ الحفظ...",

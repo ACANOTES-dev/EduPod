@@ -2023,6 +2023,8 @@
       "notificationsDesc": "Control which notifications are sent and through which channels.",
       "messagingPolicy": "Messaging Policy",
       "messagingPolicyDesc": "Set rules for who can message whom and when.",
+      "communications": "Communications",
+      "communicationsDesc": "Connect Resend, Twilio SMS, and WhatsApp credentials per tenant.",
       "financePayments": "Finance & Payments",
       "financePaymentsDesc": "Payment gateway and billing integrations.",
       "stripe": "Stripe",
@@ -2197,6 +2199,7 @@
     "enable": "Enabled",
     "channelSms": "SMS",
     "channelPush": "Push",
+    "channelWhatsapp": "WhatsApp",
     "notifSettingUpdated": "Notification setting updated.",
     "notifNoSettings": "No notification settings found. They will appear once the tenant is initialised.",
     "notifChannelsHint": "Channel options are only available when a notification type is enabled.",
@@ -2404,7 +2407,309 @@
     "englishLtr": "English (LTR)",
     "whsec": "whsec_...",
     "pkLive": "pk_live_...",
-    "skLive": "sk_live_..."
+    "skLive": "sk_live_...",
+    "communications": {
+      "title": "Communications",
+      "subtitle": "Configure how your school communicates with parents.",
+      "channels": {
+        "email": "Email",
+        "sms": "SMS",
+        "whatsapp": "WhatsApp"
+      },
+      "providers": {
+        "email": "via Resend",
+        "sms": "via Twilio",
+        "whatsapp": "via Twilio"
+      },
+      "status": {
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "verificationFailed": "Verification needed",
+        "disabled": "Disabled"
+      },
+      "lastVerified": {
+        "never": "Never verified",
+        "justNow": "verified just now",
+        "minutesAgo": "verified {n} minutes ago",
+        "hoursAgo": "verified {n} hours ago",
+        "daysAgo": "verified {n} days ago"
+      },
+      "actions": {
+        "configure": "Configure",
+        "update": "Update",
+        "save": "Save changes",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "delete": "Delete configuration",
+        "backToCommunications": "Back to Communications"
+      },
+      "errors": {
+        "loadFailed": "Couldn't load channel status. Please refresh."
+      },
+      "noPermission": {
+        "title": "No access",
+        "description": "You don't have permission to manage communications. Ask your school owner or principal.",
+        "backToSettings": "Back to Settings"
+      },
+      "email": {
+        "title": "Email — Resend",
+        "subtitle": "Configure the email provider parents see in their inbox.",
+        "fields": {
+          "resendApiKey": "Resend API key",
+          "resendApiKeyHint": "Get this from your Resend dashboard → API keys.",
+          "fromEmail": "From email",
+          "fromEmailHint": "The address parents see in their inbox.",
+          "fromName": "From name (optional)",
+          "fromNameHint": "Display name shown in the inbox.",
+          "replyToEmail": "Reply-to email (optional)",
+          "replyToEmailHint": "Where parents' replies go (defaults to From email).",
+          "webhookSecret": "Webhook secret",
+          "webhookSecretHint": "Used to verify Resend → EduPod callbacks. Set this in your Resend dashboard's webhook config."
+        },
+        "summary": {
+          "configured": "Email is configured.",
+          "rotated": "Last rotated {ts}.",
+          "apiKey": "API key",
+          "fromEmail": "From",
+          "replyTo": "Reply-to",
+          "webhookSecret": "Webhook secret"
+        },
+        "save": {
+          "success": "Email configuration saved.",
+          "error": "Failed to save email configuration."
+        },
+        "delete": {
+          "confirm": "This will remove the email configuration and disable outbound email. Continue?",
+          "success": "Email configuration deleted.",
+          "error": "Failed to delete email configuration."
+        },
+        "test": {
+          "title": "Send test email",
+          "description": "Send a sentinel email to verify the configuration end-to-end.",
+          "recipientLabel": "Recipient email",
+          "recipientPlaceholder": "you@example.com",
+          "button": "Send test message",
+          "submitting": "Sending…",
+          "success": "Test email sent. Check your inbox (allow 1–2 minutes).",
+          "rateLimited": "Test sends are limited to 3 per hour per tenant. Try again in {n} minutes.",
+          "providerErrorTitle": "Provider rejected the test send",
+          "error": "Test send failed."
+        },
+        "domains": {
+          "title": "Sending domain verification",
+          "description": "Add and verify the domains you send from. Without verified SPF, DKIM, and DMARC records, emails risk landing in spam.",
+          "loading": "Loading domains…",
+          "empty": "No domains registered yet.",
+          "lastChecked": "Last checked: {ts}",
+          "viewRecords": "View DNS records",
+          "hideRecords": "Hide DNS records",
+          "add": {
+            "button": "+ Add domain",
+            "cancel": "Cancel",
+            "domainLabel": "Domain",
+            "domainPlaceholder": "school.example",
+            "submit": "Register",
+            "submitting": "Registering…",
+            "success": "Domain registered. DNS verification will start shortly.",
+            "error": "Failed to register domain."
+          },
+          "refresh": {
+            "button": "Refresh now",
+            "success": "Domain status refreshed.",
+            "error": "Failed to refresh domain."
+          },
+          "delete": {
+            "button": "Delete",
+            "confirm": "Remove the domain {domain} from this tenant? Outbound email will skip if no other verified domain exists.",
+            "success": "Domain removed.",
+            "error": "Failed to delete domain."
+          },
+          "status": {
+            "pending": "Pending",
+            "verified": "Verified",
+            "failed": "Failed"
+          },
+          "dns": {
+            "empty": "No DNS records returned by the provider yet.",
+            "headers": {
+              "type": "Type",
+              "name": "Name",
+              "value": "Value",
+              "status": "Status"
+            },
+            "status": {
+              "pending": "Pending",
+              "verified": "Verified",
+              "failed": "Failed"
+            },
+            "copy": {
+              "aria": "Copy value",
+              "success": "Copied to clipboard.",
+              "error": "Failed to copy."
+            }
+          }
+        }
+      },
+      "sms": {
+        "title": "SMS — Twilio",
+        "subtitle": "Configure outbound SMS to parents.",
+        "fields": {
+          "accountSid": "Twilio Account SID",
+          "accountSidHint": "From your Twilio console → Account info.",
+          "authToken": "Twilio Auth token",
+          "authTokenHint": "Your Twilio auth token. Treat as a password.",
+          "fromNumber": "Sender number",
+          "fromNumberHint": "E.164 format. The number Twilio assigned to this tenant.",
+          "webhookSecret": "Webhook secret",
+          "webhookSecretHint": "Used to verify Twilio → EduPod callbacks."
+        },
+        "summary": {
+          "configured": "SMS is configured.",
+          "accountSid": "Account SID",
+          "authToken": "Auth token",
+          "fromNumber": "Sender number",
+          "webhookSecret": "Webhook secret"
+        },
+        "save": {
+          "success": "SMS configuration saved.",
+          "error": "Failed to save SMS configuration."
+        },
+        "delete": {
+          "confirm": "This will remove the SMS configuration and disable outbound SMS. Continue?",
+          "success": "SMS configuration deleted.",
+          "error": "Failed to delete SMS configuration."
+        },
+        "test": {
+          "title": "Send test SMS",
+          "description": "Send a sentinel SMS to verify the Twilio configuration.",
+          "recipientLabel": "Recipient phone (E.164)",
+          "recipientPlaceholder": "+44XXXXXXXXX",
+          "button": "Send test SMS",
+          "submitting": "Sending…",
+          "success": "Test SMS sent.",
+          "rateLimited": "Test sends are limited to 3 per hour per tenant. Try again in {n} minutes.",
+          "providerErrorTitle": "Provider rejected the test send",
+          "error": "Test send failed."
+        }
+      },
+      "whatsapp": {
+        "title": "WhatsApp — Twilio Business",
+        "subtitle": "Configure outbound WhatsApp messaging via Twilio's Business API.",
+        "fields": {
+          "accountSid": "Twilio Account SID",
+          "accountSidHint": "From your Twilio console → Account info.",
+          "authToken": "Twilio Auth token",
+          "authTokenHint": "Your Twilio auth token. Treat as a password.",
+          "fromNumber": "WhatsApp sender number",
+          "fromNumberHint": "E.164 format. The WhatsApp business number registered with Twilio.",
+          "businessProfileId": "Business profile ID (optional)",
+          "businessProfileIdHint": "Required only if your account uses multiple business profiles.",
+          "webhookSecret": "Webhook secret",
+          "webhookSecretHint": "Used to verify Twilio → EduPod callbacks."
+        },
+        "summary": {
+          "configured": "WhatsApp is configured.",
+          "accountSid": "Account SID",
+          "authToken": "Auth token",
+          "fromNumber": "Sender number",
+          "businessProfileId": "Business profile",
+          "webhookSecret": "Webhook secret"
+        },
+        "save": {
+          "success": "WhatsApp configuration saved.",
+          "error": "Failed to save WhatsApp configuration."
+        },
+        "delete": {
+          "confirm": "This will remove the WhatsApp configuration and disable outbound WhatsApp. Continue?",
+          "success": "WhatsApp configuration deleted.",
+          "error": "Failed to delete WhatsApp configuration."
+        },
+        "test": {
+          "title": "Send test WhatsApp message",
+          "description": "Send a test using one of your approved templates.",
+          "recipientLabel": "Recipient phone (E.164)",
+          "recipientPlaceholder": "+44XXXXXXXXX",
+          "templateLabel": "Approved template",
+          "templatePlaceholder": "Choose an approved template",
+          "noApprovedTemplates": "No approved WhatsApp templates yet — submit one below before testing.",
+          "button": "Send test",
+          "submitting": "Sending…",
+          "success": "Test WhatsApp message sent.",
+          "rateLimited": "Test sends are limited to 3 per hour per tenant. Try again in {n} minutes.",
+          "providerErrorTitle": "Provider rejected the test send",
+          "error": "Test send failed."
+        },
+        "templates": {
+          "title": "Templates",
+          "description": "WhatsApp messages outside a 24-hour service window must use a pre-approved template.",
+          "loading": "Loading templates…",
+          "empty": "No templates yet. Submit your first template below.",
+          "showBody": "Show body",
+          "hideBody": "Hide body",
+          "approvedAt": "Approved {ts}",
+          "language": "Language",
+          "category": "Category",
+          "rejectedReason": "Rejected: {reason}",
+          "status": {
+            "pending": "Pending",
+            "submitted": "Submitted",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "paused": "Paused"
+          },
+          "categories": {
+            "transactional": "Transactional",
+            "marketing": "Marketing",
+            "authentication": "Authentication",
+            "utility": "Utility"
+          },
+          "actions": {
+            "submit": {
+              "button": "Submit to Twilio",
+              "success": "Template submitted to Twilio for approval.",
+              "error": "Failed to submit template."
+            },
+            "sync": {
+              "button": "Sync status",
+              "success": "Template status synced.",
+              "error": "Failed to sync template status."
+            },
+            "pause": {
+              "button": "Pause",
+              "success": "Template paused.",
+              "error": "Failed to pause template."
+            },
+            "resume": {
+              "button": "Resume",
+              "success": "Template resumed.",
+              "error": "Failed to resume template."
+            },
+            "delete": {
+              "button": "Delete",
+              "confirm": "Remove the template {key}?",
+              "success": "Template deleted.",
+              "error": "Failed to delete template."
+            }
+          },
+          "submitForm": {
+            "title": "Submit a new template",
+            "addButton": "+ Add new template",
+            "cancel": "Cancel",
+            "templateKey": "Template key",
+            "templateKeyHint": "Lowercase, snake_case, e.g. parent_attendance_alert.",
+            "languageCode": "Language",
+            "category": "Category",
+            "body": "Body",
+            "bodyHint": "Use {{1}}, {{2}}, … for variables. Body must be ≤ 1024 characters.",
+            "saveAndSubmit": "Save & Submit",
+            "submitting": "Saving…",
+            "success": "Template submitted to Twilio.",
+            "partial": "Template saved but Twilio submission failed. You can retry from the list.",
+            "error": "Failed to save template."
+          }
+        }
+      }
+    }
   },
   "reports": {
     "80": "&lt;80%",
@@ -4663,6 +4968,8 @@
     "smsDescription": "Receive updates via text message",
     "push": "Push notifications",
     "pushDescription": "Receive in-app push notifications",
+    "whatsapp": "WhatsApp notifications",
+    "whatsappDescription": "Receive updates via WhatsApp",
     "preferredLanguage": "Preferred language for communications",
     "save": "Save preferences",
     "saving": "Saving...",

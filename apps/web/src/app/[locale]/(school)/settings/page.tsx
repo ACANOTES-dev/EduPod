@@ -198,6 +198,12 @@ const CATEGORIES: SettingsCategoryConfig[] = [
         href: '/settings/messaging-policy',
         icon: Bell,
       },
+      {
+        labelKey: 'hub.communications',
+        descKey: 'hub.communicationsDesc',
+        href: '/settings/communications',
+        icon: Bell,
+      },
     ],
   },
   {
