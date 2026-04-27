@@ -12762,6 +12762,27 @@
   },
   {
     "method": "POST",
+    "path": "/v1/webhooks/communications/email/:tenantId",
+    "controller": "CommunicationsWebhooksController",
+    "module": "communications",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/webhooks/communications/sms/:tenantId",
+    "controller": "CommunicationsWebhooksController",
+    "module": "communications",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/webhooks/communications/whatsapp/:tenantId",
+    "controller": "CommunicationsWebhooksController",
+    "module": "communications",
+    "permission": null
+  },
+  {
+    "method": "POST",
     "path": "/v1/webhooks/resend",
     "controller": "WebhookController",
     "module": "communications",
