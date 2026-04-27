@@ -63,7 +63,10 @@ export default function NotificationDeliveryPage() {
     setIsLoading(true);
     apiClient<DeliveryReport>(`/api/v1/reports/notification-delivery?${params.toString()}`)
       .then((res) => setReport(res))
-      .catch((err) => { console.error('[ReportsNotificationDeliveryPage]', err); return setReport(null); })
+      .catch((err) => {
+        console.error('[ReportsNotificationDeliveryPage]', err);
+        return setReport(null);
+      })
       .finally(() => setIsLoading(false));
   }, [startDate, endDate, channelFilter]);
 
@@ -106,7 +109,7 @@ export default function NotificationDeliveryPage() {
               <SelectItem value="all">{t('allChannels')}</SelectItem>
               <SelectItem value="email">{t('email')}</SelectItem>
               <SelectItem value="sms">{t('sms')}</SelectItem>
-              <SelectItem value="push">{t('push')}</SelectItem>
+              <SelectItem value="whatsapp">{t('whatsapp')}</SelectItem>
               <SelectItem value="in_app">{t('inApp')}</SelectItem>
             </SelectContent>
           </Select>

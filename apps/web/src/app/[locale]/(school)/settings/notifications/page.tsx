@@ -18,7 +18,7 @@ interface NotificationSetting {
   channels: string[];
 }
 
-const AVAILABLE_CHANNELS = ['email', 'sms', 'push'] as const;
+const AVAILABLE_CHANNELS = ['email', 'sms', 'whatsapp'] as const;
 type Channel = (typeof AVAILABLE_CHANNELS)[number];
 
 /* -------------------------------------------------------------------------- */

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 
+import { COMMS_GAP_TEMPLATE_SEEDS } from './seed/comms-gap-templates';
 import { COVER_NOTIFICATION_TEMPLATE_SEEDS } from './seed/cover-notification-templates';
 import {
   DEV_TENANTS,
@@ -296,6 +297,42 @@ async function main() {
       }
     }
     console.log(`  ${COVER_NOTIFICATION_TEMPLATE_SEEDS.length} notification templates seeded.`);
+
+    // Step 3e: Seed comms-gap notification templates (Impl 12)
+    console.log('Seed: Step 3e — Comms gap templates (Impl 12)');
+    for (const tpl of COMMS_GAP_TEMPLATE_SEEDS) {
+      const existing = await prisma.notificationTemplate.findFirst({
+        where: {
+          tenant_id: null,
+          channel: tpl.channel as never,
+          template_key: tpl.template_key,
+          locale: tpl.locale,
+        },
+      });
+      if (existing) {
+        await prisma.notificationTemplate.update({
+          where: { id: existing.id },
+          data: {
+            subject_template: tpl.subject_template,
+            body_template: tpl.body_template,
+            is_system: true,
+          },
+        });
+      } else {
+        await prisma.notificationTemplate.create({
+          data: {
+            tenant_id: null,
+            channel: tpl.channel as never,
+            template_key: tpl.template_key,
+            locale: tpl.locale,
+            subject_template: tpl.subject_template,
+            body_template: tpl.body_template,
+            is_system: true,
+          },
+        });
+      }
+    }
+    console.log(`  ${COMMS_GAP_TEMPLATE_SEEDS.length} comms-gap notification templates seeded.`);
 
     // Step 4: Seed global system roles (tenant_id = null)
     console.log('Seed: Step 4 — Global system roles');

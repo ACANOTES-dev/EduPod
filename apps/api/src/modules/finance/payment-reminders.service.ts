@@ -212,10 +212,9 @@ export class PaymentRemindersService {
         }
 
         // Writing into the shared notifications table so DispatchQueuedProcessor
-        // picks it up. Using the service wrapper (NotificationsService.createBatch)
-        // would require a finance->communications module import and causes a
-        // circular dependency via the audit interceptor. Keeping direct access
-        // for this single write path.
+        // picks it up. Migrating to NotificationsService.createBatch() requires
+        // breaking the AdmissionsModule ↔ FinanceModule ↔ CommunicationsModule
+        // ↔ ClassesModule ↔ AdmissionsModule cycle (Impl 12 follow-up).
         // eslint-disable-next-line school/no-cross-module-prisma-access
         await this.prisma.notification.create({
           data: {

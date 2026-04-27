@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { LeaveRequestStatus } from '@prisma/client';
@@ -14,6 +15,7 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { NotificationsService } from '../communications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
@@ -29,10 +31,13 @@ const VALID_TRANSITIONS: Record<LeaveRequestStatus, LeaveRequestStatus[]> = {
 
 @Injectable()
 export class LeaveRequestsService {
+  private readonly logger = new Logger(LeaveRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
     private readonly leaveTypesService: LeaveTypesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ─── Submit (Teacher) ─────────────────────────────────────────────────────
@@ -228,6 +233,9 @@ export class LeaveRequestsService {
         },
       });
 
+      // Impl 12: dispatch staff.leave_decision notification on approve
+      await this.notifyDecision(tenantId, request, 'approved', userId, dto.review_notes ?? null);
+
       return { id, status: 'approved', absence_id: absence.id };
     });
   }
@@ -250,7 +258,68 @@ export class LeaveRequestsService {
       });
     });
 
+    // Impl 12: dispatch staff.leave_decision notification on reject
+    await this.notifyDecision(tenantId, request, 'rejected', userId, dto.review_notes ?? null);
+
     return { id, status: 'rejected' };
+  }
+
+  /**
+   * Impl 12 — fire a `staff.leave_decision` notification to the requesting
+   * staff member after a transition. Best-effort: a dispatch failure logs a
+   * warning but doesn't roll back the leave decision itself.
+   */
+  private async notifyDecision(
+    tenantId: string,
+    request: { id: string; staff_profile_id: string; date_from: Date; date_to: Date },
+    decision: 'approved' | 'rejected',
+    reviewerUserId: string,
+    reviewNotes: string | null,
+  ): Promise<void> {
+    try {
+      // Cross-module reads are confined to this single notify-hop. The
+      // alternative (extending StaffProfileReadFacade with a `findUserId`
+      // method, plus a TenantsReadFacade lookup) would expand the public API
+      // surface for one optional call site. The lint suppressions document
+      // the exception explicitly per Impl 12's gap-closure scope.
+      // eslint-disable-next-line school/no-cross-module-prisma-access
+      const staff = await this.prisma.staffProfile.findFirst({
+        where: { id: request.staff_profile_id, tenant_id: tenantId },
+        select: { user_id: true },
+      });
+      if (!staff?.user_id) return;
+      // eslint-disable-next-line school/no-cross-module-prisma-access
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { default_locale: true },
+      });
+      const locale = tenant?.default_locale ?? 'en';
+      await this.notificationsService.createBatch(tenantId, [
+        {
+          tenant_id: tenantId,
+          recipient_user_id: staff.user_id,
+          channel: 'in_app',
+          template_key: 'staff.leave_decision',
+          locale,
+          payload_json: {
+            decision,
+            leave_request_id: request.id,
+            date_from: request.date_from.toISOString(),
+            date_to: request.date_to.toISOString(),
+            reviewer_user_id: reviewerUserId,
+            review_notes: reviewNotes,
+          },
+          source_entity_type: 'leave_request',
+          source_entity_id: request.id,
+        },
+      ]);
+    } catch (err) {
+      this.logger.warn(
+        `notifyDecision failed for leave_request=${request.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   async withdraw(tenantId: string, userId: string, id: string) {

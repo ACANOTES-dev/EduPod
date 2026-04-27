@@ -23,7 +23,7 @@ import { apiClient } from '@/lib/api-client';
 interface CommunicationPreferences {
   email: boolean;
   sms: boolean;
-  push: boolean;
+  whatsapp: boolean;
   preferred_language: string;
 }
 
@@ -37,7 +37,7 @@ export default function CommunicationPreferencesPage() {
   const [prefs, setPrefs] = React.useState<CommunicationPreferences>({
     email: true,
     sms: false,
-    push: false,
+    whatsapp: false,
     preferred_language: 'en',
   });
   const [loading, setLoading] = React.useState(true);
@@ -57,6 +57,7 @@ export default function CommunicationPreferencesPage() {
             communication?: {
               email?: boolean;
               sms?: boolean;
+              whatsapp?: boolean;
               push?: boolean;
               preferred_language?: string;
             };
@@ -67,7 +68,9 @@ export default function CommunicationPreferencesPage() {
           setPrefs({
             email: comm.email ?? true,
             sms: comm.sms ?? false,
-            push: comm.push ?? false,
+            // Legacy 'push' was a typo; the backend dispatch never used it.
+            // Read 'whatsapp' first, fall back to legacy 'push' if present.
+            whatsapp: comm.whatsapp ?? comm.push ?? false,
             preferred_language: comm.preferred_language ?? 'en',
           });
         }
@@ -102,7 +105,7 @@ export default function CommunicationPreferencesPage() {
     }
   }
 
-  function toggle(field: keyof Pick<CommunicationPreferences, 'email' | 'sms' | 'push'>) {
+  function toggle(field: keyof Pick<CommunicationPreferences, 'email' | 'sms' | 'whatsapp'>) {
     setPrefs((prev) => ({ ...prev, [field]: !prev[field] }));
   }
 
@@ -161,19 +164,19 @@ export default function CommunicationPreferencesPage() {
           </div>
         </div>
 
-        {/* Push */}
+        {/* WhatsApp */}
         <div className="flex items-start gap-3">
           <Checkbox
-            id="comm-push"
-            checked={prefs.push}
-            onCheckedChange={() => toggle('push')}
+            id="comm-whatsapp"
+            checked={prefs.whatsapp}
+            onCheckedChange={() => toggle('whatsapp')}
             className="mt-0.5"
           />
           <div className="space-y-0.5">
-            <Label htmlFor="comm-push" className="text-sm font-medium cursor-pointer">
-              {t('communication.push')}
+            <Label htmlFor="comm-whatsapp" className="text-sm font-medium cursor-pointer">
+              {t('communication.whatsapp')}
             </Label>
-            <p className="text-xs text-text-tertiary">{t('communication.pushDescription')}</p>
+            <p className="text-xs text-text-tertiary">{t('communication.whatsappDescription')}</p>
           </div>
         </div>
 

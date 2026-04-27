@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { NotificationsService } from '../communications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
@@ -100,6 +101,10 @@ describe('LeaveRequestsService', () => {
               max_days_per_request: null,
             }),
           },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { createBatch: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

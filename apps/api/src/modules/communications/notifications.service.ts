@@ -13,7 +13,7 @@ interface ListNotificationsFilters {
   unread_only?: boolean;
 }
 
-interface CreateNotificationInput {
+export interface CreateNotificationInput {
   tenant_id: string;
   recipient_user_id: string;
   channel: string;

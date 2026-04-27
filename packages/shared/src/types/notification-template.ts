@@ -1,7 +1,7 @@
 export interface NotificationTemplate {
   id: string;
   tenant_id: string | null;
-  channel: 'email' | 'whatsapp' | 'in_app';
+  channel: 'email' | 'sms' | 'whatsapp' | 'in_app';
   template_key: string;
   locale: string;
   subject_template: string | null;

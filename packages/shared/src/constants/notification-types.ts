@@ -16,6 +16,15 @@ export const NOTIFICATION_TYPES = [
   'payroll.finalised',
   'payslip.generated',
   'parent.daily_digest',
+  // ─── Added by Impl 12 (Communications Overhaul gap closure) ────────────────
+  'auth.password_reset',
+  'auth.password_changed',
+  'trip.invitation',
+  'trip.payment_due',
+  'school.closure',
+  'staff.leave_decision',
+  'health.incident',
+  'sen.eha_update',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

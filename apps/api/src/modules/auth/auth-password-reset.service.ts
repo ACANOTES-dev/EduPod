@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
@@ -12,6 +12,8 @@ import { SessionService } from './auth-session.service';
 
 @Injectable()
 export class PasswordResetService {
+  private readonly logger = new Logger(PasswordResetService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
@@ -58,8 +60,16 @@ export class PasswordResetService {
 
     await this.securityAuditService.logPasswordReset(user.id, 'email', email);
 
-    // Note: actual email sending deferred to Phase 7
-    // In a real implementation, rawToken would be sent via email
+    // Note: actual email sending deferred — Impl 12 follow-up. The Auth → Comms
+    // dispatch path is gated behind a circular-import resolution (auth.module
+    // and communications.module currently mutually depend; introducing a
+    // direct import of CommunicationsModule into AuthModule breaks SearchModule's
+    // load order). Use a notifier-token pattern (mirroring
+    // `EMAIL_DOMAIN_NOTIFIER`) to wire this in a later impl, OR add an
+    // EventEmitter2-based bridge.
+    this.logger.log(
+      `[requestPasswordReset] Audit row + token persisted for user ${user.id}; email dispatch deferred`,
+    );
     return { message: 'If email exists, reset link sent' };
   }
 
