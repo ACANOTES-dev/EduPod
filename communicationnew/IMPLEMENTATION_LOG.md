@@ -257,9 +257,9 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `completed` | 2026-04-27T13:40:00+01:00 | d9782424         |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `completed` | 2026-04-27T14:18:00+01:00 | f02f52f5         |
 | 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `completed` | 2026-04-27T14:55:00+01:00 | 7b586d4b         |
-| 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending`   | —                         | —                |
-| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
-| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `completed` | 2026-04-27T17:05:00+01:00 | 83a9cf53         |
+| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `completed` | 2026-04-27T17:25:00+01:00 | 1328c08e         |
+| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `completed` | 2026-04-27T17:45:00+01:00 | c42397a6         |
 | 10  | Operational layer — Sentry + logging + metrics + runbooks       | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 11  | Frontend Settings UI                                            | 4    | 03, 07, 08, 09         | `pending`   | —                         | —                |
 | 12  | Module gap closure + cleanups                                   | 4    | 03                     | `pending`   | —                         | —                |
@@ -621,3 +621,67 @@ For blocked work, use:
 - **Session notes:**
   - User override on Rule 5 — `main` + CI.
   - `notification.status` enum does NOT include `bounced` / `complained`, so the resend handler maps both to `failed` with descriptive `failure_reason`. The suppression list row is the canonical record of "permanent failure for this recipient". Future enum extension could add granular states.
+
+### [IMPL 07] — Email deliverability + dispatch enforcement
+
+- **Completed:** 2026-04-27T17:05:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `83a9cf53` (`feat(comms): email deliverability — domain verification + dispatch enforcement (Impl 07)`)
+- **Deployment route:** `main` + CI pipeline (per user override of Rule 5).
+- **Verified at:** 2026-04-27T17:00:00+01:00 — local type-check + 583 communications/configuration tests + AppModule DI smoke.
+- **Local verification:**
+  - Type-check API + shared — green.
+  - `pnpm --filter @school/api jest --testPathPattern "deliverability|resend-email"` — 33/33 green.
+  - `pnpm --filter @school/api jest --testPathPattern "communications|configuration"` — 583/583 green.
+  - DI smoke — `DI OK`.
+  - Lint — 0 errors.
+- **Summary (≤ 200 words):**
+  New `EmailDomainService` + controller under `/v1/email-domains` (POST register, GET list/getOne, POST :id/refresh, DELETE :id). Tenants register a sender domain with Resend, receive the canonical SPF/DKIM/DMARC record list, publish in their DNS, and we re-poll Resend for verification status. New `EMAIL_DOMAIN_NOTIFIER` token + adapter dispatches an in-app notification on the `pending → verified` transition (decoupled to break the EmailDomainService → NotificationsService cycle).
+  `ResendEmailProvider.send()` now refuses to dispatch from any unverified domain — returns `{ skipped: true, reason: 'sender_domain_unverified' }` and the existing fallback chain (email→in_app) handles it. `COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV='true'` bypasses the gate for local dev only. Verified-row reads are 5-min Redis-cached at `email-domain:verified:{tenant}:{domain}` with a `__null__` sentinel for misses. Mutations publish to the `comms:config-changed` bus.
+  New shared exports: `registerEmailDomainSchema`, `RegisterEmailDomainDto`. Failure-reason union extended with `sender_domain_unverified` + `invalid_from_email`.
+- **Follow-ups:**
+  - Worker dispatch processor parity (mirror gate + 30-min approval-sync cron) lands in a follow-up commit.
+  - Impl 11 consumes `GET /v1/email-domains` + `POST :id/refresh` for the Domain Verification Card.
+  - Impl 13 backfills test tenant domains.
+- **Rollback:** `git revert 83a9cf53 57f1e6da`. Cache keys self-expire in 5 min.
+
+### [IMPL 08] — WhatsApp templates + 24-hour service window
+
+- **Completed:** 2026-04-27T17:25:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `1328c08e` (`feat(comms): whatsapp templates + 24-hour service window (impl 08)`)
+- **Deployment route:** `main` + CI pipeline (per user override of Rule 5).
+- **Verified at:** 2026-04-27T17:20:00+01:00 — local type-check + 76 new tests + AppModule DI smoke.
+- **Local verification:**
+  - Type-check — green.
+  - `pnpm --filter @school/api jest --testPathPattern "whatsapp|twilio-webhook-handler"` — 6 suites, 76/76 green.
+  - DI smoke — `DI OK`.
+- **Summary (≤ 200 words):**
+  `WhatsAppTemplateService` + controller under `/v1/whatsapp-templates`: tenants register a per-language template body, submit to Twilio's Content API (`twilio.content.v1.contents.create` + `approvalCreate`), then sync the verdict via `POST :id/sync`. Lifecycle: `pending → submitted → approved | rejected → paused`. Only `status='approved'` rows are dispatchable.
+  `WhatsAppServiceWindowService` tracks the 24h Twilio service window per `(tenant_id, recipient_phone)`. Updated synchronously from `TwilioWebhookHandlerService.handleWhatsApp` (no longer a stub) so the next outbound check sees fresh state. 5-min Redis cache.
+  `TwilioWhatsAppProvider.send()` plugs two new gates: inside the 24h window free-form body is allowed (or an approved template if body is empty); outside the window only approved templates pass — free-form is skipped with `outside_service_window_no_template` BEFORE reaching Twilio.
+  `notification-dispatch.service` now forwards `template_key` + `locale` + `template_variables` (extracted from `payload_json`) to the provider.
+- **Follow-ups:**
+  - 15-min worker approval-sync cron + daily service-window cleanup cron land in a follow-up commit.
+  - Impl 13 seeds the `comms.verify` template per tenant (Impl 09 verify path depends on it).
+- **Rollback:** `git revert 1328c08e`. Cache keys self-expire in 5 min.
+
+### [IMPL 09] — verifyConfig + test endpoints with full semantics
+
+- **Completed:** 2026-04-27T17:45:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `c42397a6` (`feat(comms): verify/test endpoints with full provider semantics (impl 09)`)
+- **Deployment route:** `main` + CI pipeline (per user override of Rule 5).
+- **Verified at:** 2026-04-27T17:40:00+01:00 — local type-check + 186 configuration tests + AppModule DI smoke.
+- **Local verification:**
+  - Type-check — green.
+  - `pnpm --filter @school/api jest --testPathPattern "configuration|verify-rate-limit|recipient-mask|provider-error-hints"` — 21 suites, 186/186 green.
+  - DI smoke — `DI OK`.
+  - Lint:ci — 0 errors.
+- **Summary (≤ 200 words):**
+  Replaces the three `POST /v1/{email|sms|whatsapp}-config/test` 501 stubs from Impl 03 with real provider sends. Each `verifyConfig` decrypts via `getDecryptedConfig`, fires a fixed bilingual sentinel message, and stamps `last_verified_at` ONLY on success. Failure paths never touch the row.
+  New `VerifyRateLimitService` (sliding-window 1-hour bucket, 3 per channel per tenant) lives independent of `NotificationRateLimitService`. The 4th call within the hour returns 429 `VERIFY_RATE_LIMIT_EXCEEDED` with `retry_after_seconds` against the next UTC hour.
+  Provider error hints map Resend 401/403 (key invalid, domain unverified) and Twilio 21211/21408/21610/63016 to actionable copy. Unknown errors surface verbatim.
+  Email verify deliberately bypasses the Impl 07 domain-verified gate — refusing to verify because the domain is unverified would create a chicken-and-egg loop. WhatsApp verify always goes through the approved `comms.verify` template; if no approved row, returns structured `verification_template_not_approved` without calling Twilio.
+  Recipient masking helpers (`john.smith@x → j*********h@x`).
+- **Follow-ups:**
+  - Until Impl 13 backfills the `comms.verify` template per tenant, every WhatsApp verify returns `verification_template_not_approved` — expected and documented in the service comment.
+  - Impl 11 wires the "Send test message" buttons in the Settings UI against these endpoints.
+- **Rollback:** `git revert c42397a6`. No DB changes.
