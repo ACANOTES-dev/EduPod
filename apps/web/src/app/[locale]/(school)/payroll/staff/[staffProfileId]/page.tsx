@@ -72,12 +72,15 @@ export default function StaffPaymentHistoryPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-      // Wave 3 added `/payroll/staff/:id/history` as an alias of
-      // `/payroll/reports/staff/:id/history`. Either resolves.
+      // Wave 3 alias: `/payroll/reports/staff-history/:staffProfileId`
+      // (the canonical endpoint is `/payroll/reports/staff/:id/history` —
+      // both are wired in PayrollEnhancedController). The flat
+      // `/payroll/staff/:id/history` was attempted in Wave 4 but never
+      // shipped on the backend.
       const res = await apiClient<{
         data: PaymentEntry[];
         meta: { total: number };
-      }>(`/api/v1/payroll/staff/${staffProfileId}/history?${params.toString()}`, {
+      }>(`/api/v1/payroll/reports/staff-history/${staffProfileId}?${params.toString()}`, {
         silent: true,
       });
       setData(res.data);

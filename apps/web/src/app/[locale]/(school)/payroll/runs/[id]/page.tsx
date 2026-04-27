@@ -167,7 +167,7 @@ export default function RunDetailPage() {
               `/api/v1/payroll/runs/${runId}/allowances`,
               { silent: true },
             );
-            setAllowances(res.data);
+            setAllowances(Array.isArray(res.data) ? res.data : []);
             break;
           }
           case 'adjustments': {
@@ -175,7 +175,7 @@ export default function RunDetailPage() {
               `/api/v1/payroll/runs/${runId}/adjustments`,
               { silent: true },
             );
-            setAdjustments(res.data);
+            setAdjustments(Array.isArray(res.data) ? res.data : []);
             break;
           }
           case 'anomalies': {
@@ -183,15 +183,19 @@ export default function RunDetailPage() {
               `/api/v1/payroll/runs/${runId}/anomalies`,
               { silent: true },
             );
-            setAnomalies(res.anomalies);
+            setAnomalies(Array.isArray(res.anomalies) ? res.anomalies : []);
             break;
           }
           case 'comparison': {
-            const res = await apiClient<{ data: ComparisonEntry[] }>(
+            // Wave 3 backend currently returns an aggregate summary
+            // ({ this_run, prior_run, deltas }); the per-staff array shape
+            // this UI expects is a follow-up. Until that lands, gracefully
+            // degrade to "no previous run for comparison" rather than crash.
+            const res = await apiClient<{ data?: ComparisonEntry[] } & Record<string, unknown>>(
               `/api/v1/payroll/runs/${runId}/comparison`,
               { silent: true },
             );
-            setComparison(res.data);
+            setComparison(Array.isArray(res.data) ? res.data : []);
             break;
           }
           default:
