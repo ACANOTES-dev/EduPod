@@ -111,6 +111,25 @@ function renderSubject(
 
 const SMS_MAX_LENGTH = 1600;
 
+// ─── Closed-vocab failure reasons (mirrored from @school/shared) ─────────────
+
+const FAILURE_CHANNEL_NOT_CONFIGURED = 'channel_not_configured';
+const FAILURE_CHANNEL_DISABLED = 'channel_disabled';
+
+/**
+ * Returns the canonical Impl-05 administrative-skip failure_reason, or
+ * null if dispatch should proceed. Encapsulates the two-step
+ * "config exists?" + "config enabled?" check so per-channel dispatch
+ * methods stay below their cyclomatic-complexity budgets.
+ */
+function administrativeSkipReason(
+  creds: { is_enabled: boolean } | null,
+): typeof FAILURE_CHANNEL_NOT_CONFIGURED | typeof FAILURE_CHANNEL_DISABLED | null {
+  if (!creds) return FAILURE_CHANNEL_NOT_CONFIGURED;
+  if (!creds.is_enabled) return FAILURE_CHANNEL_DISABLED;
+  return null;
+}
+
 // ─── Fallback chain ──────────────────────────────────────────────────────────
 
 const FALLBACK_CHAIN: Record<string, NotificationChannel | null> = {
@@ -216,6 +235,20 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
   private async resolveWhatsApp(tenantId: string): Promise<DecryptedWhatsAppCreds | null> {
     return getWhatsAppCreds(this.prisma, this.configService, tenantId);
+  }
+
+  /**
+   * Returns a cached Resend client for the tenant, creating it on first use.
+   * Per-execution cache is sufficient — the API publishes config-changed
+   * events; the next batch will instantiate fresh clients on cache miss.
+   */
+  private getOrCreateResendClient(tenantId: string, apiKey: string): Resend {
+    let resend = this.tenantResendClients.get(tenantId);
+    if (!resend) {
+      resend = new Resend(apiKey);
+      this.tenantResendClients.set(tenantId, resend);
+    }
+    return resend;
   }
 
   // ─── Override execute() to split DB reads from external HTTP calls ────
@@ -373,32 +406,24 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Resolve per-tenant Resend creds (Impl 05: no .env fallback)
     const creds = await this.resolveEmail(notification.tenant_id);
-    if (!creds) {
-      await this.markFailed(notification, 'channel_not_configured');
-      await this.createFallbackNotification(notification, 'in_app');
-      return;
-    }
-    if (!creds.is_enabled) {
-      await this.markFailed(notification, 'channel_disabled');
+    const adminSkipReason = administrativeSkipReason(creds);
+    if (adminSkipReason) {
+      await this.markFailed(notification, adminSkipReason);
       await this.createFallbackNotification(notification, 'in_app');
       return;
     }
 
-    let resend = this.tenantResendClients.get(notification.tenant_id);
-    if (!resend) {
-      resend = new Resend(creds.resend_api_key);
-      this.tenantResendClients.set(notification.tenant_id, resend);
-    }
-    const defaultFrom = creds.from_name
-      ? `${creds.from_name} <${creds.from_email}>`
-      : creds.from_email;
+    const resend = this.getOrCreateResendClient(notification.tenant_id, creds!.resend_api_key);
+    const defaultFrom = creds!.from_name
+      ? `${creds!.from_name} <${creds!.from_email}>`
+      : creds!.from_email;
 
     const { data: sendData, error } = await resend.emails.send({
       from: defaultFrom,
       to: [email],
       subject: renderedSubject ?? 'Notification',
       html: renderedBody,
-      ...(creds.reply_to_email ? { reply_to: creds.reply_to_email } : {}),
+      ...(creds!.reply_to_email ? { reply_to: creds!.reply_to_email } : {}),
       tags: [
         { name: 'notification_id', value: notification.id },
         { name: 'template_key', value: notification.template_key ?? 'default' },
@@ -476,23 +501,19 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Resolve per-tenant Twilio WhatsApp creds (Impl 05: no .env fallback)
     const creds = await this.resolveWhatsApp(notification.tenant_id);
-    if (!creds) {
-      await this.markFailed(notification, 'channel_not_configured');
-      await this.createFallbackNotification(notification, 'sms');
-      return;
-    }
-    if (!creds.is_enabled) {
-      await this.markFailed(notification, 'channel_disabled');
+    const adminSkipReason = administrativeSkipReason(creds);
+    if (adminSkipReason) {
+      await this.markFailed(notification, adminSkipReason);
       await this.createFallbackNotification(notification, 'sms');
       return;
     }
 
     let client = this.tenantTwilioClients.get(`wa:${notification.tenant_id}`);
     if (!client) {
-      client = twilio(creds.twilio_account_sid, creds.twilio_auth_token);
+      client = twilio(creds!.twilio_account_sid, creds!.twilio_auth_token);
       this.tenantTwilioClients.set(`wa:${notification.tenant_id}`, client);
     }
-    const whatsappFrom = creds.twilio_whatsapp_from_number;
+    const whatsappFrom = creds!.twilio_whatsapp_from_number;
 
     const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
     const from = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
@@ -574,23 +595,19 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Resolve per-tenant Twilio SMS creds (Impl 05: no .env fallback)
     const creds = await this.resolveSms(notification.tenant_id);
-    if (!creds) {
-      await this.markFailed(notification, 'channel_not_configured');
-      await this.createFallbackNotification(notification, 'email');
-      return;
-    }
-    if (!creds.is_enabled) {
-      await this.markFailed(notification, 'channel_disabled');
+    const adminSkipReason = administrativeSkipReason(creds);
+    if (adminSkipReason) {
+      await this.markFailed(notification, adminSkipReason);
       await this.createFallbackNotification(notification, 'email');
       return;
     }
 
     let client = this.tenantTwilioClients.get(`sms:${notification.tenant_id}`);
     if (!client) {
-      client = twilio(creds.twilio_account_sid, creds.twilio_auth_token);
+      client = twilio(creds!.twilio_account_sid, creds!.twilio_auth_token);
       this.tenantTwilioClients.set(`sms:${notification.tenant_id}`, client);
     }
-    const smsFrom = creds.twilio_from_number;
+    const smsFrom = creds!.twilio_from_number;
 
     const message = await client.messages.create({
       body: strippedBody,

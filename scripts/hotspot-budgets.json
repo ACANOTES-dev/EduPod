@@ -265,8 +265,8 @@
       "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion. Bumped 988 → 1050 by the modeling rebuild (impls 08 + 11) for budgeting:variance-refresh-bootstrap and budgeting:shareable-link-cleanup cron registrations."
     },
     "apps/worker/src/processors/communications/dispatch-notifications.processor.ts": {
-      "max": 778,
-      "reason": "Multi-channel notification dispatch with per-channel formatting across 728 lines"
+      "max": 850,
+      "reason": "Multi-channel notification dispatch with per-channel formatting; bumped 778 → 850 by Impl 05 of the comms overhaul (per-tenant credential resolution + administrative-skip helper + per-tenant client cache replaces the legacy env-fallback initialisers)."
     },
     "apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx": {
       "max": 1011,
