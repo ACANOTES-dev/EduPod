@@ -103,7 +103,11 @@ export default function StaffPaymentHistoryPage() {
       return;
     }
     try {
-      await downloadAuthenticatedPdf(`/api/v1/payroll/payslips/${payslipId}/pdf`);
+      // Pass the user's current UI locale so the rendered PDF matches
+      // the language they see in the browser (Wave 5 fix).
+      await downloadAuthenticatedPdf(
+        `/api/v1/payroll/payslips/${payslipId}/pdf?locale=${encodeURIComponent(locale)}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : t('payslipDownloadFailed');
       toast.error(message);

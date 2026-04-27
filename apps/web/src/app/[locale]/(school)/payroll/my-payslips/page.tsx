@@ -131,7 +131,12 @@ export default function MyPayslipsPage() {
     setDownloadingId(payslipId);
     try {
       // Wave 3 endpoint: scoped to the calling user's own payslip.
-      await downloadAuthenticatedPdf(`/api/v1/payroll/my-payslips/${payslipId}/pdf`);
+      // Pass the user's current UI locale so the rendered PDF matches the
+      // language they see in the browser (Wave 5 fix — controller honours
+      // ?locale= and falls back to payslip.template_locale otherwise).
+      await downloadAuthenticatedPdf(
+        `/api/v1/payroll/my-payslips/${payslipId}/pdf?locale=${encodeURIComponent(locale)}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : t('payslipDownloadFailed');
       toast.error(message);
