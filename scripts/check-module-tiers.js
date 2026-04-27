@@ -108,6 +108,11 @@ const WHITELISTED_VIOLATIONS = [
   // T2 → T3 (cross-cutting modules needing domain context)
   { importer: 'auth', imported: 'tenants' },
   { importer: 'approvals', imported: 'rbac' },
+  // configuration → communications (CommsCacheBusModule only — Impl 04 of comms overhaul):
+  // The cache-bus module is a tiny Tier-3 utility owned by communications; the three
+  // *ConfigService classes in configuration must publish to it after credential mutations.
+  // The cache-bus module imports nothing from configuration → no cycle.
+  { importer: 'configuration', imported: 'communications' },
   { importer: 'search', imported: 'admissions' },
   { importer: 'search', imported: 'staff-profiles' },
   { importer: 'search', imported: 'students' },
