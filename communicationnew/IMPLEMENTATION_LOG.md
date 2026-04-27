@@ -253,7 +253,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | --- | --------------------------------------------------------------- | ---- | ---------------------- | ----------- | ------------------------- | ---------------- |
 | 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `completed` | 2026-04-27T08:15:00+01:00 | ac342ee8         |
 | 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | c74d92c9         |
-| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending`   | —                         | —                |
+| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `completed` | 2026-04-27T09:55:00+01:00 | e22ea549         |
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
 | 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending`   | —                         | —                |
@@ -418,3 +418,61 @@ For blocked work, use:
     handled gracefully with a `[skip]` warning per missing slug. Production
     has the same allowlist — the prod backfill will cover whatever subset
     of test tenants exists there.
+  - **Production backfill applied 2026-04-27T08:55:00+01:00:** ran
+    `sync-missing-permissions.ts` (2 created, 205 updated) and
+    `backfill:comms-permissions` against `localhost:5432/school_platformedupod_prod`.
+    Result: 20 grants added (5 tenants × 2 roles × 2 permissions, modulo
+    8 already-present rows on Owner platform-level slot). Re-run idempotency
+    not exercised against prod but proven on dev.
+
+### [IMPL 03] — Zod schemas + 3 services + 3 controllers + tests
+
+- **Completed:** 2026-04-27T09:55:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `e22ea549` (`feat(comms): add 3 credential services + controllers + Zod schemas (Impl 03)`)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5).
+- **Verified at:** 2026-04-27T09:55:00+01:00 on local dev DB and via unit/integration test suite.
+- **Local verification:**
+  - `pnpm --filter @school/shared type-check` — green.
+  - `pnpm --filter @school/api type-check` — green.
+  - AppModule DI smoke — `DI OK`.
+  - `pnpm --filter @school/api test --testPathPattern='configuration'` — 15 suites, 155/155 tests green (no regression in existing `stripe-config.service.spec.ts`, `encryption.service.spec.ts`, `branding.*.spec.ts`, etc.).
+  - `pnpm --filter @school/api test --testPathPattern='(email|sms|whatsapp)-config|comms-architecture'` — 4 suites, 27/27 new tests green.
+  - Architecture invariants spec confirms none of the three controllers references `getDecryptedConfig` or `Decrypted*Config` types — security regression guard in place.
+- **Summary (≤ 200 words):**
+  Built the API surface for the three new tenant credential tables. New
+  `packages/shared/src/schemas/communication-config.schema.ts` exports
+  `upsertEmailConfigSchema`, `upsertSmsConfigSchema`,
+  `upsertWhatsAppConfigSchema` (Resend `re_` prefix refine, Twilio `AC`
+  prefix refine, E.164 regex on phone numbers, ≥8-char webhook secret) plus
+  `testEmailSchema`, `testSmsSchema`, `testWhatsAppSchema` for the 501-stub
+  `POST :test` endpoints. New `packages/shared/src/types/communication-config.ts`
+  exports `Masked{Email,Sms,WhatsApp}Config` (returned by controllers) and
+  internal-only `Decrypted{Email,Sms,WhatsApp}Config` (for Impl 04 dispatch).
+  New `apps/api/src/modules/configuration/comms-cache-bus.stub.ts` provides
+  the `COMMS_CACHE_BUS` DI token + `CommsCacheBusStub` no-op (Impl 04 swaps
+  `useClass`). Three services mirror `StripeConfigService` exactly: CRUD via
+  `createRlsClient(...).$transaction()`, `getDecryptedConfig` for service-
+  internal consumption, `verifyConfig` returning a 501 stub. Three thin
+  controllers under `/v1/{email,sms,whatsapp}-config`, all gated by
+  `configuration.communications.manage` at the class level. Every mutation
+  publishes the cache-bus event with the correct channel. The architecture-
+  invariant spec ensures `getDecryptedConfig` never leaks via a controller.
+- **Follow-ups:**
+  - **Impl 04** swaps the cache-bus stub for a Redis pub/sub implementation
+    on channel `comms:config-changed`; the DI token + signature stay.
+  - **Impl 09** replaces the 501 `verifyConfig` and `POST :test` stubs with
+    real Resend / Twilio sends and the rate-limit bucket.
+  - **Impl 11** consumes the `Masked*Config` shapes for the Settings UI.
+  - The `_mask` field naming (vs. `_masked` on `MaskedStripeConfig`) is
+    intentional — the newer convention is more consistent. Impl 11 reads
+    `resend_api_key_mask`, not `_masked`.
+- **Rollback:**
+  - `git revert e22ea549` undoes the schemas, types, services, controllers,
+    cache-bus stub, module wiring, and all 4 new spec files.
+  - No data, no migration, no environment variables, no worker job changes
+    to roll back. Configuration tables created by Impl 01 stay untouched.
+- **Session notes:**
+  - User override on Rule 5 — working on `main`, CI deploys the code; no
+    production cutover script required for this impl (no DB writes).
+  - Production smoke is curl-based — the new endpoints land on production
+    once CI completes.
