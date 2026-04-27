@@ -254,7 +254,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `completed` | 2026-04-27T08:15:00+01:00 | ac342ee8         |
 | 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | c74d92c9         |
 | 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `completed` | 2026-04-27T09:55:00+01:00 | e22ea549         |
-| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending`   | —                         | —                |
+| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `completed` | 2026-04-27T13:40:00+01:00 | d9782424         |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
 | 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending`   | —                         | —                |
@@ -476,3 +476,53 @@ For blocked work, use:
     production cutover script required for this impl (no DB writes).
   - Production smoke is curl-based — the new endpoints land on production
     once CI completes.
+
+### [IMPL 04] — Provider refactor + per-tenant client cache + Redis pub/sub
+
+- **Completed:** 2026-04-27T13:40:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `d9782424` (`feat(comms): per-tenant provider credentials + Redis pub/sub cache invalidation`)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5).
+- **Verified at:** 2026-04-27T13:40:00+01:00 — local type-check + lint + 347 communications tests + AppModule DI smoke.
+- **Local verification:**
+  - `NODE_OPTIONS="--max-old-space-size=12288" pnpm turbo run type-check --filter=@school/api` — green.
+  - `NODE_OPTIONS="--max-old-space-size=12288" pnpm turbo run lint --filter=@school/api` — 0 errors (1041 pre-existing warnings, none introduced by this impl).
+  - `pnpm --filter @school/api exec jest --testPathPattern "providers|cache-bus"` — 20 suites, 92/92 green.
+  - `pnpm --filter @school/api exec jest --testPathPattern "communications"` — 22 suites, 347/347 green (no dispatch regression).
+  - `pnpm --filter @school/api exec jest --testPathPattern "configuration"` — 15 suites, 155/155 green (cache-bus stub still works in tests).
+  - AppModule DI smoke — `DI OK` — confirms `CommsCacheBusModule` wires cleanly into both `ConfigurationModule` and `CommunicationsModule` without a cycle.
+- **Summary (≤ 200 words):**
+  Refactored the three communication providers (`ResendEmailProvider`,
+  `TwilioSmsProvider`, `TwilioWhatsAppProvider`) to resolve credentials
+  per-tenant via the Impl 03 config services, then keep the resulting
+  SDK client in a per-tenant LRU+TTL cache (max 1000 tenants, 30-min
+  idle) — `apps/api/src/modules/communications/providers/per-tenant-client-cache.ts`.
+  New `CommsCacheBusService` (real Redis pub/sub on `comms:config-changed`)
+  replaces the Impl 03 no-op stub for production wiring; the stub
+  contract + DI token stay so unit tests still inject `jest.fn()` mocks.
+  Cycle break: tiny new `CommsCacheBusModule` lives in
+  `communications/cache-bus.module.ts` and is imported by both
+  `ConfigurationModule` (publishes after credential mutations) and
+  `CommunicationsModule` (subscribes via providers). New shared constants
+  (`COMMS_CACHE_BUS_CHANNEL`, `COMMS_PROVIDER_CHANNELS`,
+  `CommsCacheBusEvent`) live in `packages/shared/src/constants/communications.ts`.
+  `notification-dispatch.service.ts` now passes `notification.tenant_id`
+  as the first arg to all three providers. `.env` fallback paths are
+  preserved with a deprecation warning — Impl 05 deletes them.
+- **Follow-ups:**
+  - **Impl 05** deletes the `.env` fallback branches on all three providers, deletes
+    `RESEND_API_KEY` / `RESEND_FROM_EMAIL` / `TWILIO_*` from env validation, and
+    refactors the worker dispatch processor to delegate to these API providers.
+  - **Impl 05** also adds `IsEnabledCacheService` for mid-flight `is_enabled`
+    enforcement, sharing this impl's pub/sub channel for invalidation.
+  - The worker process does NOT yet subscribe to `comms:config-changed` — Impl 05
+    wires that during the worker parity refactor.
+- **Rollback:**
+  - `git revert d9782424` reverts the entire impl. Restart API + worker (no
+    long-running cache state survives a process restart, so no manual flush).
+  - No DB or schema changes. The cache-bus channel name persists in Redis
+    after revert but nothing publishes to it; subscribers (now removed) are gone.
+- **Session notes:**
+  - User override on Rule 5 — working on `main`, deploys via CI pipeline.
+  - Impl 04 is deliberately scoped API-only. The worker still uses its
+    self-contained Resend/Twilio clients in `dispatch-notifications.processor.ts`;
+    Impl 05 consolidates worker + API onto the same provider classes.
