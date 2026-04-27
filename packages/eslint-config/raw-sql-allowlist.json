@@ -462,6 +462,12 @@
       "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
       "category": "backfill-script",
       "reason": "One-shot operational backfill (engagement-fix Impl 05, 2026-04-26): idempotent INSERT ... ON CONFLICT DO NOTHING to grant parent.view_engagement and parent.manage_engagement to the parent role at every tenant. Cross-tenant scan via $queryRaw, per-tenant set_config for RLS context via $executeRawUnsafe, role-permission insert via $executeRaw inside the per-tenant transaction. Runs manually against prod; not in request path."
+    },
+    {
+      "file": "packages/prisma/scripts/backfill-communications-permissions.ts",
+      "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
+      "category": "backfill-script",
+      "reason": "One-shot operational backfill (Communications Overhaul Impl 02, 2026-04-27): idempotent INSERT ... ON CONFLICT DO NOTHING to grant configuration.communications.view and configuration.communications.manage to school_owner + school_principal roles on the 5 known test tenants (NHQS + stress-a/b/c/d). Cross-tenant scan via $queryRaw (slug-keyed), per-tenant set_config for RLS context via $executeRawUnsafe, role-permission insert via $executeRaw inside the per-tenant transaction. Runs manually against prod; not in request path."
     }
   ]
 }
