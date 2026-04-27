@@ -314,15 +314,15 @@ describe('payroll_deduction_applications — RLS leakage (database layer)', () =
   // own rows even though the test role has the same broad GRANT as Tenant B.
   // If FORCE were missing, the table owner (the postgres role Prisma connects
   // as) would bypass policies and the count would include both tenants.
-  it('FORCE ROW LEVEL SECURITY is honoured (rowsecurity + relforcerowsecurity = t)', async () => {
+  it('FORCE ROW LEVEL SECURITY is honoured (relrowsecurity + relforcerowsecurity = t)', async () => {
     const rows = await prisma.$queryRawUnsafe<
-      Array<{ rowsecurity: boolean; relforcerowsecurity: boolean }>
+      Array<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>
     >(
-      `SELECT rowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'payroll_deduction_applications'`,
+      `SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'payroll_deduction_applications'`,
     );
 
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.rowsecurity).toBe(true);
+    expect(rows[0]!.relrowsecurity).toBe(true);
     expect(rows[0]!.relforcerowsecurity).toBe(true);
   });
 
