@@ -17,6 +17,7 @@ import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 interface PayslipFilters {
   page: number;
@@ -37,6 +38,7 @@ export class PayslipsService {
     private readonly redisService: RedisService,
     private readonly encryptionService: EncryptionService,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
   ) {}
 
@@ -341,13 +343,32 @@ export class PayslipsService {
       });
     }
 
-    const snapshot = payslip.snapshot_payload_json as unknown as PayslipSnapshotPayload;
+    const snapshot = payslip.snapshot_payload_json as unknown as PayslipSnapshotPayload & {
+      school?: { name?: string; name_ar?: string | null; logo_url?: string | null };
+    };
     const renderLocale = locale ?? payslip.template_locale;
 
+    // Wave 2 unified snapshot dropped the embedded `school` block — branding
+    // now lives on `tenant_branding`. Pre-rebuild payslips still carry
+    // `snapshot.school` so we fall back to it for backward compatibility.
+    let schoolName: string | undefined = snapshot.school?.name;
+    let schoolNameAr: string | null | undefined = snapshot.school?.name_ar;
+    let logoUrl: string | null | undefined = snapshot.school?.logo_url;
+
+    if (!schoolName) {
+      const [tenantName, tenantBranding] = await Promise.all([
+        this.tenantReadFacade.findNameById(tenantId),
+        this.tenantReadFacade.findBranding(tenantId),
+      ]);
+      schoolName = tenantBranding?.school_name_display ?? tenantName ?? '';
+      schoolNameAr = tenantBranding?.school_name_ar ?? null;
+      logoUrl = tenantBranding?.logo_url ?? null;
+    }
+
     const branding: PdfBranding = {
-      school_name: snapshot.school.name,
-      school_name_ar: snapshot.school.name_ar ?? undefined,
-      logo_url: snapshot.school.logo_url ?? undefined,
+      school_name: schoolName ?? '',
+      school_name_ar: schoolNameAr ?? undefined,
+      logo_url: logoUrl ?? undefined,
     };
 
     return this.pdfRenderingService.renderPdf('payslip', renderLocale, snapshot, branding);

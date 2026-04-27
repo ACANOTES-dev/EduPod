@@ -7,6 +7,7 @@ import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { PayslipsService } from './payslips.service';
 
@@ -43,6 +44,15 @@ describe('PayslipsService', () => {
     findByUserId: jest.fn(),
   };
 
+  const mockTenantReadFacade = {
+    findNameById: jest.fn().mockResolvedValue('Test School'),
+    findBranding: jest.fn().mockResolvedValue({
+      logo_url: null,
+      school_name_display: null,
+      school_name_ar: null,
+    }),
+  };
+
   const mockPdfRenderingService = {
     renderPdf: jest.fn(),
   };
@@ -75,6 +85,7 @@ describe('PayslipsService', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: EncryptionService, useValue: mockEncryptionService },
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
         { provide: getQueueToken('payroll'), useValue: mockPayrollQueue },
       ],
     }).compile();
