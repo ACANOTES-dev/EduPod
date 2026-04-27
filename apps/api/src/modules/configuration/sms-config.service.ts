@@ -1,0 +1,196 @@
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
+import type { DecryptedSmsConfig, MaskedSmsConfig, UpsertSmsConfigDto } from '@school/shared';
+
+import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PrismaService } from '../prisma/prisma.service';
+
+import { COMMS_CACHE_BUS, type CommsCacheBus } from './comms-cache-bus.stub';
+import { EncryptionService } from './encryption.service';
+
+@Injectable()
+export class SmsConfigService {
+  private readonly logger = new Logger(SmsConfigService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryption: EncryptionService,
+    @Inject(COMMS_CACHE_BUS) private readonly cacheBus: CommsCacheBus,
+  ) {}
+
+  async getConfig(tenantId: string): Promise<MaskedSmsConfig> {
+    const config = await this.prisma.tenantSmsConfig.findUnique({
+      where: { tenant_id: tenantId },
+    });
+    if (!config) {
+      throw new NotFoundException({
+        code: 'SMS_CONFIG_NOT_FOUND',
+        message: 'SMS configuration not found for this tenant',
+      });
+    }
+    return this.toMasked(config);
+  }
+
+  async upsertConfig(
+    tenantId: string,
+    userId: string,
+    dto: UpsertSmsConfigDto,
+  ): Promise<MaskedSmsConfig> {
+    const { encrypted: sidEncrypted, keyRef } = this.encryption.encrypt(dto.twilio_account_sid);
+    const { encrypted: tokenEncrypted } = this.encryption.encrypt(dto.twilio_auth_token);
+    const { encrypted: webhookSecretEncrypted } = this.encryption.encrypt(dto.webhook_secret);
+
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
+    const persisted = await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      return txdb.tenantSmsConfig.upsert({
+        where: { tenant_id: tenantId },
+        update: {
+          twilio_account_sid_encrypted: sidEncrypted,
+          twilio_auth_token_encrypted: tokenEncrypted,
+          twilio_from_number: dto.twilio_from_number,
+          webhook_secret_encrypted: webhookSecretEncrypted,
+          encryption_key_ref: keyRef,
+          key_last_rotated_at: new Date(),
+        },
+        create: {
+          tenant_id: tenantId,
+          twilio_account_sid_encrypted: sidEncrypted,
+          twilio_auth_token_encrypted: tokenEncrypted,
+          twilio_from_number: dto.twilio_from_number,
+          webhook_secret_encrypted: webhookSecretEncrypted,
+          encryption_key_ref: keyRef,
+          is_enabled: true,
+          created_by_user_id: userId,
+        },
+      });
+    });
+
+    await this.cacheBus.publishConfigChanged(tenantId, 'sms');
+    return this.composeMaskedFromDto(persisted, dto);
+  }
+
+  async deleteConfig(tenantId: string, userId: string): Promise<{ id: string }> {
+    const existing = await this.prisma.tenantSmsConfig.findUnique({
+      where: { tenant_id: tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'SMS_CONFIG_NOT_FOUND',
+        message: 'SMS configuration not found for this tenant',
+      });
+    }
+
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
+    await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      await txdb.tenantSmsConfig.delete({ where: { id: existing.id } });
+    });
+
+    await this.cacheBus.publishConfigChanged(tenantId, 'sms');
+    this.logger.log(`SMS config deleted for tenant ${tenantId}`);
+    return { id: existing.id };
+  }
+
+  // INTERNAL ONLY — never exposed via controller.
+  async getDecryptedConfig(tenantId: string): Promise<DecryptedSmsConfig | null> {
+    const config = await this.prisma.tenantSmsConfig.findUnique({
+      where: { tenant_id: tenantId },
+    });
+    if (!config) return null;
+
+    return {
+      id: config.id,
+      tenant_id: config.tenant_id,
+      twilio_account_sid: this.encryption.decrypt(
+        config.twilio_account_sid_encrypted,
+        config.encryption_key_ref,
+      ),
+      twilio_auth_token: this.encryption.decrypt(
+        config.twilio_auth_token_encrypted,
+        config.encryption_key_ref,
+      ),
+      twilio_from_number: config.twilio_from_number,
+      webhook_secret: config.webhook_secret_encrypted
+        ? this.encryption.decrypt(config.webhook_secret_encrypted, config.encryption_key_ref)
+        : '',
+      is_enabled: config.is_enabled,
+      encryption_key_ref: config.encryption_key_ref,
+    };
+  }
+
+  async verifyConfig(_tenantId: string, _recipient: string): Promise<never> {
+    throw new NotFoundException({
+      code: 'SMS_VERIFY_NOT_IMPLEMENTED',
+      message: 'SMS verify endpoint is implemented in Implementation 09',
+    });
+  }
+
+  private toMasked(row: {
+    id: string;
+    tenant_id: string;
+    twilio_account_sid_encrypted: string;
+    twilio_auth_token_encrypted: string;
+    twilio_from_number: string;
+    webhook_secret_encrypted: string | null;
+    encryption_key_ref: string;
+    key_last_rotated_at: Date | null;
+    is_enabled: boolean;
+    last_verified_at: Date | null;
+    created_by_user_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+  }): MaskedSmsConfig {
+    const sid = this.encryption.decrypt(row.twilio_account_sid_encrypted, row.encryption_key_ref);
+    const token = this.encryption.decrypt(row.twilio_auth_token_encrypted, row.encryption_key_ref);
+    const webhookSecret = row.webhook_secret_encrypted
+      ? this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref)
+      : '';
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      twilio_account_sid_mask: this.encryption.mask(sid),
+      twilio_auth_token_mask: this.encryption.mask(token),
+      webhook_secret_mask: this.encryption.mask(webhookSecret),
+      twilio_from_number: row.twilio_from_number,
+      encryption_key_ref: row.encryption_key_ref,
+      key_last_rotated_at: row.key_last_rotated_at,
+      is_enabled: row.is_enabled,
+      last_verified_at: row.last_verified_at,
+      created_by_user_id: row.created_by_user_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  private composeMaskedFromDto(
+    row: {
+      id: string;
+      tenant_id: string;
+      encryption_key_ref: string;
+      key_last_rotated_at: Date | null;
+      is_enabled: boolean;
+      last_verified_at: Date | null;
+      created_by_user_id: string | null;
+      created_at: Date;
+      updated_at: Date;
+    },
+    dto: UpsertSmsConfigDto,
+  ): MaskedSmsConfig {
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      twilio_account_sid_mask: this.encryption.mask(dto.twilio_account_sid),
+      twilio_auth_token_mask: this.encryption.mask(dto.twilio_auth_token),
+      webhook_secret_mask: this.encryption.mask(dto.webhook_secret),
+      twilio_from_number: dto.twilio_from_number,
+      encryption_key_ref: row.encryption_key_ref,
+      key_last_rotated_at: row.key_last_rotated_at,
+      is_enabled: row.is_enabled,
+      last_verified_at: row.last_verified_at,
+      created_by_user_id: row.created_by_user_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+}
