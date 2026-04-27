@@ -32,6 +32,7 @@ import { BUDGETING_SHAREABLE_LINK_CLEANUP_JOB } from '../processors/budgeting/sh
 import { BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB } from '../processors/budgeting/variance-refresh.processor';
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
 import { RETRY_FAILED_NOTIFICATIONS_JOB } from '../processors/communications/retry-failed.processor';
+import { SUPPRESSION_LIST_CLEANUP_JOB } from '../processors/communications/suppression-list-cleanup.processor';
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstanding.processor';
@@ -989,6 +990,24 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${CANARY_PING_JOB} (every 5 minutes)`);
+
+    // ── comms:suppression-list-cleanup (Impl 06) ────────────────────────────
+    // Daily at 03:00 UTC. Cross-tenant — empty payload. Hard-deletes
+    // `notification_suppression_list` rows whose `expires_at < now()`.
+    // Permanent suppressions (`expires_at IS NULL`) are never deleted.
+    await this.notificationsQueue.add(
+      SUPPRESSION_LIST_CLEANUP_JOB,
+      {},
+      {
+        repeat: { pattern: '0 3 * * *' },
+        jobId: `cron:${SUPPRESSION_LIST_CLEANUP_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${SUPPRESSION_LIST_CLEANUP_JOB} (daily 03:00 UTC)`,
+    );
   }
 
   private async registerReportsCronJobs(): Promise<void> {

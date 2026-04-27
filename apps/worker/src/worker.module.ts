@@ -53,6 +53,7 @@ import { IpCleanupProcessor } from './processors/communications/ip-cleanup.proce
 import { PublishAnnouncementProcessor } from './processors/communications/publish-announcement.processor';
 import { RetryFailedNotificationsProcessor } from './processors/communications/retry-failed.processor';
 import { StaleInquiryDetectionProcessor } from './processors/communications/stale-inquiry-detection.processor';
+import { SuppressionListCleanupProcessor } from './processors/communications/suppression-list-cleanup.processor';
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
 import { ComplianceQueueDispatcher } from './processors/compliance/compliance.processor';
 import { DeadlineCheckProcessor } from './processors/compliance/deadline-check.processor';
@@ -539,6 +540,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     RetryFailedNotificationsProcessor,
     InquiryNotificationProcessor,
     StaleInquiryDetectionProcessor,
+    SuppressionListCleanupProcessor,
     IpCleanupProcessor,
     AnnouncementApprovalCallbackProcessor,
     // PDF Rendering queue processors

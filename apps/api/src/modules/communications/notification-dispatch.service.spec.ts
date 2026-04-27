@@ -14,6 +14,7 @@ import { NotificationTemplatesService } from './notification-templates.service';
 import { ResendEmailProvider } from './providers/resend-email.provider';
 import { TwilioSmsProvider } from './providers/twilio-sms.provider';
 import { TwilioWhatsAppProvider } from './providers/twilio-whatsapp.provider';
+import { SuppressionListService } from './suppression/suppression-list.service';
 import { TemplateRendererService } from './template-renderer.service';
 
 describe('NotificationDispatchService', () => {
@@ -101,13 +102,11 @@ describe('NotificationDispatchService', () => {
         {
           provide: ParentReadFacade,
           useValue: (mockParentFacade = {
-            findContactByUserId: jest
-              .fn()
-              .mockResolvedValue({
-                id: 'parent-1',
-                phone: '+353851234567',
-                whatsapp_phone: '+353851234567',
-              }),
+            findContactByUserId: jest.fn().mockResolvedValue({
+              id: 'parent-1',
+              phone: '+353851234567',
+              whatsapp_phone: '+353851234567',
+            }),
             resolveIdByUserId: jest.fn().mockResolvedValue('parent-1'),
           }),
         },
@@ -116,6 +115,13 @@ describe('NotificationDispatchService', () => {
           useValue: {
             checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }),
             recordSent: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: SuppressionListService,
+          useValue: {
+            isSuppressed: jest.fn().mockResolvedValue(false),
+            getSuppressionReason: jest.fn().mockResolvedValue(null),
           },
         },
       ],
@@ -577,6 +583,13 @@ describe('NotificationDispatchService', () => {
             useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) },
           },
           { provide: NotificationRateLimitService, useValue: rateLimitService },
+          {
+            provide: SuppressionListService,
+            useValue: {
+              isSuppressed: jest.fn().mockResolvedValue(false),
+              getSuppressionReason: jest.fn().mockResolvedValue(null),
+            },
+          },
         ],
       }).compile();
 
@@ -848,6 +861,13 @@ describe('NotificationDispatchService', () => {
               provide: NotificationRateLimitService,
               useValue: { checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }) },
             },
+            {
+              provide: SuppressionListService,
+              useValue: {
+                isSuppressed: jest.fn().mockResolvedValue(false),
+                getSuppressionReason: jest.fn().mockResolvedValue(null),
+              },
+            },
           ],
         }).compile()
       ).get<NotificationDispatchService>(NotificationDispatchService);
@@ -966,6 +986,14 @@ describe('NotificationDispatchService', () => {
                 resolveIdByUserId: jest.fn().mockResolvedValue('parent-1'),
               },
             },
+
+            {
+              provide: SuppressionListService,
+              useValue: {
+                isSuppressed: jest.fn().mockResolvedValue(false),
+                getSuppressionReason: jest.fn().mockResolvedValue(null),
+              },
+            },
             {
               provide: NotificationRateLimitService,
               useValue: {
@@ -1026,6 +1054,14 @@ describe('NotificationDispatchService', () => {
             {
               provide: TwilioSmsProvider,
               useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) },
+            },
+
+            {
+              provide: SuppressionListService,
+              useValue: {
+                isSuppressed: jest.fn().mockResolvedValue(false),
+                getSuppressionReason: jest.fn().mockResolvedValue(null),
+              },
             },
             {
               provide: NotificationRateLimitService,
@@ -1101,6 +1137,13 @@ describe('NotificationDispatchService', () => {
             {
               provide: NotificationRateLimitService,
               useValue: { checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }) },
+            },
+            {
+              provide: SuppressionListService,
+              useValue: {
+                isSuppressed: jest.fn().mockResolvedValue(false),
+                getSuppressionReason: jest.fn().mockResolvedValue(null),
+              },
             },
           ],
         }).compile()

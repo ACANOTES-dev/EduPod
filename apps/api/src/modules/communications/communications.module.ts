@@ -30,11 +30,16 @@ import { InboxChannelProvider } from './providers/inbox-channel.provider';
 import { ResendEmailProvider } from './providers/resend-email.provider';
 import { TwilioSmsProvider } from './providers/twilio-sms.provider';
 import { TwilioWhatsAppProvider } from './providers/twilio-whatsapp.provider';
+import { SuppressionListService } from './suppression/suppression-list.service';
 import { TemplateRendererService } from './template-renderer.service';
 import { UnsubscribeController } from './unsubscribe.controller';
 import { UnsubscribeService } from './unsubscribe.service';
 import { WebhookController } from './webhook.controller';
 import { WebhookService } from './webhook.service';
+import { CommunicationsWebhooksController } from './webhooks/communications-webhooks.controller';
+import { ResendWebhookHandlerService } from './webhooks/resend-webhook-handler.service';
+import { TwilioWebhookHandlerService } from './webhooks/twilio-webhook-handler.service';
+import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-verifier.service';
 
 @Module({
   imports: [
@@ -58,6 +63,7 @@ import { WebhookService } from './webhook.service';
     NotificationTemplatesController,
     UnsubscribeController,
     WebhookController,
+    CommunicationsWebhooksController,
   ],
   providers: [
     AnnouncementsService,
@@ -76,6 +82,10 @@ import { WebhookService } from './webhook.service';
     UnsubscribeService,
     InboxBridgeService,
     IsEnabledCacheService,
+    SuppressionListService,
+    WebhookSignatureVerifierService,
+    ResendWebhookHandlerService,
+    TwilioWebhookHandlerService,
   ],
   exports: [
     AnnouncementsService,
@@ -88,6 +98,7 @@ import { WebhookService } from './webhook.service';
     InboxBridgeService,
     InboxChannelProvider,
     IsEnabledCacheService,
+    SuppressionListService,
   ],
 })
 export class CommunicationsModule {}

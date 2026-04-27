@@ -99,6 +99,22 @@ export class EmailConfigService {
     return { id: existing.id };
   }
 
+  /**
+   * Returns the decrypted webhook_secret for the tenant, or null if not
+   * configured. Internal-only (no controller exposure). Decrypts ONLY the
+   * webhook secret — never the API key. This is intentionally a smaller
+   * surface than `getDecryptedConfig` so the webhook controller's blast
+   * radius is limited (Impl 06).
+   */
+  async getWebhookSecret(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.tenantEmailConfig.findUnique({
+      where: { tenant_id: tenantId },
+      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    });
+    if (!row?.webhook_secret_encrypted) return null;
+    return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);
+  }
+
   // ─── INTERNAL ONLY — consumed by NotificationDispatchService (Impl 04) ───
   // Never exposed via controller. Never logged. Never returned in errors.
   async getDecryptedConfig(tenantId: string): Promise<DecryptedEmailConfig | null> {

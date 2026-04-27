@@ -58,6 +58,10 @@ import {
   StaleInquiryDetectionProcessor,
 } from '../communications/stale-inquiry-detection.processor';
 import {
+  SUPPRESSION_LIST_CLEANUP_JOB,
+  SuppressionListCleanupProcessor,
+} from '../communications/suppression-list-cleanup.processor';
+import {
   INBOX_FALLBACK_CHECK_JOB,
   InboxFallbackCheckProcessor,
 } from '../inbox/inbox-fallback-check.processor';
@@ -101,6 +105,7 @@ export class NotificationsQueueDispatcher extends WorkerHost {
     private readonly publishAnnouncement: PublishAnnouncementProcessor,
     private readonly retryFailedNotifications: RetryFailedNotificationsProcessor,
     private readonly staleInquiryDetection: StaleInquiryDetectionProcessor,
+    private readonly suppressionListCleanup: SuppressionListCleanupProcessor,
     private readonly inboxFallbackCheck: InboxFallbackCheckProcessor,
     private readonly inboxFallbackScanTenant: InboxFallbackScanTenantProcessor,
     private readonly canary: CanaryProcessor,
@@ -151,6 +156,9 @@ export class NotificationsQueueDispatcher extends WorkerHost {
         return;
       case STALE_INQUIRY_DETECTION_JOB:
         await this.staleInquiryDetection.process(job);
+        return;
+      case SUPPRESSION_LIST_CLEANUP_JOB:
+        await this.suppressionListCleanup.process(job);
         return;
       case INBOX_FALLBACK_CHECK_JOB:
         await this.inboxFallbackCheck.process(job);

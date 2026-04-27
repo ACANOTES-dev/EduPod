@@ -92,6 +92,21 @@ export class SmsConfigService {
     return { id: existing.id };
   }
 
+  /**
+   * Returns the decrypted webhook_secret for the tenant, or null if not
+   * configured. Internal-only (Impl 06). For Twilio, the "webhook secret"
+   * value is whatever the tenant has configured for their Edge endpoint
+   * status callbacks; verifyTwilio uses it as the HMAC-SHA1 key.
+   */
+  async getWebhookSecret(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.tenantSmsConfig.findUnique({
+      where: { tenant_id: tenantId },
+      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    });
+    if (!row?.webhook_secret_encrypted) return null;
+    return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);
+  }
+
   // INTERNAL ONLY — never exposed via controller.
   async getDecryptedConfig(tenantId: string): Promise<DecryptedSmsConfig | null> {
     const config = await this.prisma.tenantSmsConfig.findUnique({

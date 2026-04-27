@@ -98,6 +98,20 @@ export class WhatsAppConfigService {
     return { id: existing.id };
   }
 
+  /**
+   * Returns the decrypted webhook_secret for the tenant, or null if not
+   * configured. Internal-only (Impl 06). Used by the per-tenant Twilio
+   * WhatsApp webhook receiver for HMAC-SHA1 signature verification.
+   */
+  async getWebhookSecret(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.tenantWhatsAppConfig.findUnique({
+      where: { tenant_id: tenantId },
+      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    });
+    if (!row?.webhook_secret_encrypted) return null;
+    return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);
+  }
+
   // INTERNAL ONLY — never exposed via controller.
   async getDecryptedConfig(tenantId: string): Promise<DecryptedWhatsAppConfig | null> {
     const config = await this.prisma.tenantWhatsAppConfig.findUnique({

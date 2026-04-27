@@ -132,6 +132,9 @@ describe('NotificationsQueueDispatcher', () => {
     const parentDailyDigest = {
       process: jest.fn().mockResolvedValue(undefined),
     } as unknown as ParentDailyDigestProcessor;
+    const suppressionListCleanup = {
+      process: jest.fn().mockResolvedValue(undefined),
+    } as unknown as { process: jest.Mock };
 
     const dispatcher = new NotificationsQueueDispatcher(
       admissionsApplicationReceived,
@@ -147,6 +150,7 @@ describe('NotificationsQueueDispatcher', () => {
       publishAnnouncement,
       retryFailedNotifications,
       staleInquiryDetection,
+      suppressionListCleanup as never,
       inboxFallbackCheck,
       inboxFallbackScanTenant,
       canary,

@@ -14,6 +14,7 @@ import { NotificationTemplatesService } from './notification-templates.service';
 import { ResendEmailProvider } from './providers/resend-email.provider';
 import { TwilioSmsProvider } from './providers/twilio-sms.provider';
 import { TwilioWhatsAppProvider } from './providers/twilio-whatsapp.provider';
+import { SuppressionListService } from './suppression/suppression-list.service';
 import { TemplateRendererService } from './template-renderer.service';
 
 /** Fallback chain: if a channel fails all retries, try the next one */
@@ -44,7 +45,36 @@ export class NotificationDispatchService {
     private readonly twilioWhatsApp: TwilioWhatsAppProvider,
     private readonly twilioSms: TwilioSmsProvider,
     private readonly rateLimitService: NotificationRateLimitService,
+    private readonly suppressionService: SuppressionListService,
   ) {}
+
+  /**
+   * Suppression-list gate (Impl 06). Returns true and side-effects the
+   * notification → 'failed:suppressed:<reason>' if the recipient is on
+   * the suppression list. Caller continues with the fallback chain.
+   */
+  private async skipIfSuppressed(
+    notification: NotificationWithRecipient,
+    channel: 'email' | 'sms' | 'whatsapp',
+    recipient: string | null,
+    fallbackChannel: NotificationChannel,
+  ): Promise<boolean> {
+    if (!recipient) return false;
+    const suppressed = await this.suppressionService.isSuppressed(
+      notification.tenant_id,
+      channel,
+      recipient,
+    );
+    if (!suppressed) return false;
+    const reason = await this.suppressionService.getSuppressionReason(
+      notification.tenant_id,
+      channel,
+      recipient,
+    );
+    await this.markFailed(notification, `suppressed:${reason ?? 'unknown'}`);
+    await this.createFallbackNotification(notification, fallbackChannel);
+    return true;
+  }
 
   async dispatchWithFallback(notificationId: string): Promise<void> {
     const notification = await this.prisma.notification.findUnique({
@@ -142,6 +172,9 @@ export class NotificationDispatchService {
       await this.createFallbackNotification(notification, 'in_app');
       return;
     }
+
+    // Suppression check (Impl 06) — skipped recipient → fallback to in_app
+    if (await this.skipIfSuppressed(notification, 'email', email, 'in_app')) return;
 
     // Render template
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
@@ -257,6 +290,9 @@ export class NotificationDispatchService {
       return;
     }
 
+    // Suppression check (Impl 06)
+    if (await this.skipIfSuppressed(notification, 'whatsapp', phone, 'sms')) return;
+
     // Render template and strip HTML for WhatsApp
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
     const renderedBody = this.templateRenderer.render(template.body_template, variables);
@@ -338,6 +374,9 @@ export class NotificationDispatchService {
       await this.createFallbackNotification(notification, 'email');
       return;
     }
+
+    // Suppression check (Impl 06)
+    if (await this.skipIfSuppressed(notification, 'sms', phone, 'email')) return;
 
     // Render template and strip HTML for SMS
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
