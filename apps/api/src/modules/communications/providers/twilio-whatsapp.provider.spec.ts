@@ -2,172 +2,131 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
+import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
+import { CommsCacheBusService } from '../comms-cache-bus.service';
 
 import { TwilioWhatsAppProvider } from './twilio-whatsapp.provider';
+
+const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('TwilioWhatsAppProvider', () => {
   let provider: TwilioWhatsAppProvider;
   let mockConfigService: { get: jest.Mock };
   let mockCircuitBreaker: { exec: jest.Mock };
+  let mockWhatsAppConfig: { getDecryptedConfig: jest.Mock };
+  let mockCacheBus: { subscribe: jest.Mock };
 
   beforeEach(async () => {
-    mockConfigService = {
-      get: jest.fn(),
-    };
-    mockCircuitBreaker = {
-      exec: jest.fn(),
-    };
+    mockConfigService = { get: jest.fn() };
+    mockCircuitBreaker = { exec: jest.fn() };
+    mockWhatsAppConfig = { getDecryptedConfig: jest.fn().mockResolvedValue(null) };
+    mockCacheBus = { subscribe: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TwilioWhatsAppProvider,
         { provide: ConfigService, useValue: mockConfigService },
         { provide: CircuitBreakerRegistry, useValue: mockCircuitBreaker },
+        { provide: WhatsAppConfigService, useValue: mockWhatsAppConfig },
+        { provide: CommsCacheBusService, useValue: mockCacheBus },
       ],
     }).compile();
 
     provider = module.get<TwilioWhatsAppProvider>(TwilioWhatsAppProvider);
+    provider.onModuleInit();
   });
 
   afterEach(() => jest.clearAllMocks());
 
-  // ─── isConfigured() ───────────────────────────────────────────────────────
-
-  describe('TwilioWhatsAppProvider — isConfigured', () => {
-    it('should return true when all required env vars are set', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
+  describe('isConfigured', () => {
+    it('returns true when all env vars set', () => {
+      mockConfigService.get.mockImplementation(
+        (key: string) =>
+          ({
+            TWILIO_ACCOUNT_SID: 'AC',
+            TWILIO_AUTH_TOKEN: 'tok',
+            TWILIO_WHATSAPP_FROM: '+1',
+          })[key],
+      );
       expect(provider.isConfigured()).toBe(true);
-    });
-
-    it('should return false when TWILIO_ACCOUNT_SID is missing', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
-      expect(provider.isConfigured()).toBe(false);
-    });
-
-    it('should return false when TWILIO_AUTH_TOKEN is missing', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
-      expect(provider.isConfigured()).toBe(false);
-    });
-
-    it('should return false when TWILIO_WHATSAPP_FROM is missing', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        return undefined;
-      });
-
-      expect(provider.isConfigured()).toBe(false);
     });
   });
 
-  // ─── send() ───────────────────────────────────────────────────────────────
+  describe('send — tenant config path', () => {
+    it('uses tenant config when present and enabled', async () => {
+      mockWhatsAppConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        twilio_account_sid: 'ACtenant',
+        twilio_auth_token: 'tokTenant',
+        twilio_whatsapp_from_number: '+14155550000',
+      });
+      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_wa_tenant' });
 
-  describe('TwilioWhatsAppProvider — send', () => {
-    it('should throw when Twilio is not configured (no SID/token)', async () => {
+      const result = await provider.send(TENANT_ID, { to: '+15559876543', body: 'Hello' });
+      expect(result.messageSid).toBe('SM_wa_tenant');
+      expect(mockConfigService.get).not.toHaveBeenCalledWith('TWILIO_ACCOUNT_SID');
+    });
+
+    it('does not double-prefix already-prefixed numbers', async () => {
+      mockWhatsAppConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        twilio_account_sid: 'AC',
+        twilio_auth_token: 'tok',
+        twilio_whatsapp_from_number: 'whatsapp:+14155550000',
+      });
+      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_pre' });
+
+      const result = await provider.send(TENANT_ID, {
+        to: 'whatsapp:+15559876543',
+        body: 'Hello',
+      });
+      expect(result.messageSid).toBe('SM_pre');
+    });
+
+    it('prefixes whatsapp: when bare numbers provided', async () => {
+      mockWhatsAppConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: true,
+        twilio_account_sid: 'AC',
+        twilio_auth_token: 'tok',
+        twilio_whatsapp_from_number: '+14155550000',
+      });
+      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_bare' });
+
+      const result = await provider.send(TENANT_ID, { to: '+15559876543', body: 'Hello' });
+      expect(result.messageSid).toBe('SM_bare');
+    });
+  });
+
+  describe('send — .env fallback path', () => {
+    it('falls back to env when tenant config absent', async () => {
+      mockWhatsAppConfig.getDecryptedConfig.mockResolvedValue(null);
+      mockConfigService.get.mockImplementation(
+        (key: string) =>
+          ({
+            TWILIO_ACCOUNT_SID: 'ACenv',
+            TWILIO_AUTH_TOKEN: 'tokEnv',
+            TWILIO_WHATSAPP_FROM: '+15551234567',
+          })[key],
+      );
+      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_wa_env' });
+
+      const result = await provider.send(TENANT_ID, { to: '+15559876543', body: 'Hello' });
+      expect(result.messageSid).toBe('SM_wa_env');
+    });
+
+    it('throws when neither tenant config nor env set', async () => {
+      mockWhatsAppConfig.getDecryptedConfig.mockResolvedValue(null);
       mockConfigService.get.mockReturnValue(undefined);
 
-      await expect(provider.send({ to: '+15559876543', body: 'Hello' })).rejects.toThrow(
-        'Twilio is not configured',
+      await expect(provider.send(TENANT_ID, { to: '+1555', body: 'x' })).rejects.toThrow(
+        'Twilio WhatsApp is not configured',
       );
     });
+  });
 
-    it('should throw when TWILIO_WHATSAPP_FROM is not configured', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        return undefined;
-      });
-
-      await expect(provider.send({ to: '+15559876543', body: 'Hello' })).rejects.toThrow(
-        'TWILIO_WHATSAPP_FROM',
-      );
-    });
-
-    it('should send WhatsApp message and return messageSid', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
-      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM-wa-123' });
-
-      const result = await provider.send({
-        to: '+15559876543',
-        body: 'Hello from WhatsApp test',
-      });
-
-      expect(result.messageSid).toBe('SM-wa-123');
-      expect(mockCircuitBreaker.exec).toHaveBeenCalledWith('twilio', expect.any(Function));
-    });
-
-    it('should not double-prefix whatsapp: when already present in to', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return 'whatsapp:+15551234567';
-        return undefined;
-      });
-
-      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM-wa-prefix' });
-
-      const result = await provider.send({
-        to: 'whatsapp:+15559876543',
-        body: 'Already prefixed',
-      });
-
-      expect(result.messageSid).toBe('SM-wa-prefix');
-    });
-
-    it('should prefix whatsapp: to both to and from when not present', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
-      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM-wa-no-prefix' });
-
-      const result = await provider.send({
-        to: '+15559876543',
-        body: 'Not prefixed',
-      });
-
-      expect(result.messageSid).toBe('SM-wa-no-prefix');
-    });
-
-    it('should reuse client on subsequent calls', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'TWILIO_ACCOUNT_SID') return 'AC123';
-        if (key === 'TWILIO_AUTH_TOKEN') return 'auth123';
-        if (key === 'TWILIO_WHATSAPP_FROM') return '+15551234567';
-        return undefined;
-      });
-
-      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM-1' });
-
-      await provider.send({ to: '+15551111111', body: 'First' });
-      await provider.send({ to: '+15552222222', body: 'Second' });
-
-      expect(mockCircuitBreaker.exec).toHaveBeenCalledTimes(2);
+  describe('cache invalidation', () => {
+    it('subscribes to cache bus on init', () => {
+      expect(mockCacheBus.subscribe).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 });

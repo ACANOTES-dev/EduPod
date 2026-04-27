@@ -1,14 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 /**
- * STUB — Impl 04 wires this to Redis pub/sub on channel `comms:config-changed`.
+ * Cache-bus DI contract for the three communication-config services.
  *
- * The contract is: every credential mutation (insert/update/delete) MUST
- * publish via this service so the per-tenant client cache (Impl 04) is
- * invalidated across API and worker processes.
+ * Impl 03 introduced this as a no-op stub. Impl 04 replaced the production
+ * binding with a Redis pub/sub-backed implementation
+ * (`CommsCacheBusService` in `apps/api/src/modules/communications/`).
+ * The DI token + interface remain here so unit tests can still inject
+ * a lightweight fake without depending on Redis or ioredis types.
  *
- * Today this is a no-op logger. After Impl 04 replaces the implementation,
- * the service interface stays identical — callers do not change.
+ * Production wiring lives in `configuration.module.ts`:
+ *
+ *   { provide: COMMS_CACHE_BUS, useExisting: CommsCacheBusService }
+ *
+ * Test wiring (see `*-config.service.spec.ts`) substitutes a `jest.fn()`
+ * that asserts publish-after-commit ordering.
  */
 export type CommsChannel = 'email' | 'sms' | 'whatsapp';
 
@@ -18,15 +24,19 @@ export interface CommsCacheBus {
 
 export const COMMS_CACHE_BUS = Symbol('COMMS_CACHE_BUS');
 
+/**
+ * Standalone stub kept for backward compatibility. NOT registered in the
+ * production module after Impl 04 — the real service comes via
+ * `CommsCacheBusModule`. Tests that want a logging stub instead of a
+ * `jest.fn()` can still construct this directly.
+ */
 @Injectable()
 export class CommsCacheBusStub implements CommsCacheBus {
   private readonly logger = new Logger(CommsCacheBusStub.name);
 
   async publishConfigChanged(tenantId: string, channel: CommsChannel): Promise<void> {
-    // Impl 04 will replace this with a real Redis publish.
-    // Logging here is deliberate — gives visibility while the stub is in place.
     this.logger.debug(
-      `[stub] would publish comms:config-changed { tenant_id: ${tenantId}, channel: ${channel} }`,
+      `[stub] publishConfigChanged { tenant_id: ${tenantId}, channel: ${channel} }`,
     );
   }
 }

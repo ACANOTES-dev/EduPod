@@ -150,8 +150,8 @@ export class NotificationDispatchService {
       variables,
     );
 
-    // Send via Resend
-    const result = await this.resendEmail.send({
+    // Send via Resend (per-tenant credentials resolved by the provider)
+    const result = await this.resendEmail.send(notification.tenant_id, {
       to: email,
       subject: renderedSubject ?? 'Notification',
       html: renderedBody,
@@ -255,7 +255,10 @@ export class NotificationDispatchService {
     const strippedBody = this.templateRenderer.stripHtml(renderedBody);
 
     // Send via Twilio WhatsApp
-    const result = await this.twilioWhatsApp.send({ to: phone, body: strippedBody });
+    const result = await this.twilioWhatsApp.send(notification.tenant_id, {
+      to: phone,
+      body: strippedBody,
+    });
 
     // Mark as sent
     await this.prisma.notification.update({
@@ -328,7 +331,10 @@ export class NotificationDispatchService {
     const strippedBody = this.templateRenderer.stripHtml(renderedBody);
 
     // Send via Twilio SMS
-    const result = await this.twilioSms.send({ to: phone, body: strippedBody });
+    const result = await this.twilioSms.send(notification.tenant_id, {
+      to: phone,
+      body: strippedBody,
+    });
 
     // Mark as sent
     await this.prisma.notification.update({

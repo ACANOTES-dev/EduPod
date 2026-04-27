@@ -16,6 +16,7 @@ import { StudentsModule } from '../students/students.module';
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
+import { CommsCacheBusModule } from './cache-bus.module';
 import { CommunicationsReadFacade } from './communications-read.facade';
 import { InboxBridgeService } from './inbox-bridge.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
@@ -47,6 +48,7 @@ import { WebhookService } from './webhook.service';
     HouseholdsModule,
     ParentsModule,
     StudentsModule,
+    CommsCacheBusModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [
