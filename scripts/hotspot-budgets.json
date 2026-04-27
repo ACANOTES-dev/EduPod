@@ -261,8 +261,8 @@
       "reason": "Signal collection utilities with the highest complexity functions in the codebase across 1332 lines"
     },
     "apps/worker/src/cron/cron-scheduler.service.ts": {
-      "max": 1050,
-      "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion. Bumped 988 → 1050 by the modeling rebuild (impls 08 + 11) for budgeting:variance-refresh-bootstrap and budgeting:shareable-link-cleanup cron registrations."
+      "max": 1075,
+      "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion. Bumped 988 → 1050 by the modeling rebuild (impls 08 + 11) for budgeting:variance-refresh-bootstrap and budgeting:shareable-link-cleanup cron registrations. Bumped 1050 → 1075 by Impl 06 of the comms overhaul for the daily comms:suppression-list-cleanup cron registration."
     },
     "apps/worker/src/processors/communications/dispatch-notifications.processor.ts": {
       "max": 850,
