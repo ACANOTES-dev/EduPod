@@ -7,8 +7,10 @@ import type { CommsCacheBusEvent, SmsDispatchResult } from '@school/shared';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { SmsConfigService } from '../../configuration/sms-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 
 import { PerTenantClientCache } from './per-tenant-client-cache';
+import { mapTwilioError } from './provider-error-mapping';
 
 const SMS_MAX_LENGTH = 1600;
 
@@ -30,6 +32,7 @@ export class TwilioSmsProvider implements OnModuleInit {
     private readonly circuitBreaker: CircuitBreakerRegistry,
     private readonly smsConfigService: SmsConfigService,
     private readonly cacheBus: CommsCacheBusService,
+    private readonly metrics: CommsMetricsService,
   ) {}
 
   onModuleInit(): void {
@@ -70,15 +73,21 @@ export class TwilioSmsProvider implements OnModuleInit {
 
     this.logger.log(`Sending SMS tenant=${tenantId} to=${params.to}`);
 
-    const message = await this.circuitBreaker.exec('twilio', () =>
-      resolved.client.messages.create({
-        body,
-        from: resolved.fromNumber,
-        to: params.to,
-      }),
-    );
+    try {
+      const message = await this.circuitBreaker.exec('twilio', () =>
+        resolved.client.messages.create({
+          body,
+          from: resolved.fromNumber,
+          to: params.to,
+        }),
+      );
 
-    this.logger.log(`SMS sent tenant=${tenantId} sid=${message.sid}`);
-    return { messageSid: message.sid };
+      this.logger.log(`SMS sent tenant=${tenantId} sid=${message.sid}`);
+      return { messageSid: message.sid };
+    } catch (err) {
+      const code = (err as { code?: number | string })?.code;
+      this.metrics.recordProviderError(tenantId, 'sms', mapTwilioError(code));
+      throw err;
+    }
   }
 }

@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { EmailConfigService } from '../../configuration/email-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 import { EmailDomainService } from '../deliverability/email-domain.service';
 
 import { ResendEmailProvider } from './resend-email.provider';
@@ -17,6 +18,7 @@ describe('ResendEmailProvider', () => {
   let mockCacheBus: { subscribe: jest.Mock };
   let mockEmailDomain: { getVerified: jest.Mock };
   let mockConfigService: { get: jest.Mock };
+  let mockMetrics: { recordProviderError: jest.Mock };
 
   beforeEach(async () => {
     mockCircuitBreaker = { exec: jest.fn() };
@@ -24,6 +26,7 @@ describe('ResendEmailProvider', () => {
     mockCacheBus = { subscribe: jest.fn() };
     mockEmailDomain = { getVerified: jest.fn().mockResolvedValue(null) };
     mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
+    mockMetrics = { recordProviderError: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -33,6 +36,7 @@ describe('ResendEmailProvider', () => {
         { provide: CommsCacheBusService, useValue: mockCacheBus },
         { provide: EmailDomainService, useValue: mockEmailDomain },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: CommsMetricsService, useValue: mockMetrics },
       ],
     }).compile();
 

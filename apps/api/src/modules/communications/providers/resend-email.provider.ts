@@ -7,9 +7,11 @@ import type { CommsCacheBusEvent, EmailDispatchResult } from '@school/shared';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { EmailConfigService } from '../../configuration/email-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 import { EmailDomainService } from '../deliverability/email-domain.service';
 
 import { PerTenantClientCache } from './per-tenant-client-cache';
+import { mapResendError } from './provider-error-mapping';
 
 /**
  * Resend email provider with **per-tenant credentials only**.
@@ -42,6 +44,7 @@ export class ResendEmailProvider implements OnModuleInit {
     private readonly cacheBus: CommsCacheBusService,
     private readonly emailDomain: EmailDomainService,
     private readonly configService: ConfigService,
+    private readonly metrics: CommsMetricsService,
   ) {}
 
   onModuleInit(): void {
@@ -138,6 +141,9 @@ export class ResendEmailProvider implements OnModuleInit {
     );
 
     if (error) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      const errorCode = mapResendError(statusCode, error.message);
+      this.metrics.recordProviderError(tenantId, 'email', errorCode);
       this.logger.error(`Resend email failed tenant=${tenantId}: ${error.message}`, error.name);
       throw new Error(`Resend email failed: ${error.message}`);
     }

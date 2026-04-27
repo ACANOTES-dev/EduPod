@@ -53,6 +53,16 @@ export class MetricsService implements OnModuleInit {
     return this.registry.contentType;
   }
 
+  /**
+   * Returns the shared registry so other modules can register their own
+   * metrics on a single endpoint. Used by `CommsMetricsService` to expose
+   * comms counters/histograms via the same `/api/metrics` endpoint as
+   * HTTP metrics.
+   */
+  getCommsRegistry(): Registry {
+    return this.registry;
+  }
+
   recordRequest(method: string, path: string, statusCode: number, durationSeconds: number): void {
     const normalizedPath = this.stripUuids(path);
     const labels = { method, path: normalizedPath, status_code: String(statusCode) };

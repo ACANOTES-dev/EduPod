@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { SmsConfigService } from '../../configuration/sms-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 
 import { TwilioSmsProvider } from './twilio-sms.provider';
 
@@ -13,11 +14,13 @@ describe('TwilioSmsProvider', () => {
   let mockCircuitBreaker: { exec: jest.Mock };
   let mockSmsConfig: { getDecryptedConfig: jest.Mock };
   let mockCacheBus: { subscribe: jest.Mock };
+  let mockMetrics: { recordProviderError: jest.Mock };
 
   beforeEach(async () => {
     mockCircuitBreaker = { exec: jest.fn() };
     mockSmsConfig = { getDecryptedConfig: jest.fn().mockResolvedValue(null) };
     mockCacheBus = { subscribe: jest.fn() };
+    mockMetrics = { recordProviderError: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -25,6 +28,7 @@ describe('TwilioSmsProvider', () => {
         { provide: CircuitBreakerRegistry, useValue: mockCircuitBreaker },
         { provide: SmsConfigService, useValue: mockSmsConfig },
         { provide: CommsCacheBusService, useValue: mockCacheBus },
+        { provide: CommsMetricsService, useValue: mockMetrics },
       ],
     }).compile();
 

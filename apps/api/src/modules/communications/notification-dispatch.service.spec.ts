@@ -8,6 +8,8 @@ import {
 import { ConsentService } from '../gdpr/consent.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { CommsLoggerService } from './comms-logger.service';
+import { CommsMetricsService } from './comms-metrics.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesService } from './notification-templates.service';
@@ -122,6 +124,25 @@ describe('NotificationDispatchService', () => {
           useValue: {
             isSuppressed: jest.fn().mockResolvedValue(false),
             getSuppressionReason: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: CommsLoggerService,
+          useValue: {
+            setContext: jest.fn().mockReturnThis(),
+            log: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+            debug: jest.fn(),
+          },
+        },
+        {
+          provide: CommsMetricsService,
+          useValue: {
+            recordDispatch: jest.fn(),
+            recordSuppression: jest.fn(),
+            recordProviderError: jest.fn(),
+            recordTemplateRender: jest.fn(),
           },
         },
       ],
@@ -590,6 +611,25 @@ describe('NotificationDispatchService', () => {
               getSuppressionReason: jest.fn().mockResolvedValue(null),
             },
           },
+          {
+            provide: CommsLoggerService,
+            useValue: {
+              setContext: jest.fn().mockReturnThis(),
+              log: jest.fn(),
+              warn: jest.fn(),
+              error: jest.fn(),
+              debug: jest.fn(),
+            },
+          },
+          {
+            provide: CommsMetricsService,
+            useValue: {
+              recordDispatch: jest.fn(),
+              recordSuppression: jest.fn(),
+              recordProviderError: jest.fn(),
+              recordTemplateRender: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
@@ -868,6 +908,25 @@ describe('NotificationDispatchService', () => {
                 getSuppressionReason: jest.fn().mockResolvedValue(null),
               },
             },
+            {
+              provide: CommsLoggerService,
+              useValue: {
+                setContext: jest.fn().mockReturnThis(),
+                log: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+              },
+            },
+            {
+              provide: CommsMetricsService,
+              useValue: {
+                recordDispatch: jest.fn(),
+                recordSuppression: jest.fn(),
+                recordProviderError: jest.fn(),
+                recordTemplateRender: jest.fn(),
+              },
+            },
           ],
         }).compile()
       ).get<NotificationDispatchService>(NotificationDispatchService);
@@ -1003,6 +1062,25 @@ describe('NotificationDispatchService', () => {
                 }),
               },
             },
+            {
+              provide: CommsLoggerService,
+              useValue: {
+                setContext: jest.fn().mockReturnThis(),
+                log: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+              },
+            },
+            {
+              provide: CommsMetricsService,
+              useValue: {
+                recordDispatch: jest.fn(),
+                recordSuppression: jest.fn(),
+                recordProviderError: jest.fn(),
+                recordTemplateRender: jest.fn(),
+              },
+            },
           ],
         }).compile()
       ).get<NotificationDispatchService>(NotificationDispatchService);
@@ -1070,6 +1148,25 @@ describe('NotificationDispatchService', () => {
                   allowed: false,
                   reason: 'Daily notification limit (30) exceeded',
                 }),
+              },
+            },
+            {
+              provide: CommsLoggerService,
+              useValue: {
+                setContext: jest.fn().mockReturnThis(),
+                log: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+              },
+            },
+            {
+              provide: CommsMetricsService,
+              useValue: {
+                recordDispatch: jest.fn(),
+                recordSuppression: jest.fn(),
+                recordProviderError: jest.fn(),
+                recordTemplateRender: jest.fn(),
               },
             },
           ],
@@ -1143,6 +1240,25 @@ describe('NotificationDispatchService', () => {
               useValue: {
                 isSuppressed: jest.fn().mockResolvedValue(false),
                 getSuppressionReason: jest.fn().mockResolvedValue(null),
+              },
+            },
+            {
+              provide: CommsLoggerService,
+              useValue: {
+                setContext: jest.fn().mockReturnThis(),
+                log: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+              },
+            },
+            {
+              provide: CommsMetricsService,
+              useValue: {
+                recordDispatch: jest.fn(),
+                recordSuppression: jest.fn(),
+                recordProviderError: jest.fn(),
+                recordTemplateRender: jest.fn(),
               },
             },
           ],

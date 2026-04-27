@@ -50,6 +50,7 @@ function build({
     handleSms: jest.fn().mockResolvedValue(undefined),
     handleWhatsApp: jest.fn().mockResolvedValue(undefined),
   };
+  const metrics = { recordWebhook: jest.fn() };
   const ctrl = new CommunicationsWebhooksController(
     prisma,
     emailConfig as never,
@@ -58,8 +59,9 @@ function build({
     verifier as never,
     resendHandler as never,
     twilioHandler as never,
+    metrics as never,
   );
-  return { ctrl, prisma, emailConfig, smsConfig, verifier, resendHandler, twilioHandler };
+  return { ctrl, prisma, emailConfig, smsConfig, verifier, resendHandler, twilioHandler, metrics };
 }
 
 function fakeReq(rawBody = Buffer.from('{}')): never {

@@ -9,6 +9,9 @@ import { ConsentService } from '../gdpr/consent.service';
 import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { CommsLoggerService } from './comms-logger.service';
+import { CommsMetricsService } from './comms-metrics.service';
+import { withCommsContext } from './comms-sentry.helper';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesService } from './notification-templates.service';
 import { ResendEmailProvider } from './providers/resend-email.provider';
@@ -46,7 +49,11 @@ export class NotificationDispatchService {
     private readonly twilioSms: TwilioSmsProvider,
     private readonly rateLimitService: NotificationRateLimitService,
     private readonly suppressionService: SuppressionListService,
-  ) {}
+    private readonly commsLogger: CommsLoggerService,
+    private readonly metrics: CommsMetricsService,
+  ) {
+    this.commsLogger.setContext(NotificationDispatchService.name);
+  }
 
   /**
    * Suppression-list gate (Impl 06). Returns true and side-effects the
@@ -99,23 +106,68 @@ export class NotificationDispatchService {
       return; // Already processed
     }
 
+    const ctx = {
+      tenant_id: notification.tenant_id,
+      channel: notification.channel as 'email' | 'sms' | 'whatsapp' | 'in_app',
+      template_key: notification.template_key ?? undefined,
+      notification_id: notification.id,
+    };
+    const start = Date.now();
     try {
-      switch (notification.channel) {
-        case 'in_app':
-          await this.dispatchInApp(notification);
-          break;
-        case 'whatsapp':
-          await this.dispatchWhatsApp(notification);
-          break;
-        case 'sms':
-          await this.dispatchSms(notification);
-          break;
-        case 'email':
-          await this.dispatchEmail(notification);
-          break;
-      }
+      await withCommsContext(ctx, async () => {
+        switch (notification.channel) {
+          case 'in_app':
+            await this.dispatchInApp(notification);
+            break;
+          case 'whatsapp':
+            await this.dispatchWhatsApp(notification);
+            break;
+          case 'sms':
+            await this.dispatchSms(notification);
+            break;
+          case 'email':
+            await this.dispatchEmail(notification);
+            break;
+        }
+      });
+      // Re-read final status to record an accurate metric outcome.
+      const finalStatus = await this.prisma.notification.findUnique({
+        where: { id: notificationId },
+        select: { status: true, failure_reason: true },
+      });
+      const status = (finalStatus?.status ?? 'sent') as string;
+      const metricStatus =
+        status === 'sent' || status === 'delivered'
+          ? status === 'delivered'
+            ? 'delivered'
+            : 'sent'
+          : status === 'failed' && finalStatus?.failure_reason?.startsWith('suppressed:')
+            ? 'suppressed'
+            : status === 'failed' &&
+                (finalStatus?.failure_reason === 'channel_not_configured' ||
+                  finalStatus?.failure_reason === 'channel_disabled')
+              ? 'skipped'
+              : 'failed';
+      this.metrics.recordDispatch(
+        notification.tenant_id,
+        notification.channel as 'email' | 'sms' | 'whatsapp' | 'in_app',
+        metricStatus,
+        Date.now() - start,
+      );
+      this.commsLogger.log('Dispatch attempt complete', { ...ctx, status: metricStatus });
     } catch (error) {
+      this.metrics.recordDispatch(
+        notification.tenant_id,
+        notification.channel as 'email' | 'sms' | 'whatsapp' | 'in_app',
+        'failed',
+        Date.now() - start,
+      );
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.commsLogger.error(
+        `Dispatch failed: ${message}`,
+        ctx,
+        error instanceof Error ? error.stack : undefined,
+      );
       await this.handleFailure(notification, message);
     }
   }

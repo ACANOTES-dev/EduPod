@@ -7,10 +7,12 @@ import type { CommsCacheBusEvent, WhatsAppDispatchResult } from '@school/shared'
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 import { WhatsAppServiceWindowService } from '../whatsapp-templates/whatsapp-service-window.service';
 import { WhatsAppTemplateService } from '../whatsapp-templates/whatsapp-template.service';
 
 import { PerTenantClientCache } from './per-tenant-client-cache';
+import { mapTwilioError } from './provider-error-mapping';
 
 interface TenantWhatsAppClient {
   client: Twilio;
@@ -32,6 +34,7 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
     private readonly cacheBus: CommsCacheBusService,
     private readonly serviceWindow: WhatsAppServiceWindowService,
     private readonly templates: WhatsAppTemplateService,
+    private readonly metrics: CommsMetricsService,
   ) {}
 
   onModuleInit(): void {
@@ -118,16 +121,22 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
       }`,
     );
 
-    const message = await this.circuitBreaker.exec('twilio', () =>
-      resolved.client.messages.create({
-        from,
-        to,
-        ...(messageBody !== undefined ? { body: messageBody } : {}),
-        ...(contentSid !== undefined ? { contentSid, contentVariables } : {}),
-      }),
-    );
+    try {
+      const message = await this.circuitBreaker.exec('twilio', () =>
+        resolved.client.messages.create({
+          from,
+          to,
+          ...(messageBody !== undefined ? { body: messageBody } : {}),
+          ...(contentSid !== undefined ? { contentSid, contentVariables } : {}),
+        }),
+      );
 
-    this.logger.log(`WhatsApp sent tenant=${tenantId} sid=${message.sid}`);
-    return { messageSid: message.sid };
+      this.logger.log(`WhatsApp sent tenant=${tenantId} sid=${message.sid}`);
+      return { messageSid: message.sid };
+    } catch (err) {
+      const code = (err as { code?: number | string })?.code;
+      this.metrics.recordProviderError(tenantId, 'whatsapp', mapTwilioError(code));
+      throw err;
+    }
   }
 }

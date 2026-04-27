@@ -1,0 +1,153 @@
+{
+  "title": "Communications — per-tenant observability",
+  "description": "Communications module — per-tenant observability.\n\nImporting this dashboard:\n\n1. Grafana UI: Dashboards → New → Import → Upload JSON file (this file).\n   Select the Prometheus datasource that scrapes /api/metrics.\n\n2. Grafana provisioning (preferred for production): copy this file to\n   /var/lib/grafana/dashboards/communications.json and reference it from\n   /etc/grafana/provisioning/dashboards/edupod.yaml. Grafana picks up\n   changes on reload.\n\nSource of truth: docs/operations/dashboards/communications.json in the\nEduPod repo. Edit there, never in the Grafana UI — UI edits are lost\non the next provisioning sync.",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["communications", "comms", "edupod"],
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": { "type": "prometheus" },
+        "query": "label_values(notifications_dispatched_total, tenant_id)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": false, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "channel",
+        "type": "query",
+        "datasource": { "type": "prometheus" },
+        "query": "label_values(notifications_dispatched_total, channel)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": false, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Dispatch rate per channel per tenant (5m rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (tenant_id, channel) (rate(notifications_dispatched_total{tenant_id=~\"$tenant\", channel=~\"$channel\"}[5m]))",
+          "legendFormat": "{{tenant_id}} / {{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Failure rate % per channel (rolling 1h)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * sum by (channel) (rate(notifications_dispatched_total{status=\"failed\", channel=~\"$channel\"}[1h])) / sum by (channel) (rate(notifications_dispatched_total{channel=~\"$channel\"}[1h]))",
+          "legendFormat": "{{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Webhook ingest rate by event type",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (channel, event_type) (rate(notifications_webhook_received_total{channel=~\"$channel\"}[5m]))",
+          "legendFormat": "{{channel}} / {{event_type}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Webhook signature failure rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (channel) (rate(notifications_webhook_received_total{signature_valid=\"false\", channel=~\"$channel\"}[5m]))",
+          "legendFormat": "{{channel}} (invalid sig)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Top template renders (rate by tenant + key)",
+      "type": "table",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "topk(20, sum by (tenant_id, template_key, locale) (rate(notifications_template_renders_total{tenant_id=~\"$tenant\"}[1h])))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Per-tenant dispatch latency p95 (seconds)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (tenant_id, channel, le) (rate(notifications_dispatch_duration_seconds_bucket{tenant_id=~\"$tenant\", channel=~\"$channel\"}[5m])))",
+          "legendFormat": "{{tenant_id}} / {{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Provider error codes (last 1h)",
+      "type": "table",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "topk(30, sum by (tenant_id, channel, error_code) (increase(notifications_provider_errors_total{tenant_id=~\"$tenant\", channel=~\"$channel\"}[1h])))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Suppression list growth (rate by reason)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+      "targets": [
+        {
+          "expr": "sum by (channel, reason) (rate(notifications_suppressed_total{channel=~\"$channel\"}[5m]))",
+          "legendFormat": "{{channel}} / {{reason}}"
+        }
+      ]
+    }
+  ]
+}

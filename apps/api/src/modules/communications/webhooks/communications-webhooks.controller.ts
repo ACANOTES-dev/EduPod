@@ -21,6 +21,7 @@ import { EmailConfigService } from '../../configuration/email-config.service';
 import { SmsConfigService } from '../../configuration/sms-config.service';
 import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 
 import { ResendWebhookHandlerService } from './resend-webhook-handler.service';
 import { TwilioWebhookHandlerService } from './twilio-webhook-handler.service';
@@ -57,6 +58,7 @@ export class CommunicationsWebhooksController {
     private readonly verifier: WebhookSignatureVerifierService,
     private readonly resendHandler: ResendWebhookHandlerService,
     private readonly twilioHandler: TwilioWebhookHandlerService,
+    private readonly metrics: CommsMetricsService,
   ) {}
 
   // ─── Email (Resend) ─────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ export class CommunicationsWebhooksController {
       payload: body as object,
       signatureVerified: verified,
     });
+    this.metrics.recordWebhook(tenantId, 'email', eventType, verified);
 
     if (!verified) {
       this.logger.warn(
@@ -124,6 +127,7 @@ export class CommunicationsWebhooksController {
       payload: body,
       signatureVerified: verified,
     });
+    this.metrics.recordWebhook(tenantId, 'sms', eventType, verified);
 
     if (!verified) {
       this.logger.warn(
@@ -163,6 +167,7 @@ export class CommunicationsWebhooksController {
       payload: body,
       signatureVerified: verified,
     });
+    this.metrics.recordWebhook(tenantId, 'whatsapp', eventType, verified);
 
     if (!verified) {
       this.logger.warn(

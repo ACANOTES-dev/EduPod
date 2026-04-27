@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { CommsMetricsService } from '../comms-metrics.service';
 import { WhatsAppServiceWindowService } from '../whatsapp-templates/whatsapp-service-window.service';
 import { WhatsAppTemplateService } from '../whatsapp-templates/whatsapp-template.service';
 
@@ -17,6 +18,7 @@ describe('TwilioWhatsAppProvider', () => {
   let mockCacheBus: { subscribe: jest.Mock };
   let mockServiceWindow: { isInsideWindow: jest.Mock };
   let mockTemplates: { getApprovedByKey: jest.Mock };
+  let mockMetrics: { recordProviderError: jest.Mock };
 
   beforeEach(async () => {
     mockCircuitBreaker = { exec: jest.fn() };
@@ -24,6 +26,7 @@ describe('TwilioWhatsAppProvider', () => {
     mockCacheBus = { subscribe: jest.fn() };
     mockServiceWindow = { isInsideWindow: jest.fn().mockResolvedValue(true) };
     mockTemplates = { getApprovedByKey: jest.fn().mockResolvedValue(null) };
+    mockMetrics = { recordProviderError: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -33,6 +36,7 @@ describe('TwilioWhatsAppProvider', () => {
         { provide: CommsCacheBusService, useValue: mockCacheBus },
         { provide: WhatsAppServiceWindowService, useValue: mockServiceWindow },
         { provide: WhatsAppTemplateService, useValue: mockTemplates },
+        { provide: CommsMetricsService, useValue: mockMetrics },
       ],
     }).compile();
 

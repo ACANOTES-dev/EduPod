@@ -8,6 +8,7 @@ import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { HouseholdsModule } from '../households/households.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
@@ -17,6 +18,8 @@ import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { CommsCacheBusModule } from './cache-bus.module';
+import { CommsLoggerService } from './comms-logger.service';
+import { CommsMetricsService } from './comms-metrics.service';
 import { CommunicationsReadFacade } from './communications-read.facade';
 import { EmailDomainNotifierAdapter } from './deliverability/email-domain-notifier.adapter';
 import { EMAIL_DOMAIN_NOTIFIER } from './deliverability/email-domain-notifier.token';
@@ -59,6 +62,7 @@ import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.
     ConfigurationModule,
     GdprModule,
     HouseholdsModule,
+    MetricsModule,
     ParentsModule,
     StudentsModule,
     CommsCacheBusModule,
@@ -100,6 +104,8 @@ import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.
     { provide: EMAIL_DOMAIN_NOTIFIER, useExisting: EmailDomainNotifierAdapter },
     WhatsAppTemplateService,
     WhatsAppServiceWindowService,
+    CommsLoggerService,
+    CommsMetricsService,
   ],
   exports: [
     AnnouncementsService,
@@ -116,6 +122,8 @@ import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.
     EmailDomainService,
     WhatsAppTemplateService,
     WhatsAppServiceWindowService,
+    CommsLoggerService,
+    CommsMetricsService,
   ],
 })
 export class CommunicationsModule {}
