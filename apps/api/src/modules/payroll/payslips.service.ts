@@ -371,7 +371,18 @@ export class PayslipsService {
       logo_url: logoUrl ?? undefined,
     };
 
-    return this.pdfRenderingService.renderPdf('payslip', renderLocale, snapshot, branding);
+    // Wave 2 unified snapshot shape (@school/shared/payroll) doesn't match
+    // the PayslipData interface the legacy template (payslip-en.template.ts)
+    // expects. Adapter folds the new shape into the old shape so the
+    // template renders without a rewrite. Pre-rebuild snapshots already
+    // match the legacy shape and pass through as-is.
+    const adapted = adaptSnapshotForLegacyTemplate(
+      snapshot as unknown as Record<string, unknown>,
+      payslip,
+      schoolName ?? '',
+    );
+
+    return this.pdfRenderingService.renderPdf('payslip', renderLocale, adapted, branding);
   }
 
   async generatePayslipsForRun(tenantId: string, runId: string, userId: string, db: unknown) {
@@ -625,4 +636,90 @@ export class PayslipsService {
 
     return serialized;
   }
+}
+
+// ─── Snapshot adapter ──────────────────────────────────────────────────────
+//
+// Wave 2 unified snapshot shape (@school/shared/payroll → payslipSnapshotSchema)
+// vs the legacy PayslipData shape the PDF template expects. This adapter
+// folds the new fields back into the old structure so the template
+// renders without a rewrite. Pre-rebuild snapshots already match the
+// legacy shape; this is a no-op for them.
+
+function adaptSnapshotForLegacyTemplate(
+  snapshot: Record<string, unknown>,
+  payslip: { payslip_number: string | null; template_locale: string },
+  resolvedSchoolName: string,
+): unknown {
+  // Pre-rebuild snapshots already have school + calculations on the root.
+  // Detect the new shape by the presence of `components` + absence of
+  // `calculations`.
+  const hasComponents = 'components' in snapshot;
+  const hasCalculations = 'calculations' in snapshot && Boolean(snapshot.calculations);
+  if (!hasComponents || hasCalculations) return snapshot;
+
+  const ns = snapshot as {
+    staff?: { full_name?: string; employee_number?: string | null };
+    period: { year: number; month: number; start: string; end: string };
+    compensation: {
+      type: 'salaried' | 'per_class' | 'mixed';
+      base_salary?: string | null;
+      per_class_rate?: string | null;
+      bonus_class_multiplier?: string | null;
+    };
+    inputs: {
+      days_worked?: string | number | null;
+      total_working_days: number;
+      classes_delivered?: number;
+      classes_scheduled?: number;
+    };
+    components: { base_pay?: string; bonus_pay?: string };
+    totals: { net_pay?: string };
+    currency: { code: string };
+  };
+  const num = (s: string | number | null | undefined): number => (s == null ? 0 : Number(s));
+
+  return {
+    ...ns,
+    staff: {
+      full_name: ns.staff?.full_name ?? '',
+      staff_number: ns.staff?.employee_number ?? null,
+      department: null,
+      job_title: null,
+      employment_type: 'full_time',
+      bank_name: null,
+      bank_account_last4: null,
+      bank_iban_last4: null,
+    },
+    period: {
+      label: `${ns.period.start} → ${ns.period.end}`,
+      month: ns.period.month,
+      year: ns.period.year,
+      total_working_days: ns.inputs.total_working_days,
+    },
+    compensation: {
+      type: ns.compensation.type === 'mixed' ? 'salaried' : ns.compensation.type,
+      base_salary: num(ns.compensation.base_salary),
+      per_class_rate: num(ns.compensation.per_class_rate),
+      assigned_class_count: ns.inputs.classes_scheduled ?? 0,
+      bonus_class_rate: null,
+      bonus_day_multiplier: num(ns.compensation.bonus_class_multiplier),
+    },
+    inputs: {
+      days_worked: num(ns.inputs.days_worked),
+      classes_taught: ns.inputs.classes_delivered ?? 0,
+    },
+    calculations: {
+      basic_pay: num(ns.components.base_pay),
+      bonus_pay: num(ns.components.bonus_pay),
+      total_pay: num(ns.totals.net_pay),
+    },
+    school: {
+      name: resolvedSchoolName,
+      name_ar: null,
+      logo_url: null,
+      currency_code: ns.currency.code,
+    },
+    payslip_number: payslip.payslip_number ?? '',
+  };
 }
