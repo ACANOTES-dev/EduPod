@@ -441,6 +441,42 @@ enum NotificationStatus {
   read
 }
 
+// ─── Communications Overhaul (Impl 01) ───────────────────────────────────────
+
+enum SuppressionReason {
+  hard_bounce
+  soft_bounce_threshold
+  complaint
+  manual
+  unsubscribe
+}
+
+enum EmailDomainStatus {
+  pending
+  verified
+  failed
+}
+
+enum DnsRecordStatus {
+  pending
+  verified
+  failed
+}
+
+enum WhatsAppTemplateCategory {
+  utility
+  marketing
+  authentication
+}
+
+enum WhatsAppTemplateStatus {
+  pending
+  submitted
+  approved
+  rejected
+  paused
+}
+
 enum ParentInquiryStatus {
   open
   in_progress
@@ -870,6 +906,18 @@ model Tenant {
   shareable_links              ShareableLink[]
   budgeting_tenant_preferences BudgetingTenantPreferences?
 
+  // Communications Overhaul (Impl 01) — credentials
+  email_config    TenantEmailConfig?
+  sms_config      TenantSmsConfig?
+  whatsapp_config TenantWhatsAppConfig?
+
+  // Communications Overhaul (Impl 01) — operational tables
+  email_domains            TenantEmailDomain[]
+  whatsapp_templates       WhatsAppTemplate[]
+  whatsapp_service_windows WhatsAppServiceWindow[]
+  suppression_list         NotificationSuppressionList[]
+  webhook_events           NotificationWebhookEvent[]
+
   @@map("tenants")
 }
 
@@ -1123,6 +1171,184 @@ model TenantStripeConfig {
   created_by User?  @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)
 
   @@map("tenant_stripe_configs")
+}
+
+// ─── Communications Overhaul (Impl 01) — credential + operational tables ─────
+
+model TenantEmailConfig {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String    @unique @db.Uuid
+  resend_api_key_encrypted String    @db.Text
+  from_email               String    @db.VarChar(255)
+  from_name                String?   @db.VarChar(255)
+  reply_to_email           String?   @db.VarChar(255)
+  webhook_secret_encrypted String?   @db.Text
+  encryption_key_ref       String    @db.VarChar(255)
+  key_last_rotated_at      DateTime? @db.Timestamptz()
+  is_enabled               Boolean   @default(true)
+  last_verified_at         DateTime? @db.Timestamptz()
+  created_by_user_id       String?   @db.Uuid
+  created_at               DateTime  @default(now()) @db.Timestamptz()
+  updated_at               DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User?  @relation("EmailConfigsCreated", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("tenant_email_configs")
+}
+
+model TenantSmsConfig {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String    @unique @db.Uuid
+  twilio_account_sid_encrypted String    @db.Text
+  twilio_auth_token_encrypted  String    @db.Text
+  twilio_from_number           String    @db.VarChar(50)
+  webhook_secret_encrypted     String?   @db.Text
+  encryption_key_ref           String    @db.VarChar(255)
+  key_last_rotated_at          DateTime? @db.Timestamptz()
+  is_enabled                   Boolean   @default(true)
+  last_verified_at             DateTime? @db.Timestamptz()
+  created_by_user_id           String?   @db.Uuid
+  created_at                   DateTime  @default(now()) @db.Timestamptz()
+  updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User?  @relation("SmsConfigsCreated", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("tenant_sms_configs")
+}
+
+model TenantWhatsAppConfig {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String    @unique @db.Uuid
+  twilio_account_sid_encrypted String    @db.Text
+  twilio_auth_token_encrypted  String    @db.Text
+  twilio_whatsapp_from_number  String    @db.VarChar(50)
+  business_profile_id          String?   @db.VarChar(255)
+  webhook_secret_encrypted     String?   @db.Text
+  encryption_key_ref           String    @db.VarChar(255)
+  key_last_rotated_at          DateTime? @db.Timestamptz()
+  is_enabled                   Boolean   @default(true)
+  last_verified_at             DateTime? @db.Timestamptz()
+  created_by_user_id           String?   @db.Uuid
+  created_at                   DateTime  @default(now()) @db.Timestamptz()
+  updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User?  @relation("WhatsAppConfigsCreated", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("tenant_whatsapp_configs")
+}
+
+model NotificationSuppressionList {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String              @db.Uuid
+  channel           NotificationChannel
+  recipient_address String              @db.VarChar(320)
+  reason            SuppressionReason
+  source            String?             @db.VarChar(64)
+  notification_id   String?             @db.Uuid
+  expires_at        DateTime?           @db.Timestamptz()
+  created_at        DateTime            @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, channel, recipient_address], map: "uq_suppression_tenant_channel_recipient")
+  @@index([tenant_id, channel, expires_at], map: "idx_suppression_tenant_channel_expiry")
+  @@map("notification_suppression_list")
+}
+
+model TenantEmailDomain {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String            @db.Uuid
+  domain             String            @db.VarChar(255)
+  resend_domain_id   String?           @db.VarChar(255)
+  status             EmailDomainStatus
+  spf_status         DnsRecordStatus
+  dkim_status        DnsRecordStatus
+  dmarc_status       DnsRecordStatus
+  dns_records_json   Json              @db.JsonB
+  last_checked_at    DateTime?         @db.Timestamptz()
+  verified_at        DateTime?         @db.Timestamptz()
+  failure_reason     String?           @db.Text
+  created_by_user_id String?           @db.Uuid
+  created_at         DateTime          @default(now()) @db.Timestamptz()
+  updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, domain], map: "uq_email_domain_tenant_domain")
+  @@index([status, last_checked_at], map: "idx_email_domain_status_check")
+  @@map("tenant_email_domains")
+}
+
+model WhatsAppTemplate {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                   @db.Uuid
+  template_key        String                   @db.VarChar(128)
+  twilio_template_sid String?                  @db.VarChar(64)
+  template_name       String                   @db.VarChar(128)
+  language_code       String                   @db.VarChar(16)
+  category            WhatsAppTemplateCategory
+  body                String                   @db.Text
+  status              WhatsAppTemplateStatus
+  approval_message    String?                  @db.Text
+  submitted_at        DateTime?                @db.Timestamptz()
+  approved_at         DateTime?                @db.Timestamptz()
+  last_synced_at      DateTime?                @db.Timestamptz()
+  created_at          DateTime                 @default(now()) @db.Timestamptz()
+  updated_at          DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, template_key, language_code], map: "uq_whatsapp_template_tenant_key_lang")
+  @@index([status, last_synced_at], map: "idx_whatsapp_template_status_sync")
+  @@map("whatsapp_templates")
+}
+
+model WhatsAppServiceWindow {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  recipient_phone String   @db.VarChar(50)
+  last_inbound_at DateTime @db.Timestamptz()
+  expires_at      DateTime @db.Timestamptz()
+  created_at      DateTime @default(now()) @db.Timestamptz()
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, recipient_phone], map: "uq_whatsapp_window_tenant_recipient")
+  @@index([expires_at], map: "idx_whatsapp_window_expiry")
+  @@map("whatsapp_service_windows")
+}
+
+model NotificationWebhookEvent {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String              @db.Uuid
+  channel            NotificationChannel
+  provider_event_id  String              @db.VarChar(255)
+  event_type         String              @db.VarChar(64)
+  notification_id    String?             @db.Uuid
+  payload_json       Json                @db.JsonB
+  signature_verified Boolean
+  processed_at       DateTime?           @db.Timestamptz()
+  processing_error   String?             @db.Text
+  received_at        DateTime            @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, provider_event_id], map: "uq_webhook_tenant_provider_event")
+  @@index([tenant_id, channel, received_at(sort: Desc)], map: "idx_webhook_tenant_channel_received")
+  @@index([processed_at], map: "idx_webhook_processed_at")
+  @@map("notification_webhook_events")
 }
 
 // ─── Users & Identity ────────────────────────────────────────────────────────
@@ -1430,6 +1656,11 @@ model User {
   financial_model_snapshots_published FinancialModelSnapshot[] @relation("financial_model_snapshot_publisher")
   event_budgets_created               EventBudget[]            @relation("event_budget_creator")
   shareable_links_created             ShareableLink[]          @relation("shareable_link_creator")
+
+  // Communications Overhaul (Impl 01) — created_by audit columns
+  email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
+  sms_configs_created      TenantSmsConfig[]      @relation("SmsConfigsCreated")
+  whatsapp_configs_created TenantWhatsAppConfig[] @relation("WhatsAppConfigsCreated")
 
   @@map("users")
 }
