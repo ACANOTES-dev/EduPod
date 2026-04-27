@@ -277,17 +277,12 @@ export class LeaveRequestsService {
     reviewNotes: string | null,
   ): Promise<void> {
     try {
-      // Cross-module reads are confined to this single notify-hop. The
-      // alternative (extending StaffProfileReadFacade with a `findUserId`
-      // method, plus a TenantsReadFacade lookup) would expand the public API
-      // surface for one optional call site. The lint suppressions document
-      // the exception explicitly per Impl 12's gap-closure scope.
-      // eslint-disable-next-line school/no-cross-module-prisma-access
-      const staff = await this.prisma.staffProfile.findFirst({
-        where: { id: request.staff_profile_id, tenant_id: tenantId },
-        select: { user_id: true },
-      });
+      // Use the staff-profiles facade for the staff lookup (module boundary)
+      const staff = await this.staffProfileReadFacade.findById(tenantId, request.staff_profile_id);
       if (!staff?.user_id) return;
+      // Tenant default locale: cross-module read is confined to this single
+      // notify-hop. The alternative (a TenantsReadFacade) would expand the
+      // public API surface for one optional locale fallback.
       // eslint-disable-next-line school/no-cross-module-prisma-access
       const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
