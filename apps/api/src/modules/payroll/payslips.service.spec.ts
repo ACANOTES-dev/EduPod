@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { EncryptionService } from '../configuration/encryption.service';
+import { SettingsService } from '../configuration/settings.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -53,6 +54,20 @@ describe('PayslipsService', () => {
     }),
   };
 
+  const mockSettingsService = {
+    getSettings: jest.fn().mockResolvedValue({
+      payroll: {
+        payslipPrincipalName: '',
+        payslipPrincipalNameAr: '',
+        payslipPrincipalSignatureUrl: '',
+        payslipFooterMessage: '',
+        payslipFooterMessageAr: '',
+        payslipGrossPayDisclaimer: '',
+        payslipGrossPayDisclaimerAr: '',
+      },
+    }),
+  };
+
   const mockPdfRenderingService = {
     renderPdf: jest.fn(),
   };
@@ -86,6 +101,7 @@ describe('PayslipsService', () => {
         { provide: EncryptionService, useValue: mockEncryptionService },
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
         { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: SettingsService, useValue: mockSettingsService },
         { provide: getQueueToken('payroll'), useValue: mockPayrollQueue },
       ],
     }).compile();

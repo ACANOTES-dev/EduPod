@@ -12,6 +12,7 @@ import {
 } from '@school/shared/payroll';
 
 import { EncryptionService } from '../configuration/encryption.service';
+import { SettingsService } from '../configuration/settings.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,6 +40,7 @@ export class PayslipsService {
     private readonly encryptionService: EncryptionService,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
     private readonly tenantReadFacade: TenantReadFacade,
+    private readonly settingsService: SettingsService,
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
   ) {}
 
@@ -371,6 +373,24 @@ export class PayslipsService {
       logo_url: logoUrl ?? undefined,
     };
 
+    // Wave 5 — fetch tenant payroll settings for the signature block,
+    // closing message, and gross-pay disclaimer. The Arabic / English
+    // resolution happens here (locale-aware fallback) so the templates
+    // receive a single resolved string per slot.
+    const isArabic = renderLocale.toLowerCase().startsWith('ar');
+    const tenantSettings = await this.settingsService.getSettings(tenantId).catch(() => null);
+    const ps = tenantSettings?.payroll;
+    const principalName = isArabic
+      ? ps?.payslipPrincipalNameAr || ps?.payslipPrincipalName || ''
+      : ps?.payslipPrincipalName || '';
+    const footerMessage = isArabic
+      ? ps?.payslipFooterMessageAr || ps?.payslipFooterMessage || ''
+      : ps?.payslipFooterMessage || '';
+    const grossPayDisclaimer = isArabic
+      ? ps?.payslipGrossPayDisclaimerAr || ps?.payslipGrossPayDisclaimer || ''
+      : ps?.payslipGrossPayDisclaimer || '';
+    const signatureUrl = ps?.payslipPrincipalSignatureUrl || '';
+
     // Wave 2 unified snapshot shape (@school/shared/payroll) doesn't match
     // the PayslipData interface the legacy template (payslip-en.template.ts)
     // expects. Adapter folds the new shape into the old shape so the
@@ -381,6 +401,22 @@ export class PayslipsService {
       payslip,
       schoolName ?? '',
     );
+
+    // Layer the settings-driven blocks onto the adapted snapshot. Empty
+    // strings ⇒ template renders the appropriate fallback (no signature
+    // image, generic thank-you, no disclaimer).
+    const adaptedRecord = adapted as Record<string, unknown>;
+    adaptedRecord['payslip_signature'] = {
+      principal_name: principalName,
+      principal_signature_url: signatureUrl || null,
+      footer_message: footerMessage,
+    };
+    adaptedRecord['gross_pay_disclaimer'] = grossPayDisclaimer;
+    if (!adaptedRecord['issued_at']) {
+      adaptedRecord['issued_at'] = (
+        payslip.issued_at instanceof Date ? payslip.issued_at : new Date()
+      ).toISOString();
+    }
 
     return this.pdfRenderingService.renderPdf('payslip', renderLocale, adapted, branding);
   }

@@ -62,6 +62,16 @@ function formatCurrency(value: number): string {
   });
 }
 
+// Strip the YYYYMM segment from the canonical payslip number
+// (`PSL-202604-000001` → `PSL-000001`). The DB still stores the canonical
+// form for uniqueness; this is purely a presentation simplification per
+// the Wave 5 payslip-PDF redesign.
+function simplifyPayslipNumber(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const match = raw.match(/^([A-Z]+)-\d{6}-(\d+)$/);
+  return match ? `${match[1]}-${match[2]}` : raw;
+}
+
 const MONTH_LABELS = [
   'Jan',
   'Feb',
@@ -259,7 +269,7 @@ export default function MyPayslipsPage() {
                 </p>
                 {ps.payslip_number && (
                   <p className="mt-0.5 text-xs text-text-tertiary" dir="ltr">
-                    {ps.payslip_number}
+                    {simplifyPayslipNumber(ps.payslip_number)}
                   </p>
                 )}
                 <p className="mt-0.5 text-xs text-text-secondary">

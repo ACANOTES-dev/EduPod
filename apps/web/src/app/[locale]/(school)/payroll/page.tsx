@@ -12,6 +12,7 @@ import {
   Clock,
   Download,
   FileText,
+  Plug,
   Plus,
   Sparkles,
   TrendingUp,
@@ -523,6 +524,31 @@ export default function PayrollHubPage() {
           accent="text-indigo-700"
           isLoading={isLoading}
         />
+      </section>
+
+      {/* ── Roadmap teaser: full payroll integration ─────────────────── */}
+      <section
+        className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.04] via-violet-500/[0.04] to-emerald-500/[0.04] p-5 shadow-sm"
+        aria-label={t('roadmap.ariaLabel')}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Plug className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold text-text-primary">{t('roadmap.title')}</h3>
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                  {t('roadmap.badge')}
+                </span>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+                {t('roadmap.description')}
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── Current run banner (in-progress state) ───────────────────── */}

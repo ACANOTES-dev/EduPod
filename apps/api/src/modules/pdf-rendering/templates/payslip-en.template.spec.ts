@@ -72,10 +72,14 @@ describe('renderPayslipEn', () => {
     expect(result).toContain('</html>');
   });
 
-  it('should include payslip number', () => {
+  it('should include payslip number (Wave 5: simplified to PREFIX-SEQ — drops year-month)', () => {
     const result = renderPayslipEn(PAYSLIP_DATA, BRANDING);
 
-    expect(result).toContain('PS-202601-0001');
+    // Pre-rebuild format `PS-202601-0001` displays as `PS-0001` per the
+    // Wave 5 simplification rule. The full reference is preserved in the
+    // DB for uniqueness; this is presentation only.
+    expect(result).toContain('PS-0001');
+    expect(result).not.toContain('PS-202601-0001');
   });
 
   it('should include staff info', () => {
@@ -93,10 +97,11 @@ describe('renderPayslipEn', () => {
     expect(result).toContain('January 2026');
   });
 
-  it('should include pay calculations', () => {
+  it('should include pay calculations with thousands separators (Wave 5)', () => {
     const result = renderPayslipEn(PAYSLIP_DATA, BRANDING);
 
-    expect(result).toContain('EUR 4000.00');
+    // Wave 5: Intl.NumberFormat('en-GB') groups by comma → "4,000.00".
+    expect(result).toContain('EUR 4,000.00');
   });
 
   it('should include bank details (last 4 only)', () => {
@@ -194,7 +199,8 @@ describe('renderPayslipEn', () => {
     const result = renderPayslipEn(data, BRANDING);
 
     expect(result).toContain('Bonus Day Multiplier');
-    expect(result).toContain('1.5x');
+    // Wave 5: × (multiplication sign) replaces ASCII 'x' for typographic correctness.
+    expect(result).toContain('1.5×');
   });
 
   it('should omit bonus_day_multiplier row when null for salaried type', () => {

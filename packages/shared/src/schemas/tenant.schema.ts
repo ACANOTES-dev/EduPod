@@ -137,6 +137,23 @@ export const payrollSettingsSchema = z.object({
   // flow. Empty string means "not configured" — the export endpoint
   // throws NO_ACCOUNTANT_EMAIL until a value is set.
   payrollAccountantEmail: z.string().default(''),
+  // ─── Payslip PDF presentation ────────────────────────────────────────────
+  // Surfaced in the bottom signature block of every generated payslip.
+  // Empty values render the appropriate fallback (no signature image,
+  // generic thank-you message, no principal name line).
+  payslipPrincipalName: z.string().default(''),
+  payslipPrincipalNameAr: z.string().default(''),
+  payslipPrincipalSignatureUrl: z.string().default(''),
+  payslipFooterMessage: z.string().default(''),
+  payslipFooterMessageAr: z.string().default(''),
+  // Gross-pay disclaimer — surfaced just before the signature block.
+  // Schools that operate in tax-free jurisdictions (e.g. Libya) can blank
+  // both fields and the section disappears entirely. Schools that hand
+  // staff a tax-deducted official payslip from an accountant render
+  // their disclaimer here so the in-app document is positioned as a
+  // gross-pay record only.
+  payslipGrossPayDisclaimer: z.string().default(''),
+  payslipGrossPayDisclaimerAr: z.string().default(''),
 });
 
 export type PayrollSettingsDto = z.infer<typeof payrollSettingsSchema>;

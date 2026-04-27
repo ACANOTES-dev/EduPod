@@ -78,6 +78,13 @@ export interface PayrollSettings {
   payrollAccountantEmail: string;
   autoSendPayslips: boolean;
   payslipDeliveryMethod: 'email' | 'in_app' | 'both';
+  payslipPrincipalName: string;
+  payslipPrincipalNameAr: string;
+  payslipPrincipalSignatureUrl: string;
+  payslipFooterMessage: string;
+  payslipFooterMessageAr: string;
+  payslipGrossPayDisclaimer: string;
+  payslipGrossPayDisclaimerAr: string;
 }
 
 export interface GeneralSectionSettings {
@@ -228,6 +235,13 @@ export const DEFAULT_SETTINGS: TenantSettings = {
     payrollAccountantEmail: '',
     autoSendPayslips: false,
     payslipDeliveryMethod: 'email',
+    payslipPrincipalName: '',
+    payslipPrincipalNameAr: '',
+    payslipPrincipalSignatureUrl: '',
+    payslipFooterMessage: '',
+    payslipFooterMessageAr: '',
+    payslipGrossPayDisclaimer: '',
+    payslipGrossPayDisclaimerAr: '',
   },
   scheduling: {
     teacherWeeklyMaxPeriods: null,

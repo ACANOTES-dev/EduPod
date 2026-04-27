@@ -517,6 +517,62 @@ export default function GeneralSettingsPage() {
               />
             )}
           </SubSectionCard>
+
+          {/* Payslip presentation sub-section — surfaced on every PDF */}
+          <SubSectionCard
+            title={t('payslipPresentationTitle')}
+            description={t('payslipPresentationDesc')}
+          >
+            <TextRow
+              label={t('payslipPrincipalName')}
+              description={t('payslipPrincipalNameDesc')}
+              value={settings.payroll.payslipPrincipalName}
+              onChange={(v) => updateSection('payroll', { payslipPrincipalName: v })}
+              placeholder={t('payslipPrincipalNamePlaceholder')}
+            />
+            <TextRow
+              label={t('payslipPrincipalNameAr')}
+              description={t('payslipPrincipalNameArDesc')}
+              value={settings.payroll.payslipPrincipalNameAr}
+              onChange={(v) => updateSection('payroll', { payslipPrincipalNameAr: v })}
+              placeholder={t('payslipPrincipalNameArPlaceholder')}
+            />
+            <TextRow
+              label={t('payslipPrincipalSignatureUrl')}
+              description={t('payslipPrincipalSignatureUrlDesc')}
+              value={settings.payroll.payslipPrincipalSignatureUrl}
+              onChange={(v) => updateSection('payroll', { payslipPrincipalSignatureUrl: v })}
+              placeholder="https://..."
+            />
+            <TextRow
+              label={t('payslipFooterMessage')}
+              description={t('payslipFooterMessageDesc')}
+              value={settings.payroll.payslipFooterMessage}
+              onChange={(v) => updateSection('payroll', { payslipFooterMessage: v })}
+              placeholder={t('payslipFooterMessagePlaceholder')}
+            />
+            <TextRow
+              label={t('payslipFooterMessageAr')}
+              description={t('payslipFooterMessageArDesc')}
+              value={settings.payroll.payslipFooterMessageAr}
+              onChange={(v) => updateSection('payroll', { payslipFooterMessageAr: v })}
+              placeholder={t('payslipFooterMessageArPlaceholder')}
+            />
+            <TextRow
+              label={t('payslipGrossPayDisclaimer')}
+              description={t('payslipGrossPayDisclaimerDesc')}
+              value={settings.payroll.payslipGrossPayDisclaimer}
+              onChange={(v) => updateSection('payroll', { payslipGrossPayDisclaimer: v })}
+              placeholder={t('payslipGrossPayDisclaimerPlaceholder')}
+            />
+            <TextRow
+              label={t('payslipGrossPayDisclaimerAr')}
+              description={t('payslipGrossPayDisclaimerArDesc')}
+              value={settings.payroll.payslipGrossPayDisclaimerAr}
+              onChange={(v) => updateSection('payroll', { payslipGrossPayDisclaimerAr: v })}
+              placeholder={t('payslipGrossPayDisclaimerArPlaceholder')}
+            />
+          </SubSectionCard>
         </SectionCard>
 
         {/* Scheduling */}

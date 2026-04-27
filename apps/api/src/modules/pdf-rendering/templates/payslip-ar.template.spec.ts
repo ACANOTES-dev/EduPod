@@ -77,10 +77,13 @@ describe('renderPayslipAr', () => {
     expect(result).toContain('أكاديمية اختبار');
   });
 
-  it('should include payslip number', () => {
+  it('should include payslip number (Wave 5: simplified to PREFIX-SEQ — drops year-month)', () => {
     const result = renderPayslipAr(PAYSLIP_DATA, BRANDING);
 
-    expect(result).toContain('PS-202601-0002');
+    // Pre-rebuild format `PS-202601-0002` displays as `PS-0002` per the
+    // Wave 5 simplification rule.
+    expect(result).toContain('PS-0002');
+    expect(result).not.toContain('PS-202601-0002');
   });
 
   it('should include staff info in Arabic', () => {
@@ -174,8 +177,11 @@ describe('renderPayslipAr', () => {
     };
     const result = renderPayslipAr(data, BRANDING);
 
-    expect(result).toContain('2x');
-    expect(result).toContain('\u0645\u0639\u0627\u0645\u0644 \u0645\u0643\u0627\u0641\u0623\u0629');
+    // Wave 5: \u00d7 (multiplication sign) replaces ASCII 'x' for typographic correctness.
+    expect(result).toContain('2\u00d7');
+    expect(result).toContain(
+      '\u0645\u0639\u0627\u0645\u0644 \u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629',
+    );
   });
 
   it('should show dash when base_salary is null for salaried', () => {
