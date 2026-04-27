@@ -1,0 +1,314 @@
+# Communications Overhaul — Implementation Log
+
+> **What this is:** The single source of truth for the Communications rebuild. Every session that executes an implementation MUST read this file first, verify prerequisites, record completion, and verify on a local dev server before signing off.
+>
+> **CRITICAL DEPLOYMENT RULE:** This rebuild runs in a dedicated git worktree on branch `communications-overhaul`. **NO CI DEPLOYMENT.** Every implementation commits to the worktree only. The user manually rebases & merges to `main` after Impl 14 completes. Do not push to `origin main`. Do not trigger GitHub Actions. Do not rsync to production. Local dev server testing only.
+
+---
+
+## 1. Work summary (read this first)
+
+The platform's notification dispatch infrastructure (provider classes, retry logic, fallback chain, rate limits, consent gating, idempotency, two-phase dispatch) is production-quality and stays untouched. What's missing is everything around it: per-tenant credentials, webhooks, deliverability hygiene, WhatsApp compliance, suppression list, observability, and module gap closure.
+
+This rebuild ports the proven `TenantStripeConfig` pattern to three new tenant-scoped credential tables (`tenant_email_configs`, `tenant_sms_configs`, `tenant_whatsapp_configs`), then adds the operational stack on top: a suppression list, email domain verification, WhatsApp template lifecycle + 24-hour service window, webhook receivers with per-tenant signature verification, real test-send verification endpoints, full Sentry / logging / metrics / runbook observability, and the closure of every existing comms gap (finance direct DB write, missing module wirings, the `'push'` channel mismatch).
+
+**Scope of the rebuild (14 implementations, 5 waves):**
+
+- **Wave 1 — Foundation:** schema for all 8 new tables (3 credential + 5 operational), RLS policies, permission constants, RBAC seed update, permission backfill onto existing role mappings for all 5 test tenants.
+- **Wave 2 — API services:** Zod schemas in `@school/shared`, three credential services + controllers (mirror StripeConfigService), comprehensive tests (RLS leakage, permission denial, encryption round-trip, decryption isolation).
+- **Wave 3 — Provider refactor + operational stack:** providers refactored to tenant-first dispatch, per-tenant client cache + Redis pub/sub invalidation, worker parity + `.env` credential removal + mid-flight `is_enabled` enforcement, webhook receivers + signature verification + suppression list, email domain verification + DNS, WhatsApp template lifecycle + service window, verify/test endpoints, observability layer (Sentry tags + structured logging + Prometheus + Grafana + runbooks).
+- **Wave 4 — Frontend + cleanups:** four settings pages (index + email + sms + whatsapp), module gap closure (finance migration, trips/closures/leave/health/sen wiring, password reset, push→whatsapp).
+- **Wave 5 — Backfill + docs:** test tenant backfill (15 config rows: 5 tenants × 3 channels), architecture docs update, full Playwright E2E verification on local dev server.
+
+**Untouched by this rebuild:**
+
+- The dispatch service itself (`notification-dispatch.service.ts`) — fallback chain, retry, rate limit, consent, idempotency, audience resolution all stay.
+- The `notification` table schema (status enum is extended in Impl 06 to include `bounced` and `complained`, but no other change).
+- The `notification_template` table.
+- All notification-triggering business logic in attendance / behaviour / gradebook / homework / pastoral / safeguarding / engagement / parent-inquiries / admissions / RBAC / approvals (these MODULES already use `NotificationsService` correctly; only finance, trips, closures, leave, health, sen are touched in Impl 12).
+
+---
+
+## 2. Rules every session must follow
+
+> **If another implementation in your wave is currently `in-progress` or `verifying`, §2a (Rules 17–26) is mandatory reading before you touch any code.** Those rules distil parallel-run failure modes from previous rebuilds.
+
+**Rule 1 — Read this file before starting any implementation.** The whole thing. Not just your wave. You need to see what's been done and what's in flight.
+
+**Rule 2 — Verify prerequisites.** Look at the Wave Status table in §4. For the implementation you've been asked to run, every item in its "Depends on" column must have `status: completed`. If any prerequisite is `pending` or `in-progress`, STOP and tell the user which prerequisite is missing. Do not execute.
+
+**Rule 3 — Read the summaries of completed prerequisites.** Look in §5 (Completion Records) for each prerequisite implementation. Read the summary. You need to know what exists before you build on top of it.
+
+**Rule 4 — Implementations within the same wave code in parallel.** Coordinate via the shared-file claims (Rule 17). Within a wave there is no deploy serialisation step — local commits don't deploy anything. The ordering rule is purely about avoiding stomp on shared files.
+
+**Rule 5 — DEPLOYMENT RULE: Worktree commits only. NO CI. NO PRODUCTION.**
+
+This rebuild runs in a dedicated git worktree on branch `communications-overhaul`. Every implementation follows this release flow:
+
+1. **Local gauntlet** — `pnpm turbo run type-check`, `pnpm turbo run lint`, `pnpm turbo run test --filter=<affected packages>`. If you wired a new BullMQ queue or changed module DI, also run the AppModule DI smoke (Rule 6).
+
+2. **Local dev server verification** — for ANY implementation that produces a runnable surface (API endpoint, worker job, frontend page), spin up a local dev server (`pnpm dev` or the appropriate per-app `pnpm --filter @school/api dev`, `pnpm --filter @school/worker dev`, `pnpm --filter @school/web dev`) and verify the work end-to-end. Hit endpoints with `curl http://localhost:3001/api/v1/...`, drive worker jobs via the API and watch logs, navigate to frontend pages at `http://localhost:5551`. Do NOT consider the implementation complete until you have observed it work locally.
+
+3. **Playwright verification — mandatory once UX surfaces exist.** From Impl 11 onward (frontend pages), every implementation that ships a UI must include a Playwright walkthrough on `http://localhost:5551` that authenticates a known user (e.g. `owner@nhqs.test` against the local dev DB) and exercises the new surface. Earlier implementations (01–10) drive backend smoke via `curl` or `browser_evaluate` against localhost. Cap Playwright verification at ~20 minutes per memory; spot-check, then move on. Delete any screenshots before committing — keep the branch clean.
+
+4. **Commit locally to the worktree** — conventional commit format (`feat(comms): ...`, `fix(comms): ...`, `chore(comms): ...`). Multiple commits per impl are encouraged when sub-steps form natural boundaries. **Do NOT push to `origin main`. Do NOT push to any remote.** The worktree's branch (`communications-overhaul`) lives locally until the user merges.
+
+5. **Never trigger CI.** This rebuild does not flow through `.github/workflows/ci.yml`. Do not run `git push origin communications-overhaul`. Do not run `gh run watch`. Do not call `scripts/deploy-production.sh`. None of those touch this work until the user merges.
+
+6. **Never SSH to production for this rebuild.** The production server runs the version on `main`. Until the user merges, the `communications-overhaul` branch does not exist on production, and there is nothing to verify there.
+
+7. **Update the implementation log when done** — flip the Wave Status row to `completed`, fill in the local commit SHA, write the completion record in §5.
+
+8. **The user merges at the end.** After Impl 14 completes, the user manually rebases `communications-overhaul` onto `main`, resolves any conflicts (other sessions on `main` may have shipped during this rebuild), and merges. CI runs at that point. Production deploy happens at that point. None of that is your responsibility during the rebuild.
+
+**Rule 6 — Run the AppModule DI smoke when wiring changes.** When you add a service constructor dep, change a module's `imports`/`exports`/`providers`, or wire a new BullMQ queue, run the verification from `CLAUDE.md`:
+
+```bash
+cd apps/api && DATABASE_URL=postgresql://x:x@localhost:5432/x \
+REDIS_URL=redis://localhost:6379 \
+JWT_SECRET=fakefakefakefakefakefakefakefake \
+JWT_REFRESH_SECRET=fakefakefakefakefakefakefakefake \
+ENCRYPTION_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+MFA_ISSUER=test PLATFORM_DOMAIN=test.local APP_URL=http://localhost:3000 \
+npx ts-node -e "
+import { Test } from '@nestjs/testing';
+import { AppModule } from './src/app.module';
+Test.createTestingModule({ imports: [AppModule] }).compile()
+  .then(() => { console.log('DI OK'); process.exit(0); })
+  .catch(e => { console.error(e.message); process.exit(1); });
+"
+```
+
+A broken DI graph is far easier to fix locally than to debug after a merge.
+
+**Rule 7 — Update this log at the end of your implementation.** Append a new Completion Record in §5 with: implementation ID, completion timestamp, a paragraph summary of what actually shipped (not what the plan said — what you actually did), any deviations from the plan with rationale, any follow-up notes for subsequent waves, and the local commit SHA. Flip the row in the Wave Status table (§4) from `in-progress` to `completed`. Commit the log update as a SEPARATE commit (separate from your code commits) so the log change is auditable.
+
+**Rule 8 — Regression tests are mandatory.** Before flipping a row to `completed`, run `pnpm turbo run test --filter=<affected packages>`. If existing tests fail because of your changes, fix the regression before signing off. Do NOT mark the impl complete and come back to it later.
+
+**Rule 9 — Follow the `.claude/rules/*` conventions.** Highest-priority rules for this rebuild:
+
+- RLS on every new tenant-scoped table: `FORCE ROW LEVEL SECURITY` + `<table>_tenant_isolation` policy. Mirror into `packages/prisma/rls/policies.sql`.
+- No raw SQL outside the RLS middleware. No `$executeRawUnsafe`, no `$queryRawUnsafe` anywhere else.
+- Interactive `$transaction(async (tx) => ...)` for every tenant-scoped write. The sequential `$transaction([...])` API is prohibited.
+- Strict TypeScript — no `any`, no `@ts-ignore`, no `as unknown as X` except the documented RLS-transaction exception.
+- Zod schemas live in `@school/shared`; DTOs inferred from them.
+- Logical CSS properties on frontend (`ps-`, `pe-`, `start-`, `end-`) — never `pl-`, `pr-`, `left-`, `right-`. ZERO TOLERANCE.
+- `react-hook-form` + `zodResolver` for every new form.
+- Co-located `.spec.ts` files next to source. Every tenant-scoped table needs an RLS leakage test.
+- The single permitted `as unknown as PrismaService` cast lives inside `createRlsClient(...).$transaction()` — nowhere else.
+- Encrypted secrets are NEVER logged, NEVER returned in API responses (only last-4 mask), NEVER passed to error messages.
+- Worker job names and Redis pub/sub channel names come from `@school/shared/constants/communications.ts`. Never hardcode the strings.
+
+**Rule 10 — If you hit a blocker you cannot resolve, STOP and update the log.** Do not make up state. Do not delete "unrecognised" code that another in-flight session might own. Add a `🛑 BLOCKED` record to §5 explaining what you tried and what you need.
+
+**Rule 11 — `.env` credentials are removed by Impl 05; do NOT reintroduce them.** After Impl 05 ships, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` no longer exist in env validation. If a later impl needs to send a real test message during local development, the tenant config tables (seeded by Impl 13) carry the credentials. Do not paste keys into `.env` and "fix later."
+
+**Rule 12 — Cache invalidation is not optional.** Any code that mutates a tenant credential row (insert / update / delete) must publish to the `comms:config-changed` Redis channel. Forgetting this means the API or worker keeps using the old cached client and the tenant's update silently doesn't take effect. The `CommsCacheBusService` is the only correct path; do not bypass it.
+
+**Rule 13 — Webhook signature verification is not optional.** The webhook receiver controllers (Impl 06) MUST verify the per-tenant signature before doing anything else with the payload. A missing signature, a wrong signature, or a missing `webhook_secret` on the tenant config: return 401, write `signature_verified=false` to `notification_webhook_events`, and STOP. Never trust unverified webhook bodies.
+
+**Rule 14 — Architecture docs update is owned by Impl 14.** Do not touch `docs/architecture/feature-map.md`, `module-blast-radius.md`, `danger-zones.md`, `state-machines.md`, `event-job-catalog.md` in earlier impls. Impl 14 owns a single coherent update at the end. Per `.claude/rules/feature-map-maintenance.md`.
+
+**Rule 15 — Every destructive change gets a rollback note.** If an implementation drops a column, removes an endpoint, deletes a permission, or removes an env var (Impl 05 removes 6 of them), record in §5 the exact rollback steps. The user relies on this log to recover if a merge conflict needs surgical undo.
+
+**Rule 16 — Production tenants are test tenants until Aug 2026.** NHQS + stress-a/b/c/d are dummy data. Impl 13 backfills test credentials into the local dev DB only. Do NOT attempt to populate real production rows during the rebuild — production cutover is the user's job at merge time.
+
+---
+
+## 2a. Parallel-execution hygiene
+
+These rules exist because parallel sessions editing the same working tree have, in past rebuilds, lost full work cycles to the failure modes below. Read and follow them every time more than one implementation in a wave is `in-progress` simultaneously.
+
+**Rule 17 — Declare shared-file ownership up front.** The first session in a wave that needs to edit a cross-impl shared file announces ownership by appending a one-line note to §5 of the log **before writing any code**. Cross-impl shared files in this rebuild include:
+
+- `packages/prisma/schema.prisma`
+- `packages/prisma/rls/policies.sql`
+- `apps/api/src/app.module.ts`
+- `apps/worker/src/worker.module.ts`
+- `apps/worker/src/base/cron-scheduler.service.ts`
+- `apps/api/src/modules/configuration/configuration.module.ts`
+- `apps/api/src/modules/communications/communications.module.ts`
+- `packages/shared/src/index.ts`
+- `packages/shared/src/schemas/index.ts`
+- `packages/shared/src/constants/notification-types.ts`
+- `apps/web/messages/en.json`
+- `apps/web/messages/ar.json`
+- `.env.example`
+- `apps/api/package.json`
+- `apps/worker/package.json`
+- `apps/web/package.json`
+- `pnpm-lock.yaml`
+
+Format:
+
+```
+### [WAVE N SHARED-FILE CLAIM] — impl NN
+- Claims: apps/api/src/modules/communications/communications.module.ts
+- Claims: apps/worker/src/base/cron-scheduler.service.ts
+- Until: committed OR flipped to `🛑 blocked`
+```
+
+Other impls in the same wave that need to edit a claimed file MUST NOT do so concurrently. They wait for the owner's commit, pull (within the worktree), then layer their hunks on top as a fix-forward. If a claim blocks you for more than 10 minutes, flip your own row to `🛑 blocked` and leave a note naming the owner.
+
+**Rule 18 — Never commit a reference to a file that is not in the same commit.** Before committing, audit every `import` added by your commit: if the imported file is not in the commit (either new or already on the branch) the commit will break the next session that pulls.
+
+**Rule 19 — Lockfile edits are mechanical, never manual.** `pnpm-lock.yaml` is only ever updated by running `pnpm install` after a `package.json` change. Never hand-edit the lockfile. Always pair the lockfile change with the `package.json` delta in the same commit.
+
+**Rule 20 — Never `git checkout HEAD -- <shared-file>` while another impl is active.** A raw checkout silently overwrites another session's unstaged work and triggers a thrash loop. Use targeted `Edit` operations, or `git stash` your changes, take a diff against HEAD, and re-apply your hunks explicitly.
+
+**Rule 21 — Shared spec files have a single owner per wave.** If a spec file aggregates mocks for multiple impls (rare in this rebuild but possible for `communications.module.spec.ts`), the wave's first impl to touch it claims it under Rule 17. Other impls do not edit the spec directly; they leave a note in §5 naming the provider / mock they need added.
+
+**Rule 22 — Re-fetch and re-verify branch state before every commit.** Between the time you ran `git status` and the time you run `git commit`, another session may have committed and your local `HEAD` may be stale. Before every commit:
+
+```bash
+git status
+git log --oneline -5
+```
+
+If sibling sessions have committed, you may need to `git pull --rebase` within the worktree (this is internal to the worktree's branch — still no remote push).
+
+**Rule 23 — Each impl owns the coverage of its own files.** If an impl introduces files that fall below the per-file coverage target, that impl must add tests for them before flipping to `completed` — do not rely on the next session to backfill.
+
+**Rule 24 — Husky pre-push hooks won't fire (no push), but pre-commit hooks will.** Treat the pre-commit hook as a floor, not a gate to bypass. The only acceptable use of `--no-verify` is when the hook fails on code already on the branch from another impl AND your own commit is verified locally — and even then, the completion record in §5 must name the drag and the owning impl.
+
+**Rule 25 — Re-read §4 before starting verification.** Another session may have flipped to `completed` / `🛑 blocked` while you worked. The shared-file claim register may have moved.
+
+**Rule 26 — When in doubt, shrink the commit.** If the tree has diverged from your mental model because of parallel edits, the safe recovery is to commit only your new files (under your impl's owned folder) and leave the shared-file edits unstaged. Let the shared-file changes ride in the next session's commit once ownership is clear.
+
+**Rule 27a — Local dev server + Playwright verification is mandatory before flipping a row to `completed`.** Endpoint smoke via `curl` is required for backend impls. UI Playwright walk is required for frontend impls (Impl 11+). Every implementation must additionally drive the relevant surface end-to-end on a running local dev server and capture:
+
+- For backend impls (01–10, 12, 13): a curl run (or `browser_evaluate(() => fetch())`) against `http://localhost:3001/api/v1/...` that authenticates as a known user, hits the new endpoint(s), and confirms a real response (real data shape, not 404 / not error). Worker impls trigger a job via the API and tail `pnpm --filter @school/worker dev` logs to confirm the processor registered and ran.
+- For frontend impls (11): a Playwright run that loads the page on `http://localhost:5551`, captures `browser_console_messages(level: 'error')`, asserts no errors, and snapshots key UI elements (channel cards visible, test send works, status indicators wired, etc.).
+- A short `## Local verification` block in the §5 completion record listing: pages/endpoints covered, any console errors observed, the timestamp the run completed.
+
+**Rule 27b — Only one session may run Playwright at a time. Sessions queue via a log claim.** Playwright's MCP wrapper holds a single browser context per host and serialises poorly across sessions. Before invoking ANY `mcp__plugin_playwright_playwright__*` tool, append a one-line claim to §5:
+
+```
+### [PLAYWRIGHT LOCK] — impl NN (or "verification-walkthrough")
+- Holder: <session purpose>
+- Started: <ISO timestamp>
+- Until: released by closing the browser AND appending a follow-up release line
+```
+
+Before you write that claim, scan §5 for the most recent `[PLAYWRIGHT LOCK]` entry. If it has no matching `[PLAYWRIGHT RELEASED]` line below it, the lock is held — STOP, do not invoke Playwright tools, and either:
+
+1. Wait (poll §5 every 3 minutes until the release line appears), or
+2. Defer the verification step and flip your row to `🛑 blocked — waiting on Playwright lock`.
+
+After your Playwright run completes, append:
+
+```
+### [PLAYWRIGHT RELEASED] — impl NN (or "verification-walkthrough")
+- Holder: <same purpose as claim>
+- Released: <ISO timestamp>
+- Browser closed: yes
+```
+
+Hold the lock for ≤ 30 minutes. If your verification needs longer, release at the natural break point and re-claim.
+
+---
+
+## 3. Wave structure & dependencies
+
+Each wave must complete entirely before the next wave starts. Within a wave, all listed implementations code in parallel. There is no deploy step (worktree-only), so no deploy serialisation — the only coordination is shared-file claims (Rule 17).
+
+| Wave       | Implementations            | Hard dependency | Rationale                                                                                                                                                                                                                                                           |
+| ---------- | -------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wave 1** | 01, 02                     | None            | Foundation. Schema (01) lands every new table in one migration. Permission backfill (02) seeds new constants + grants on existing role mappings. 02 depends only on permission constants existing — codes in parallel with 01 once the constant strings are agreed. |
+| **Wave 2** | 03                         | Wave 1 complete | API services + controllers + tests. Single impl because the three credential services share enough mock plumbing that splitting them creates more friction than parallelism saves.                                                                                  |
+| **Wave 3** | 04, 05, 06, 07, 08, 09, 10 | Wave 2 complete | Provider refactor + operational stack. Maximum parallelism. Shared files: providers/, configuration.module.ts, communications.module.ts, cron-scheduler.service.ts. Coordinate via Rule 17.                                                                         |
+| **Wave 4** | 11, 12                     | Wave 3 complete | Frontend + cleanups. 11 builds the settings UI; 12 closes module gaps. They touch different files and can run in parallel.                                                                                                                                          |
+| **Wave 5** | 13, 14                     | Wave 4 complete | 13 backfills test tenant configs in the dev DB. 14 updates architecture docs and runs the full E2E verification. 14 depends on 13.                                                                                                                                  |
+
+### Restart-target matrix (informational — there's no actual deploy)
+
+This matrix tells you which apps you need to restart in your local dev session after pulling a sibling impl's changes. There is no production deploy.
+
+| Impl | Migration        | API restart | Worker restart | Web restart |
+| ---- | ---------------- | ----------- | -------------- | ----------- |
+| 01   | ✅               | ✅          | ✅             | ✅          |
+| 02   | ❌ (script run)  | ✅          | ❌             | ❌          |
+| 03   | ❌               | ✅          | ❌             | ❌          |
+| 04   | ❌               | ✅          | ✅             | ❌          |
+| 05   | ❌ (env removal) | ✅          | ✅             | ❌          |
+| 06   | ❌               | ✅          | ❌             | ❌          |
+| 07   | ❌               | ✅          | ✅             | ❌          |
+| 08   | ❌               | ✅          | ✅             | ❌          |
+| 09   | ❌               | ✅          | ❌             | ❌          |
+| 10   | ❌               | ✅          | ✅             | ❌          |
+| 11   | ❌               | ❌          | ❌             | ✅          |
+| 12   | ❌               | ✅          | ✅             | ✅          |
+| 13   | ❌ (script run)  | ✅          | ❌             | ❌          |
+| 14   | ❌               | ✅          | ✅             | ✅          |
+
+Impl 04 (provider refactor) restarts API and worker because both consume the new `comms-cache-bus.service.ts` and the refactored providers.
+
+---
+
+## 4. Wave status (update as you execute)
+
+Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 blocked`
+
+| #   | Title                                                           | Wave | Depends on             | Status    | Completed at | Local Commit SHA |
+| --- | --------------------------------------------------------------- | ---- | ---------------------- | --------- | ------------ | ---------------- |
+| 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `pending` | —            | —                |
+| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `pending` | —            | —                |
+| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending` | —            | —                |
+| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending` | —            | —                |
+| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending` | —            | —                |
+| 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending` | —            | —                |
+| 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending` | —            | —                |
+| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending` | —            | —                |
+| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `pending` | —            | —                |
+| 10  | Operational layer — Sentry + logging + metrics + runbooks       | 3    | 01, 03                 | `pending` | —            | —                |
+| 11  | Frontend Settings UI                                            | 4    | 03, 07, 08, 09         | `pending` | —            | —                |
+| 12  | Module gap closure + cleanups                                   | 4    | 03                     | `pending` | —            | —                |
+| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB         | 5    | 01, 02, 03, 07, 08, 09 | `pending` | —            | —                |
+| 14  | Architecture docs + comprehensive E2E verification on local dev | 5    | 11, 12, 13             | `pending` | —            | —                |
+
+"Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists for sanity checks.
+
+---
+
+## 5. Completion records
+
+Append new records below in chronological order. Format:
+
+```
+### [IMPL NN] — <title>
+- **Completed:** <ISO timestamp> (Europe/Dublin)
+- **Local commit SHA:** <sha>
+- **Deployment route:** worktree commit only (per Rule 5) — NO CI, NO PRODUCTION
+- **Verified at:** <ISO timestamp> on local dev server
+- **Local verification:** <surface-specific smoke summary>
+- **Summary (≤ 200 words):**
+  What was actually built. Names of new files, endpoints, services. Key design
+  decisions made during implementation that subsequent waves need to know about.
+  Any trade-offs or deviations from the plan.
+- **Follow-ups:** anything that needs to happen later, with owner.
+- **Rollback:** exact `git revert` command + any manual steps if needed.
+- **Local verification block:** pages/endpoints covered, any console errors observed, run timestamp.
+- **Session notes (optional):** anything weird or surprising.
+```
+
+For shared-file ownership claims (Rule 17), use:
+
+```
+### [WAVE N SHARED-FILE CLAIM] — impl NN
+- Claims: <file path>
+- Until: committed OR flipped to `🛑 blocked`
+```
+
+For Playwright lock (Rule 27b), use the formats described in §2a.
+
+For blocked work, use:
+
+```
+### [IMPL NN] — 🛑 BLOCKED
+- **Blocked at:** <ISO timestamp>
+- **What I tried:** <description>
+- **What I need:** <description>
+- **Files left in dirty state:** <list, or "none">
+```
+
+<!-- ─── Append records below this line ─── -->

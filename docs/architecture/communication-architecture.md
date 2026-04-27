@@ -1,8 +1,8 @@
 # Communication Architecture — School Operating System
 
-> **Purpose**: Authoritative reference for how the platform communicates with parents, guardians, students, applicants, and staff across the four supported channels (in-app, email, SMS, WhatsApp). Defines the existing dispatch infrastructure and the target tenant-configurable credential model.
-> **Status**: Dispatch infrastructure is fully built. Per-tenant credentials are NOT YET implemented — the next implementation phase ports the existing `TenantStripeConfig` pattern to `TenantEmailConfig`, `TenantSmsConfig`, and `TenantWhatsAppConfig`.
-> **Last verified**: 2026-04-25
+> **Purpose**: Authoritative reference for how the platform communicates with parents, guardians, students, applicants, and staff across the four supported channels (in-app, email, SMS, WhatsApp). Defines the existing dispatch infrastructure, the target tenant-configurable credential model, and the full operational stack (webhooks, deliverability, templates, observability) required for a world-class communication module.
+> **Status**: Dispatch infrastructure is fully built. Per-tenant credentials, webhooks, deliverability, WhatsApp templates, and the operational layer are NOT YET implemented. The 14-implementation overhaul tracked in `communicationnew/PLAN.md` ports the existing `TenantStripeConfig` pattern to `TenantEmailConfig`, `TenantSmsConfig`, `TenantWhatsAppConfig`, adds the `NotificationSuppressionList`, `TenantEmailDomain`, `WhatsAppTemplate`, and `NotificationWebhookEvent` tables, and removes platform `.env` credential paths entirely.
+> **Last verified**: 2026-04-27
 
 ---
 
@@ -20,11 +20,15 @@ The platform supports exactly four communication channels. **In-app is mandatory
 ### Provider Lock-In (Confirmed)
 
 - **Resend** is the chosen email provider. No SendGrid, SES, Mailgun, SMTP, or other email backends will be supported in the tenant config UI.
-- **Twilio** is the chosen SMS and WhatsApp provider. SMS and WhatsApp share `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` but use different sender numbers (`TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`). This will be reflected in the per-tenant model — SMS and WhatsApp will be separate tables but each carrying their own SID/token pair so a tenant can use distinct Twilio sub-accounts per channel if they wish.
+- **Twilio** is the chosen SMS and WhatsApp provider. SMS and WhatsApp share `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` patterns but use different sender numbers (`twilio_from_number` for SMS, `twilio_whatsapp_from_number` for WhatsApp). The per-tenant model treats them as separate tables each carrying their own SID/token pair so a tenant can use distinct Twilio sub-accounts per channel if they wish.
+
+### `.env` Credentials are Removed
+
+`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` are deleted from env validation in Implementation 05. After cutover, **the only path to dispatch is a configured tenant**. No platform-shared fallback exists in any environment, including local dev. Local dev uses test tenant configs seeded by Implementation 13.
 
 ### In-App Default Behaviour
 
-Every notification dispatched through the platform always lands in the in-app inbox first. Email/SMS/WhatsApp are additive — they are extra channels triggered alongside the in-app delivery, not replacements. If a tenant has not configured email/SMS/WhatsApp credentials, the dispatch system silently skips those channels and the in-app delivery still succeeds.
+Every notification dispatched through the platform always lands in the in-app inbox first. Email/SMS/WhatsApp are additive — they are extra channels triggered alongside the in-app delivery, not replacements. If a tenant has not configured email/SMS/WhatsApp credentials, the dispatch system marks those channel rows `failed` with `failure_reason='channel_not_configured'` and the in-app delivery still succeeds.
 
 ---
 
@@ -41,7 +45,7 @@ All file paths are relative to repo root.
 | `apps/api/src/modules/communications/providers/twilio-whatsapp.provider.ts` | Twilio. Auto-prefixes `whatsapp:` on phone numbers. Consent-gated.                      |
 | `apps/api/src/modules/communications/providers/inbox-channel.provider.ts`   | No-op provider. In-app delivery is synchronous DB write upstream of dispatch.           |
 
-Each provider exposes `isConfigured(): boolean` and reads its config from `ConfigService` (`.env` only at present).
+Each provider exposes `isConfigured(): boolean` and reads its config from `ConfigService` today (`.env` only). Implementation 04 refactors all three to read from per-tenant config tables.
 
 ### Dispatch Services
 
@@ -69,10 +73,10 @@ Each provider exposes `isConfigured(): boolean` and reads its config from `Confi
 
 ### Database Tables (Existing)
 
-| Table                   | Purpose                                                                                      |
-| ----------------------- | -------------------------------------------------------------------------------------------- | --------------------------------- |
-| `notification`          | Per-recipient row. Status machine: `queued → sent → delivered → read                         | failed`. `chain_id` for fallback. |
-| `notification_template` | `(tenant_id nullable, channel, template_key, locale)` — tenant override + platform fallback. |
+| Table                   | Purpose                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `notification`          | Per-recipient row. Status machine extended in Impl 06: `queued → sent → delivered → read \| bounced \| complained \| failed`. `chain_id` for fallback. |
+| `notification_template` | `(tenant_id nullable, channel, template_key, locale)` — tenant override + platform fallback.                                                           |
 
 ### Resilience Patterns
 
@@ -95,31 +99,39 @@ approval.requested, approval.decided, inquiry.new_message,
 payroll.finalised, payslip.generated, parent.daily_digest
 ```
 
+Implementation 12 adds: `auth.password_reset`, `auth.password_changed`, `trip.invitation`, `trip.payment_due`, `school.closure`, `staff.leave_decision`, `health.incident`, `sen.eha_update`.
+
 ### Module → Comms Touchpoint Map
 
-| Module               | Trigger Files (with line refs)                                                                                                                                                                                                                                                                                                    | Recipient(s)                                                             |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Attendance**       | `attendance-parent-notification.service.ts:136`, `attendance-pattern.service.ts:202`                                                                                                                                                                                                                                              | Parents                                                                  |
-| **Behaviour**        | `behaviour-amendments.service.ts:440`, `behaviour-document.service.ts:392`, `behaviour-exclusion-cases.service.ts:764`, `behaviour-award.service.ts:154,258`, `behaviour-side-effects.service.ts:56,94`, `worker/processors/behaviour/parent-notification.processor.ts`, `worker/processors/behaviour/ack-reminders.processor.ts` | Parents (severity-gated)                                                 |
-| **Gradebook**        | `grading/grade-publishing.service.ts:218`, `progress/progress-report.service.ts:286`, `report-cards/report-card-teacher-requests.service.ts:689,697`                                                                                                                                                                              | Parents, teachers                                                        |
-| **Homework**         | `homework-notification.service.ts:143,218,304`, `worker/processors/homework/overdue-detection.processor.ts:165`                                                                                                                                                                                                                   | Parents, teachers                                                        |
-| **Pastoral**         | `pastoral-notification.service.ts:530,545`, `concern.service.ts:676`, `intervention.service.ts:899`, `checkin-alert.service.ts:172`, `worker/processors/pastoral/escalation-timeout.processor.ts`                                                                                                                                 | Tiered staff (year head → DLO → principal) by severity, parents on share |
-| **Safeguarding**     | `safeguarding-concerns.service.ts:226,678,961`, `safeguarding-break-glass.service.ts:175,197,206,215`, `worker/processors/safeguarding/critical-escalation.processor.ts:172`, `worker/processors/safeguarding/notify-reviewers.processor.ts:96`                                                                                   | DLO, deputy DLO, escalation chain                                        |
-| **Engagement**       | `event-participants.service.ts:423`, `worker/processors/engagement/engagement-conference-reminders.processor.ts:93`                                                                                                                                                                                                               | Parents/staff with bookings                                              |
-| **Parent inquiries** | `parent-inquiries.service.ts:189,250,305`                                                                                                                                                                                                                                                                                         | School admins, parent (on reply)                                         |
-| **Finance**          | `payment-reminders.service.ts:19,62,101` ⚠️ direct DB write (bypasses `NotificationsService`)                                                                                                                                                                                                                                     | Billing parent                                                           |
-| **Admissions**       | `application-state-machine.service.ts:316,801,833`, `admissions-auto-promotion.service.ts:216`, `applications.service.ts:530`                                                                                                                                                                                                     | Applicant (parent)                                                       |
-| **RBAC**             | `invitations.service.ts:124`                                                                                                                                                                                                                                                                                                      | Invited user (email)                                                     |
-| **Approvals**        | `approval-requests.service.ts:305`                                                                                                                                                                                                                                                                                                | Domain-specific (e.g. announcement publisher)                            |
-| **Communications**   | `announcements.service.ts:344,350`                                                                                                                                                                                                                                                                                                | Audience-resolved (parents/staff/students)                               |
-| **Inbox**            | `inbox-outbox.service.ts:158`                                                                                                                                                                                                                                                                                                     | Message recipients (opt-in external channels)                            |
-| **Daily digest**     | `worker/processors/notifications/parent-daily-digest.processor.ts`                                                                                                                                                                                                                                                                | All parents with active children                                         |
+| Module                    | Trigger Files (with line refs)                                                                                                                                                                                                                                                                                                    | Recipient(s)                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Attendance**            | `attendance-parent-notification.service.ts:136`, `attendance-pattern.service.ts:202`                                                                                                                                                                                                                                              | Parents                                                                  |
+| **Behaviour**             | `behaviour-amendments.service.ts:440`, `behaviour-document.service.ts:392`, `behaviour-exclusion-cases.service.ts:764`, `behaviour-award.service.ts:154,258`, `behaviour-side-effects.service.ts:56,94`, `worker/processors/behaviour/parent-notification.processor.ts`, `worker/processors/behaviour/ack-reminders.processor.ts` | Parents (severity-gated)                                                 |
+| **Gradebook**             | `grading/grade-publishing.service.ts:218`, `progress/progress-report.service.ts:286`, `report-cards/report-card-teacher-requests.service.ts:689,697`                                                                                                                                                                              | Parents, teachers                                                        |
+| **Homework**              | `homework-notification.service.ts:143,218,304`, `worker/processors/homework/overdue-detection.processor.ts:165`                                                                                                                                                                                                                   | Parents, teachers                                                        |
+| **Pastoral**              | `pastoral-notification.service.ts:530,545`, `concern.service.ts:676`, `intervention.service.ts:899`, `checkin-alert.service.ts:172`, `worker/processors/pastoral/escalation-timeout.processor.ts`                                                                                                                                 | Tiered staff (year head → DLO → principal) by severity, parents on share |
+| **Safeguarding**          | `safeguarding-concerns.service.ts:226,678,961`, `safeguarding-break-glass.service.ts:175,197,206,215`, `worker/processors/safeguarding/critical-escalation.processor.ts:172`, `worker/processors/safeguarding/notify-reviewers.processor.ts:96`                                                                                   | DLO, deputy DLO, escalation chain                                        |
+| **Engagement**            | `event-participants.service.ts:423`, `worker/processors/engagement/engagement-conference-reminders.processor.ts:93`                                                                                                                                                                                                               | Parents/staff with bookings                                              |
+| **Parent inquiries**      | `parent-inquiries.service.ts:189,250,305`                                                                                                                                                                                                                                                                                         | School admins, parent (on reply)                                         |
+| **Finance**               | `payment-reminders.service.ts:19,62,101,220` ⚠️ direct DB write — **fixed in Impl 12** (migrates to `NotificationsService`)                                                                                                                                                                                                       | Billing parent                                                           |
+| **Admissions**            | `application-state-machine.service.ts:316,801,833`, `admissions-auto-promotion.service.ts:216`, `applications.service.ts:530`                                                                                                                                                                                                     | Applicant (parent)                                                       |
+| **RBAC**                  | `invitations.service.ts:124`                                                                                                                                                                                                                                                                                                      | Invited user (email)                                                     |
+| **Approvals**             | `approval-requests.service.ts:305`                                                                                                                                                                                                                                                                                                | Domain-specific (e.g. announcement publisher)                            |
+| **Communications**        | `announcements.service.ts:344,350`                                                                                                                                                                                                                                                                                                | Audience-resolved (parents/staff/students)                               |
+| **Inbox**                 | `inbox-outbox.service.ts:158`                                                                                                                                                                                                                                                                                                     | Message recipients (opt-in external channels)                            |
+| **Daily digest**          | `worker/processors/notifications/parent-daily-digest.processor.ts`                                                                                                                                                                                                                                                                | All parents with active children                                         |
+| **Auth (NEW)**            | `auth-password-reset.service.ts:61`, `auth-password-changed.service.ts` (Impl 12 wires the existing stub + adds the new service)                                                                                                                                                                                                  | User                                                                     |
+| **Trips (NEW)**           | `trips/trip-invitations.service.ts`, `trips/trip-payment-reminders.service.ts` (wired by Impl 12)                                                                                                                                                                                                                                 | Parents                                                                  |
+| **School Closures (NEW)** | `school-closures/closure-notifications.service.ts` (wired by Impl 12)                                                                                                                                                                                                                                                             | Parents + staff                                                          |
+| **Leave (NEW)**           | `staff-leave/leave-decision-notifier.service.ts` (wired by Impl 12)                                                                                                                                                                                                                                                               | Staff                                                                    |
+| **Health (NEW)**          | `health/health-incident-notifier.service.ts` (wired by Impl 12)                                                                                                                                                                                                                                                                   | Parents                                                                  |
+| **SEN (NEW)**             | `sen/eha-update-notifier.service.ts` (wired by Impl 12)                                                                                                                                                                                                                                                                           | Parents + SEN coordinator                                                |
 
 ---
 
-## 3. Target State — Per-Tenant Credential Configuration
+## 3. Target State — Per-Tenant Credential Configuration + Operational Stack
 
-The reference pattern is `TenantStripeConfig`, which already provides the encryption and tenant settings UX we want to replicate. Each tenant will gain three independent credential records: one for email, one for SMS, one for WhatsApp.
+The reference pattern is `TenantStripeConfig`, which already provides the encryption and tenant settings UX we want to replicate. Each tenant gains three independent credential records (email, SMS, WhatsApp) plus operational tables for suppression, domain verification, WhatsApp template approval, and webhook event logging.
 
 ### 3.1 Encryption Foundation (Reused, Not Rebuilt)
 
@@ -170,6 +182,7 @@ model TenantSmsConfig {
   twilio_account_sid_encrypted String   @db.Text
   twilio_auth_token_encrypted  String   @db.Text
   twilio_from_number          String    @db.VarChar(50)
+  webhook_secret_encrypted    String?   @db.Text
   encryption_key_ref          String    @db.VarChar(255)
   key_last_rotated_at         DateTime? @db.Timestamptz()
   is_enabled                  Boolean   @default(true)
@@ -195,6 +208,7 @@ model TenantWhatsAppConfig {
   twilio_auth_token_encrypted   String    @db.Text
   twilio_whatsapp_from_number   String    @db.VarChar(50)
   business_profile_id           String?   @db.VarChar(255)
+  webhook_secret_encrypted      String?   @db.Text
   encryption_key_ref            String    @db.VarChar(255)
   key_last_rotated_at           DateTime? @db.Timestamptz()
   is_enabled                    Boolean   @default(true)
@@ -210,14 +224,158 @@ model TenantWhatsAppConfig {
 }
 ```
 
+#### `NotificationSuppressionList` (NEW — Impl 06)
+
+```prisma
+model NotificationSuppressionList {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  channel           NotificationChannel
+  recipient_address String    @db.VarChar(320)   // email, phone, or whatsapp number
+  reason            SuppressionReason             // hard_bounce | soft_bounce_threshold | complaint | manual | unsubscribe
+  source            String?   @db.VarChar(64)    // 'webhook:resend.bounce', 'webhook:twilio.failed', 'manual'
+  notification_id   String?   @db.Uuid           // FK to triggering notification, if any
+  expires_at        DateTime? @db.Timestamptz()  // null = permanent; soft bounces expire after 30d
+  created_at        DateTime  @default(now()) @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, channel, recipient_address], map: "uq_suppression_tenant_channel_recipient")
+  @@index([tenant_id, channel, expires_at], map: "idx_suppression_tenant_channel_expiry")
+  @@map("notification_suppression_list")
+}
+
+enum SuppressionReason {
+  hard_bounce
+  soft_bounce_threshold
+  complaint
+  manual
+  unsubscribe
+}
+```
+
+#### `TenantEmailDomain` (NEW — Impl 07)
+
+```prisma
+model TenantEmailDomain {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String    @db.Uuid
+  domain              String    @db.VarChar(255)              // e.g. "school.example.org"
+  resend_domain_id    String?   @db.VarChar(255)              // ID Resend gives back on register
+  status              EmailDomainStatus                       // pending | verified | failed
+  spf_status          DnsRecordStatus
+  dkim_status         DnsRecordStatus
+  dmarc_status        DnsRecordStatus
+  dns_records_json    Json                                    // canonical record list returned by Resend
+  last_checked_at     DateTime? @db.Timestamptz()
+  verified_at         DateTime? @db.Timestamptz()
+  failure_reason      String?   @db.Text
+  created_by_user_id  String?   @db.Uuid
+  created_at          DateTime  @default(now()) @db.Timestamptz()
+  updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, domain], map: "uq_email_domain_tenant_domain")
+  @@index([status, last_checked_at], map: "idx_email_domain_status_check")
+  @@map("tenant_email_domains")
+}
+
+enum EmailDomainStatus { pending verified failed }
+enum DnsRecordStatus { pending verified failed }
+```
+
+#### `WhatsAppTemplate` (NEW — Impl 08)
+
+```prisma
+model WhatsAppTemplate {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String    @db.Uuid
+  template_key            String    @db.VarChar(128)   // local key — joins to notification_template.template_key
+  twilio_template_sid     String?   @db.VarChar(64)    // Twilio's HXxxxxx SID once registered
+  template_name           String    @db.VarChar(128)   // Twilio-side name
+  language_code           String    @db.VarChar(16)    // 'en', 'ar' etc.
+  category                WhatsAppTemplateCategory     // utility | marketing | authentication
+  body                    String    @db.Text
+  status                  WhatsAppTemplateStatus       // pending | submitted | approved | rejected | paused
+  approval_message        String?   @db.Text
+  submitted_at            DateTime? @db.Timestamptz()
+  approved_at             DateTime? @db.Timestamptz()
+  last_synced_at          DateTime? @db.Timestamptz()
+  created_at              DateTime  @default(now()) @db.Timestamptz()
+  updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, template_key, language_code], map: "uq_whatsapp_template_tenant_key_lang")
+  @@index([status, last_synced_at], map: "idx_whatsapp_template_status_sync")
+  @@map("whatsapp_templates")
+}
+
+enum WhatsAppTemplateCategory { utility marketing authentication }
+enum WhatsAppTemplateStatus { pending submitted approved rejected paused }
+```
+
+#### `WhatsAppServiceWindow` (NEW — Impl 08)
+
+```prisma
+model WhatsAppServiceWindow {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String    @db.Uuid
+  recipient_phone     String    @db.VarChar(50)            // E.164
+  last_inbound_at     DateTime  @db.Timestamptz()         // when recipient last messaged us
+  expires_at          DateTime  @db.Timestamptz()         // last_inbound_at + 24h
+  created_at          DateTime  @default(now()) @db.Timestamptz()
+  updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, recipient_phone], map: "uq_whatsapp_window_tenant_recipient")
+  @@index([expires_at], map: "idx_whatsapp_window_expiry")
+  @@map("whatsapp_service_windows")
+}
+```
+
+#### `NotificationWebhookEvent` (NEW — Impl 06)
+
+Append-only audit log for every inbound webhook event from Resend/Twilio. Used for debugging and re-replay.
+
+```prisma
+model NotificationWebhookEvent {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String    @db.Uuid
+  channel             NotificationChannel
+  provider_event_id   String    @db.VarChar(255)          // 'resend:msg_xxx' or 'twilio:SMxxx'
+  event_type          String    @db.VarChar(64)           // 'sent' | 'delivered' | 'bounced' | 'complained' | 'failed'
+  notification_id     String?   @db.Uuid                  // resolved from idempotency-key header / Twilio MessageSid
+  payload_json        Json
+  signature_verified  Boolean
+  processed_at        DateTime? @db.Timestamptz()
+  processing_error    String?   @db.Text
+  received_at         DateTime  @default(now()) @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, provider_event_id], map: "uq_webhook_tenant_provider_event")
+  @@index([tenant_id, channel, received_at(sort: Desc)], map: "idx_webhook_tenant_channel_received")
+  @@index([processed_at], map: "idx_webhook_processed_at")
+  @@map("notification_webhook_events")
+}
+```
+
 #### Relation entries on `Tenant` and `User`
 
 ```prisma
 model Tenant {
   // ...existing relations...
-  email_config     TenantEmailConfig?
-  sms_config       TenantSmsConfig?
-  whatsapp_config  TenantWhatsAppConfig?
+  email_config              TenantEmailConfig?
+  sms_config                TenantSmsConfig?
+  whatsapp_config           TenantWhatsAppConfig?
+  email_domains             TenantEmailDomain[]
+  whatsapp_templates        WhatsAppTemplate[]
+  whatsapp_service_windows  WhatsAppServiceWindow[]
+  suppression_list          NotificationSuppressionList[]
+  webhook_events            NotificationWebhookEvent[]
 }
 
 model User {
@@ -228,7 +386,7 @@ model User {
 }
 ```
 
-#### Why three tables instead of one unified credentials table
+#### Why per-channel tables instead of one unified credentials table
 
 A single `TenantCommunicationCredentials` table would couple the three channels' lifecycle. Splitting them mirrors `TenantStripeConfig` (single-purpose, single-channel) and gives:
 
@@ -251,7 +409,9 @@ CREATE POLICY tenant_email_configs_tenant_isolation ON tenant_email_configs
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
--- Repeat identical pattern for tenant_sms_configs, tenant_whatsapp_configs
+-- Repeat identical pattern for: tenant_sms_configs, tenant_whatsapp_configs,
+-- notification_suppression_list, tenant_email_domains, whatsapp_templates,
+-- whatsapp_service_windows, notification_webhook_events.
 ```
 
 Place these in the migration's companion `post_migrate.sql` file.
@@ -260,25 +420,25 @@ Place these in the migration's companion `post_migrate.sql` file.
 
 ```
 packages/prisma/migrations/{timestamp}_add_tenant_communication_configs/
-├── migration.sql       # CREATE TABLE for all three tables, indexes
+├── migration.sql       # CREATE TABLE for all new tables, indexes, enums
 └── post_migrate.sql    # ENABLE/FORCE RLS + tenant_isolation policies
 ```
 
-Migration name: `add_tenant_communication_configs_tables`.
+Migration name: `add_tenant_communication_configs_and_operational_tables`.
 
 ### 3.5 API Layer
 
-Three independent NestJS services and controllers, each mirroring the Stripe pattern exactly.
+Three independent NestJS services and controllers for the credential tables, plus dedicated services for suppression, domains, templates, service windows, webhooks, and verification. Each credential service mirrors the Stripe pattern exactly.
 
 #### Service Pattern (per channel)
 
 `apps/api/src/modules/configuration/email-config.service.ts` (and analogues for SMS, WhatsApp):
 
 - `getConfig(tenantId)` — Returns `MaskedEmailConfig` (decrypts only enough to return last-4 mask).
-- `upsertConfig(tenantId, userId, dto)` — Encrypts secrets, writes row, updates `key_last_rotated_at`. Returns masked.
+- `upsertConfig(tenantId, userId, dto)` — Encrypts secrets, writes row, updates `key_last_rotated_at`. Returns masked. **Publishes `comms:config-changed` Redis pub/sub event** to invalidate per-tenant client caches across processes.
 - `getDecryptedConfig(tenantId)` — **Internal-only**. Returns plaintext for use by the dispatch layer. NEVER exposed via controller.
-- `deleteConfig(tenantId, userId)` — Removes the row. Disables the channel for that tenant.
-- `verifyConfig(tenantId)` — Sends a dry-run/test message via the provider, sets `last_verified_at` on success.
+- `deleteConfig(tenantId, userId)` — Removes the row. Disables the channel for that tenant. Publishes `comms:config-changed`.
+- `verifyConfig(tenantId, recipient)` — Sends a real test message via the provider, sets `last_verified_at` on success. Rate-limited 3/hr/tenant in a separate Redis bucket from notification rate limits. Surfaces provider error verbatim.
 
 Constructor DI matches `StripeConfigService`:
 
@@ -286,6 +446,7 @@ Constructor DI matches `StripeConfigService`:
 constructor(
   private readonly prisma: PrismaService,
   private readonly encryption: EncryptionService,
+  private readonly cacheBus: CommsCacheBusService, // Redis pub/sub publisher
 ) {}
 ```
 
@@ -299,24 +460,36 @@ constructor(
 @RequiresPermission('configuration.communications.manage')
 export class EmailConfigController {
   // GET /v1/email-config
-  @Get()
-  async getConfig(@CurrentTenant() tenantContext) { ... }
+  @Get() async getConfig(@CurrentTenant() tenantContext) { ... }
 
   // PUT /v1/email-config
-  @Put()
-  @Body(new ZodValidationPipe(upsertEmailConfigSchema))
-  async upsert(@CurrentTenant() tenantContext, @CurrentUser() user, @Body() dto) { ... }
+  @Put() async upsert(@CurrentTenant() tenantContext, @CurrentUser() user, @Body(new ZodValidationPipe(upsertEmailConfigSchema)) dto) { ... }
 
   // DELETE /v1/email-config
-  @Delete()
-  async delete(@CurrentTenant() tenantContext, @CurrentUser() user) { ... }
+  @Delete() async delete(@CurrentTenant() tenantContext, @CurrentUser() user) { ... }
 
   // POST /v1/email-config/test
-  @Post('test')
-  @Body(new ZodValidationPipe(testEmailSchema))
-  async test(@CurrentTenant() tenantContext, @Body() { recipient_email }) { ... }
+  @Post('test') async test(@CurrentTenant() tenantContext, @Body(new ZodValidationPipe(testEmailSchema)) { recipient_email }) { ... }
 }
 ```
+
+#### Webhook Receiver Endpoints (Impl 06)
+
+```typescript
+@Controller('v1/webhooks/communications')
+export class CommunicationsWebhooksController {
+  // POST /v1/webhooks/communications/email/:tenantId  (Resend)
+  // POST /v1/webhooks/communications/sms/:tenantId    (Twilio status callback)
+  // POST /v1/webhooks/communications/whatsapp/:tenantId (Twilio status callback)
+}
+```
+
+Each receiver:
+
+1. Looks up tenant config by path param `:tenantId`.
+2. Verifies the signature using the tenant's `webhook_secret` (per-tenant secret, not platform-shared).
+3. On signature failure: writes `NotificationWebhookEvent` row with `signature_verified: false` and returns 401.
+4. On success: writes the event row, updates the matched `notification.status` (`delivered` / `bounced` / `complained` / `failed`), adds to suppression list if hard bounce or complaint.
 
 #### Permissions
 
@@ -326,6 +499,8 @@ New permission constants needed in the RBAC module:
 - `configuration.communications.manage`
 
 Mirror the existing `configuration.stripe.view` / `configuration.stripe.manage` permissions. Bind them to the same default roles (Owner, Principal — anyone who can configure Stripe should manage comms).
+
+**Implementation 02 backfills these permissions onto every existing role mapping for all five test tenants** (NHQS + stress-a/b/c/d) via a one-shot script. The seed handles fresh tenants; the backfill handles current ones.
 
 #### Zod Schemas
 
@@ -344,6 +519,7 @@ export const upsertSmsConfigSchema = z.object({
   twilio_account_sid: z.string().min(1).startsWith('AC'),
   twilio_auth_token: z.string().min(1),
   twilio_from_number: z.string().regex(/^\+\d{8,16}$/, 'E.164 format required'),
+  webhook_secret: z.string().optional(),
 });
 
 export const upsertWhatsAppConfigSchema = z.object({
@@ -351,6 +527,7 @@ export const upsertWhatsAppConfigSchema = z.object({
   twilio_auth_token: z.string().min(1),
   twilio_whatsapp_from_number: z.string().regex(/^\+\d{8,16}$/, 'E.164 format required'),
   business_profile_id: z.string().optional(),
+  webhook_secret: z.string().optional(),
 });
 
 export const testEmailSchema = z.object({
@@ -360,78 +537,166 @@ export const testEmailSchema = z.object({
 export const testSmsSchema = z.object({
   recipient_phone: z.string().regex(/^\+\d{8,16}$/),
 });
+
+export const testWhatsAppSchema = z.object({
+  recipient_phone: z.string().regex(/^\+\d{8,16}$/),
+  template_key: z.string().min(1), // outside service window: must be approved template
+});
+
+export const registerEmailDomainSchema = z.object({
+  domain: z.string().regex(/^([a-z0-9-]+\.)+[a-z]{2,}$/i),
+});
+
+export const submitWhatsAppTemplateSchema = z.object({
+  template_key: z.string().min(1),
+  language_code: z.string().min(2).max(16),
+  category: z.enum(['utility', 'marketing', 'authentication']),
+  body: z.string().min(1).max(1024),
+});
 ```
 
-### 3.6 Provider Refactor
+### 3.6 Provider Refactor (Impl 04)
 
-Each of the three providers must be refactored to read tenant config first and fall back to `.env` for development/shared mode.
+Each of the three providers is refactored to read tenant config first. **No `.env` fallback exists post-Impl 05.** If a tenant has no config, the dispatch is marked `failed` with `failure_reason='channel_not_configured'`.
 
-#### Current pattern (platform-only)
-
-```typescript
-// apps/api/src/modules/communications/providers/resend-email.provider.ts
-private ensureClient(): Resend {
-  if (!this.client) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) throw new Error('Resend not configured');
-    this.client = new Resend(apiKey);
-  }
-  return this.client;
-}
-```
-
-#### Target pattern (tenant-first, env-fallback)
+#### Target pattern (tenant-only)
 
 ```typescript
-// Pseudocode — exact signature TBD
 async dispatch(tenantId: string, payload: EmailPayload): Promise<DispatchResult> {
-  const tenantConfig = await this.emailConfigService.getDecryptedConfig(tenantId);
-
-  let apiKey: string;
-  let fromEmail: string;
-  let fromName: string | undefined;
-  let replyTo: string | undefined;
-
-  if (tenantConfig?.is_enabled) {
-    apiKey = tenantConfig.resend_api_key;
-    fromEmail = tenantConfig.from_email;
-    fromName = tenantConfig.from_name;
-    replyTo = tenantConfig.reply_to_email;
-  } else if (this.allowEnvFallback) {
-    // Dev mode: platform-shared credentials
-    apiKey = this.configService.get<string>('RESEND_API_KEY');
-    fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@edupod.app';
-  } else {
-    // Production: no tenant config means channel is off
-    return { skipped: true, reason: 'no_tenant_config' };
+  // 0. Suppression check
+  if (await this.suppressionService.isSuppressed(tenantId, 'email', payload.to)) {
+    return { skipped: true, reason: 'suppressed' };
   }
 
-  // Use a lightweight per-tenant client cache so we don't reconstruct Resend for every send
-  const client = this.getOrCreateClient(tenantId, apiKey);
-  return client.emails.send({ from: fromName ? `${fromName} <${fromEmail}>` : fromEmail, replyTo, ... });
+  // 1. Resolve credentials
+  const tenantConfig = await this.emailConfigService.getDecryptedConfig(tenantId);
+  if (!tenantConfig?.is_enabled) {
+    return { skipped: true, reason: 'channel_not_configured' };
+  }
+
+  // 2. Domain verification check (Impl 07)
+  const fromDomain = tenantConfig.from_email.split('@')[1];
+  const domain = await this.domainService.getVerified(tenantId, fromDomain);
+  if (!domain) {
+    return { skipped: true, reason: 'sender_domain_unverified' };
+  }
+
+  // 3. Per-tenant client cache lookup
+  const client = this.clientCache.getOrCreate(tenantId, tenantConfig.resend_api_key);
+
+  // 4. Send
+  return client.emails.send({
+    from: tenantConfig.from_name ? `${tenantConfig.from_name} <${tenantConfig.from_email}>` : tenantConfig.from_email,
+    replyTo: tenantConfig.reply_to_email,
+    ...payload,
+  });
 }
 ```
 
-#### Key implementation rules
+#### Per-tenant client cache + Redis pub/sub invalidation (Impl 04)
 
-1. **Tenant config takes priority**. `.env` values are ONLY consulted when `allowEnvFallback` is true (dev mode) and no tenant config exists.
-2. **Channel-off semantics**. If a tenant has no config and env-fallback is disabled (production default), the dispatch is **silently skipped** — the in-app notification still succeeds and the row is marked `status='delivered'` for the in-app channel. The channel's row in the `notification` table for email/sms/whatsapp is marked `status='failed'` with `failure_reason='channel_not_configured'` to make this observable.
-3. **Per-tenant client cache**. `Resend` and `twilio()` clients are cheap to construct but we maintain a tenant-keyed cache (`Map<string, Resend>`) to avoid hot-path reconstruction. Cache invalidates when `upsertConfig` runs (publish a Redis pub/sub event or expose a `clearTenantClient(tenantId)` method).
-4. **Fallback chain still applies**. If WhatsApp fails because tenant didn't configure WhatsApp, the existing chain `whatsapp → sms → email → in_app` kicks in normally — each step independently checks tenant config.
-5. **Worker side**. The worker's `dispatch-notifications.processor.ts` already holds tenant context per job. It must be updated identically — same tenant-config lookup, same fallback semantics. Both API-side and worker-side providers must share identical resolution logic.
+A `Map<tenant_id, ProviderClient>` cache lives inside each provider class. To stay coherent across the API and worker processes:
 
-#### Where to add the env-fallback flag
+- A new shared service `apps/api/src/modules/communications/comms-cache-bus.service.ts` (also imported by the worker) wraps a Redis pub/sub publisher and subscriber on channel `comms:config-changed`.
+- When `EmailConfigService.upsertConfig`, `deleteConfig`, or any of the SMS/WhatsApp equivalents mutate, they publish `{ tenant_id, channel }`.
+- Both the API process and each worker process subscribe; on receipt they call `provider.clientCache.invalidate(tenant_id)`.
+- Cache misses repopulate lazily on the next dispatch.
 
-Add to env validation:
+Eviction policy: LRU with max 1000 clients per process, 30-minute idle TTL, plus the explicit pub/sub eviction.
 
-```
-COMMS_ALLOW_ENV_FALLBACK=false   # default in production
-COMMS_ALLOW_ENV_FALLBACK=true    # local dev / staging shared mode
-```
+#### Mid-flight config change (Impl 05)
 
-When `false`, no `.env` credential lookups happen — the only path to dispatch is a configured tenant.
+The dispatch worker re-reads `is_enabled` per notification — not once per batch. If a tenant disables a channel mid-batch, the next pending row is marked `failed` with `failure_reason='channel_disabled'` and the batch continues with the remaining rows. Avoids the worst-case where one stale read sends 500 messages with revoked credentials.
 
-### 3.7 Frontend Settings UI
+### 3.7 Webhooks + Suppression List (Impl 06)
+
+#### Resend webhook events handled
+
+| Event              | Action                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `email.sent`       | Update `notification.status = 'sent'`, set `provider_message_id`                                  |
+| `email.delivered`  | Update `notification.status = 'delivered'`, set `delivered_at`                                    |
+| `email.bounced`    | Update status `'bounced'`. If `bounce_type='hard'`, add to `notification_suppression_list`        |
+| `email.complained` | Update status `'complained'`, add to suppression list with reason `complaint`                     |
+| `email.opened`     | Optional engagement tracking — write to `notification_engagement_event` (out of scope V1, ignore) |
+
+#### Twilio status callback events
+
+| `MessageStatus` | Action                                                                     |
+| --------------- | -------------------------------------------------------------------------- |
+| `queued`        | (no-op, expected initial state)                                            |
+| `sent`          | Update `notification.status = 'sent'`                                      |
+| `delivered`     | Update `notification.status = 'delivered'`                                 |
+| `failed`        | Update `notification.status = 'failed'`, capture `ErrorCode` mapping       |
+| `undelivered`   | Same as `failed`. If `ErrorCode` indicates bad number, add to suppression. |
+
+#### Per-tenant signature verification
+
+Resend uses `Svix-Signature` header with HMAC-SHA256 of `{svix_id}.{svix_timestamp}.{body}` against the tenant's `webhook_secret`. Twilio uses its own `X-Twilio-Signature` HMAC-SHA1 of the URL + sorted form params, validated against the tenant's `twilio_auth_token`. Both verifications happen in `WebhookSignatureVerifier` shared utility.
+
+#### Suppression check on outbound
+
+Every dispatch consults `notification_suppression_list` (cached in Redis with 5-minute TTL keyed by `(tenant_id, channel, recipient_address)`). Suppressed recipients are skipped silently with `notification.status='failed'`, `failure_reason='suppressed:{reason}'`. The fallback chain still tries the next channel.
+
+### 3.8 Email Deliverability — Domain Verification (Impl 07)
+
+#### Flow
+
+1. User in settings UI enters `school.example.org` as their sender domain.
+2. Backend calls Resend's `domains.create` endpoint, receives back the canonical SPF / DKIM / DMARC record list.
+3. Records are stored in `tenant_email_domains.dns_records_json` and surfaced on the UI for the user to copy into their DNS provider.
+4. A cron worker (`comms:domain-verification-refresh`, every 30 min) polls Resend for pending domains and updates SPF/DKIM/DMARC status.
+5. On all-three-verified, sets `status='verified'`, `verified_at=now()`. Sends in-app notification to the configuring user.
+6. **Outbound dispatch enforces domain verification.** Sends from an unverified domain are skipped with `failure_reason='sender_domain_unverified'`.
+7. UI shows live status with a "Refresh now" button that enqueues an immediate check.
+
+### 3.9 WhatsApp Templates + 24-hour Service Window (Impl 08)
+
+#### Free-form vs template send
+
+Twilio's WhatsApp Business policy: outside a 24-hour service window (defined as time since the recipient last messaged the business), only **pre-approved templates** can be sent. Inside the window, free-form messages are allowed.
+
+#### Service window tracking
+
+Twilio inbound webhook for WhatsApp updates `whatsapp_service_windows.last_inbound_at = now()` and `expires_at = now() + 24h` for that recipient. On outbound:
+
+- Look up `(tenant_id, recipient_phone)` in `whatsapp_service_windows`.
+- If `expires_at > now()`: free-form allowed.
+- Else: require `template_key` on the dispatch payload that resolves to an approved `whatsapp_templates` row.
+
+#### Template lifecycle
+
+| Status      | Meaning                                          | Send allowed? |
+| ----------- | ------------------------------------------------ | ------------- |
+| `pending`   | Locally drafted, not submitted yet               | No            |
+| `submitted` | Sent to Twilio for approval                      | No            |
+| `approved`  | Twilio accepted; `twilio_template_sid` populated | Yes, anywhere |
+| `rejected`  | Twilio refused; `approval_message` has reason    | No            |
+| `paused`    | Approved but temporarily disabled                | No            |
+
+#### Template approval sync
+
+Cron `comms:whatsapp-template-sync` (every 15 min) iterates `submitted` templates per tenant, calls Twilio's content API, updates status and `twilio_template_sid`. Sends in-app notification on approval/rejection.
+
+### 3.10 Verify / Test Send (Impl 09)
+
+#### `verifyConfig` semantics
+
+For each channel, `verifyConfig(tenantId, recipient)`:
+
+1. Decrypts the tenant's credentials.
+2. Sends a real provider message to the supplied recipient using a fixed sentinel template:
+   - Email: subject "EduPod credential verification", body "If you can read this, your school's email integration is working."
+   - SMS: "EduPod SMS verification — your school's SMS is wired up correctly."
+   - WhatsApp: uses an approved sentinel template `comms.verify` (registered by Impl 13's backfill); requires the recipient's number to be in service window OR the template approved.
+3. If provider returns success, sets `last_verified_at = now()`. Returns `{ success: true, provider_message_id }`.
+4. If provider returns failure, returns `{ success: false, provider_error: <verbatim message>, status_code }`. Does NOT set `last_verified_at`. The UI surfaces the verbatim error.
+
+#### Rate limiting
+
+A separate Redis bucket: `verify:{tenantId}:{channel}` with a 3-per-hour sliding window. This is independent of the user-facing notification rate limits so verifying doesn't burn a parent's daily allowance. Verification dispatches DO count against the tenant's provider account quotas (Resend, Twilio bill these).
+
+### 3.11 Frontend Settings UI (Impl 11)
 
 Three new pages, all under `(school)/settings/communications/`. Each mirrors the existing `(school)/settings/stripe/page.tsx` pattern.
 
@@ -439,11 +704,17 @@ Three new pages, all under `(school)/settings/communications/`. Each mirrors the
 apps/web/src/app/[locale]/(school)/settings/communications/
 ├── page.tsx                     # Index — overview of three channels with status indicators
 ├── email/
-│   └── page.tsx                 # Resend config form
+│   ├── page.tsx                 # Resend config form + domain verification section
+│   └── _components/
+│       ├── domain-verification-card.tsx
+│       └── dns-records-table.tsx
 ├── sms/
 │   └── page.tsx                 # Twilio SMS config form
 ├── whatsapp/
-│   └── page.tsx                 # Twilio WhatsApp config form
+│   ├── page.tsx                 # Twilio WhatsApp config form + template list
+│   └── _components/
+│       ├── template-list.tsx
+│       └── template-submit-form.tsx
 └── fallback/                    # Already exists
     └── page.tsx
 ```
@@ -467,13 +738,15 @@ Match `/settings/stripe/page.tsx` structurally:
 - Sensitive fields rendered as `type="password"` with a "Show" toggle
 - Already-saved values are returned **masked** (`••••••••last4`); user must re-enter to update
 - "Save" button: PUT to `/v1/email-config` (etc.). Success toast.
-- "Send test message" button next to a recipient input: POST to `/v1/email-config/test` etc. — actually attempts a send through the configured credentials, returns success or surfaces the provider error.
+- "Send test message" button next to a recipient input: POST to `/v1/email-config/test` etc. Returns success or surfaces verbatim provider error.
 - "Delete configuration" destructive action: DELETE to `/v1/email-config` etc. Confirmation modal required.
 - Show `key_last_rotated_at` so admins know when keys were last updated.
+- Email page also shows the domain verification card with DNS records and live verification status.
+- WhatsApp page also shows template list with approval status badges and a "Submit new template" form.
 
-#### Existing UI to fix
+#### Existing UI to fix (Impl 12)
 
-- `(school)/settings/notifications/page.tsx` — replace `'push'` channel option with `'whatsapp'` to match what the backend actually supports. The current state shows a channel that doesn't exist.
+- `(school)/settings/notifications/page.tsx` — replace `'push'` channel option with `'whatsapp'` to match what the backend actually supports.
 - `packages/shared/src/types/notification-template.ts` — channel union currently lists `'email' | 'whatsapp' | 'in_app'`. Add `'sms'` so type and reality match.
 
 #### i18n
@@ -485,25 +758,66 @@ All new pages must:
 - Render input values as LTR for API keys and phone numbers (see `frontend.md` LTR-enforcement rule)
 - Provide both English and Arabic translations in `messages/en.json` and `messages/ar.json`
 
-### 3.8 Health Checks
+### 3.12 Operational Layer (Impl 10)
 
-Extend `apps/api/src/modules/health/health.service.ts` to expose tenant-aware channel readiness:
+#### Sentry tagging
 
-- `GET /v1/health/communications/{tenantId}` returns `{ email: 'ready'|'not_configured'|'unverified', sms: ..., whatsapp: ... }`
-- Drives the status indicators on the settings index page
-- Existing platform-level Resend + Twilio health checks (lines 594-618) remain as the env-fallback path's check
+Every Sentry capture inside the comms code path adds:
 
-### 3.9 Audit Logging
+```typescript
+Sentry.setTag('tenant_id', tenantId);
+Sentry.setTag('channel', channel);
+Sentry.setTag('template_key', templateKey);
+Sentry.setTag('notification_id', notification.id);
+```
 
-Use the existing `AuditLogInterceptor`. Mutations on the three new controllers must be audit-logged with:
+This is wrapped in a `withCommsContext()` helper so every `try/catch` doesn't have to repeat the boilerplate.
 
-- `entity_type`: `tenant_email_config` / `tenant_sms_config` / `tenant_whatsapp_config`
-- `action`: `create` / `update` / `delete` / `verify` / `key_rotate`
-- `meta`: never log the plaintext key. Log only `keyRef` and last-4 mask.
+#### Structured logging
+
+A new logger module `apps/api/src/modules/communications/comms-logger.service.ts` wraps NestJS `Logger` and forces every log line to include `tenant_id`, `channel`, `template_key`, `notification_id`, `correlation_id`. The logger is the only path comms code uses for logging — direct `console.log` / `Logger.log` from inside comms is forbidden after this impl.
+
+#### Per-tenant metrics
+
+Prometheus counters and histograms:
+
+- `notifications_dispatched_total{tenant_id, channel, status}` — increment per dispatch outcome
+- `notifications_dispatch_duration_seconds{tenant_id, channel}` — histogram, p50/p95/p99
+- `notifications_suppressed_total{tenant_id, channel, reason}` — increment per skip
+- `notifications_webhook_received_total{tenant_id, channel, event_type, signature_valid}` — webhook ingress
+- `notifications_template_renders_total{tenant_id, channel, template_key, locale}` — template usage
+
+Exposed at `/metrics` (existing endpoint, gated to internal scrapers).
+
+#### Grafana dashboard
+
+Versioned in `docs/operations/dashboards/communications.json` — per-tenant breakdown with these panels:
+
+- Dispatch rate (last 24h) per channel per tenant
+- Failure rate % per channel (rolling 1h)
+- Webhook ingest rate + signature failure rate
+- Template render heatmap
+- Per-tenant dispatch latency (p95)
+
+#### Runbooks
+
+Three new runbooks in `docs/runbooks/`:
+
+- `comms-tenant-dispatch-failures.md` — what to do when a tenant reports comms not arriving
+- `comms-credential-rotation.md` — how to rotate a tenant's Resend / Twilio credentials safely
+- `comms-webhook-debugging.md` — how to read `notification_webhook_events` rows and replay events
+
+### 3.13 Audit Logging
+
+Use the existing `AuditLogInterceptor`. Mutations on the three new credential controllers must be audit-logged with:
+
+- `entity_type`: `tenant_email_config` / `tenant_sms_config` / `tenant_whatsapp_config` / `tenant_email_domain` / `whatsapp_template`
+- `action`: `create` / `update` / `delete` / `verify` / `key_rotate` / `domain_register` / `template_submit`
+- `meta`: never log the plaintext key. Log only `keyRef` and last-4 mask. Webhook signature failures audit-log with full headers.
 
 Use `SecurityAuditService` (already used by Stripe) for credential change events.
 
-### 3.10 RBAC Defaults
+### 3.14 RBAC Defaults
 
 Add to permission seed and `permissions.constants.ts`:
 
@@ -512,7 +826,7 @@ Add to permission seed and `permissions.constants.ts`:
 'configuration.communications.manage';
 ```
 
-Granted by default to:
+Granted by default (and backfilled by Impl 02) to:
 
 - Tenant Owner
 - Principal
@@ -522,78 +836,44 @@ NOT granted to teachers, parents, or students.
 
 ---
 
-## 4. Build Order (Implementation Phases)
+## 4. Build Order — 14 Implementations
 
-### Phase 1 — Schema and encryption layer
+Tracked in `communicationnew/PLAN.md` and `communicationnew/IMPLEMENTATION_LOG.md`. Each implementation runs in the dedicated `communications-overhaul` worktree. **No CI deployment** — local dev server testing only. The user merges the worktree to `main` after Impl 14 completes.
 
-1. Add three new Prisma models (`TenantEmailConfig`, `TenantSmsConfig`, `TenantWhatsAppConfig`)
-2. Add `email_config`, `sms_config`, `whatsapp_config` relations on `Tenant`
-3. Add `email_configs_created`, `sms_configs_created`, `whatsapp_configs_created` relations on `User`
-4. Generate migration `add_tenant_communication_configs_tables`
-5. Add RLS policies in companion `post_migrate.sql`
-6. Run DI verification (see CLAUDE.md regression-prevention recipe)
-
-### Phase 2 — API services and controllers
-
-1. Add Zod schemas to `packages/shared/src/schemas/communication-config.schema.ts`
-2. Create `EmailConfigService`, `SmsConfigService`, `WhatsAppConfigService` (mirror `StripeConfigService`)
-3. Create matching controllers under `apps/api/src/modules/configuration/`
-4. Add unit tests for each service (encryption round-trip, masking, RLS isolation)
-5. Add e2e tests for each controller (auth, permission, happy-path, RLS leakage)
-6. Add new permission constants to RBAC seed
-
-### Phase 3 — Provider refactor
-
-1. Update `ResendEmailProvider` to accept `tenantId` and look up `TenantEmailConfig` first
-2. Update `TwilioSmsProvider` to accept `tenantId` and look up `TenantSmsConfig` first
-3. Update `TwilioWhatsAppProvider` to accept `tenantId` and look up `TenantWhatsAppConfig` first
-4. Add per-tenant client cache with invalidation on config update
-5. Add `COMMS_ALLOW_ENV_FALLBACK` env var with production-default `false`
-6. Update worker's `DispatchNotificationsProcessor` to use the same tenant-config lookup
-7. Add unit tests covering: tenant-config priority, env fallback, channel-off skip, fallback-chain interaction
-
-### Phase 4 — Frontend settings UI
-
-1. Build `(school)/settings/communications/page.tsx` index
-2. Build `(school)/settings/communications/email/page.tsx`
-3. Build `(school)/settings/communications/sms/page.tsx`
-4. Build `(school)/settings/communications/whatsapp/page.tsx`
-5. Add route to morph-shell sub-strip under "Settings"
-6. Wire status indicators using new health endpoint
-7. Add EN + AR translations
-
-### Phase 5 — Test/verify endpoints
-
-1. Implement `POST /v1/email-config/test` — sends a real Resend message to the provided email
-2. Implement `POST /v1/sms-config/test` — sends a real Twilio SMS
-3. Implement `POST /v1/whatsapp-config/test` — sends a real Twilio WhatsApp message
-4. Update `last_verified_at` on success
-5. Surface provider error messages back to the UI for diagnosis
-
-### Phase 6 — Cleanups (cherry-pick parallel work)
-
-1. Wire password-reset emails (`auth-password-reset.service.ts:61` is currently stubbed)
-2. Add "your password was changed" notification
-3. Add `'sms'` to `NotificationTemplate` channel type union
-4. Replace `'push'` with `'whatsapp'` in `(school)/settings/notifications/page.tsx`
-5. Decide whether to migrate finance off the direct-DB-write workaround (`payment-reminders.service.ts:220`) once circular-dep is reviewed
-6. Audit module gaps: trips (consent), school-closures, leave, health, sen — confirm whether comms wiring is needed and add if so
+| #   | Title                                                                  | Wave |
+| --- | ---------------------------------------------------------------------- | ---- |
+| 01  | Schema + migration + RLS (8 new tables)                                | 1    |
+| 02  | Permissions + RBAC + role backfill on test tenants                     | 1    |
+| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests         | 2    |
+| 04  | Provider refactor + per-tenant client cache + Redis pub/sub            | 3    |
+| 05  | Worker parity + `.env` removal + mid-flight enforcement                | 3    |
+| 06  | Webhooks + signature verification + suppression list                   | 3    |
+| 07  | Email deliverability — domain verification + DNS                       | 3    |
+| 08  | WhatsApp templates + approval sync + 24-hour window                    | 3    |
+| 09  | `verifyConfig` + test endpoints with full semantics                    | 3    |
+| 10  | Operational layer — Sentry + logging + metrics + runbooks              | 3    |
+| 11  | Frontend Settings UI                                                   | 4    |
+| 12  | Module gap closure + cleanups (finance, push→whatsapp, password reset) | 4    |
+| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB                | 5    |
+| 14  | Architecture docs + comprehensive E2E verification on local dev        | 5    |
 
 ---
 
-## 5. Open Decisions
+## 5. Resolved Decisions (Previously Open)
 
-These are explicitly NOT decided yet — the user will rule on them during the build sessions.
-
-| Decision                                                                                       | Default Suggestion                              |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Should `webhook_secret` be required for Resend, or optional?                                   | Optional; only needed if tenant uses webhooks   |
-| Should we support multiple sender numbers per tenant for SMS (different numbers per use case)? | Single number per tenant in V1; revisit later   |
-| Should we expose a "rotate keys" UX as a dedicated action, separate from "update"?             | No — a fresh save IS a rotation                 |
-| Should test sends consume the tenant's rate-limit budget?                                      | No — bypass rate limits, log separately         |
-| What happens to in-flight queued notifications when a tenant disables a channel?               | Mark as `failed` with reason `channel_disabled` |
-| Should we let platform admin (`platform/`) view/manage tenant configs for support?             | Yes, read-only via separate platform endpoints  |
-| Do we need a "channel preview" before send (especially for WhatsApp templates)?                | Out of scope V1                                 |
+| Decision                                                                           | Resolution                                                                                                                                      |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Should `webhook_secret` be required for Resend, or optional?                       | **Required** — every config gets a webhook_secret; receivers always verify.                                                                     |
+| Should we support multiple sender numbers per tenant for SMS?                      | Single number per tenant in V1; revisit later                                                                                                   |
+| Should we expose a "rotate keys" UX as a dedicated action, separate from "update"? | No — a fresh save IS a rotation                                                                                                                 |
+| Should test sends consume the tenant's rate-limit budget?                          | No — separate Redis bucket, 3/hr/tenant, bypasses notification limits                                                                           |
+| What happens to in-flight queued notifications when a tenant disables a channel?   | Worker re-checks `is_enabled` per notification; remaining rows mark `failed:channel_disabled`                                                   |
+| Should we let platform admin (`platform/`) view/manage tenant configs for support? | Yes, read-only via separate platform endpoints (out of scope V1; tracked as follow-up)                                                          |
+| Do we need a "channel preview" before send (especially for WhatsApp templates)?    | Out of scope V1                                                                                                                                 |
+| Should the platform `.env` credentials remain as a fallback?                       | **No.** Removed entirely in Impl 05. Tenant config is the only path.                                                                            |
+| How are existing tenants migrated from `.env` to per-tenant config?                | Impl 13 backfills all 5 test tenants with channel-specific dev credentials.                                                                     |
+| How are new permissions granted to existing role mappings?                         | Impl 02 runs a one-shot backfill that adds `configuration.communications.{view,manage}` to Owner + Principal mappings on every existing tenant. |
+| Where does cache invalidation propagate across API + worker?                       | Redis pub/sub channel `comms:config-changed` with `{ tenant_id, channel }` payload; both processes subscribe.                                   |
 
 ---
 
@@ -604,17 +884,20 @@ These are explicitly NOT decided yet — the user will rule on them during the b
 - **RLS policy template**: `packages/prisma/rls/policies.sql`
 - **Migration conventions**: `docs/architecture/schema-change-playbook.md`, `.claude/rules/prisma.md`
 - **Pre-flight checklist**: `docs/architecture/pre-flight-checklist.md`
-- **Module blast radius**: `docs/architecture/module-blast-radius.md` (will be updated to record `communications` ↔ `configuration` cross-module dependency once implemented)
-- **Job catalog**: `docs/architecture/event-job-catalog.md` (no changes — same `notifications` queue, same processors)
+- **Module blast radius**: `docs/architecture/module-blast-radius.md` (updated by Impl 14)
+- **Job catalog**: `docs/architecture/event-job-catalog.md` (updated by Impl 14 with webhook flows + cron jobs)
+- **State machines**: `docs/architecture/state-machines.md` (updated by Impl 14 with extended `notification.status`, `whatsapp_template.status`, `tenant_email_domain.status`)
+- **Master plan**: `communicationnew/PLAN.md`
+- **Implementation log**: `communicationnew/IMPLEMENTATION_LOG.md`
 
 ---
 
-## 7. Architecture-Update Checklist (For When This Phase Ships)
+## 7. Architecture-Update Checklist (Impl 14 owns)
 
-After implementation, these architecture documents must be updated per `.claude/rules/architecture-policing.md`:
+After Impl 14, these architecture documents must reflect reality per `.claude/rules/architecture-policing.md`:
 
-- [ ] `docs/architecture/module-blast-radius.md` — `communications` module now depends on `configuration` for tenant credential resolution
-- [ ] `docs/architecture/feature-map.md` — Update `Configuration` row's endpoint count (+12 endpoints), frontend page count (+4 pages)
-- [ ] `docs/architecture/danger-zones.md` — Add entry: tenant credential rotation must invalidate per-tenant client cache or in-flight sends will use stale keys
-- [ ] `docs/architecture/state-machines.md` — No changes (notification status machine unchanged)
-- [ ] `docs/architecture/event-job-catalog.md` — No changes
+- [ ] `docs/architecture/module-blast-radius.md` — `communications` module now depends on `configuration` for tenant credential resolution; `auth`, `trips`, `school-closures`, `staff-leave`, `health`, `sen` now depend on `communications`.
+- [ ] `docs/architecture/feature-map.md` — Update Configuration row's endpoint count (+~25 endpoints), frontend page count (+4 pages); add Communications operational tables.
+- [ ] `docs/architecture/danger-zones.md` — Add entries: tenant credential rotation must invalidate per-tenant client cache; mid-flight `is_enabled` flip drops in-batch sends; webhook signature trust depends on tenant `webhook_secret` being set.
+- [ ] `docs/architecture/state-machines.md` — Document extended `notification.status` machine including webhook-driven `bounced` / `complained`; add `whatsapp_template.status` and `tenant_email_domain.status` machines.
+- [ ] `docs/architecture/event-job-catalog.md` — Add `comms:domain-verification-refresh` (cron 30 min), `comms:whatsapp-template-sync` (cron 15 min), `comms:suppression-list-cleanup` (cron daily); document inbound webhook flows.
