@@ -30,18 +30,19 @@ import { WhatsAppConfigService } from './whatsapp-config.service';
 
 @Controller('v1/whatsapp-config')
 @UseGuards(AuthGuard, PermissionGuard)
-@RequiresPermission('configuration.communications.manage')
 export class WhatsAppConfigController {
   constructor(private readonly whatsappConfigService: WhatsAppConfigService) {}
 
   // GET /v1/whatsapp-config
   @Get()
+  @RequiresPermission('configuration.communications.manage')
   async getConfig(@CurrentTenant() tenant: TenantContext) {
     return this.whatsappConfigService.getConfig(tenant.tenant_id);
   }
 
   // PUT /v1/whatsapp-config
   @Put()
+  @RequiresPermission('configuration.communications.manage')
   async upsertConfig(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -53,6 +54,7 @@ export class WhatsAppConfigController {
   // DELETE /v1/whatsapp-config
   @Delete()
   @HttpCode(HttpStatus.OK)
+  @RequiresPermission('configuration.communications.manage')
   async deleteConfig(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.whatsappConfigService.deleteConfig(tenant.tenant_id, user.sub);
   }
@@ -60,6 +62,7 @@ export class WhatsAppConfigController {
   // POST /v1/whatsapp-config/test
   // STUB — Impl 09 wires real provider verification.
   @Post('test')
+  @RequiresPermission('configuration.communications.manage')
   async test(
     @CurrentTenant() _tenant: TenantContext,
     @Body(new ZodValidationPipe(testWhatsAppSchema)) _dto: TestWhatsAppDto,

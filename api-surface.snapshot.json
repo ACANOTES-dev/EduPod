@@ -3269,6 +3269,34 @@
     "permission": "early_warning.view"
   },
   {
+    "method": "DELETE",
+    "path": "/v1/email-config",
+    "controller": "EmailConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/email-config",
+    "controller": "EmailConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/email-config",
+    "controller": "EmailConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/email-config/test",
+    "controller": "EmailConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
     "method": "GET",
     "path": "/v1/engagement/analytics/completion-rates",
     "controller": "EngagementAnalyticsController",
@@ -12187,6 +12215,34 @@
     "permission": "settings.manage"
   },
   {
+    "method": "DELETE",
+    "path": "/v1/sms-config",
+    "controller": "SmsConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/sms-config",
+    "controller": "SmsConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/sms-config",
+    "controller": "SmsConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/sms-config/test",
+    "controller": "SmsConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
     "method": "GET",
     "path": "/v1/staff-availability",
     "controller": "StaffAvailabilityController",
@@ -12794,6 +12850,34 @@
     "controller": "WellbeingAggregateController",
     "module": "wellbeing-aggregate",
     "permission": "wellbeing.view_dashboard"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/whatsapp-config",
+    "controller": "WhatsAppConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/whatsapp-config",
+    "controller": "WhatsAppConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/whatsapp-config",
+    "controller": "WhatsAppConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-config/test",
+    "controller": "WhatsAppConfigController",
+    "module": "configuration",
+    "permission": "configuration.communications.manage"
   },
   {
     "method": "GET",

@@ -25,18 +25,19 @@ import { SmsConfigService } from './sms-config.service';
 
 @Controller('v1/sms-config')
 @UseGuards(AuthGuard, PermissionGuard)
-@RequiresPermission('configuration.communications.manage')
 export class SmsConfigController {
   constructor(private readonly smsConfigService: SmsConfigService) {}
 
   // GET /v1/sms-config
   @Get()
+  @RequiresPermission('configuration.communications.manage')
   async getConfig(@CurrentTenant() tenant: TenantContext) {
     return this.smsConfigService.getConfig(tenant.tenant_id);
   }
 
   // PUT /v1/sms-config
   @Put()
+  @RequiresPermission('configuration.communications.manage')
   async upsertConfig(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -48,6 +49,7 @@ export class SmsConfigController {
   // DELETE /v1/sms-config
   @Delete()
   @HttpCode(HttpStatus.OK)
+  @RequiresPermission('configuration.communications.manage')
   async deleteConfig(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.smsConfigService.deleteConfig(tenant.tenant_id, user.sub);
   }
@@ -55,6 +57,7 @@ export class SmsConfigController {
   // POST /v1/sms-config/test
   // STUB — Impl 09 wires real provider verification.
   @Post('test')
+  @RequiresPermission('configuration.communications.manage')
   async test(
     @CurrentTenant() _tenant: TenantContext,
     @Body(new ZodValidationPipe(testSmsSchema)) _dto: TestSmsDto,

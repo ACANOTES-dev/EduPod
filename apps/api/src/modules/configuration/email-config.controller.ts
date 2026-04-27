@@ -25,18 +25,19 @@ import { EmailConfigService } from './email-config.service';
 
 @Controller('v1/email-config')
 @UseGuards(AuthGuard, PermissionGuard)
-@RequiresPermission('configuration.communications.manage')
 export class EmailConfigController {
   constructor(private readonly emailConfigService: EmailConfigService) {}
 
   // GET /v1/email-config
   @Get()
+  @RequiresPermission('configuration.communications.manage')
   async getConfig(@CurrentTenant() tenant: TenantContext) {
     return this.emailConfigService.getConfig(tenant.tenant_id);
   }
 
   // PUT /v1/email-config
   @Put()
+  @RequiresPermission('configuration.communications.manage')
   async upsertConfig(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -48,6 +49,7 @@ export class EmailConfigController {
   // DELETE /v1/email-config
   @Delete()
   @HttpCode(HttpStatus.OK)
+  @RequiresPermission('configuration.communications.manage')
   async deleteConfig(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.emailConfigService.deleteConfig(tenant.tenant_id, user.sub);
   }
@@ -55,6 +57,7 @@ export class EmailConfigController {
   // POST /v1/email-config/test
   // STUB — Impl 09 wires real provider verification.
   @Post('test')
+  @RequiresPermission('configuration.communications.manage')
   async test(
     @CurrentTenant() _tenant: TenantContext,
     @Body(new ZodValidationPipe(testEmailSchema)) _dto: TestEmailDto,
