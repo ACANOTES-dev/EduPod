@@ -1,12 +1,21 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Resend } from 'resend';
 
-import type { DecryptedEmailConfig, MaskedEmailConfig, UpsertEmailConfigDto } from '@school/shared';
+import type {
+  DecryptedEmailConfig,
+  MaskedEmailConfig,
+  UpsertEmailConfigDto,
+  VerifyResult,
+} from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { COMMS_CACHE_BUS, type CommsCacheBus } from './comms-cache-bus.stub';
 import { EncryptionService } from './encryption.service';
+import { getProviderErrorHint } from './provider-error-hints';
+import { maskEmailRecipient } from './recipient-mask';
+import { VERIFICATION_EMAIL_TEMPLATES } from './verification-templates';
 
 @Injectable()
 export class EmailConfigService {
@@ -150,13 +159,90 @@ export class EmailConfigService {
     };
   }
 
-  // ─── STUB — Impl 09 wires real provider verification ─────────────────────
-  async verifyConfig(_tenantId: string, _recipient: string): Promise<never> {
-    // Implemented in Impl 09 — sends a real Resend message, sets last_verified_at.
-    throw new NotFoundException({
-      code: 'EMAIL_VERIFY_NOT_IMPLEMENTED',
-      message: 'Email verify endpoint is implemented in Implementation 09',
+  /**
+   * Send a real verification email via Resend (Impl 09).
+   *
+   * The verify path deliberately bypasses the Impl 07 domain-verified
+   * gate that the regular dispatch path enforces. Refusing to verify
+   * because the domain is unverified would create a chicken-and-egg
+   * loop — the whole point of running a test is to discover whether
+   * the keys + sender are wired up. Resend itself will return 403 if
+   * the domain hasn't completed DKIM, and that's the verbatim error
+   * we want to surface.
+   *
+   * Stamps `last_verified_at = now()` ONLY on success. Failure paths
+   * never touch the row. The bilingual sentinel content (en/ar) lives
+   * in `verification-templates.ts` and is never variable-interpolated.
+   */
+  async verifyConfig(tenantId: string, recipientEmail: string): Promise<VerifyResult> {
+    const decrypted = await this.getDecryptedConfig(tenantId);
+    if (!decrypted) {
+      throw new NotFoundException({
+        code: 'EMAIL_CONFIG_NOT_FOUND',
+        message: 'Email configuration not found for this tenant',
+      });
+    }
+
+    const tpl = VERIFICATION_EMAIL_TEMPLATES.en;
+    const client = new Resend(decrypted.resend_api_key);
+
+    let providerMessageId: string | undefined;
+    let providerError: string | undefined;
+    let statusCode = 0;
+
+    try {
+      const fromHeader = decrypted.from_name
+        ? `${decrypted.from_name} <${decrypted.from_email}>`
+        : decrypted.from_email;
+      const { data, error } = await client.emails.send({
+        from: fromHeader,
+        to: [recipientEmail],
+        subject: tpl.subject,
+        html: tpl.html,
+        tags: [{ name: 'kind', value: 'verify' }],
+      });
+      if (error) {
+        providerError = error.message;
+        statusCode = (error as { statusCode?: number }).statusCode ?? 0;
+      } else {
+        providerMessageId = data?.id;
+      }
+    } catch (err) {
+      providerError = err instanceof Error ? err.message : String(err);
+      statusCode = 0;
+    }
+
+    if (providerError || !providerMessageId) {
+      this.logger.warn(
+        `[verifyConfig] tenant=${tenantId} email failed: ${providerError ?? 'unknown'} (${statusCode})`,
+      );
+      return {
+        success: false,
+        provider_error: providerError ?? 'Unknown Resend error',
+        status_code: statusCode,
+        troubleshooting_hint: getProviderErrorHint('email', statusCode, providerError ?? ''),
+        recipient_mask: maskEmailRecipient(recipientEmail),
+      };
+    }
+
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      await txdb.tenantEmailConfig.update({
+        where: { id: decrypted.id },
+        data: { last_verified_at: new Date() },
+      });
     });
+
+    this.logger.log(
+      `[verifyConfig] tenant=${tenantId} email success messageId=${providerMessageId}`,
+    );
+    return {
+      success: true,
+      provider_message_id: providerMessageId,
+      message: 'Sent via Resend',
+      recipient_mask: maskEmailRecipient(recipientEmail),
+    };
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────

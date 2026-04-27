@@ -139,9 +139,10 @@ describe('SmsConfigService', () => {
     expect(mockCacheBus.publishConfigChanged).toHaveBeenCalledWith(TENANT_ID, 'sms');
   });
 
-  it('verifyConfig — stub throws SMS_VERIFY_NOT_IMPLEMENTED', async () => {
+  it('verifyConfig — Impl 09 throws SMS_CONFIG_NOT_FOUND when no config', async () => {
+    mockPrisma.tenantSmsConfig.findUnique.mockResolvedValue(null);
     await expect(service.verifyConfig(TENANT_ID, '+14155551234')).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'SMS_VERIFY_NOT_IMPLEMENTED' }),
+      response: expect.objectContaining({ code: 'SMS_CONFIG_NOT_FOUND' }),
     });
   });
 

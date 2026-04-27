@@ -152,11 +152,22 @@ describe('WhatsAppConfigService', () => {
     expect(mockCacheBus.publishConfigChanged).toHaveBeenCalledWith(TENANT_ID, 'whatsapp');
   });
 
-  it('verifyConfig — stub throws WHATSAPP_VERIFY_NOT_IMPLEMENTED', async () => {
-    await expect(
-      service.verifyConfig(TENANT_ID, '+14155551111', 'test_template'),
-    ).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'WHATSAPP_VERIFY_NOT_IMPLEMENTED' }),
+  it('verifyConfig — Impl 09 throws WHATSAPP_CONFIG_NOT_FOUND when no config', async () => {
+    mockPrisma.tenantWhatsAppConfig.findUnique.mockResolvedValue(null);
+    await expect(service.verifyConfig(TENANT_ID, '+14155551111')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'WHATSAPP_CONFIG_NOT_FOUND' }),
+    });
+  });
+
+  it('verifyConfig — returns verification_template_not_approved when no approved template', async () => {
+    mockPrisma.tenantWhatsAppConfig.findUnique.mockResolvedValue(mockDbRow);
+    (mockPrisma as Record<string, unknown>).whatsAppTemplate = {
+      findFirst: jest.fn().mockResolvedValue(null),
+    };
+    const result = await service.verifyConfig(TENANT_ID, '+14155551111');
+    expect(result).toMatchObject({
+      success: false,
+      provider_error: 'verification_template_not_approved',
     });
   });
 

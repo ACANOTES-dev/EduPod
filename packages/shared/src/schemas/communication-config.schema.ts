@@ -112,3 +112,21 @@ export const listWhatsAppTemplatesQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 export type ListWhatsAppTemplatesQueryDto = z.infer<typeof listWhatsAppTemplatesQuerySchema>;
+
+// ─── Verify result (Impl 09) ─────────────────────────────────────────────────
+
+/**
+ * Returned by the three POST /v1/{email|sms|whatsapp}-config/test endpoints.
+ * `success: true` means the provider accepted the request and returned a
+ * message id. `success: false` carries the verbatim provider error so the
+ * tenant admin can act on it without contacting support.
+ */
+export interface VerifyResult {
+  success: boolean;
+  provider_message_id?: string;
+  provider_error?: string;
+  status_code?: number;
+  troubleshooting_hint?: string | null;
+  message?: string;
+  recipient_mask: string;
+}

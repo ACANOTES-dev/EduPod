@@ -210,10 +210,11 @@ describe('EmailConfigService', () => {
     });
   });
 
-  describe('verifyConfig (stub)', () => {
-    it('throws EMAIL_VERIFY_NOT_IMPLEMENTED — Impl 09 wires it', async () => {
+  describe('verifyConfig — Impl 09', () => {
+    it('throws EMAIL_CONFIG_NOT_FOUND when tenant has no config', async () => {
+      mockPrisma.tenantEmailConfig.findUnique.mockResolvedValue(null);
       await expect(service.verifyConfig(TENANT_ID, 'x@y.test')).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'EMAIL_VERIFY_NOT_IMPLEMENTED' }),
+        response: expect.objectContaining({ code: 'EMAIL_CONFIG_NOT_FOUND' }),
       });
     });
   });

@@ -1,12 +1,21 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import twilio from 'twilio';
 
-import type { DecryptedSmsConfig, MaskedSmsConfig, UpsertSmsConfigDto } from '@school/shared';
+import type {
+  DecryptedSmsConfig,
+  MaskedSmsConfig,
+  UpsertSmsConfigDto,
+  VerifyResult,
+} from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { COMMS_CACHE_BUS, type CommsCacheBus } from './comms-cache-bus.stub';
 import { EncryptionService } from './encryption.service';
+import { getProviderErrorHint } from './provider-error-hints';
+import { maskPhoneRecipient } from './recipient-mask';
+import { VERIFICATION_SMS_TEMPLATES } from './verification-templates';
 
 @Injectable()
 export class SmsConfigService {
@@ -142,11 +151,76 @@ export class SmsConfigService {
     };
   }
 
-  async verifyConfig(_tenantId: string, _recipient: string): Promise<never> {
-    throw new NotFoundException({
-      code: 'SMS_VERIFY_NOT_IMPLEMENTED',
-      message: 'SMS verify endpoint is implemented in Implementation 09',
+  /**
+   * Send a real verification SMS via Twilio (Impl 09).
+   *
+   * Twilio's SDK throws on failure (no `{ data, error }` envelope) — we
+   * wrap the call in try/catch and capture `code` (numeric, e.g. 21211)
+   * + `message`. Stamps `last_verified_at = now()` only on success.
+   * Failure paths never touch the row.
+   */
+  async verifyConfig(tenantId: string, recipientPhone: string): Promise<VerifyResult> {
+    const decrypted = await this.getDecryptedConfig(tenantId);
+    if (!decrypted) {
+      throw new NotFoundException({
+        code: 'SMS_CONFIG_NOT_FOUND',
+        message: 'SMS configuration not found for this tenant',
+      });
+    }
+
+    const tpl = VERIFICATION_SMS_TEMPLATES.en;
+    const client = twilio(decrypted.twilio_account_sid, decrypted.twilio_auth_token);
+
+    let providerMessageId: string | undefined;
+    let providerError: string | undefined;
+    let statusCode = 0;
+
+    try {
+      const message = await client.messages.create({
+        from: decrypted.twilio_from_number,
+        to: recipientPhone,
+        body: tpl.body,
+      });
+      providerMessageId = message.sid;
+    } catch (err) {
+      if (err instanceof Error) {
+        providerError = err.message;
+        const twilioCode = (err as { code?: number }).code;
+        statusCode = typeof twilioCode === 'number' ? twilioCode : 0;
+      } else {
+        providerError = String(err);
+      }
+    }
+
+    if (providerError || !providerMessageId) {
+      this.logger.warn(
+        `[verifyConfig] tenant=${tenantId} sms failed: ${providerError ?? 'unknown'} (${statusCode})`,
+      );
+      return {
+        success: false,
+        provider_error: providerError ?? 'Unknown Twilio error',
+        status_code: statusCode,
+        troubleshooting_hint: getProviderErrorHint('sms', statusCode, providerError ?? ''),
+        recipient_mask: maskPhoneRecipient(recipientPhone),
+      };
+    }
+
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      await txdb.tenantSmsConfig.update({
+        where: { id: decrypted.id },
+        data: { last_verified_at: new Date() },
+      });
     });
+
+    this.logger.log(`[verifyConfig] tenant=${tenantId} sms success messageId=${providerMessageId}`);
+    return {
+      success: true,
+      provider_message_id: providerMessageId,
+      message: 'Sent via Twilio SMS',
+      recipient_mask: maskPhoneRecipient(recipientPhone),
+    };
   }
 
   private toMasked(row: {

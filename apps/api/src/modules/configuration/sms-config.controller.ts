@@ -4,8 +4,8 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
-  NotImplementedException,
   Post,
   Put,
   UseGuards,
@@ -22,11 +22,15 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { SmsConfigService } from './sms-config.service';
+import { VerifyRateLimitService } from './verify-rate-limit.service';
 
 @Controller('v1/sms-config')
 @UseGuards(AuthGuard, PermissionGuard)
 export class SmsConfigController {
-  constructor(private readonly smsConfigService: SmsConfigService) {}
+  constructor(
+    private readonly smsConfigService: SmsConfigService,
+    private readonly verifyLimit: VerifyRateLimitService,
+  ) {}
 
   // GET /v1/sms-config
   @Get()
@@ -55,17 +59,23 @@ export class SmsConfigController {
   }
 
   // POST /v1/sms-config/test
-  // STUB — Impl 09 wires real provider verification.
   @Post('test')
   @RequiresPermission('configuration.communications.manage')
   async test(
-    @CurrentTenant() _tenant: TenantContext,
-    @Body(new ZodValidationPipe(testSmsSchema)) _dto: TestSmsDto,
-  ): Promise<never> {
-    throw new NotImplementedException({
-      code: 'SMS_TEST_NOT_IMPLEMENTED',
-      message:
-        'SMS test send is implemented in Implementation 09. The schema validates today; the provider call lands in Impl 09.',
-    });
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(testSmsSchema)) dto: TestSmsDto,
+  ) {
+    const limit = await this.verifyLimit.checkAndIncrement(tenant.tenant_id, 'sms');
+    if (!limit.allowed) {
+      throw new HttpException(
+        {
+          code: 'VERIFY_RATE_LIMIT_EXCEEDED',
+          message: `Verification limit reached (${limit.limit ?? 3} per hour). Try again later.`,
+          retry_after_seconds: limit.retry_after_seconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    return this.smsConfigService.verifyConfig(tenant.tenant_id, dto.recipient_phone);
   }
 }

@@ -4,8 +4,8 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
-  NotImplementedException,
   Post,
   Put,
   UseGuards,
@@ -26,12 +26,16 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { VerifyRateLimitService } from './verify-rate-limit.service';
 import { WhatsAppConfigService } from './whatsapp-config.service';
 
 @Controller('v1/whatsapp-config')
 @UseGuards(AuthGuard, PermissionGuard)
 export class WhatsAppConfigController {
-  constructor(private readonly whatsappConfigService: WhatsAppConfigService) {}
+  constructor(
+    private readonly whatsappConfigService: WhatsAppConfigService,
+    private readonly verifyLimit: VerifyRateLimitService,
+  ) {}
 
   // GET /v1/whatsapp-config
   @Get()
@@ -60,17 +64,23 @@ export class WhatsAppConfigController {
   }
 
   // POST /v1/whatsapp-config/test
-  // STUB — Impl 09 wires real provider verification.
   @Post('test')
   @RequiresPermission('configuration.communications.manage')
   async test(
-    @CurrentTenant() _tenant: TenantContext,
-    @Body(new ZodValidationPipe(testWhatsAppSchema)) _dto: TestWhatsAppDto,
-  ): Promise<never> {
-    throw new NotImplementedException({
-      code: 'WHATSAPP_TEST_NOT_IMPLEMENTED',
-      message:
-        'WhatsApp test send is implemented in Implementation 09. The schema validates today; the provider call lands in Impl 09.',
-    });
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(testWhatsAppSchema)) dto: TestWhatsAppDto,
+  ) {
+    const limit = await this.verifyLimit.checkAndIncrement(tenant.tenant_id, 'whatsapp');
+    if (!limit.allowed) {
+      throw new HttpException(
+        {
+          code: 'VERIFY_RATE_LIMIT_EXCEEDED',
+          message: `Verification limit reached (${limit.limit ?? 3} per hour). Try again later.`,
+          retry_after_seconds: limit.retry_after_seconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    return this.whatsappConfigService.verifyConfig(tenant.tenant_id, dto.recipient_phone);
   }
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { CommsCacheBusModule } from '../communications/cache-bus.module';
 import { CommsCacheBusService } from '../communications/comms-cache-bus.service';
+import { RedisModule } from '../redis/redis.module';
 import { S3Module } from '../s3/s3.module';
 
 import { BrandingController } from './branding.controller';
@@ -20,11 +21,12 @@ import { SmsConfigController } from './sms-config.controller';
 import { SmsConfigService } from './sms-config.service';
 import { StripeConfigController } from './stripe-config.controller';
 import { StripeConfigService } from './stripe-config.service';
+import { VerifyRateLimitService } from './verify-rate-limit.service';
 import { WhatsAppConfigController } from './whatsapp-config.controller';
 import { WhatsAppConfigService } from './whatsapp-config.service';
 
 @Module({
-  imports: [S3Module, CommsCacheBusModule],
+  imports: [S3Module, CommsCacheBusModule, RedisModule],
   controllers: [
     BrandingController,
     SettingsController,
@@ -45,6 +47,7 @@ import { WhatsAppConfigService } from './whatsapp-config.service';
     EmailConfigService,
     SmsConfigService,
     WhatsAppConfigService,
+    VerifyRateLimitService,
     // Impl 04: Redis pub/sub-backed implementation, sourced from `CommsCacheBusModule`.
     { provide: COMMS_CACHE_BUS, useExisting: CommsCacheBusService },
   ],
@@ -55,6 +58,7 @@ import { WhatsAppConfigService } from './whatsapp-config.service';
     EmailConfigService,
     SmsConfigService,
     WhatsAppConfigService,
+    VerifyRateLimitService,
     // Export the cache-bus token so Impl 04's per-tenant client cache can subscribe.
     COMMS_CACHE_BUS,
   ],
