@@ -252,7 +252,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | #   | Title                                                           | Wave | Depends on             | Status      | Completed at              | Local Commit SHA |
 | --- | --------------------------------------------------------------- | ---- | ---------------------- | ----------- | ------------------------- | ---------------- |
 | 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `completed` | 2026-04-27T08:15:00+01:00 | ac342ee8         |
-| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `pending`   | —                         | —                |
+| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | (pending push)   |
 | 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending`   | —                         | —                |
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
@@ -368,3 +368,53 @@ For blocked work, use:
   - paralleltest DB has no `_prisma_migrations` history (set up via init
     script + raw SQL) — applied `migration.sql` + `post_migrate.sql` directly
     via `docker exec ... psql -f` so the integration tests see the new tables.
+
+### [IMPL 02] — Permissions, RBAC seed, and backfill
+
+- **Completed:** 2026-04-27T08:30:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** (pending push to origin/main)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5 for this run). Code ships through CI; the backfill script runs as a one-shot on production via SSH after deploy completes.
+- **Verified at:** 2026-04-27T08:30:00+01:00 on local dev DB.
+- **Local verification:**
+  - Type-check `@school/shared` — green.
+  - Type-check `@school/prisma` — green.
+  - `pnpm --filter @school/prisma test` — 22/22 tests green (including the new backfill spec — 4 unit tests with mocked Prisma covering first-run, idempotent re-run, missing-permission throw path, and empty-tenants edge).
+  - `pnpm --filter @school/api test --testPathPattern='(rbac|permissions)'` — 142/142 tests green (no regression from the new permission-key additions).
+  - `npx tsx packages/prisma/scripts/sync-missing-permissions.ts` — created the two new `permissions` rows in the dev DB.
+  - `pnpm --filter @school/prisma backfill:comms-permissions` (first run) — `+4 grant(s) added` for tenant `nhqs`. Stress tenants `stress-a/b/c/d` not seeded in this dev DB; script skipped them cleanly (warning, not error).
+  - `pnpm --filter @school/prisma backfill:comms-permissions` (second run) — `Total grants added: 0`, `Total grants skipped: 4 (already present)` — idempotency proven on the wire.
+  - Direct SQL count: 4 rows total for the two new keys × Owner/Principal × NHQS, exactly as expected.
+- **Summary (≤ 200 words):**
+  Added two new permission constants
+  (`configuration.communications.view`, `configuration.communications.manage`)
+  to the canonical `packages/shared/src/constants/permissions.ts` (keys
+  `configuration.communications_view` and `..._manage`), wired them
+  to `'admin'` tier in `PERMISSION_TIER_MAP`, and granted them to the
+  `school_owner` system role's `default_permissions` array. Updated
+  `packages/prisma/seed/permissions.ts` (`PERMISSION_SEEDS`) and
+  `seed/system-roles.ts` (both `school_owner` and `school_principal`'s
+  `default_permissions` arrays) so newly-provisioned tenants receive
+  both keys by default. Added `packages/prisma/scripts/backfill-communications-permissions.ts`
+  (with exported `runBackfill(prisma)` for testability) plus a unit spec
+  covering happy-path, idempotent re-run, missing-permission failure mode,
+  and empty-tenants edge. Registered `pnpm --filter @school/prisma backfill:comms-permissions`.
+  Tenants resolved by `slug` (not UUID) so the script is portable across
+  environments — same script works on dev, paralleltest, and production.
+- **Follow-ups:**
+  - **Production cutover for this impl:** after CI deploys the code, run
+    `npx tsx packages/prisma/scripts/sync-missing-permissions.ts` followed by
+    `pnpm --filter @school/prisma backfill:comms-permissions` against
+    `localhost:5432/school_platformedupod_prod` on the production server.
+    Both scripts are idempotent.
+  - Impl 03 controllers must use the matching literal strings.
+  - Impl 11 frontend reads `/api/v1/me/permissions` for nav gating.
+- **Rollback:**
+  - Code: `git revert <code-commit-sha>`.
+  - Data (per-DB): `DELETE FROM role_permissions WHERE permission_id IN (SELECT id FROM permissions WHERE permission_key IN ('configuration.communications.view','configuration.communications.manage'));`
+  - Optional: `DELETE FROM permissions WHERE permission_key IN ('configuration.communications.view','configuration.communications.manage');`
+- **Session notes:**
+  - User override on Rule 5 — working on `main`, deploying via CI.
+  - Stress tenants `stress-a/b/c/d` are absent from this dev DB; script
+    handled gracefully with a `[skip]` warning per missing slug. Production
+    has the same allowlist — the prod backfill will cover whatever subset
+    of test tenants exists there.
