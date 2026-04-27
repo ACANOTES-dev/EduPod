@@ -249,22 +249,22 @@ Impl 04 (provider refactor) restarts API and worker because both consume the new
 
 Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 blocked`
 
-| #   | Title                                                           | Wave | Depends on             | Status    | Completed at | Local Commit SHA |
-| --- | --------------------------------------------------------------- | ---- | ---------------------- | --------- | ------------ | ---------------- |
-| 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `pending` | —            | —                |
-| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `pending` | —            | —                |
-| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending` | —            | —                |
-| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending` | —            | —                |
-| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending` | —            | —                |
-| 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending` | —            | —                |
-| 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending` | —            | —                |
-| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending` | —            | —                |
-| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `pending` | —            | —                |
-| 10  | Operational layer — Sentry + logging + metrics + runbooks       | 3    | 01, 03                 | `pending` | —            | —                |
-| 11  | Frontend Settings UI                                            | 4    | 03, 07, 08, 09         | `pending` | —            | —                |
-| 12  | Module gap closure + cleanups                                   | 4    | 03                     | `pending` | —            | —                |
-| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB         | 5    | 01, 02, 03, 07, 08, 09 | `pending` | —            | —                |
-| 14  | Architecture docs + comprehensive E2E verification on local dev | 5    | 11, 12, 13             | `pending` | —            | —                |
+| #   | Title                                                           | Wave | Depends on             | Status      | Completed at              | Local Commit SHA |
+| --- | --------------------------------------------------------------- | ---- | ---------------------- | ----------- | ------------------------- | ---------------- |
+| 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `completed` | 2026-04-27T08:15:00+01:00 | ac342ee8         |
+| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `pending`   | —                         | —                |
+| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending`   | —                         | —                |
+| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending`   | —                         | —                |
+| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending`   | —                         | —                |
+| 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 10  | Operational layer — Sentry + logging + metrics + runbooks       | 3    | 01, 03                 | `pending`   | —                         | —                |
+| 11  | Frontend Settings UI                                            | 4    | 03, 07, 08, 09         | `pending`   | —                         | —                |
+| 12  | Module gap closure + cleanups                                   | 4    | 03                     | `pending`   | —                         | —                |
+| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB         | 5    | 01, 02, 03, 07, 08, 09 | `pending`   | —                         | —                |
+| 14  | Architecture docs + comprehensive E2E verification on local dev | 5    | 11, 12, 13             | `pending`   | —                         | —                |
 
 "Depends on" lists the minimum set that must be `completed` before this one can start. In strict wave order these are satisfied automatically — the column exists for sanity checks.
 
@@ -312,3 +312,59 @@ For blocked work, use:
 ```
 
 <!-- ─── Append records below this line ─── -->
+
+### [IMPL 01] — Schema + migration + RLS (8 new tables)
+
+- **Completed:** 2026-04-27T08:15:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `ac342ee8` (`feat(comms): add tenant communications config + operational tables (Impl 01)`)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5 for this run — work happens on `main`, commits push, GitHub Actions runs `.github/workflows/ci.yml` → `scripts/deploy-production.sh` applies the migration on production).
+- **Verified at:** 2026-04-27T08:15:00+01:00 on local dev DB (`localhost:5553/school_platform`) and parallel test DB (`localhost:5563/paralleltest`).
+- **Local verification:**
+  - `prisma format` + `prisma validate` — green.
+  - `prisma migrate deploy` against `school_platform` — applied `20260427120000_add_tenant_communication_configs_and_operational_tables` cleanly (also picked up the previously-pending `20260426190000_fix_shareable_links_public_rls_policy` as a side-effect; that one was already authored on `main`).
+  - `pnpm db:post-migrate` — applied the new `post_migrate.sql` (8 RLS policies). Tracked in `_post_migrate_scripts`.
+  - `pg_class` check — all 8 new tables show `relrowsecurity=t / relforcerowsecurity=t`.
+  - `pg_policies` check — all 8 `<table>_tenant_isolation` policies present.
+  - `pg_indexes` check — 6 named functional indexes (`idx_*`) + 5 named unique indexes (`uq_*`) + 3 `tenant_id` unique indexes + 8 PKs all present.
+  - Manual `migration.sql` + `post_migrate.sql` apply against `paralleltest` DB so the integration test runner sees the new tables (paralleltest has no `_prisma_migrations` history — set up via init script + raw SQL).
+  - `apps/api/test/communications-foundation.rls.spec.ts` — 10 tests, all green (per-table cross-tenant SELECT block, plus a WITH CHECK enforcement test on `tenant_email_configs`).
+  - AppModule DI smoke — `DI OK`.
+  - `pnpm --filter @school/prisma type-check` — green.
+  - `pnpm --filter @school/api type-check` — green.
+  - Sanity unit run: `apps/api/src/modules/configuration/*` — 128/128 tests green; confirms the regenerated Prisma client did not break existing services.
+- **Summary (≤ 200 words):**
+  Landed the foundational schema for the Communications Overhaul. Eight new
+  tenant-scoped tables shipped in migration `20260427120000_add_tenant_communication_configs_and_operational_tables`:
+  `tenant_email_configs`, `tenant_sms_configs`, `tenant_whatsapp_configs`
+  (one-row-per-tenant credential tables mirroring the proven
+  `TenantStripeConfig` pattern); `notification_suppression_list`,
+  `tenant_email_domains`, `whatsapp_templates`, `whatsapp_service_windows`,
+  `notification_webhook_events` (the operational stack used by Wave 3 webhook,
+  deliverability and template impls). Five new enums: `SuppressionReason`,
+  `EmailDomainStatus`, `DnsRecordStatus`, `WhatsAppTemplateCategory`,
+  `WhatsAppTemplateStatus`. Eight RLS policies with `FORCE ROW LEVEL SECURITY`
+  in `post_migrate.sql` and mirrored into `packages/prisma/rls/policies.sql`.
+  Three named relations on `User` (`EmailConfigsCreated`, `SmsConfigsCreated`,
+  `WhatsAppConfigsCreated`) and 8 back-references on `Tenant`. RLS leakage
+  spec covers all 8 tables plus the WITH CHECK half of the policy. No service /
+  controller / UI code — Wave 2 owns those.
+- **Follow-ups:** Impl 03 builds the services against these tables. Impl 13
+  populates them in the dev DB. Impl 14 owns the architecture-docs update.
+- **Rollback:** `git revert <code-commit-sha>` then on production `psql` apply
+  the manual down-migration in `communicationnew/implementations/01-schema-foundation.md` §7
+  (DROP TABLE ... CASCADE × 8, DROP TYPE × 5, DELETE FROM `_prisma_migrations`,
+  DELETE FROM `_post_migrate_scripts`). The local dev DB recovers via the same
+  procedure. All eight new tables are empty at this point so no data loss.
+- **Session notes:**
+  - User override on Rule 5 for this run: working on `main`, commits push to
+    GitHub, CI deploys to production. Rebuild does NOT use the dedicated
+    worktree for impls 01–03 of this session.
+  - Migration was generated via `prisma migrate diff --from-schema-datamodel`
+    (HEAD's schema.prisma) `--to-schema-datamodel` (modified schema.prisma).
+    Tried `prisma migrate dev --create-only` first; it produced spurious
+    index renames because the dev DB has minor pre-existing drift from
+    historical hand-edits to `@@index(map: ...)` annotations. The schema-to-schema
+    diff sidesteps that drift entirely.
+  - paralleltest DB has no `_prisma_migrations` history (set up via init
+    script + raw SQL) — applied `migration.sql` + `post_migrate.sql` directly
+    via `docker exec ... psql -f` so the integration tests see the new tables.
