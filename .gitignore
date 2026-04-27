@@ -99,3 +99,7 @@ apps/solver-py/.ruff_cache/
 Code Review/
 apps/web/public/brand/edupod-logo.svg
 .worktrees/
+
+# Communications backfill — real tenant credentials, never commit
+packages/prisma/scripts/dev-tenant-credentials.json
+packages/prisma/scripts/prod-tenant-credentials.json

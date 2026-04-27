@@ -9,6 +9,8 @@
     "migrate:dev": "DATABASE_URL=${DATABASE_MIGRATE_URL:-$DATABASE_URL} prisma migrate dev",
     "migrate:deploy": "DATABASE_URL=${DATABASE_MIGRATE_URL:-$DATABASE_URL} prisma migrate deploy",
     "backfill:comms-permissions": "tsx scripts/backfill-communications-permissions.ts",
+    "backfill:tenant-comms-configs": "tsx scripts/backfill-tenant-communications-configs.ts",
+    "verify:tenant-comms-configs": "tsx scripts/verify-tenant-communications-configs.ts",
     "seed": "tsx seed.ts",
     "seed:school-data": "tsx seed/school-data.ts",
     "seed:qa-mdad": "tsx seed-qa-mdad.ts",

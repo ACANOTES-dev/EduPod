@@ -1,0 +1,3 @@
+# Communications backfill — real credentials, never commit
+dev-tenant-credentials.json
+prod-tenant-credentials.json
