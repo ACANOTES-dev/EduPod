@@ -476,108 +476,133 @@ exports[`PDF Template Snapshots Payslip AR: renders deterministic HTML 1`] = `
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Noto Sans Arabic', 'Arial', sans-serif; color: #111827; font-size: 14px; background: white; direction: rtl; }
-    @page { size: A4; margin: 0; }
+    /* Wave 5 fix: A4 page with proper print margins (was margin: 0). */
+    @page { size: A4; margin: 18mm 16mm; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 28px; font-weight: 700; color: #047857; letter-spacing: -0.5px;">كشف الراتب</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">مدرسة النور الدولية</p>
-      </div>
-      <div>
-        <img src="https://example.com/logo.png" alt="الشعار" style="height: 60px; max-width: 120px; object-fit: contain; margin-bottom: 4px;">
-        <p style="font-size: 13px; font-weight: 600; color: #374151;" dir="ltr">PSL-202603-0001</p>
-        <p style="font-size: 13px; color: #6b7280;">March 2026</p>
-      </div>
+  <!-- Header — RTL means the title/school go on the right, logo+ref on the left -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-size: 28px; font-weight: 700; color: #047857; letter-spacing: -0.5px;">كشف الراتب</h1>
+      <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">مدرسة النور الدولية</p>
     </div>
-
-    <!-- Staff Details -->
-    <div style="margin-bottom: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857;">بيانات الموظف</h3>
-      <table style="width: 100%; font-size: 13px;">
-        <tr>
-          <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500; width: 140px;">الاسم:</td>
-          <td style="padding: 4px 0; font-weight: 600;">Sarah Johnson</td>
-          <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500; width: 140px;">الرقم الوظيفي:</td>
-          <td style="padding: 4px 0;" dir="ltr">EMP-001</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">القسم:</td>
-          <td style="padding: 4px 0;">Mathematics</td>
-          <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">المسمى الوظيفي:</td>
-          <td style="padding: 4px 0;">Senior Teacher</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">نوع التوظيف:</td>
-          <td style="padding: 4px 0;" colspan="3">دوام كامل</td>
-        </tr>
-      </table>
+    <div style="text-align: left;">
+      <img src="https://example.com/logo.png" alt="الشعار" style="display: block; height: 56px; max-width: 140px; object-fit: contain; margin-bottom: 6px; margin-right: auto;">
+      <p style="font-size: 13px; font-weight: 600; color: #374151;" dir="ltr">PSL-0001</p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 2px;">March 2026</p>
+      <p style="font-size: 11px; color: #9ca3af; margin-top: 2px;">تاريخ الإصدار: 15 يناير 2026</p>
     </div>
+  </div>
 
-    <!-- Compensation Details -->
-    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-      <div style="flex: 1;">
-        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857;">التعويض (براتب شهري)</h3>
-        <table style="font-size: 13px;">
-          
+  <!-- Staff Details -->
+  <div style="margin-bottom: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
+    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857;">بيانات الموظف</h3>
+    <table style="width: 100%; font-size: 13px;">
+      <tr>
+        <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500; width: 140px;">الاسم:</td>
+        <td style="padding: 4px 0; font-weight: 600;">Sarah Johnson</td>
+        <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500; width: 140px;">الرقم الوظيفي:</td>
+        <td style="padding: 4px 0;" dir="ltr">EMP-001</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">القسم:</td>
+        <td style="padding: 4px 0;">Mathematics</td>
+        <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">المسمى الوظيفي:</td>
+        <td style="padding: 4px 0;">Senior Teacher</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0 4px 12px; color: #6b7280; font-weight: 500;">نوع التوظيف:</td>
+        <td style="padding: 4px 0;" colspan="3">دوام كامل</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Compensation Details -->
+  <div style="margin-bottom: 24px;">
+    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857;">التعويض (براتب شهري)</h3>
+    <table style="font-size: 13px;">
+      
         <tr>
           <td style="padding: 6px 0 6px 12px; color: #6b7280; font-weight: 500;">الراتب الأساسي:</td>
-          <td style="padding: 6px 0; font-weight: 500;" dir="ltr">AED 12000.00</td>
+          <td style="padding: 6px 0; font-weight: 500;" dir="ltr">AED 12,000.00</td>
         </tr>
         <tr>
           <td style="padding: 6px 0 6px 12px; color: #6b7280; font-weight: 500;">إجمالي أيام العمل:</td>
           <td style="padding: 6px 0;" dir="ltr">22</td>
         </tr>
         <tr>
-          <td style="padding: 6px 0 6px 12px; color: #6b7280; font-weight: 500;">أيام العمل:</td>
+          <td style="padding: 6px 0 6px 12px; color: #6b7280; font-weight: 500;">أيام العمل الفعلية:</td>
           <td style="padding: 6px 0;" dir="ltr">22</td>
         </tr>
         
-        </table>
-      </div>
-    </div>
-
-    <!-- Calculations Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
-      <thead>
-        <tr style="background: #047857; color: white;">
-          <th style="padding: 10px 12px; text-align: right; font-weight: 600;">البند</th>
-          <th style="padding: 10px 12px; text-align: left; font-weight: 600; width: 180px;">المبلغ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">الراتب الأساسي</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left;" dir="ltr">AED 12000.00</td>
-        </tr>
-        <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">المكافأة</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left;" dir="ltr">AED 0.00</td>
-        </tr>
-        <tr style="background: #f0f9ff;">
-          <td style="padding: 12px; font-weight: 700; font-size: 15px; border-top: 2px solid #047857;">إجمالي الراتب</td>
-          <td style="padding: 12px; text-align: left; font-weight: 700; font-size: 15px; border-top: 2px solid #047857; color: #047857;" dir="ltr">AED 12000.00</td>
-        </tr>
-      </tbody>
     </table>
+  </div>
 
-    
+  <!-- Components — show how the calculation was derived -->
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
+    <thead>
+      <tr style="background: #047857; color: white;">
+        <th style="padding: 10px 12px; text-align: right; font-weight: 600;">البند</th>
+        <th style="padding: 10px 12px; text-align: right; font-weight: 600;">طريقة الاحتساب</th>
+        <th style="padding: 10px 12px; text-align: left; font-weight: 600; width: 140px;">المبلغ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">الراتب الأساسي</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
+        <p style="margin: 0; color: #4b5563; font-size: 12px;">
+          <span dir="ltr">22 / 22</span> يوم
+          (<span dir="ltr">100.0%</span>) ×
+          <span dir="ltr">AED 12,000.00</span>
+          = <strong style="color: #111827;" dir="ltr">AED 12,000.00</strong>
+        </p></td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top;" dir="ltr">AED 12,000.00</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">المكافأة</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;"><p style="margin: 0; color: #9ca3af; font-size: 12px; font-style: italic;">لا توجد مكافأة لهذه الفترة.</p></td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top;" dir="ltr">AED 0.00</td>
+      </tr>
+      <tr style="background: #f0f9ff;">
+        <td style="padding: 12px; font-weight: 700; font-size: 15px; border-top: 2px solid #047857;">إجمالي الراتب</td>
+        <td style="padding: 12px; font-size: 12px; color: #4b5563; border-top: 2px solid #047857;">الراتب الأساسي + المكافأة</td>
+        <td style="padding: 12px; text-align: left; font-weight: 700; font-size: 15px; border-top: 2px solid #047857; color: #047857;" dir="ltr">AED 12,000.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  
     <div style="margin-top: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
       <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #047857;">التفاصيل المصرفية</h3>
       <table style="font-size: 13px;">
         <tr><td style="padding: 3px 0 3px 12px; color: #6b7280;">اسم البنك:</td><td style="padding: 3px 0;">Emirates NBD</td></tr>
-        <tr><td style="padding: 3px 0 3px 12px; color: #6b7280;">الحساب:</td><td style="padding: 3px 0;" dir="ltr">****3456</td></tr>
+        <tr><td style="padding: 3px 0 3px 12px; color: #6b7280;">رقم الحساب:</td><td style="padding: 3px 0;" dir="ltr">****3456</td></tr>
         <tr><td style="padding: 3px 0 3px 12px; color: #6b7280;">رقم الآيبان:</td><td style="padding: 3px 0;" dir="ltr">****7890</td></tr>
       </table>
     </div>
 
-    <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>مدرسة النور الدولية &mdash; هذا كشف راتب صادر آلياً ولا يتطلب توقيعاً.</p>
+  
+
+  <!-- Signature block (closing message + principal signature + name) -->
+  
+    <div style="margin-top: 36px; page-break-inside: avoid;">
+      <p style="font-size: 13px; color: #374151; line-height: 1.55; margin-bottom: 28px;">
+        نشكركم على تفانيكم وعطائكم خلال هذه الفترة.
+      </p>
+      <div style="display: inline-block; min-width: 200px; padding-top: 6px; border-top: 1px solid #d1d5db;">
+        
+        <p style="margin: 0; font-size: 13px; font-weight: 600; color: #111827;">
+          &nbsp;
+        </p>
+        <p style="margin: 0; font-size: 11px; color: #6b7280;">مدير المدرسة</p>
+      </div>
     </div>
+
+  <!-- Page footer (small print only) -->
+  <div style="margin-top: 32px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center;">
+    <p>مدرسة النور الدولية · المرجع <span dir="ltr">PSL-0001</span></p>
   </div>
 </body>
 </html>"
@@ -591,56 +616,56 @@ exports[`PDF Template Snapshots Payslip EN: renders deterministic HTML 1`] = `
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #111827; font-size: 14px; background: white; }
-    @page { size: A4; margin: 0; }
+    /* Wave 5 fix: A4 page with proper print margins (was margin: 0 → text glued to edges). */
+    @page { size: A4; margin: 18mm 16mm; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 28px; font-weight: 700; color: #047857; letter-spacing: -0.5px;">PAYSLIP</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">Al Noor International School</p>
-      </div>
-      <div style="text-align: right;">
-        <img src="https://example.com/logo.png" alt="Logo" style="height: 60px; max-width: 120px; object-fit: contain; margin-bottom: 4px;">
-        <p style="font-size: 13px; font-weight: 600; color: #374151;" dir="ltr">PSL-202603-0001</p>
-        <p style="font-size: 13px; color: #6b7280;">March 2026</p>
-      </div>
+  <!-- Header -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-size: 28px; font-weight: 700; color: #047857; letter-spacing: -0.5px;">PAYSLIP</h1>
+      <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">Al Noor International School</p>
     </div>
-
-    <!-- Staff Details -->
-    <div style="margin-bottom: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
-      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857; text-transform: uppercase;">Staff Details</h3>
-      <table style="width: 100%; font-size: 13px;">
-        <tr>
-          <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500; width: 140px;">Name:</td>
-          <td style="padding: 4px 0; font-weight: 600;">Sarah Johnson</td>
-          <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500; width: 140px;">Staff Number:</td>
-          <td style="padding: 4px 0;">EMP-001</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Department:</td>
-          <td style="padding: 4px 0;">Mathematics</td>
-          <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Job Title:</td>
-          <td style="padding: 4px 0;">Senior Teacher</td>
-        </tr>
-        <tr>
-          <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Employment Type:</td>
-          <td style="padding: 4px 0;" colspan="3">Full Time</td>
-        </tr>
-      </table>
+    <div style="text-align: right;">
+      <img src="https://example.com/logo.png" alt="Logo" style="display: block; height: 56px; max-width: 140px; object-fit: contain; margin-bottom: 6px; margin-left: auto;">
+      <p style="font-size: 13px; font-weight: 600; color: #374151;" dir="ltr">PSL-0001</p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 2px;">March 2026</p>
+      <p style="font-size: 11px; color: #9ca3af; margin-top: 2px;">Issued: 15 Jan 2026</p>
     </div>
+  </div>
 
-    <!-- Compensation Details -->
-    <div style="display: flex; gap: 24px; margin-bottom: 24px;">
-      <div style="flex: 1;">
-        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857; text-transform: uppercase;">Compensation (Salaried)</h3>
-        <table style="font-size: 13px;">
-          
+  <!-- Staff Details -->
+  <div style="margin-bottom: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
+    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857; text-transform: uppercase;">Staff Details</h3>
+    <table style="width: 100%; font-size: 13px;">
+      <tr>
+        <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500; width: 140px;">Name:</td>
+        <td style="padding: 4px 0; font-weight: 600;">Sarah Johnson</td>
+        <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500; width: 140px;">Staff Number:</td>
+        <td style="padding: 4px 0;">EMP-001</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Department:</td>
+        <td style="padding: 4px 0;">Mathematics</td>
+        <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Job Title:</td>
+        <td style="padding: 4px 0;">Senior Teacher</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 12px 4px 0; color: #6b7280; font-weight: 500;">Employment Type:</td>
+        <td style="padding: 4px 0;" colspan="3">Full Time</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Compensation Details -->
+  <div style="margin-bottom: 24px;">
+    <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #047857; text-transform: uppercase;">Compensation (Salaried)</h3>
+    <table style="font-size: 13px;">
+      
         <tr>
           <td style="padding: 6px 12px 6px 0; color: #6b7280; font-weight: 500;">Base Salary:</td>
-          <td style="padding: 6px 0; font-weight: 500;">AED 12000.00</td>
+          <td style="padding: 6px 0; font-weight: 500;">AED 12,000.00</td>
         </tr>
         <tr>
           <td style="padding: 6px 12px 6px 0; color: #6b7280; font-weight: 500;">Total Working Days:</td>
@@ -651,35 +676,43 @@ exports[`PDF Template Snapshots Payslip EN: renders deterministic HTML 1`] = `
           <td style="padding: 6px 0;">22</td>
         </tr>
         
-        </table>
-      </div>
-    </div>
-
-    <!-- Calculations Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
-      <thead>
-        <tr style="background: #047857; color: white;">
-          <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Component</th>
-          <th style="padding: 10px 12px; text-align: right; font-weight: 600; width: 180px;">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">Basic Pay</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">AED 12000.00</td>
-        </tr>
-        <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">Bonus Pay</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">AED 0.00</td>
-        </tr>
-        <tr style="background: #f0f9ff;">
-          <td style="padding: 12px; font-weight: 700; font-size: 15px; border-top: 2px solid #047857;">Total Pay</td>
-          <td style="padding: 12px; text-align: right; font-weight: 700; font-size: 15px; border-top: 2px solid #047857; color: #047857;">AED 12000.00</td>
-        </tr>
-      </tbody>
     </table>
+  </div>
 
-    
+  <!-- Components — show the calculation, not just the number -->
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
+    <thead>
+      <tr style="background: #047857; color: white;">
+        <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Component</th>
+        <th style="padding: 10px 12px; text-align: left; font-weight: 600;">How it was calculated</th>
+        <th style="padding: 10px 12px; text-align: right; font-weight: 600; width: 140px;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">Basic Pay</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
+        <p style="margin: 0; color: #4b5563; font-size: 12px;">
+          22 / 22 days
+          (100.0%) × AED 12,000.00
+          = <strong style="color: #111827;">AED 12,000.00</strong>
+        </p></td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; vertical-align: top;">AED 12,000.00</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">Bonus Pay</td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;"><p style="margin: 0; color: #9ca3af; font-size: 12px; font-style: italic;">No bonus this period.</p></td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; vertical-align: top;">AED 0.00</td>
+      </tr>
+      <tr style="background: #f0f9ff;">
+        <td style="padding: 12px; font-weight: 700; font-size: 15px; border-top: 2px solid #047857;">Total Pay</td>
+        <td style="padding: 12px; font-size: 12px; color: #4b5563; border-top: 2px solid #047857;">Basic Pay + Bonus Pay</td>
+        <td style="padding: 12px; text-align: right; font-weight: 700; font-size: 15px; border-top: 2px solid #047857; color: #047857;">AED 12,000.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  
     <div style="margin-top: 24px; padding: 14px 16px; background: #f9fafb; border-radius: 6px;">
       <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #047857;">Bank Details</h3>
       <table style="font-size: 13px;">
@@ -689,10 +722,26 @@ exports[`PDF Template Snapshots Payslip EN: renders deterministic HTML 1`] = `
       </table>
     </div>
 
-    <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>Al Noor International School &mdash; This is a computer-generated payslip and does not require a signature.</p>
+  
+
+  <!-- Signature block (closing message + principal signature + name) -->
+  
+    <div style="margin-top: 36px; page-break-inside: avoid;">
+      <p style="font-size: 13px; color: #374151; line-height: 1.55; margin-bottom: 28px;">
+        Thank you for your dedication and hard work this period.
+      </p>
+      <div style="display: inline-block; min-width: 200px; padding-top: 6px; border-top: 1px solid #d1d5db;">
+        
+        <p style="margin: 0; font-size: 13px; font-weight: 600; color: #111827;">
+          &nbsp;
+        </p>
+        <p style="margin: 0; font-size: 11px; color: #6b7280;">School Principal</p>
+      </div>
     </div>
+
+  <!-- Page footer (small print only) -->
+  <div style="margin-top: 32px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center;">
+    <p>Al Noor International School · Reference PSL-0001</p>
   </div>
 </body>
 </html>"
