@@ -468,6 +468,12 @@
       "methods": ["$executeRaw", "$executeRawUnsafe", "$queryRaw"],
       "category": "backfill-script",
       "reason": "One-shot operational backfill (Communications Overhaul Impl 02, 2026-04-27): idempotent INSERT ... ON CONFLICT DO NOTHING to grant configuration.communications.view and configuration.communications.manage to school_owner + school_principal roles on the 5 known test tenants (NHQS + stress-a/b/c/d). Cross-tenant scan via $queryRaw (slug-keyed), per-tenant set_config for RLS context via $executeRawUnsafe, role-permission insert via $executeRaw inside the per-tenant transaction. Runs manually against prod; not in request path."
+    },
+    {
+      "file": "packages/prisma/scripts/backfill-tenant-communications-configs.ts",
+      "methods": ["$executeRawUnsafe", "$queryRaw"],
+      "category": "backfill-script",
+      "reason": "One-shot operational backfill (Communications Overhaul Impl 13, 2026-04-27): provisions tenant_email_configs / tenant_sms_configs / tenant_whatsapp_configs rows + a comms.verify WhatsApp template per tenant, with secrets encrypted via AES-256-GCM. Cross-tenant scan via $queryRaw (slug-keyed). Per-tenant set_config for RLS context (app.current_tenant_id, app.current_user_id) via $executeRawUnsafe inside each upsert transaction. Runs manually against prod with CREDENTIALS_FILE env var override; not in request path."
     }
   ]
 }
