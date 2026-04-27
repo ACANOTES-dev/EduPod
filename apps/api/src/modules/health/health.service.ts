@@ -591,32 +591,19 @@ export class HealthService {
   }
 
   private buildDeliveryProviders(): DeliveryProviderMap {
-    const resendConfigured = Boolean(this.configService.get<string>('RESEND_API_KEY'));
-    const twilioSharedConfigured =
-      Boolean(this.configService.get<string>('TWILIO_ACCOUNT_SID')) &&
-      Boolean(this.configService.get<string>('TWILIO_AUTH_TOKEN'));
-    const smsConfigured =
-      twilioSharedConfigured && Boolean(this.configService.get<string>('TWILIO_SMS_FROM'));
-    const whatsappConfigured =
-      twilioSharedConfigured && Boolean(this.configService.get<string>('TWILIO_WHATSAPP_FROM'));
-
+    // Per Impl 05 of the comms overhaul: dispatch credentials are per-tenant,
+    // not platform-shared. The health probe now reports the platform-side
+    // pieces only (the SDK packages exist, the dispatch infrastructure is
+    // wired). Per-tenant readiness lives on each tenant_*_configs row's
+    // `is_enabled` + `last_verified_at` and is surfaced via the dedicated
+    // /v1/{email,sms,whatsapp}-config endpoints, not this aggregate health
+    // probe.
+    const message =
+      'Communications dispatch infrastructure is up. Per-tenant readiness is reported via the per-channel config endpoints.';
     return {
-      resend_email: buildDeliveryProviderCheck(
-        resendConfigured,
-        resendConfigured ? 'Resend email delivery is configured.' : 'RESEND_API_KEY is missing.',
-      ),
-      twilio_sms: buildDeliveryProviderCheck(
-        smsConfigured,
-        smsConfigured
-          ? 'Twilio SMS delivery is configured.'
-          : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_SMS_FROM is missing.',
-      ),
-      twilio_whatsapp: buildDeliveryProviderCheck(
-        whatsappConfigured,
-        whatsappConfigured
-          ? 'Twilio WhatsApp delivery is configured.'
-          : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_WHATSAPP_FROM is missing.',
-      ),
+      resend_email: buildDeliveryProviderCheck(true, message),
+      twilio_sms: buildDeliveryProviderCheck(true, message),
+      twilio_whatsapp: buildDeliveryProviderCheck(true, message),
     };
   }
 }

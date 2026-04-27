@@ -327,44 +327,15 @@ describe('HealthService — branch coverage', () => {
 
   // ─── Delivery providers — partial config branches ─────────────────────────
 
-  describe('buildDeliveryProviders — partial config branches', () => {
-    it('should report not_configured for all providers when no env vars set', async () => {
+  describe('buildDeliveryProviders — Impl 05 (per-tenant credentials)', () => {
+    it('always reports all providers as configured (per-tenant readiness lives elsewhere)', async () => {
+      // Per Impl 05: dispatch credentials are per-tenant. The health probe
+      // reports only that the dispatch infrastructure is up — per-tenant
+      // readiness is reported via the per-channel /v1/*-config endpoints.
       const result = await service.getAdminDashboard();
 
-      expect(result.delivery_providers.resend_email.status).toBe('not_configured');
-      expect(result.delivery_providers.twilio_sms.status).toBe('not_configured');
-      expect(result.delivery_providers.twilio_whatsapp.status).toBe('not_configured');
-    });
-
-    it('should report sms as not_configured when only SID and token are set (no FROM)', async () => {
-      configValues.TWILIO_ACCOUNT_SID = 'AC123';
-      configValues.TWILIO_AUTH_TOKEN = 'secret';
-
-      const result = await service.getAdminDashboard();
-
-      expect(result.delivery_providers.twilio_sms.status).toBe('not_configured');
-      expect(result.delivery_providers.twilio_whatsapp.status).toBe('not_configured');
-    });
-
-    it('should report sms configured but whatsapp not when only SMS_FROM is set', async () => {
-      configValues.TWILIO_ACCOUNT_SID = 'AC123';
-      configValues.TWILIO_AUTH_TOKEN = 'secret';
-      configValues.TWILIO_SMS_FROM = '+3530000001';
-
-      const result = await service.getAdminDashboard();
-
+      expect(result.delivery_providers.resend_email.status).toBe('configured');
       expect(result.delivery_providers.twilio_sms.status).toBe('configured');
-      expect(result.delivery_providers.twilio_whatsapp.status).toBe('not_configured');
-    });
-
-    it('should report whatsapp configured but sms not when only WHATSAPP_FROM is set', async () => {
-      configValues.TWILIO_ACCOUNT_SID = 'AC123';
-      configValues.TWILIO_AUTH_TOKEN = 'secret';
-      configValues.TWILIO_WHATSAPP_FROM = 'whatsapp:+3530000002';
-
-      const result = await service.getAdminDashboard();
-
-      expect(result.delivery_providers.twilio_sms.status).toBe('not_configured');
       expect(result.delivery_providers.twilio_whatsapp.status).toBe('configured');
     });
   });

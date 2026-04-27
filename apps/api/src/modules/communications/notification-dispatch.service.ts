@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Notification, NotificationChannel } from '@prisma/client';
 
+import { isDispatchSkip } from '@school/shared';
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { AuthReadFacade } from '../auth/auth-read.facade';
@@ -161,6 +162,13 @@ export class NotificationDispatchService {
       ],
     });
 
+    if (isDispatchSkip(result)) {
+      await this.markFailed(notification, result.reason);
+      // Administrative skip — fall back to in_app so the user still gets the message.
+      await this.createFallbackNotification(notification, 'in_app');
+      return;
+    }
+
     // Mark as sent
     await this.prisma.notification.update({
       where: { id: notification.id },
@@ -260,6 +268,12 @@ export class NotificationDispatchService {
       body: strippedBody,
     });
 
+    if (isDispatchSkip(result)) {
+      await this.markFailed(notification, result.reason);
+      await this.createFallbackNotification(notification, 'sms');
+      return;
+    }
+
     // Mark as sent
     await this.prisma.notification.update({
       where: { id: notification.id },
@@ -335,6 +349,12 @@ export class NotificationDispatchService {
       to: phone,
       body: strippedBody,
     });
+
+    if (isDispatchSkip(result)) {
+      await this.markFailed(notification, result.reason);
+      await this.createFallbackNotification(notification, 'email');
+      return;
+    }
 
     // Mark as sent
     await this.prisma.notification.update({

@@ -12,6 +12,15 @@ import { toNotificationChannel } from '@school/shared';
 
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
+import {
+  type DecryptedEmailCreds,
+  type DecryptedSmsCreds,
+  type DecryptedWhatsAppCreds,
+  getEmailCreds,
+  getSmsCreds,
+  getWhatsAppCreds,
+} from './tenant-creds.helper';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const Handlebars = require('handlebars') as typeof import('handlebars');
 
@@ -147,10 +156,6 @@ export const DISPATCH_NOTIFICATIONS_JOB = 'communications:dispatch-notifications
 export class DispatchNotificationsProcessor {
   private readonly logger = new Logger(DispatchNotificationsProcessor.name);
 
-  /** Lazily-initialised provider clients */
-  private resendClient: Resend | null = null;
-  private twilioClient: Twilio | null = null;
-
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly configService: ConfigService,
@@ -172,43 +177,8 @@ export class DispatchNotificationsProcessor {
       `Processing ${DISPATCH_NOTIFICATIONS_JOB} — ${idCount || 'announcement-based'} notifications for tenant ${tenant_id}`,
     );
 
-    const dispatchJob = new DispatchNotificationsJob(
-      this.prisma,
-      this.configService,
-      this.getResendClient.bind(this),
-      this.getTwilioClient.bind(this),
-    );
+    const dispatchJob = new DispatchNotificationsJob(this.prisma, this.configService);
     await dispatchJob.execute(job.data);
-  }
-
-  // ─── Lazy provider initialisation ────────────────────────────────────
-
-  private getResendClient(): Resend {
-    if (this.resendClient) return this.resendClient;
-
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) {
-      throw new Error('Resend is not configured. Set RESEND_API_KEY environment variable.');
-    }
-
-    this.resendClient = new Resend(apiKey);
-    return this.resendClient;
-  }
-
-  private getTwilioClient(): Twilio {
-    if (this.twilioClient) return this.twilioClient;
-
-    const accountSid = this.configService.get<string>('TWILIO_ACCOUNT_SID');
-    const authToken = this.configService.get<string>('TWILIO_AUTH_TOKEN');
-
-    if (!accountSid || !authToken) {
-      throw new Error(
-        'Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.',
-      );
-    }
-
-    this.twilioClient = twilio(accountSid, authToken);
-    return this.twilioClient;
   }
 }
 
@@ -220,13 +190,32 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
   /** Intermediate state between Phase 1 (read inside tx) and Phase 2 (dispatch outside tx) */
   private loadedNotifications: DispatchableNotification[] = [];
 
+  /**
+   * Per-tenant client cache local to this job execution. The job is short-
+   * lived so a per-execution cache is fine — we don't need Redis pub/sub
+   * invalidation here (the API publishes; we'd just instantiate fresh
+   * clients on the next batch).
+   */
+  private readonly tenantResendClients = new Map<string, Resend>();
+  private readonly tenantTwilioClients = new Map<string, Twilio>();
+
   constructor(
     prisma: PrismaClient,
     private readonly configService: ConfigService,
-    private readonly getResend: () => Resend,
-    private readonly getTwilio: () => Twilio,
   ) {
     super(prisma);
+  }
+
+  private async resolveEmail(tenantId: string): Promise<DecryptedEmailCreds | null> {
+    return getEmailCreds(this.prisma, this.configService, tenantId);
+  }
+
+  private async resolveSms(tenantId: string): Promise<DecryptedSmsCreds | null> {
+    return getSmsCreds(this.prisma, this.configService, tenantId);
+  }
+
+  private async resolveWhatsApp(tenantId: string): Promise<DecryptedWhatsAppCreds | null> {
+    return getWhatsAppCreds(this.prisma, this.configService, tenantId);
   }
 
   // ─── Override execute() to split DB reads from external HTTP calls ────
@@ -382,15 +371,34 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     const renderedBody = renderTemplate(template.body_template, variables);
     const renderedSubject = renderSubject(template.subject_template, variables);
 
-    // Send via Resend
-    const resend = this.getResend();
-    const defaultFrom = this.configService.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@edupod.app';
+    // Resolve per-tenant Resend creds (Impl 05: no .env fallback)
+    const creds = await this.resolveEmail(notification.tenant_id);
+    if (!creds) {
+      await this.markFailed(notification, 'channel_not_configured');
+      await this.createFallbackNotification(notification, 'in_app');
+      return;
+    }
+    if (!creds.is_enabled) {
+      await this.markFailed(notification, 'channel_disabled');
+      await this.createFallbackNotification(notification, 'in_app');
+      return;
+    }
+
+    let resend = this.tenantResendClients.get(notification.tenant_id);
+    if (!resend) {
+      resend = new Resend(creds.resend_api_key);
+      this.tenantResendClients.set(notification.tenant_id, resend);
+    }
+    const defaultFrom = creds.from_name
+      ? `${creds.from_name} <${creds.from_email}>`
+      : creds.from_email;
 
     const { data: sendData, error } = await resend.emails.send({
       from: defaultFrom,
       to: [email],
       subject: renderedSubject ?? 'Notification',
       html: renderedBody,
+      ...(creds.reply_to_email ? { reply_to: creds.reply_to_email } : {}),
       tags: [
         { name: 'notification_id', value: notification.id },
         { name: 'template_key', value: notification.template_key ?? 'default' },
@@ -466,14 +474,25 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     const renderedBody = renderTemplate(template.body_template, variables);
     const strippedBody = stripHtmlText(renderedBody);
 
-    // Send via Twilio WhatsApp
-    const client = this.getTwilio();
-    const whatsappFrom = this.configService.get<string>('TWILIO_WHATSAPP_FROM');
-    if (!whatsappFrom) {
-      throw new Error(
-        'Twilio WhatsApp is not configured. Set TWILIO_WHATSAPP_FROM environment variable.',
-      );
+    // Resolve per-tenant Twilio WhatsApp creds (Impl 05: no .env fallback)
+    const creds = await this.resolveWhatsApp(notification.tenant_id);
+    if (!creds) {
+      await this.markFailed(notification, 'channel_not_configured');
+      await this.createFallbackNotification(notification, 'sms');
+      return;
     }
+    if (!creds.is_enabled) {
+      await this.markFailed(notification, 'channel_disabled');
+      await this.createFallbackNotification(notification, 'sms');
+      return;
+    }
+
+    let client = this.tenantTwilioClients.get(`wa:${notification.tenant_id}`);
+    if (!client) {
+      client = twilio(creds.twilio_account_sid, creds.twilio_auth_token);
+      this.tenantTwilioClients.set(`wa:${notification.tenant_id}`, client);
+    }
+    const whatsappFrom = creds.twilio_whatsapp_from_number;
 
     const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
     const from = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
@@ -553,12 +572,25 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       strippedBody = strippedBody.slice(0, SMS_MAX_LENGTH - 3) + '...';
     }
 
-    // Send via Twilio SMS
-    const client = this.getTwilio();
-    const smsFrom = this.configService.get<string>('TWILIO_SMS_FROM');
-    if (!smsFrom) {
-      throw new Error('Twilio SMS is not configured. Set TWILIO_SMS_FROM environment variable.');
+    // Resolve per-tenant Twilio SMS creds (Impl 05: no .env fallback)
+    const creds = await this.resolveSms(notification.tenant_id);
+    if (!creds) {
+      await this.markFailed(notification, 'channel_not_configured');
+      await this.createFallbackNotification(notification, 'email');
+      return;
     }
+    if (!creds.is_enabled) {
+      await this.markFailed(notification, 'channel_disabled');
+      await this.createFallbackNotification(notification, 'email');
+      return;
+    }
+
+    let client = this.tenantTwilioClients.get(`sms:${notification.tenant_id}`);
+    if (!client) {
+      client = twilio(creds.twilio_account_sid, creds.twilio_auth_token);
+      this.tenantTwilioClients.set(`sms:${notification.tenant_id}`, client);
+    }
+    const smsFrom = creds.twilio_from_number;
 
     const message = await client.messages.create({
       body: strippedBody,

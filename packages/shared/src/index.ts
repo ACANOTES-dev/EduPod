@@ -20,6 +20,7 @@ export * from './constants/application-status';
 export * from './constants/system';
 export * from './constants/feature-flags';
 export * from './constants/communications';
+export * from './constants/notification-failure-reasons';
 
 // Types
 export * from './types/api-response';

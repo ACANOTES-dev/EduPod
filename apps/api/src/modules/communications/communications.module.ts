@@ -19,6 +19,7 @@ import { AudienceResolutionService } from './audience-resolution.service';
 import { CommsCacheBusModule } from './cache-bus.module';
 import { CommunicationsReadFacade } from './communications-read.facade';
 import { InboxBridgeService } from './inbox-bridge.service';
+import { IsEnabledCacheService } from './is-enabled-cache.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesController } from './notification-templates.controller';
@@ -74,6 +75,7 @@ import { WebhookService } from './webhook.service';
     NotificationRateLimitService,
     UnsubscribeService,
     InboxBridgeService,
+    IsEnabledCacheService,
   ],
   exports: [
     AnnouncementsService,
@@ -85,6 +87,7 @@ import { WebhookService } from './webhook.service';
     NotificationRateLimitService,
     InboxBridgeService,
     InboxChannelProvider,
+    IsEnabledCacheService,
   ],
 })
 export class CommunicationsModule {}

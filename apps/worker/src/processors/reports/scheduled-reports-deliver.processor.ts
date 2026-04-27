@@ -6,6 +6,7 @@ import { Resend } from 'resend';
 
 import { uploadToS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
+import { getEmailCreds } from '../communications/tenant-creds.helper';
 
 // ─── Job name ────────────────────────────────────────────────────────────────
 
@@ -78,9 +79,6 @@ const FORMAT_DESCRIPTORS: Record<DeliverableFormat, FormatDescriptor> = {
 export class ScheduledReportsDeliverProcessor {
   private readonly logger = new Logger(ScheduledReportsDeliverProcessor.name);
 
-  /** Lazily-initialised — Resend isn't available in test/CI environments. */
-  private resendClient: Resend | null = null;
-
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly configService: ConfigService,
@@ -91,9 +89,7 @@ export class ScheduledReportsDeliverProcessor {
 
     const { tenant_id, scheduled_report_id } = job.data;
     if (!tenant_id) {
-      throw new Error(
-        'Job rejected: missing tenant_id in reports:scheduled-deliver payload.',
-      );
+      throw new Error('Job rejected: missing tenant_id in reports:scheduled-deliver payload.');
     }
     if (!scheduled_report_id) {
       throw new Error(
@@ -105,22 +101,8 @@ export class ScheduledReportsDeliverProcessor {
       `Processing ${REPORTS_SCHEDULED_DELIVER_JOB} — tenant=${tenant_id} scheduled=${scheduled_report_id}`,
     );
 
-    const work = new ScheduledReportsDeliverWork(
-      this.prisma,
-      this.configService,
-      this.getResendClient.bind(this),
-    );
+    const work = new ScheduledReportsDeliverWork(this.prisma, this.configService);
     await work.execute(job.data);
-  }
-
-  private getResendClient(): Resend {
-    if (this.resendClient) return this.resendClient;
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!apiKey) {
-      throw new Error('Resend is not configured. Set RESEND_API_KEY environment variable.');
-    }
-    this.resendClient = new Resend(apiKey);
-    return this.resendClient;
   }
 }
 
@@ -132,7 +114,6 @@ export class ScheduledReportsDeliverWork extends TenantAwareJob<ScheduledReports
   constructor(
     prisma: PrismaClient,
     private readonly configService: ConfigService,
-    private readonly getResend: () => Resend,
   ) {
     super(prisma);
   }
@@ -315,9 +296,7 @@ export class ScheduledReportsDeliverWork extends TenantAwareJob<ScheduledReports
       );
     } catch (err) {
       uploadError = (err as Error).message;
-      this.logger.error(
-        `S3 upload failed for run=${prepared.run_id}: ${uploadError}`,
-      );
+      this.logger.error(`S3 upload failed for run=${prepared.run_id}: ${uploadError}`);
     }
 
     const deliveredVia: string[] = [];
@@ -331,9 +310,7 @@ export class ScheduledReportsDeliverWork extends TenantAwareJob<ScheduledReports
         deliveredVia.push('email');
       } catch (err) {
         deliveryError = `email dispatch failed: ${(err as Error).message}`;
-        this.logger.error(
-          `Email dispatch failed for run=${prepared.run_id}: ${deliveryError}`,
-        );
+        this.logger.error(`Email dispatch failed for run=${prepared.run_id}: ${deliveryError}`);
       }
     }
 
@@ -348,9 +325,22 @@ export class ScheduledReportsDeliverWork extends TenantAwareJob<ScheduledReports
   }
 
   private async sendEmail(prepared: PreparedDelivery): Promise<void> {
-    const resend = this.getResend();
-    const fromEmail =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@edupod.app';
+    // Per Impl 05: scheduled-reports email delivery uses the recipient
+    // tenant's email config — no .env fallback. Tenants without a
+    // configured + enabled email config row simply cannot receive
+    // scheduled reports until they configure one.
+    const creds = await getEmailCreds(this.prisma, this.configService, prepared.tenant_id);
+    if (!creds || !creds.is_enabled) {
+      throw new Error(
+        `Resend is not configured for tenant=${prepared.tenant_id} — scheduled-report ` +
+          `delivery requires a tenant_email_configs row with is_enabled=true.`,
+      );
+    }
+
+    const resend = new Resend(creds.resend_api_key);
+    const fromEmail = creds.from_name
+      ? `${creds.from_name} <${creds.from_email}>`
+      : creds.from_email;
 
     const filename = buildFilename(prepared);
     const subject = `[${prepared.tenant_name}] Scheduled report: ${prepared.report_name}`;
@@ -364,6 +354,7 @@ export class ScheduledReportsDeliverWork extends TenantAwareJob<ScheduledReports
       to: prepared.recipient_emails,
       subject,
       html,
+      ...(creds.reply_to_email ? { reply_to: creds.reply_to_email } : {}),
       attachments: [
         {
           filename,

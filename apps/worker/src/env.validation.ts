@@ -16,13 +16,9 @@ const workerEnvSchema = z.object({
   S3_BUCKET_NAME: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
 
-  RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@edupod.app'),
-
-  TWILIO_ACCOUNT_SID: z.string().optional(),
-  TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_WHATSAPP_FROM: z.string().optional(),
-  TWILIO_SMS_FROM: z.string().optional(),
+  // Communications credentials live on per-tenant config rows.
+  // Impl 05 deleted RESEND_API_KEY, RESEND_FROM_EMAIL, TWILIO_ACCOUNT_SID,
+  // TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM, TWILIO_WHATSAPP_FROM.
 
   SENTRY_DSN_BACKEND: z.string().optional(),
 });

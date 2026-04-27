@@ -1,9 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
-import type { CommsCacheBusEvent } from '@school/shared';
+import type { CommsCacheBusEvent, SmsDispatchResult } from '@school/shared';
 
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { SmsConfigService } from '../../configuration/sms-config.service';
@@ -27,10 +26,7 @@ export class TwilioSmsProvider implements OnModuleInit {
     ttlMs: 30 * 60 * 1000,
   });
 
-  private platformFallbackClient: TenantSmsClient | null = null;
-
   constructor(
-    private readonly configService: ConfigService,
     private readonly circuitBreaker: CircuitBreakerRegistry,
     private readonly smsConfigService: SmsConfigService,
     private readonly cacheBus: CommsCacheBusService,
@@ -44,26 +40,25 @@ export class TwilioSmsProvider implements OnModuleInit {
     });
   }
 
-  /** @deprecated removed by Impl 05; preserved for the dispatch service's startup probe. */
-  isConfigured(): boolean {
-    return !!(
-      this.configService.get<string>('TWILIO_ACCOUNT_SID') &&
-      this.configService.get<string>('TWILIO_AUTH_TOKEN') &&
-      this.configService.get<string>('TWILIO_SMS_FROM')
-    );
-  }
-
   async isConfiguredForTenant(tenantId: string): Promise<boolean> {
     const config = await this.smsConfigService.getDecryptedConfig(tenantId);
-    if (config?.is_enabled) return true;
-    return this.isConfigured();
+    return Boolean(config?.is_enabled);
   }
 
-  async send(
-    tenantId: string,
-    params: { to: string; body: string },
-  ): Promise<{ messageSid: string }> {
-    const resolved = await this.resolveClient(tenantId);
+  async send(tenantId: string, params: { to: string; body: string }): Promise<SmsDispatchResult> {
+    const tenantConfig = await this.smsConfigService.getDecryptedConfig(tenantId);
+
+    if (!tenantConfig) {
+      return { skipped: true, reason: 'channel_not_configured' };
+    }
+    if (!tenantConfig.is_enabled) {
+      return { skipped: true, reason: 'channel_disabled' };
+    }
+
+    const resolved = this.tenantClientCache.getOrCreate(tenantId, () => ({
+      client: twilio(tenantConfig.twilio_account_sid, tenantConfig.twilio_auth_token),
+      fromNumber: tenantConfig.twilio_from_number,
+    }));
 
     let body = params.body;
     if (body.length > SMS_MAX_LENGTH) {
@@ -85,37 +80,5 @@ export class TwilioSmsProvider implements OnModuleInit {
 
     this.logger.log(`SMS sent tenant=${tenantId} sid=${message.sid}`);
     return { messageSid: message.sid };
-  }
-
-  private async resolveClient(tenantId: string): Promise<TenantSmsClient> {
-    const tenantConfig = await this.smsConfigService.getDecryptedConfig(tenantId);
-    if (tenantConfig?.is_enabled) {
-      return this.tenantClientCache.getOrCreate(tenantId, () => ({
-        client: twilio(tenantConfig.twilio_account_sid, tenantConfig.twilio_auth_token),
-        fromNumber: tenantConfig.twilio_from_number,
-      }));
-    }
-
-    this.logger.warn(
-      `tenant=${tenantId} has no SMS config; falling back to platform .env credentials. Removed by Impl 05.`,
-    );
-    return this.ensurePlatformFallbackClient();
-  }
-
-  private ensurePlatformFallbackClient(): TenantSmsClient {
-    if (this.platformFallbackClient) return this.platformFallbackClient;
-    const accountSid = this.configService.get<string>('TWILIO_ACCOUNT_SID');
-    const authToken = this.configService.get<string>('TWILIO_AUTH_TOKEN');
-    const smsFrom = this.configService.get<string>('TWILIO_SMS_FROM');
-    if (!accountSid || !authToken || !smsFrom) {
-      throw new Error(
-        'Twilio SMS is not configured. Tenant has no SMS config and .env fallback is empty.',
-      );
-    }
-    this.platformFallbackClient = {
-      client: twilio(accountSid, authToken),
-      fromNumber: smsFrom,
-    };
-    return this.platformFallbackClient;
   }
 }

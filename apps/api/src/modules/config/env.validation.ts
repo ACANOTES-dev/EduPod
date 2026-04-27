@@ -19,9 +19,12 @@ const envSchema = z
     S3_BUCKET_NAME: z.string().optional(),
     S3_ENDPOINT: z.string().optional(),
 
-    // Optional -- Email (Resend)
-    RESEND_API_KEY: z.string().optional(),
-    RESEND_FROM_EMAIL: z.string().email().default('noreply@edupod.app'),
+    // Communications credentials live on per-tenant config rows:
+    //   tenant_email_configs / tenant_sms_configs / tenant_whatsapp_configs
+    // Impl 05 of the comms overhaul deleted RESEND_API_KEY, RESEND_FROM_EMAIL,
+    // RESEND_WEBHOOK_SECRET, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
+    // TWILIO_SMS_FROM, TWILIO_WHATSAPP_FROM. Tenant config is now the only
+    // path to dispatch.
 
     // Optional -- Sentry
     SENTRY_DSN_BACKEND: z.string().optional(),
@@ -31,13 +34,8 @@ const envSchema = z
     // Optional -- Encryption
     ENCRYPTION_KEY: z.string().optional(),
 
-    // Optional -- Webhook secrets
+    // Optional -- Webhook secrets (Stripe stays platform-level)
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
-    RESEND_WEBHOOK_SECRET: z.string().optional(),
-    TWILIO_ACCOUNT_SID: z.string().optional(),
-    TWILIO_AUTH_TOKEN: z.string().optional(),
-    TWILIO_WHATSAPP_FROM: z.string().optional(),
-    TWILIO_SMS_FROM: z.string().optional(),
 
     // Optional -- Meilisearch
     MEILISEARCH_URL: z.string().optional(),

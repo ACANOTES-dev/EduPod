@@ -1,5 +1,19 @@
+/* eslint-disable import/order -- jest.mock must precede mocked imports */
 import type { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
+
+// Mock the tenant credential helper so tests don't need to seed the
+// tenant_*_configs tables on the mock prisma. Tests override per-channel
+// returns via the `mockTenantCreds` setter in beforeEach where needed.
+const mockGetEmailCreds = jest.fn();
+const mockGetSmsCreds = jest.fn();
+const mockGetWhatsAppCreds = jest.fn();
+
+jest.mock('./tenant-creds.helper', () => ({
+  getEmailCreds: (...args: unknown[]) => mockGetEmailCreds(...args),
+  getSmsCreds: (...args: unknown[]) => mockGetSmsCreds(...args),
+  getWhatsAppCreds: (...args: unknown[]) => mockGetWhatsAppCreds(...args),
+}));
 
 import {
   DISPATCH_NOTIFICATIONS_JOB,
@@ -51,19 +65,38 @@ function buildMockPrisma(mockTx: MockTx) {
 }
 
 function buildMockConfigService(): ConfigService {
-  const configMap: Record<string, string> = {
-    RESEND_API_KEY: 'test-resend-key',
-    RESEND_FROM_EMAIL: 'test@edupod.app',
-    TWILIO_ACCOUNT_SID: 'test-sid',
-    TWILIO_AUTH_TOKEN: 'test-token',
-    TWILIO_SMS_FROM: '+15551234567',
-    TWILIO_WHATSAPP_FROM: 'whatsapp:+15551234567',
-  };
-
+  // Per Impl 05: env credentials are gone. The processor reads tenant
+  // credentials via the mocked tenant-creds helper. ConfigService remains
+  // injected for non-comms env vars (none currently consumed in this path).
   return {
-    get: jest.fn((key: string) => configMap[key]),
+    get: jest.fn(() => undefined),
   } as unknown as ConfigService;
 }
+
+/**
+ * Default tenant creds installed in beforeEach. Tests that need to
+ * exercise specific failure paths override these via the helper mocks
+ * directly.
+ */
+const DEFAULT_EMAIL_CREDS = {
+  resend_api_key: 're_tenant',
+  from_email: 'noreply@school.edu',
+  from_name: null,
+  reply_to_email: null,
+  is_enabled: true,
+};
+const DEFAULT_SMS_CREDS = {
+  twilio_account_sid: 'AC123',
+  twilio_auth_token: 'tok',
+  twilio_from_number: '+15551234567',
+  is_enabled: true,
+};
+const DEFAULT_WHATSAPP_CREDS = {
+  twilio_account_sid: 'AC123',
+  twilio_auth_token: 'tok',
+  twilio_whatsapp_from_number: '+15551234567',
+  is_enabled: true,
+};
 
 function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { id: 'test-job-id', name, data } as unknown as Job;
@@ -98,6 +131,10 @@ describe('DispatchNotificationsProcessor', () => {
     const mockPrisma = buildMockPrisma(mockTx);
     const mockConfigService = buildMockConfigService();
     processor = new DispatchNotificationsProcessor(mockPrisma as never, mockConfigService);
+    // Reset tenant-creds mocks to "everything configured + enabled".
+    mockGetEmailCreds.mockResolvedValue(DEFAULT_EMAIL_CREDS);
+    mockGetSmsCreds.mockResolvedValue(DEFAULT_SMS_CREDS);
+    mockGetWhatsAppCreds.mockResolvedValue(DEFAULT_WHATSAPP_CREDS);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -284,7 +321,7 @@ describe('DispatchNotificationsProcessor', () => {
       jest.useRealTimers();
     });
 
-    it('should set exponential backoff when provider dispatch fails before max attempts', async () => {
+    it('marks email notification failed:channel_not_configured when tenant has no email config (Impl 05)', async () => {
       const notification = buildNotification({
         attempt_count: 0,
         channel: 'email',
@@ -298,18 +335,7 @@ describe('DispatchNotificationsProcessor', () => {
         subject_template: 'Update',
       });
       mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
-      (
-        processor as unknown as {
-          getResendClient: jest.Mock;
-        }
-      ).getResendClient = jest.fn().mockReturnValue({
-        emails: {
-          send: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'provider offline' },
-          }),
-        },
-      });
+      mockGetEmailCreds.mockResolvedValueOnce(null); // no tenant config row
 
       const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
         tenant_id: TENANT_ID,
@@ -318,21 +344,27 @@ describe('DispatchNotificationsProcessor', () => {
 
       await processor.process(job);
 
+      // Administrative skip — fail with the Impl 05 closed-vocab reason and
+      // create an in-app fallback (NOT a retry — admin skips don't retry).
       expect(mockTx.notification.update).toHaveBeenCalledWith({
         where: { id: NOTIF_ID_1 },
-        data: {
-          attempt_count: 1,
-          failure_reason: 'Resend email failed: provider offline',
-          next_retry_at: new Date('2026-04-01T12:02:00.000Z'),
+        data: expect.objectContaining({
+          failure_reason: 'channel_not_configured',
           status: 'failed',
-        },
+        }),
       });
-      expect(mockTx.notification.create).not.toHaveBeenCalled();
+      expect(mockTx.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'in_app',
+          status: 'delivered',
+          tenant_id: TENANT_ID,
+        }),
+      });
     });
 
-    it('should dead-letter notifications and create the fallback channel once max attempts are hit', async () => {
+    it('marks email notification failed:channel_disabled when tenant config is_enabled=false', async () => {
       const notification = buildNotification({
-        attempt_count: 2,
+        attempt_count: 0,
         channel: 'email',
         id: NOTIF_ID_1,
         status: 'queued',
@@ -344,18 +376,7 @@ describe('DispatchNotificationsProcessor', () => {
         subject_template: 'Update',
       });
       mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
-      (
-        processor as unknown as {
-          getResendClient: jest.Mock;
-        }
-      ).getResendClient = jest.fn().mockReturnValue({
-        emails: {
-          send: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'provider offline' },
-          }),
-        },
-      });
+      mockGetEmailCreds.mockResolvedValueOnce({ ...DEFAULT_EMAIL_CREDS, is_enabled: false });
 
       const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
         tenant_id: TENANT_ID,
@@ -366,23 +387,9 @@ describe('DispatchNotificationsProcessor', () => {
 
       expect(mockTx.notification.update).toHaveBeenCalledWith({
         where: { id: NOTIF_ID_1 },
-        data: {
-          attempt_count: 3,
-          failure_reason: 'Resend email failed: provider offline',
-          next_retry_at: null,
-          status: 'failed',
-        },
-      });
-      expect(mockTx.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          channel: 'in_app',
-          locale: 'en',
-          recipient_user_id: USER_ID,
-          source_entity_id: null,
-          source_entity_type: null,
-          status: 'delivered',
-          template_key: 'test_template',
-          tenant_id: TENANT_ID,
+          failure_reason: 'channel_disabled',
+          status: 'failed',
         }),
       });
     });

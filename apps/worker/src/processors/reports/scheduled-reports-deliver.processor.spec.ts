@@ -7,6 +7,23 @@ jest.mock('../../base/s3.helpers', () => ({
   uploadToS3: jest.fn().mockResolvedValue(undefined),
 }));
 
+// Mock Resend SDK so tests don't make real HTTP calls. The processor
+// constructs `new Resend(apiKey)` per send; we capture the call via the
+// shared mock send fn.
+const mockResendSend = jest.fn();
+jest.mock('resend', () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: { send: mockResendSend },
+  })),
+}));
+
+// Mock the tenant credential helper — `sendEmail` calls `getEmailCreds`
+// before instantiating Resend. Tests override the per-test return.
+const mockGetEmailCreds = jest.fn();
+jest.mock('../communications/tenant-creds.helper', () => ({
+  getEmailCreds: (...args: unknown[]) => mockGetEmailCreds(...args),
+}));
+
 import { uploadToS3 } from '../../base/s3.helpers';
 
 import {
@@ -83,22 +100,22 @@ function buildPrisma(opts: BuildPrismaOpts = {}): BuiltPrisma {
       update: opts.scheduledReportRunUpdate ?? jest.fn().mockResolvedValue({}),
     },
     scheduledReport: {
-      findFirst: jest.fn().mockResolvedValue(
-        opts.scheduledReport === undefined
-          ? defaultScheduledReport()
-          : opts.scheduledReport,
-      ),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue(
+          opts.scheduledReport === undefined ? defaultScheduledReport() : opts.scheduledReport,
+        ),
       update: opts.scheduledReportUpdate ?? jest.fn().mockResolvedValue({}),
     },
     savedReport: {
       findFirst: jest.fn().mockResolvedValue(opts.savedReport ?? null),
     },
     tenant: {
-      findFirst: jest.fn().mockResolvedValue(
-        opts.tenant === undefined
-          ? { name: 'Test School', default_locale: 'en' }
-          : opts.tenant,
-      ),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue(
+          opts.tenant === undefined ? { name: 'Test School', default_locale: 'en' } : opts.tenant,
+        ),
     },
     $executeRaw: jest.fn().mockResolvedValue(1),
   };
@@ -106,9 +123,7 @@ function buildPrisma(opts: BuildPrismaOpts = {}): BuiltPrisma {
     $transaction: jest
       .fn()
       .mockImplementation(
-        async (
-          fn: (tx: PrismaTxStub | Prisma.TransactionClient) => Promise<unknown>,
-        ) => fn(tx),
+        async (fn: (tx: PrismaTxStub | Prisma.TransactionClient) => Promise<unknown>) => fn(tx),
       ),
   } as unknown as PrismaClient;
   return { prisma, tx };
@@ -127,14 +142,26 @@ function defaultScheduledReport(): ScheduledReportRow {
   };
 }
 
+/**
+ * Configures the shared Resend mock. Returns a stable handle whose `send`
+ * is the same `jest.fn()` the production processor's `new Resend(...)` will
+ * resolve to (via `jest.mock('resend', ...)` at the top of this file).
+ */
 function buildResendClient(rejectWith: { message: string } | null = null) {
-  const send = jest.fn().mockImplementation(async () => ({
+  mockResendSend.mockImplementation(async () => ({
     error: rejectWith,
     data: rejectWith ? null : { id: 'msg-1' },
   }));
+  // Default: tenant has a configured + enabled email config row.
+  mockGetEmailCreds.mockResolvedValue({
+    resend_api_key: 're_tenant',
+    from_email: 'noreply@school.edu',
+    from_name: null,
+    reply_to_email: null,
+    is_enabled: true,
+  });
   return {
-    send,
-    client: { emails: { send } } as unknown as import('resend').Resend,
+    send: mockResendSend,
   };
 }
 
@@ -181,6 +208,13 @@ describe('ScheduledReportsDeliverProcessor', () => {
 
 describe('ScheduledReportsDeliverWork', () => {
   beforeEach(() => {
+    // Reset shared Resend / creds mocks between tests so a prior
+    // `buildResendClient()` call doesn't leak into the next test.
+    mockResendSend.mockReset();
+    mockGetEmailCreds.mockReset();
+  });
+
+  beforeEach(() => {
     (uploadToS3 as jest.Mock).mockClear();
     (uploadToS3 as jest.Mock).mockResolvedValue(undefined);
   });
@@ -200,8 +234,8 @@ describe('ScheduledReportsDeliverWork', () => {
         return undefined;
       }),
     } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
@@ -210,11 +244,13 @@ describe('ScheduledReportsDeliverWork', () => {
 
     expect(tx.scheduledReportRun.create).toHaveBeenCalledTimes(1);
     expect(uploadToS3).toHaveBeenCalledTimes(1);
-    expect(resend.send).toHaveBeenCalledWith(
+    expect(mockResendSend).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ['principal@nhqs.test'],
         attachments: expect.arrayContaining([
-          expect.objectContaining({ filename: expect.stringContaining('daily_attendance_roundup') }),
+          expect.objectContaining({
+            filename: expect.stringContaining('daily_attendance_roundup'),
+          }),
         ]),
       }),
     );
@@ -241,8 +277,8 @@ describe('ScheduledReportsDeliverWork', () => {
     const config = {
       get: jest.fn().mockReturnValue('test-key'),
     } as unknown as ConfigService;
-    const resend = buildResendClient({ message: 'recipient blocked' });
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient({ message: 'recipient blocked' });
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
@@ -266,8 +302,8 @@ describe('ScheduledReportsDeliverWork', () => {
     const config = {
       get: jest.fn().mockReturnValue('test-key'),
     } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
@@ -290,8 +326,8 @@ describe('ScheduledReportsDeliverWork', () => {
       recentRunningRun: { id: 'prior-run-1' },
     });
     const config = { get: jest.fn() } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
@@ -300,14 +336,14 @@ describe('ScheduledReportsDeliverWork', () => {
 
     expect(tx.scheduledReportRun.create).not.toHaveBeenCalled();
     expect(uploadToS3).not.toHaveBeenCalled();
-    expect(resend.send).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 
   it('skips when the scheduled report is not found', async () => {
     const { prisma, tx } = buildPrisma({ scheduledReport: null });
     const config = { get: jest.fn() } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
@@ -326,15 +362,15 @@ describe('ScheduledReportsDeliverWork', () => {
       },
     });
     const config = { get: jest.fn() } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,
       scheduled_report_id: SCHEDULED_REPORT_ID,
     });
 
-    expect(resend.send).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
     expect(tx.scheduledReportRun.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -354,8 +390,8 @@ describe('ScheduledReportsDeliverWork', () => {
       savedReport: null,
     });
     const config = { get: jest.fn().mockReturnValue('test-key') } as unknown as ConfigService;
-    const resend = buildResendClient();
-    const work = new ScheduledReportsDeliverWork(prisma, config, () => resend.client);
+    buildResendClient();
+    const work = new ScheduledReportsDeliverWork(prisma, config);
 
     await work.execute({
       tenant_id: TENANT_ID,

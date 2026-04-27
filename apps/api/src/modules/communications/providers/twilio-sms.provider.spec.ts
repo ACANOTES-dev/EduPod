@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
@@ -11,13 +10,11 @@ const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('TwilioSmsProvider', () => {
   let provider: TwilioSmsProvider;
-  let mockConfigService: { get: jest.Mock };
   let mockCircuitBreaker: { exec: jest.Mock };
   let mockSmsConfig: { getDecryptedConfig: jest.Mock };
   let mockCacheBus: { subscribe: jest.Mock };
 
   beforeEach(async () => {
-    mockConfigService = { get: jest.fn() };
     mockCircuitBreaker = { exec: jest.fn() };
     mockSmsConfig = { getDecryptedConfig: jest.fn().mockResolvedValue(null) };
     mockCacheBus = { subscribe: jest.fn() };
@@ -25,7 +22,6 @@ describe('TwilioSmsProvider', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TwilioSmsProvider,
-        { provide: ConfigService, useValue: mockConfigService },
         { provide: CircuitBreakerRegistry, useValue: mockCircuitBreaker },
         { provide: SmsConfigService, useValue: mockSmsConfig },
         { provide: CommsCacheBusService, useValue: mockCacheBus },
@@ -38,29 +34,25 @@ describe('TwilioSmsProvider', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  describe('isConfigured', () => {
-    it('returns true when all env vars are set', () => {
-      mockConfigService.get.mockImplementation(
-        (key: string) =>
-          ({
-            TWILIO_ACCOUNT_SID: 'AC123',
-            TWILIO_AUTH_TOKEN: 'auth123',
-            TWILIO_SMS_FROM: '+15551234567',
-          })[key],
-      );
-      expect(provider.isConfigured()).toBe(true);
+  describe('send', () => {
+    it('returns skipped:channel_not_configured when tenant has no config', async () => {
+      mockSmsConfig.getDecryptedConfig.mockResolvedValue(null);
+      const result = await provider.send(TENANT_ID, { to: '+1555', body: 'x' });
+      expect(result).toEqual({ skipped: true, reason: 'channel_not_configured' });
     });
 
-    it('returns false when any env var is missing', () => {
-      mockConfigService.get.mockImplementation((key: string) =>
-        key === 'TWILIO_ACCOUNT_SID' ? 'AC123' : undefined,
-      );
-      expect(provider.isConfigured()).toBe(false);
+    it('returns skipped:channel_disabled when config is disabled', async () => {
+      mockSmsConfig.getDecryptedConfig.mockResolvedValue({
+        is_enabled: false,
+        twilio_account_sid: 'AC',
+        twilio_auth_token: 'tok',
+        twilio_from_number: '+1',
+      });
+      const result = await provider.send(TENANT_ID, { to: '+1555', body: 'x' });
+      expect(result).toEqual({ skipped: true, reason: 'channel_disabled' });
     });
-  });
 
-  describe('send — tenant config path', () => {
-    it('uses tenant config when present and enabled', async () => {
+    it('uses tenant credentials when enabled', async () => {
       mockSmsConfig.getDecryptedConfig.mockResolvedValue({
         is_enabled: true,
         twilio_account_sid: 'ACtenant',
@@ -68,41 +60,10 @@ describe('TwilioSmsProvider', () => {
         twilio_from_number: '+14155550000',
       });
       mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_tenant' });
-
       const result = await provider.send(TENANT_ID, { to: '+15559876543', body: 'Hello' });
-      expect(result.messageSid).toBe('SM_tenant');
-      expect(mockConfigService.get).not.toHaveBeenCalledWith('TWILIO_ACCOUNT_SID');
-    });
-  });
-
-  describe('send — .env fallback path', () => {
-    it('falls back to env when tenant config absent', async () => {
-      mockSmsConfig.getDecryptedConfig.mockResolvedValue(null);
-      mockConfigService.get.mockImplementation(
-        (key: string) =>
-          ({
-            TWILIO_ACCOUNT_SID: 'ACenv',
-            TWILIO_AUTH_TOKEN: 'tokEnv',
-            TWILIO_SMS_FROM: '+15551234567',
-          })[key],
-      );
-      mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_env' });
-
-      const result = await provider.send(TENANT_ID, { to: '+15559876543', body: 'Hello' });
-      expect(result.messageSid).toBe('SM_env');
+      expect(result).toEqual({ messageSid: 'SM_tenant' });
     });
 
-    it('throws when neither tenant config nor env set', async () => {
-      mockSmsConfig.getDecryptedConfig.mockResolvedValue(null);
-      mockConfigService.get.mockReturnValue(undefined);
-
-      await expect(provider.send(TENANT_ID, { to: '+15559876543', body: 'x' })).rejects.toThrow(
-        'Twilio SMS is not configured',
-      );
-    });
-  });
-
-  describe('send — body truncation', () => {
     it('truncates body exceeding 1600 chars', async () => {
       mockSmsConfig.getDecryptedConfig.mockResolvedValue({
         is_enabled: true,
@@ -111,24 +72,14 @@ describe('TwilioSmsProvider', () => {
         twilio_from_number: '+1',
       });
       mockCircuitBreaker.exec.mockResolvedValue({ sid: 'SM_long' });
-
       const result = await provider.send(TENANT_ID, { to: '+1555', body: 'A'.repeat(1700) });
-      expect(result.messageSid).toBe('SM_long');
+      expect(result).toEqual({ messageSid: 'SM_long' });
     });
   });
 
   describe('cache invalidation', () => {
     it('subscribes to cache bus on init', () => {
       expect(mockCacheBus.subscribe).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('only sms-channel events affect this provider', () => {
-      const handler = mockCacheBus.subscribe.mock.calls[0][0] as (e: {
-        tenant_id: string;
-        channel: string;
-      }) => void;
-      expect(() => handler({ tenant_id: TENANT_ID, channel: 'sms' })).not.toThrow();
-      expect(() => handler({ tenant_id: TENANT_ID, channel: 'email' })).not.toThrow();
     });
   });
 });

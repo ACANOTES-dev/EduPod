@@ -290,12 +290,9 @@ describe('HealthService', () => {
 
   describe('getAdminDashboard()', () => {
     it('should include worker health and delivery provider configuration', async () => {
-      configValues.RESEND_API_KEY = 're_test';
-      configValues.TWILIO_ACCOUNT_SID = 'AC123';
-      configValues.TWILIO_AUTH_TOKEN = 'secret';
-      configValues.TWILIO_SMS_FROM = '+3530000001';
-      configValues.TWILIO_WHATSAPP_FROM = 'whatsapp:+3530000002';
-
+      // Per Impl 05: dispatch credentials are per-tenant; the health probe
+      // reports the dispatch infrastructure side only and always shows
+      // 'configured' (per-tenant readiness lives on /v1/{email,sms,whatsapp}-config).
       const result = await service.getAdminDashboard();
 
       expect(result.status).toBe('healthy');
