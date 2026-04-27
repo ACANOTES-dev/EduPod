@@ -3298,6 +3298,41 @@
   },
   {
     "method": "GET",
+    "path": "/v1/email-domains",
+    "controller": "EmailDomainController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/email-domains",
+    "controller": "EmailDomainController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/email-domains/:id",
+    "controller": "EmailDomainController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/email-domains/:id",
+    "controller": "EmailDomainController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/email-domains/:id/refresh",
+    "controller": "EmailDomainController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/engagement/analytics/completion-rates",
     "controller": "EngagementAnalyticsController",
     "module": "engagement",
