@@ -102,14 +102,23 @@ export class EmailConfigService {
   /**
    * Returns the decrypted webhook_secret for the tenant, or null if not
    * configured. Internal-only (no controller exposure). Decrypts ONLY the
-   * webhook secret — never the API key. This is intentionally a smaller
-   * surface than `getDecryptedConfig` so the webhook controller's blast
-   * radius is limited (Impl 06).
+   * webhook secret — never the API key.
+   *
+   * Uses an explicit `createRlsClient` transaction with the URL-derived
+   * `tenant_id` because this path is hit from the unauthenticated webhook
+   * controller (Impl 06) — there's no request-context tenant id to set
+   * the RLS variable from. Without this wrapper Prisma issues
+   * `SET LOCAL app.current_tenant_id = ''`, which trips a UUID cast error
+   * on the RLS policy.
    */
   async getWebhookSecret(tenantId: string): Promise<string | null> {
-    const row = await this.prisma.tenantEmailConfig.findUnique({
-      where: { tenant_id: tenantId },
-      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const row = await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      return txdb.tenantEmailConfig.findUnique({
+        where: { tenant_id: tenantId },
+        select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+      });
     });
     if (!row?.webhook_secret_encrypted) return null;
     return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);

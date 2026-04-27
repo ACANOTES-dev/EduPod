@@ -102,11 +102,18 @@ export class WhatsAppConfigService {
    * Returns the decrypted webhook_secret for the tenant, or null if not
    * configured. Internal-only (Impl 06). Used by the per-tenant Twilio
    * WhatsApp webhook receiver for HMAC-SHA1 signature verification.
+   *
+   * Wraps in `createRlsClient` so the unauthenticated webhook controller
+   * path can set RLS context to the URL-derived tenant id.
    */
   async getWebhookSecret(tenantId: string): Promise<string | null> {
-    const row = await this.prisma.tenantWhatsAppConfig.findUnique({
-      where: { tenant_id: tenantId },
-      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const row = await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      return txdb.tenantWhatsAppConfig.findUnique({
+        where: { tenant_id: tenantId },
+        select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+      });
     });
     if (!row?.webhook_secret_encrypted) return null;
     return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);

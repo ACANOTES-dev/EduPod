@@ -97,11 +97,19 @@ export class SmsConfigService {
    * configured. Internal-only (Impl 06). For Twilio, the "webhook secret"
    * value is whatever the tenant has configured for their Edge endpoint
    * status callbacks; verifyTwilio uses it as the HMAC-SHA1 key.
+   *
+   * Wraps in `createRlsClient` so the unauthenticated webhook controller
+   * path can set RLS context to the URL-derived tenant id (no
+   * request-context tenant available).
    */
   async getWebhookSecret(tenantId: string): Promise<string | null> {
-    const row = await this.prisma.tenantSmsConfig.findUnique({
-      where: { tenant_id: tenantId },
-      select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+    const rls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const row = await rls.$transaction(async (tx) => {
+      const txdb = tx as unknown as PrismaService;
+      return txdb.tenantSmsConfig.findUnique({
+        where: { tenant_id: tenantId },
+        select: { webhook_secret_encrypted: true, encryption_key_ref: true },
+      });
     });
     if (!row?.webhook_secret_encrypted) return null;
     return this.encryption.decrypt(row.webhook_secret_encrypted, row.encryption_key_ref);
