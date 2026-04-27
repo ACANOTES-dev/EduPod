@@ -256,7 +256,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `completed` | 2026-04-27T09:55:00+01:00 | e22ea549         |
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `completed` | 2026-04-27T13:40:00+01:00 | d9782424         |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `completed` | 2026-04-27T14:18:00+01:00 | f02f52f5         |
-| 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending`   | —                         | —                |
+| 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `completed` | 2026-04-27T14:55:00+01:00 | 7b586d4b         |
 | 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending`   | —                         | —                |
 | 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
 | 09  | `verifyConfig` + test endpoints with full semantics             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
@@ -583,3 +583,41 @@ For blocked work, use:
     accommodate the per-tenant cred resolution + per-execution client
     cache. Cyclomatic complexity reduced from 14 → ≤ 12 via the
     `administrativeSkipReason` extraction.
+
+### [IMPL 06] — Webhooks + signature verification + suppression list
+
+- **Completed:** 2026-04-27T14:55:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `7b586d4b` (`feat(comms): per-tenant webhook ingestion + suppression list + cleanup cron`)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5).
+- **Verified at:** 2026-04-27T14:55:00+01:00 — local type-check + 513 communications/configuration tests + AppModule DI smoke.
+- **Local verification:**
+  - Type-check API + worker + shared — green.
+  - `pnpm --filter @school/api jest --testPathPattern "communications|configuration"` — 40 suites, 513/513 green.
+  - DI smoke — `DI OK`.
+- **Summary (≤ 200 words):**
+  Per-tenant webhook receivers under
+  `/v1/webhooks/communications/{email,sms,whatsapp}/:tenantId`. Every event
+  is logged to `notification_webhook_events` BEFORE signature verification —
+  forged events leave an audit trail. Constant-time `timingSafeEqual` +
+  5-min replay window. Wrong-tenant rejection structurally guaranteed via
+  per-tenant secret lookup. Resend handler maps email events to
+  notification status + suppression rows (hard-bounce permanent, 3+ soft
+  bounces in 30d → 30-day expiry, complaint permanent). Twilio handler
+  covers SMS + WhatsApp status callbacks; six hard-bounce error codes →
+  permanent suppression. WhatsApp inbound stub (Impl 08 lands service window).
+  New `SuppressionListService` with Redis-cached `isSuppressed` (5-min TTL),
+  RLS-scoped CRUD, list/remove for admin. Dispatch service inserts
+  `skipIfSuppressed` gate before each provider; admin skips route to
+  fallback chain. Daily `comms:suppression-list-cleanup` cron at 03:00 UTC
+  hard-deletes only `expires_at < now()` rows. The 3 `*ConfigService`
+  classes gain narrow `getWebhookSecret(tenantId)` accessor.
+- **Follow-ups:**
+  - Impl 08 fills the WhatsApp inbound stub with the service-window updater.
+  - Impl 13 must seed `webhook_secret_encrypted` on each test tenant × 3 channels (15 secrets total) so the per-tenant verifier can be exercised end-to-end before merge.
+  - The legacy `/v1/webhooks/{resend,twilio}` controller stays alive but no longer verifies signatures (Impl 05 removed the env-based verification). Impl 14 deletes the legacy controller after Impl 13 reconfigures Resend/Twilio to point at the new per-tenant URLs.
+- **Rollback:**
+  - `git revert 7b586d4b` removes the controllers, services, suppression list, cron, and dispatch-service skipIfSuppressed gate. The DB rows in `notification_webhook_events` and `notification_suppression_list` (Impl 01) persist; a `TRUNCATE` is safe but not required.
+  - The repeatable cron registration in BullMQ Redis persists after revert; clean it up with `redis-cli DEL "bull:notifications:repeat:cron:comms:suppression-list-cleanup"` if needed.
+- **Session notes:**
+  - User override on Rule 5 — `main` + CI.
+  - `notification.status` enum does NOT include `bounced` / `complained`, so the resend handler maps both to `failed` with descriptive `failure_reason`. The suppression list row is the canonical record of "permanent failure for this recipient". Future enum extension could add granular states.
