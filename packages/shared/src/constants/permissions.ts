@@ -28,6 +28,10 @@ export const PERMISSIONS = {
   stripe: {
     manage: 'stripe.manage',
   },
+  configuration: {
+    communications_view: 'configuration.communications.view',
+    communications_manage: 'configuration.communications.manage',
+  },
   notifications: {
     manage: 'notifications.manage',
   },
@@ -275,6 +279,8 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.settings.manage]: 'admin',
   [PERMISSIONS.branding.manage]: 'admin',
   [PERMISSIONS.stripe.manage]: 'admin',
+  [PERMISSIONS.configuration.communications_view]: 'admin',
+  [PERMISSIONS.configuration.communications_manage]: 'admin',
   [PERMISSIONS.notifications.manage]: 'admin',
   [PERMISSIONS.modules.manage]: 'admin',
   [PERMISSIONS.domains.manage]: 'admin',
@@ -438,6 +444,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.settings.manage,
     PERMISSIONS.branding.manage,
     PERMISSIONS.stripe.manage,
+    PERMISSIONS.configuration.communications_view,
+    PERMISSIONS.configuration.communications_manage,
     PERMISSIONS.notifications.manage,
     PERMISSIONS.modules.manage,
     PERMISSIONS.domains.manage,

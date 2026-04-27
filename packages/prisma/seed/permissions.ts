@@ -71,6 +71,16 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'admin',
   },
   {
+    permission_key: 'configuration.communications.view',
+    description: 'View tenant communications credentials and configuration (email, SMS, WhatsApp)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'configuration.communications.manage',
+    description: 'Configure tenant email, SMS, and WhatsApp credentials, domains, and templates',
+    permission_tier: 'admin',
+  },
+  {
     permission_key: 'notifications.manage',
     description: 'Manage notification settings',
     permission_tier: 'admin',
