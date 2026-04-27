@@ -252,7 +252,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | #   | Title                                                           | Wave | Depends on             | Status      | Completed at              | Local Commit SHA |
 | --- | --------------------------------------------------------------- | ---- | ---------------------- | ----------- | ------------------------- | ---------------- |
 | 01  | Schema + migration + RLS (8 new tables)                         | 1    | —                      | `completed` | 2026-04-27T08:15:00+01:00 | ac342ee8         |
-| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | (pending push)   |
+| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | c74d92c9         |
 | 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `pending`   | —                         | —                |
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
@@ -372,7 +372,7 @@ For blocked work, use:
 ### [IMPL 02] — Permissions, RBAC seed, and backfill
 
 - **Completed:** 2026-04-27T08:30:00+01:00 (Europe/Dublin)
-- **Local commit SHA:** (pending push to origin/main)
+- **Local commit SHA:** `c74d92c9` (`feat(comms): add communications config permissions + idempotent backfill (Impl 02)`)
 - **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5 for this run). Code ships through CI; the backfill script runs as a one-shot on production via SSH after deploy completes.
 - **Verified at:** 2026-04-27T08:30:00+01:00 on local dev DB.
 - **Local verification:**
