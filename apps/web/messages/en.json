@@ -2800,6 +2800,7 @@
     "email": "Email",
     "sms": "SMS",
     "push": "Push",
+    "whatsapp": "WhatsApp",
     "inApp": "In-App",
     "searchStudent": "Search student",
     "searchStudentPlaceholder": "Search by name or student number...",
