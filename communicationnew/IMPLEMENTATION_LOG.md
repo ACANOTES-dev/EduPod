@@ -255,7 +255,7 @@ Legend: `pending` • `in-progress` • `verifying` • `completed` • `🛑 bl
 | 02  | Permissions + RBAC + role backfill on test tenants              | 1    | —                      | `completed` | 2026-04-27T08:30:00+01:00 | c74d92c9         |
 | 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | 01, 02                 | `completed` | 2026-04-27T09:55:00+01:00 | e22ea549         |
 | 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | 01, 03                 | `completed` | 2026-04-27T13:40:00+01:00 | d9782424         |
-| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `pending`   | —                         | —                |
+| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | 01, 03, 04             | `completed` | 2026-04-27T14:18:00+01:00 | f02f52f5         |
 | 06  | Webhooks + signature verification + suppression list            | 3    | 01, 03                 | `pending`   | —                         | —                |
 | 07  | Email deliverability — domain verification + DNS                | 3    | 01, 03, 04             | `pending`   | —                         | —                |
 | 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | 01, 03, 04             | `pending`   | —                         | —                |
@@ -526,3 +526,60 @@ For blocked work, use:
   - Impl 04 is deliberately scoped API-only. The worker still uses its
     self-contained Resend/Twilio clients in `dispatch-notifications.processor.ts`;
     Impl 05 consolidates worker + API onto the same provider classes.
+
+### [IMPL 05] — Worker parity + `.env` credential removal
+
+- **Completed:** 2026-04-27T14:18:00+01:00 (Europe/Dublin)
+- **Local commit SHA:** `f02f52f5` (`feat(comms): worker parity + delete .env credential fallback`) + `e38adef0` follow-up (hotspot budget refactor)
+- **Deployment route:** **`main` + CI pipeline** (per user override of Rule 5).
+- **Verified at:** 2026-04-27T14:18:00+01:00 — local type-check + lint + 196 API tests + 1170 worker tests + AppModule DI smoke.
+- **Local verification:**
+  - Type-check both apps + shared — green.
+  - Lint API + worker — 0 errors.
+  - `pnpm --filter @school/api jest` — 196 affected tests green (providers, cache-bus, is-enabled, dispatch, webhook, health).
+  - `pnpm --filter @school/worker test` — 1170/1170 green.
+  - DI smoke — `DI OK`.
+  - `node scripts/check-hotspot-budgets.js` — 33 function complexity budgets + 16 file line budgets all green.
+- **Summary (≤ 200 words):**
+  Deleted the platform-shared `.env` credential fallback for all three
+  channels. After this impl, the only path to dispatch is a
+  `tenant_*_configs` row with `is_enabled=true`. API providers now
+  return `{ skipped, reason }` for `channel_not_configured` /
+  `channel_disabled` and the dispatch service routes those into the
+  existing fallback chain. Worker dispatch processor refactored to use
+  per-tenant credentials via a new
+  `apps/worker/src/processors/communications/tenant-creds.helper.ts`
+  (re-implements EncryptionService inline so we don't need the API DI
+  graph). New `IsEnabledCacheService` (API) caches per-tenant `is_enabled`
+  for 30 sec, evicted by the same `comms:config-changed` Redis pub/sub
+  channel from Impl 04. New `NotificationFailureReason` closed-vocab
+  union in `@school/shared`. Deleted env vars: `RESEND_API_KEY`,
+  `RESEND_FROM_EMAIL`, `RESEND_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM`. Health
+  service stops reporting per-tenant readiness. Legacy webhook controller
+  (`/v1/webhooks/{resend,twilio}`) stays alive but no longer verifies —
+  Impl 06 lands the per-tenant verifier.
+- **Follow-ups:**
+  - Without backfilled tenant configs (Impl 13), every email/SMS/WhatsApp
+    dispatch on production now fails with `failure_reason='channel_not_configured'`
+    and falls back to in-app. Acceptable per user memo "production tenants
+    are test tenants until Aug 2026".
+  - Impl 06 reuses the `comms:config-changed` invalidation channel for
+    suppression list cache + adds the per-tenant webhook receiver.
+  - Impl 09 will use `IsEnabledCacheService.getEnabled()` to gate
+    test-send endpoints.
+- **Rollback:**
+  - `git revert f02f52f5 e38adef0` restores all seven env keys, the
+    env-fallback branches, the legacy webhook signature verification,
+    and the worker's lazy `getResendClient`/`getTwilioClient` initialisers.
+  - `.env` values would need to be manually restored on production —
+    the user keeps the prior copy outside source control.
+  - No DB or schema changes to roll back. Tenant config rows from Impl 03
+    stay intact.
+- **Session notes:**
+  - User override on Rule 5 — `main` + CI pipeline.
+  - One hotspot-budget bump after the refactor: file line budget for
+    `dispatch-notifications.processor.ts` raised from 778 → 850 to
+    accommodate the per-tenant cred resolution + per-execution client
+    cache. Cyclomatic complexity reduced from 14 → ≤ 12 via the
+    `administrativeSkipReason` extraction.
