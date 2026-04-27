@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-04-26 (Payroll overhaul rebuild Waves 1–5 shipped — Decimal-safe calculation engine consuming every input source, unified `FinalisationService` powering both direct and approval-callback paths, worker job-name + Redis-key alignment via `@school/shared/payroll`, missing self-service / sub-resource / tenant-wide endpoints, cross-path equivalence guards, RHF + zod migration across operational pages, mobile sweep, dead-code removal. See `payrollnew/IMPLEMENTATION_LOG.md`.)
+> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impls 01–14 shipped on `main` via the standard CI pipeline, per user override of the worktree-only protocol. New per-tenant credential model (3 channels × 4 endpoints each + 5 domain endpoints + 4 template endpoints + 3 webhook routes ≈ 24 new endpoints), 4 new frontend settings pages, 8 new tenant-scoped tables, 4 new BullMQ cron jobs, 2 new permissions. The `communications` module now consumes `configuration` for credential decryption and is consumed by `auth`, `trips`, `school-closures`, `staff-leave`, `health`, `sen`, and `finance` (post Impl 12 migration off direct DB writes). See `communicationnew/IMPLEMENTATION_LOG.md`.)
 
 ---
 
@@ -23,7 +23,7 @@
 | [Homework & Diary](#11-homework--diary)                                                            | `modules/homework/`                                                                                                                                                                                                                       | 44            | 12             | —           |
 | [Finance](#12-finance)                                                                             | `modules/finance/`                                                                                                                                                                                                                        | 87            | 23             | 2           |
 | [Payroll](#13-payroll)                                                                             | `modules/payroll/`                                                                                                                                                                                                                        | 79            | 10             | 3           |
-| [Communications & Announcements](#14-communications--announcements)                                | `modules/communications/`                                                                                                                                                                                                                 | 20            | 9              | 7           |
+| [Communications & Announcements](#14-communications--announcements)                                | `modules/communications/`                                                                                                                                                                                                                 | 39            | 13             | 11          |
 | [Parent Inquiries](#15-parent-inquiries)                                                           | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
 | [Engagement](#16-engagement)                                                                       | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
 | [Admissions](#17-admissions)                                                                       | `modules/admissions/`, `modules/public-households/`                                                                                                                                                                                       | 29            | 9              | 1           |
@@ -34,7 +34,7 @@
 | [Dashboards](#22-dashboards)                                                                       | `modules/dashboard/`                                                                                                                                                                                                                      | 3             | 3              | —           |
 | [Authentication](#23-authentication)                                                               | `modules/auth/`                                                                                                                                                                                                                           | 12            | 5              | —           |
 | [RBAC & User Administration](#24-rbac--user-administration)                                        | `modules/rbac/`                                                                                                                                                                                                                           | 16            | 5              | —           |
-| [Configuration](#25-configuration)                                                                 | `modules/configuration/`                                                                                                                                                                                                                  | 8             | 5              | —           |
+| [Configuration](#25-configuration)                                                                 | `modules/configuration/`                                                                                                                                                                                                                  | 20            | 9              | —           |
 | [Preferences & Profiles](#26-preferences--profiles)                                                | `modules/preferences/`                                                                                                                                                                                                                    | 2             | 2              | —           |
 | [Compliance, Privacy & Legal](#27-compliance-privacy--legal)                                       | `modules/compliance/`, `modules/gdpr/`                                                                                                                                                                                                    | 34            | 7              | 3           |
 | [Imports](#28-imports)                                                                             | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
@@ -449,6 +449,93 @@
 
 **Depends on**: Approvals, GDPR consent, attendance, gradebook, pastoral, engagement, parent inquiries, **inbox** (as default channel).
 
+### 14a. Per-Tenant Communications Credentials & Operational Stack (Communications Overhaul)
+
+> **Status**: Implemented across Impls 01–14 of the Communications Overhaul rebuild (see `communicationnew/IMPLEMENTATION_LOG.md`). Per-tenant credential rows are the only path to dispatch (Impl 05 deleted the `.env` fallback).
+
+**Backend modules**:
+
+- `apps/api/src/modules/configuration/email-config.{controller,service,spec}.ts`
+- `apps/api/src/modules/configuration/sms-config.{controller,service,spec}.ts`
+- `apps/api/src/modules/configuration/whatsapp-config.{controller,service,spec}.ts`
+- `apps/api/src/modules/communications/webhooks/communications-webhooks.controller.ts`
+- `apps/api/src/modules/communications/webhooks/{webhook-signature-verifier,resend-webhook-handler,twilio-webhook-handler}.service.ts`
+- `apps/api/src/modules/communications/suppression/suppression-list.service.ts`
+- `apps/api/src/modules/communications/deliverability/email-domain.{controller,service}.ts`
+- `apps/api/src/modules/communications/whatsapp-templates/{whatsapp-template,whatsapp-service-window}.service.ts`
+- `apps/api/src/modules/communications/comms-cache-bus.service.ts`
+- `apps/api/src/modules/communications/comms-logger.service.ts`
+- `apps/api/src/modules/communications/comms-metrics.service.ts`
+
+**Endpoints** (added by this rebuild):
+
+| Method | Path                                             | Permission                            |
+| ------ | ------------------------------------------------ | ------------------------------------- |
+| GET    | `/v1/email-config`                               | `configuration.communications.view`   |
+| PUT    | `/v1/email-config`                               | `configuration.communications.manage` |
+| DELETE | `/v1/email-config`                               | `configuration.communications.manage` |
+| POST   | `/v1/email-config/test`                          | `configuration.communications.manage` |
+| GET    | `/v1/sms-config`                                 | `configuration.communications.view`   |
+| PUT    | `/v1/sms-config`                                 | `configuration.communications.manage` |
+| DELETE | `/v1/sms-config`                                 | `configuration.communications.manage` |
+| POST   | `/v1/sms-config/test`                            | `configuration.communications.manage` |
+| GET    | `/v1/whatsapp-config`                            | `configuration.communications.view`   |
+| PUT    | `/v1/whatsapp-config`                            | `configuration.communications.manage` |
+| DELETE | `/v1/whatsapp-config`                            | `configuration.communications.manage` |
+| POST   | `/v1/whatsapp-config/test`                       | `configuration.communications.manage` |
+| POST   | `/v1/webhooks/communications/email/:tenantId`    | (signature verified)                  |
+| POST   | `/v1/webhooks/communications/sms/:tenantId`      | (signature verified)                  |
+| POST   | `/v1/webhooks/communications/whatsapp/:tenantId` | (signature verified)                  |
+| GET    | `/v1/email-domains`                              | `configuration.communications.view`   |
+| POST   | `/v1/email-domains`                              | `configuration.communications.manage` |
+| GET    | `/v1/email-domains/:id`                          | `configuration.communications.view`   |
+| POST   | `/v1/email-domains/:id/refresh`                  | `configuration.communications.manage` |
+| DELETE | `/v1/email-domains/:id`                          | `configuration.communications.manage` |
+| GET    | `/v1/whatsapp-templates`                         | `configuration.communications.view`   |
+| POST   | `/v1/whatsapp-templates`                         | `configuration.communications.manage` |
+| GET    | `/v1/whatsapp-templates/:id`                     | `configuration.communications.view`   |
+| DELETE | `/v1/whatsapp-templates/:id`                     | `configuration.communications.manage` |
+
+**Worker jobs** (added by this rebuild):
+
+| Queue           | Job name                                | Schedule                 |
+| --------------- | --------------------------------------- | ------------------------ |
+| `notifications` | `comms:domain-verification-refresh`     | cron, every 30 min       |
+| `notifications` | `comms:whatsapp-template-sync`          | cron, every 15 min       |
+| `notifications` | `comms:suppression-list-cleanup`        | cron, daily at 03:00 UTC |
+| `notifications` | `comms:whatsapp-service-window-cleanup` | cron, daily at 04:00 UTC |
+
+**Frontend pages**:
+
+- `apps/web/src/app/[locale]/(school)/settings/communications/page.tsx` — index with three channel cards
+- `apps/web/src/app/[locale]/(school)/settings/communications/email/page.tsx` — Resend config + domain verification
+- `apps/web/src/app/[locale]/(school)/settings/communications/sms/page.tsx` — Twilio SMS config
+- `apps/web/src/app/[locale]/(school)/settings/communications/whatsapp/page.tsx` — Twilio WhatsApp config + template list
+
+**Tables** (added by this rebuild — all tenant-scoped, all RLS-isolated):
+
+- `tenant_email_configs` — encrypted Resend API key + from/reply-to + per-tenant webhook secret
+- `tenant_sms_configs` — encrypted Twilio SID/token + from number + webhook secret
+- `tenant_whatsapp_configs` — encrypted Twilio SID/token + WhatsApp from number + business profile + webhook secret
+- `notification_suppression_list` — hard-bounce / complaint / manual / unsubscribe per channel per recipient
+- `tenant_email_domains` — SPF/DKIM/DMARC verification per domain per tenant
+- `whatsapp_templates` — local key + Twilio SID + approval status per tenant per template_key per language
+- `whatsapp_service_windows` — last-inbound timestamp per recipient phone per tenant
+- `notification_webhook_events` — append-only audit log of every webhook event
+
+**Permissions** (added by this rebuild):
+
+- `configuration.communications.view`
+- `configuration.communications.manage`
+
+Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every existing role mapping for the five test tenants.
+
+**Cross-module dependencies introduced**:
+
+- `communications` module now consumes `configuration.{Email,Sms,WhatsApp}ConfigService.getDecryptedConfig` (internal-only) for tenant credential resolution.
+- `auth`, `trips`, `school-closures`, `staff-leave`, `health`, `sen` modules consume `NotificationsService.dispatch` for the comms touchpoints they previously lacked (or, in finance's case, bypassed via direct DB write).
+- `finance` module now flows through `NotificationsService.dispatch` for payment reminders (Impl 12 migrated `payment-reminders.service.ts:220` off the direct `notification` table write).
+
 ---
 
 ## 15. Parent Inquiries
@@ -725,7 +812,9 @@
 
 ## 25. Configuration
 
-**What it does**: Tenant settings, branding, Stripe settings, notification settings, and custom-field configuration.
+**What it does**: Tenant settings, branding, Stripe settings, notification settings, custom-field configuration, and per-tenant communications credentials (email / SMS / WhatsApp).
+
+**Sub-areas**: Stripe (existing), per-tenant Communications credentials — see §14a for the full surface (3 credential controllers × CRUD + test = 12 endpoints, plus 5 email-domain endpoints, 4 WhatsApp-template endpoints, 3 webhook routes).
 
 **Backend**: `apps/api/src/modules/configuration/`
 
@@ -733,6 +822,7 @@
 - Branding
 - Stripe configuration
 - Notification settings
+- Email / SMS / WhatsApp credential services (`email-config.service.ts`, `sms-config.service.ts`, `whatsapp-config.service.ts`) — Communications Overhaul, Impl 03
 
 **Frontend**:
 
@@ -741,6 +831,10 @@
 - `/settings/stripe`
 - `/settings/notifications`
 - `/settings/custom-fields`
+- `/settings/communications` (index)
+- `/settings/communications/email`
+- `/settings/communications/sms`
+- `/settings/communications/whatsapp`
 
 ---
 

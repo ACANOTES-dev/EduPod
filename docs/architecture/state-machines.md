@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off — no new state machines introduced; DocumentStatus + ExclusionStatus + InterventionStatus + SafeguardingStatus verified against source)
+> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; extended `NotificationStatus` with bounced/complained/delivered terminal states driven by webhook ingestion, added `WhatsAppTemplateStatus` and `EmailDomainStatus` machines)
 
 ---
 
@@ -328,17 +328,71 @@ archived*
 
 - **Side effects**: `published` triggers notification dispatch to all audience members.
 
-### NotificationStatus
+### NotificationStatus (extended by Impl 06 of Communications Overhaul)
 
 ```
 queued    -> [sent, failed]
-sent      -> [delivered, failed]
+sent      -> [delivered, bounced, complained, failed]
 delivered -> [read]
-failed    -> [queued (retry)]
 read*
+bounced*
+complained*
+failed    -> [queued]   // retryable, within max_attempts
 ```
 
-- **Side effects**: Retry is handled by `communications:retry-failed-notifications` cron job. WhatsApp delivery also has a consent gate: missing active `whatsapp_channel` consent immediately transitions the original notification to `failed` and creates an SMS fallback notification.
+- **Guarded by**: `apps/api/src/modules/communications/notifications.service.ts` + `apps/worker/src/processors/communications/dispatch-notifications.processor.ts` + the webhook handlers in `apps/api/src/modules/communications/webhooks/`.
+- **Side effects**:
+  - `queued -> sent`: provider `messages.create` (or `emails.send`) returns success; `provider_message_id` populated; `last_attempt_at` updated.
+  - `sent -> delivered`: webhook event `email.delivered` (Resend) or `MessageStatus=delivered` (Twilio). Sets `delivered_at`.
+  - `sent -> bounced`: webhook event `email.bounced` with `bounce_type='hard'`. Adds row to `notification_suppression_list` with `reason='hard_bounce'`. Terminal.
+  - `sent -> complained`: webhook event `email.complained`. Adds row to `notification_suppression_list` with `reason='complaint'`. Terminal.
+  - `sent -> failed`: webhook event `MessageStatus=failed` or `MessageStatus=undelivered`. Increments `attempts`; if below `max_attempts`, queues for retry → transitions back to `queued` via the retry processor.
+  - `queued -> failed`: dispatch attempt threw / was skipped (e.g. `channel_not_configured`, `channel_disabled`, `suppressed`, `outside_service_window_no_template`, `sender_domain_unverified`). Sets `failure_reason`.
+  - `delivered -> read`: in-app inbox mark-as-read, or email tracker pixel (out of scope V1).
+  - `failed -> queued`: retry processor (`retry-failed.processor.ts`) re-enqueues with exponential backoff `60_000 × 2^attempts` ms.
+- **Failure reasons** (set on `failed`):
+  - `channel_not_configured` — tenant has no config row for the channel.
+  - `channel_disabled` — tenant disabled the channel (`is_enabled=false`); detected mid-flight.
+  - `suppressed:hard_bounce`, `suppressed:complaint`, `suppressed:manual`, `suppressed:unsubscribe`, `suppressed:soft_bounce_threshold` — recipient on suppression list.
+  - `outside_service_window_no_template` — WhatsApp send outside 24h window with no `template_key`.
+  - `sender_domain_unverified` — Resend send from an unverified domain.
+  - `provider_error:<verbatim>` — provider returned an unhandled error.
+- **Note**: terminal states (`read`, `bounced`, `complained`) cannot transition back. `failed` is non-terminal because retries cycle through `queued`. The `chain_id` UUID is preserved across all retries so the fallback chain can identify them as related. WhatsApp delivery also has a consent gate: missing active `whatsapp_channel` consent immediately transitions the original notification to `failed` and creates an SMS fallback notification.
+
+### WhatsAppTemplateStatus (Impl 08 of Communications Overhaul)
+
+```
+pending    -> [submitted]
+submitted  -> [approved, rejected]
+approved   -> [paused]
+rejected*
+paused     -> [approved]
+```
+
+- **Guarded by**: `apps/api/src/modules/communications/whatsapp-templates/whatsapp-template.service.ts`.
+- **Side effects**:
+  - `pending -> submitted`: tenant clicks "Submit for approval" in the settings UI. POSTs to Twilio Content API; on accept, sets `submitted_at`; on Twilio reject, throws (state stays `pending`).
+  - `submitted -> approved`: cron `comms:whatsapp-template-sync` (every 15 min) polls Twilio; status comes back `approved`. Stores `twilio_template_sid`. Sets `approved_at`. Dispatches in-app notification to the user who submitted the template.
+  - `submitted -> rejected`: same cron path; status comes back `rejected`. Stores `approval_message` with the verbatim rejection reason. Dispatches in-app notification. Terminal — user must clone-and-resubmit (creates a new pending row).
+  - `approved -> paused`: Twilio paused the template (rate limit, abuse signal, etc.). Cron detects and updates. Outbound sends using this template are blocked while paused.
+  - `paused -> approved`: cron detects re-activation. Outbound sends using this template are unblocked.
+- **Note**: only `approved` templates are eligible for outbound sends outside the 24-hour service window. Inside the window, free-form sends do not consult this table.
+
+### EmailDomainStatus (Impl 07 of Communications Overhaul)
+
+```
+pending  -> [verified, failed]
+verified -> [pending]   // re-register if DNS records were edited
+failed   -> [pending]   // re-register if DNS records were edited
+```
+
+- **Guarded by**: `apps/api/src/modules/communications/deliverability/email-domain.service.ts` + `apps/worker/src/processors/communications/domain-verification-refresh.processor.ts`.
+- **Side effects**:
+  - `pending -> verified`: cron `comms:domain-verification-refresh` (every 30 min) polls Resend; all three of SPF / DKIM / DMARC return `verified`. Sets `verified_at`. Dispatches in-app notification to the user who registered the domain.
+  - `pending -> failed`: same cron path; one or more of SPF / DKIM / DMARC return `failed`. Sets `failure_reason` with the verbatim Resend error. Continues polling — a tenant can fix DNS records and the next poll will flip the row to verified.
+  - `verified -> pending` (re-register): tenant calls `POST /v1/email-domains/:id/refresh` after editing DNS records. Resets per-record statuses and `last_checked_at`.
+  - `failed -> pending` (re-register): same as above.
+- **Note**: outbound dispatch enforces verified-domain status. Sends from an unverified or failed domain are skipped with `failure_reason='sender_domain_unverified'`. The `COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV` env flag bypasses the check in local dev only — production must never set it.
 
 ### ParentInquiryStatus
 

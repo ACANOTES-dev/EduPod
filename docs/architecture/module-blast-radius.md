@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off)
+> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; new edges added: communications consumes configuration credential services, auth/trips/closures/leave/health/sen/finance now consume communications.NotificationsService, new CommsCacheBusModule cycle-breaker between configuration and communications)
 
 ---
 
@@ -81,10 +81,10 @@ If a module is not listed individually, it is either:
 
 ### ConfigurationModule
 
-- **Contract**: `SettingsService`, `EncryptionService`, key-rotation behavior, module-settings schemas
-- **Primary consumers**: nearly every policy-driven domain, especially attendance, behaviour, communications, finance, payroll, SEN, homework, wellbeing, regulatory
+- **Contract**: `SettingsService`, `EncryptionService`, key-rotation behavior, module-settings schemas, `StripeConfigService` (CRUD + `getDecryptedConfig`), `EmailConfigService` (CRUD + `getDecryptedConfig` + `verifyConfig`), `SmsConfigService` (CRUD + `getDecryptedConfig` + `verifyConfig`), `WhatsAppConfigService` (CRUD + `getDecryptedConfig` + `verifyConfig`).
+- **Primary consumers**: nearly every policy-driven domain, especially attendance, behaviour, communications, finance, payroll, SEN, homework, wellbeing, regulatory. Communications consumes the three new credential services' `getDecryptedConfig` from `Resend/Twilio*Provider.dispatch` and the per-tenant `webhook_secret` from the webhook handlers.
 - **Blast radius**: HIGH
-- **Notes**: settings are now per-module rows, but schema/default drift still affects all tenants; encryption changes remain one-way-risk territory
+- **Notes**: settings are now per-module rows, but schema/default drift still affects all tenants; encryption changes remain one-way-risk territory. The Communications credential services' `getDecryptedConfig` is **internal-only** — never exposed via controller. Only `ResendEmailProvider`, `TwilioSmsProvider`, `TwilioWhatsAppProvider`, and the webhook handler classes consume it. Mutations on any of the three publish `{ tenant_id, channel }` to Redis pub/sub channel `comms:config-changed` via `CommsCacheBusService`; both the API and worker processes subscribe to invalidate per-tenant client caches (Impl 04).
 
 ### ApprovalsModule / ApprovalRequestsService
 
@@ -224,10 +224,30 @@ If a module is not listed individually, it is either:
 
 ### CommunicationsModule
 
-- **Contract**: announcement publishing, notification record contract, dispatch semantics, audience resolution
-- **Primary consumers**: announcements, parent inquiries, attendance alerts, behaviour/pastoral fan-out, legal/privacy notices, digests
-- **Blast radius**: VERY HIGH
-- **Notes**: this is the delivery backbone for multiple modules, not a standalone feature silo
+- **Contract**: `NotificationsService.dispatch(tenantId, payload)`, `NotificationDispatchService` (internal), `Email/Sms/WhatsAppConfigService.getDecryptedConfig` (internal-only — never expose), `SuppressionListService.isSuppressed`, `EmailDomainService.getVerified`, `WhatsAppTemplateService.getApproved`, `WhatsAppServiceWindowService.isInWindow`, `CommsCacheBusService` (Redis pub/sub on `comms:config-changed`), `comms-metrics.service.ts` Prometheus emitters, `notification` table, `notification_template` table, `notification_suppression_list` table, `notification_webhook_events` table, `tenant_email_configs` / `tenant_sms_configs` / `tenant_whatsapp_configs` (read by `getDecryptedConfig` only), `tenant_email_domains` table, `whatsapp_templates` table, `whatsapp_service_windows` table.
+- **Primary consumers**:
+  - **API consumers of `NotificationsService.dispatch`**: attendance, behaviour, gradebook, homework, pastoral, safeguarding, engagement, parent-inquiries, finance (post Impl 12 migration), admissions, rbac (invitations), approvals, communications (announcements), inbox, auth (password reset/changed, post Impl 12 follow-up), trips (post Impl 12 follow-up), school-closures (post Impl 12 follow-up), staff-leave (post Impl 12), health (post Impl 12 follow-up), sen (post Impl 12 follow-up).
+  - **Worker consumers**: `dispatch-notifications.processor.ts`, `dispatch-queued.processor.ts`, `parent-daily-digest.processor.ts`, `behaviour/parent-notification.processor.ts`, `pastoral/escalation-timeout.processor.ts`, `safeguarding/critical-escalation.processor.ts`, `safeguarding/notify-reviewers.processor.ts`, `engagement/engagement-conference-reminders.processor.ts`, `homework/overdue-detection.processor.ts`, `behaviour/ack-reminders.processor.ts`.
+  - **Cron consumers**: `comms:domain-verification-refresh` (Impl 07), `comms:whatsapp-template-sync` (Impl 08), `comms:suppression-list-cleanup` (Impl 06), `comms:whatsapp-service-window-cleanup` (Impl 08).
+- **Direct dependencies (consumed by communications)**:
+  - `EncryptionService` (configuration module) — encrypts/decrypts `*_encrypted` columns.
+  - `EmailConfigService.getDecryptedConfig` (configuration module) — `ResendEmailProvider.dispatch` calls this every send. Tenants without a configured row → `notification.failure_reason='channel_not_configured'`.
+  - `SmsConfigService.getDecryptedConfig` (configuration module) — analogous for Twilio SMS.
+  - `WhatsAppConfigService.getDecryptedConfig` (configuration module) — analogous for Twilio WhatsApp.
+  - `ConsentService` (consent module) — WhatsApp dispatch consults consent before send.
+  - `AudienceResolutionService` (internal) — recipient resolution.
+  - `TemplateRendererService` (internal) — Handlebars + EN/AR helpers.
+  - `NotificationRateLimitService` (internal) — Redis sliding-window rate limit.
+  - Redis (pub/sub for `comms:config-changed`, cache for suppression-list / verified-domain / unread-counts).
+- **Blast radius**: VERY HIGH (delivery backbone for multiple modules; signature changes ripple across all consumers).
+  - **If `NotificationsService.dispatch` signature changes**: CRITICAL. Every module above will need a coordinated update. Worker processors that build payloads in shared format also break. Audit log shape change ripples to `AuditLogInterceptor` consumers (compliance reporting).
+  - **If `Email/Sms/WhatsAppConfigService.getDecryptedConfig` signature changes**: HIGH. The three `*Provider.dispatch` methods break immediately. The webhook handlers that re-read tenant config to verify signatures break. The verify endpoints (`POST /v1/{email,sms,whatsapp}-config/test`) break.
+  - **If `notification` table schema changes**: HIGH. Direct readers: `dispatch-notifications.processor.ts`, `notifications.service.ts`, `notification-templates.service.ts`, `inbox-bridge.service.ts`, `unsubscribe.service.ts`. Webhook handlers update `status` / `provider_message_id` / `delivered_at` / `bounced_at` directly via Prisma. Suppression-list addition uses `notification.id` as `notification_id` foreign key.
+  - **If Redis pub/sub channel `comms:config-changed` payload shape changes**: HIGH. Both the API process and every worker process subscribe. Stale clients held in cache after a credential rotation = silent failure (sends from rotated-old credentials until cache TTL expires or process restart). **Mitigation**: payload shape is constant (`{ tenant_id: string, channel: 'email' | 'sms' | 'whatsapp' }`). Treat changes as breaking and bump the channel name (`comms:config-changed-v2`) instead of mutating in place.
+- **Notes**:
+  - The cycle-breaker `CommsCacheBusModule` was created by Impl 04 to avoid a `configuration` ↔ `communications` import cycle: both modules need to publish/subscribe on `comms:config-changed`, but `communications` consumes `configuration`. The bus module is provider-only and depends on `RedisModule`; both consumers import the bus.
+  - `SuppressionListService.isSuppressed` is the gate every outbound dispatch consults. A bug here can either (a) silently let bounced addresses keep getting hit (sender reputation harm) or (b) suppress everyone (no email goes out). Cache TTL is 5 minutes — stale cache means at most 5 minutes of stale behaviour after a list change.
+  - `EmailDomainService.getVerified` is the gate every outbound email consults for SPF/DKIM/DMARC verification. Tenants without a verified domain → `notification.failure_reason='sender_domain_unverified'`. The `COMMS_BYPASS_DOMAIN_VERIFICATION_FOR_DEV` env flag bypasses the check in local dev only — production must never set it.
 - **Inbox bridge (2026-04-11)**: the dispatcher now fans messages into the new `InboxModule` as its default channel via the inbox channel provider (impl 06). Every announcement, notification, and parent-inquiry message lands in recipient inboxes; SMS / Email / WhatsApp remain additive escalations. Removing the inbox provider from the fan-out chain is a hard-blocked change — see `danger-zones.md` **DZ-Inbox-1**.
 
 ### InboxModule

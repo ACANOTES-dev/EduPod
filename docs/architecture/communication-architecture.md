@@ -1,8 +1,8 @@
 # Communication Architecture — School Operating System
 
 > **Purpose**: Authoritative reference for how the platform communicates with parents, guardians, students, applicants, and staff across the four supported channels (in-app, email, SMS, WhatsApp). Defines the existing dispatch infrastructure, the target tenant-configurable credential model, and the full operational stack (webhooks, deliverability, templates, observability) required for a world-class communication module.
-> **Status**: Dispatch infrastructure is fully built. Per-tenant credentials, webhooks, deliverability, WhatsApp templates, and the operational layer are NOT YET implemented. The 14-implementation overhaul tracked in `communicationnew/PLAN.md` ports the existing `TenantStripeConfig` pattern to `TenantEmailConfig`, `TenantSmsConfig`, `TenantWhatsAppConfig`, adds the `NotificationSuppressionList`, `TenantEmailDomain`, `WhatsAppTemplate`, and `NotificationWebhookEvent` tables, and removes platform `.env` credential paths entirely.
-> **Last verified**: 2026-04-27
+> **Status**: **Implementation complete** (per `communicationnew/IMPLEMENTATION_LOG.md`). All 14 implementations shipped to `main` via the standard CI pipeline (per user override of the worktree-only protocol for this run). Per-tenant credentials live; webhooks land status updates; email domain verification + WhatsApp template lifecycle + 24-hour service window enforced; suppression list active; observability layer (Sentry tags + structured logging + Prometheus + Grafana + runbooks) deployed. The five test tenants (NHQS + stress-a/b/c/d) are seeded with channel-specific dev credentials. Pending: production cutover — running `communicationnew/cutover/production-cutover.sh` with real production credentials supplied by the user.
+> **Last verified**: 2026-04-27 (post-rebuild — Impl 14 sign-off)
 
 ---
 
@@ -838,24 +838,7 @@ NOT granted to teachers, parents, or students.
 
 ## 4. Build Order — 14 Implementations
 
-Tracked in `communicationnew/PLAN.md` and `communicationnew/IMPLEMENTATION_LOG.md`. Each implementation runs in the dedicated `communications-overhaul` worktree. **No CI deployment** — local dev server testing only. The user merges the worktree to `main` after Impl 14 completes.
-
-| #   | Title                                                                  | Wave |
-| --- | ---------------------------------------------------------------------- | ---- |
-| 01  | Schema + migration + RLS (8 new tables)                                | 1    |
-| 02  | Permissions + RBAC + role backfill on test tenants                     | 1    |
-| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests         | 2    |
-| 04  | Provider refactor + per-tenant client cache + Redis pub/sub            | 3    |
-| 05  | Worker parity + `.env` removal + mid-flight enforcement                | 3    |
-| 06  | Webhooks + signature verification + suppression list                   | 3    |
-| 07  | Email deliverability — domain verification + DNS                       | 3    |
-| 08  | WhatsApp templates + approval sync + 24-hour window                    | 3    |
-| 09  | `verifyConfig` + test endpoints with full semantics                    | 3    |
-| 10  | Operational layer — Sentry + logging + metrics + runbooks              | 3    |
-| 11  | Frontend Settings UI                                                   | 4    |
-| 12  | Module gap closure + cleanups (finance, push→whatsapp, password reset) | 4    |
-| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB                | 5    |
-| 14  | Architecture docs + comprehensive E2E verification on local dev        | 5    |
+The 14-implementation plan is now historical. See **Appendix A: Historical — Build Order** at the end of this file for the full table with completion commit SHAs. Tracking lives in `communicationnew/PLAN.md` and `communicationnew/IMPLEMENTATION_LOG.md`.
 
 ---
 
@@ -896,8 +879,33 @@ Tracked in `communicationnew/PLAN.md` and `communicationnew/IMPLEMENTATION_LOG.m
 
 After Impl 14, these architecture documents must reflect reality per `.claude/rules/architecture-policing.md`:
 
-- [ ] `docs/architecture/module-blast-radius.md` — `communications` module now depends on `configuration` for tenant credential resolution; `auth`, `trips`, `school-closures`, `staff-leave`, `health`, `sen` now depend on `communications`.
-- [ ] `docs/architecture/feature-map.md` — Update Configuration row's endpoint count (+~25 endpoints), frontend page count (+4 pages); add Communications operational tables.
-- [ ] `docs/architecture/danger-zones.md` — Add entries: tenant credential rotation must invalidate per-tenant client cache; mid-flight `is_enabled` flip drops in-batch sends; webhook signature trust depends on tenant `webhook_secret` being set.
-- [ ] `docs/architecture/state-machines.md` — Document extended `notification.status` machine including webhook-driven `bounced` / `complained`; add `whatsapp_template.status` and `tenant_email_domain.status` machines.
-- [ ] `docs/architecture/event-job-catalog.md` — Add `comms:domain-verification-refresh` (cron 30 min), `comms:whatsapp-template-sync` (cron 15 min), `comms:suppression-list-cleanup` (cron daily); document inbound webhook flows.
+- [x] `docs/architecture/module-blast-radius.md` — `communications` module now depends on `configuration` for tenant credential resolution; `auth`, `trips`, `school-closures`, `staff-leave`, `health`, `sen` now depend on `communications`. **Done by Impl 14.**
+- [x] `docs/architecture/feature-map.md` — Updated Configuration row's endpoint count (+12 credential CRUD + test endpoints + 5 email-domain + 4 whatsapp-template = +21 net), frontend page count (+4 pages); added §14a Communications operational stack. **Done by Impl 14.**
+- [x] `docs/architecture/danger-zones.md` — Added six entries: DZ-Comms-1 cache coherence; DZ-Comms-2 mid-flight `is_enabled` flip; DZ-Comms-3 webhook signature trust; DZ-Comms-4 suppression-list growth; DZ-Comms-5 WhatsApp service window staleness; DZ-Comms-6 `.env` removal one-way. **Done by Impl 14.**
+- [x] `docs/architecture/state-machines.md` — Documented extended `NotificationStatus` machine including webhook-driven `bounced` / `complained`; added `WhatsAppTemplateStatus` and `EmailDomainStatus` machines. **Done by Impl 14.**
+- [x] `docs/architecture/event-job-catalog.md` — Added `comms:domain-verification-refresh` (cron 30 min), `comms:whatsapp-template-sync` (cron 15 min), `comms:suppression-list-cleanup` (cron daily 03:00 UTC), `comms:whatsapp-service-window-cleanup` (cron daily 04:00 UTC); documented inbound webhook flows + Redis pub/sub for tenant credential cache invalidation. **Done by Impl 14.**
+
+---
+
+## Appendix A: Historical — Build Order (14 Implementations)
+
+The rebuild was tracked in `communicationnew/PLAN.md` and `communicationnew/IMPLEMENTATION_LOG.md`. Per user override of the rebuild's worktree-only protocol (Rule 5 of `IMPLEMENTATION_LOG.md`), every implementation in this run committed to `main` and shipped through the standard CI pipeline.
+
+| #   | Title                                                           | Wave | Completion (SHA) |
+| --- | --------------------------------------------------------------- | ---- | ---------------- |
+| 01  | Schema + migration + RLS (8 new tables)                         | 1    | `ac342ee8`       |
+| 02  | Permissions + RBAC + role backfill on test tenants              | 1    | `c74d92c9`       |
+| 03  | Zod schemas + 3 services + 3 controllers + comprehensive tests  | 2    | `e22ea549`       |
+| 04  | Provider refactor + per-tenant client cache + Redis pub/sub     | 3    | `d9782424`       |
+| 05  | Worker parity + `.env` removal + mid-flight enforcement         | 3    | `f02f52f5`       |
+| 06  | Webhooks + signature verification + suppression list            | 3    | `7b586d4b`       |
+| 07  | Email deliverability — domain verification + DNS                | 3    | `83a9cf53`       |
+| 08  | WhatsApp templates + approval sync + 24-hour window             | 3    | `1328c08e`       |
+| 09  | `verifyConfig` + test endpoints with full semantics             | 3    | `c42397a6`       |
+| 10  | Operational layer — Sentry + logging + metrics + runbooks       | 3    | `1273ed4c`       |
+| 11  | Frontend Settings UI                                            | 4    | `1863d931`       |
+| 12  | Module gap closure + cleanups                                   | 4    | `c95635bd`       |
+| 13  | Tenant backfill (5 test tenants × 3 channels) in dev DB         | 5    | `dd9e2b0b`       |
+| 14  | Architecture docs + comprehensive E2E verification on local dev | 5    | (this commit)    |
+
+Each impl additionally has follow-up fix / chore / test commits — see `communicationnew/IMPLEMENTATION_LOG.md` §5 for the full list per impl.

@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-04-21 (wellbeing rebuild — Impl 24 Wave 7 sign-off)
+> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; added 4 cron jobs in `notifications` queue, documented inbound webhook flow + Redis pub/sub for tenant credential cache invalidation)
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Queues**: `22` queue names in [apps/worker/src/base/queue.constants.ts](/Users/ram/Desktop/SDB/apps/worker/src/base/queue.constants.ts)
 - **Processor files**: `95` live `*.processor.ts` files under [apps/worker/src/processors](/Users/ram/Desktop/SDB/apps/worker/src/processors)
-- **Repeatable cron registrations**: `39` repeatable jobs registered in [apps/worker/src/cron/cron-scheduler.service.ts](/Users/ram/Desktop/SDB/apps/worker/src/cron/cron-scheduler.service.ts)
+- **Repeatable cron registrations**: `43` repeatable jobs registered in [apps/worker/src/cron/cron-scheduler.service.ts](/Users/ram/Desktop/SDB/apps/worker/src/cron/cron-scheduler.service.ts)
 - **Architecture rule**: async communication is BullMQ-driven; there is no `EventEmitter2` event bus
 
 ### Core rules
@@ -84,6 +84,10 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `monitoring:dlq-scan` -> every `15 min`
 - `monitoring:canary-ping` -> every `5 min`
 - `inbox-fallback-check` -> every `5 min` (new — impl 07)
+- `comms:domain-verification-refresh` -> every `30 min` — cross-tenant; iterates `tenant_email_domains` rows with `status='pending'`, calls Resend's `domains.get`, updates SPF/DKIM/DMARC status, flips to `verified` on all-three-green. Owns: `domain-verification-refresh.processor.ts`. Payload: `{}`. Removes on complete: 10. Removes on fail: 50. (Communications Overhaul Impl 07)
+- `comms:whatsapp-template-sync` -> every `15 min` — cross-tenant; iterates `whatsapp_templates` rows with `status='submitted'`, calls Twilio Content API, updates status + `twilio_template_sid`. Owns: `whatsapp-template-sync.processor.ts`. Payload: `{}`. (Communications Overhaul Impl 08)
+- `comms:suppression-list-cleanup` -> daily `03:00 UTC` — cross-tenant; deletes soft-bounce rows older than 30 days from `notification_suppression_list`. Hard bounces / complaints / manual / unsubscribes are NEVER deleted (`danger-zones.md` DZ-Comms-4). Owns: `suppression-list-cleanup.processor.ts`. Payload: `{}`. (Communications Overhaul Impl 06)
+- `comms:whatsapp-service-window-cleanup` -> daily `04:00 UTC` — cross-tenant; deletes `whatsapp_service_windows` rows where `expires_at < now() - 7 days`. (Communications Overhaul Impl 08)
 
 ### `wellbeing`
 
@@ -623,3 +627,52 @@ claim each other's work).
   trail (the password hash is wiped at the same time).
 - **Fan-out**: single cross-tenant query; doesn't iterate tenants explicitly
   (the `expires_at` filter is global).
+
+## Inbound Webhook Flow (Communications Overhaul Impl 06)
+
+Three new public endpoints receive provider events and update notification status. **Per-tenant signature verification is mandatory** (`danger-zones.md` DZ-Comms-3).
+
+### Routes
+
+- `POST /v1/webhooks/communications/email/:tenantId` — Resend events.
+- `POST /v1/webhooks/communications/sms/:tenantId` — Twilio status callback (SMS).
+- `POST /v1/webhooks/communications/whatsapp/:tenantId` — Twilio status callback (WhatsApp).
+
+### Flow per request
+
+1. Lookup tenant config row by `:tenantId` path param. Decrypt `webhook_secret_encrypted`.
+2. Verify signature: Resend uses `Svix-Signature` (HMAC-SHA256 of `{svix_id}.{svix_timestamp}.{body}`). Twilio uses `X-Twilio-Signature` (HMAC-SHA1 of URL + sorted form params, signed with the tenant's `twilio_auth_token`). On signature failure: write `notification_webhook_events` with `signature_verified=false`, return 401.
+3. On success: write `notification_webhook_events` with `signature_verified=true`, full payload preserved as JSON.
+4. Resolve the matching `notification` row by `provider_message_id` (Resend `email_id` / Twilio `MessageSid`). If no match: log + return 200 (event preserved for replay).
+5. Update `notification.status` per the event type (see `notification.status` state machine in `state-machines.md`).
+6. On hard bounce or complaint: insert row into `notification_suppression_list` with `reason='hard_bounce'` or `reason='complaint'`. Future sends to this recipient are skipped.
+7. For WhatsApp inbound: also update `whatsapp_service_windows.last_inbound_at = now()` and `expires_at = now() + 24h`.
+
+### Failure modes
+
+- Missing `webhook_secret`: every event for the tenant is rejected. See DZ-Comms-3.
+- Provider signature mismatch (e.g. tenant rotated their auth token without updating the webhook secret): events queue up in `notification_webhook_events` with `signature_verified=false` and never advance the matching `notification.status`. Operator can replay once the secret is fixed.
+- Notification not found: event preserved in `notification_webhook_events` for forensics. Status update is skipped.
+
+## Cache Invalidation Pub/Sub (Communications Overhaul Impl 04)
+
+`CommsCacheBusService` wraps a Redis pub/sub channel `comms:config-changed` with a fixed payload shape:
+
+```json
+{ "tenant_id": "<uuid>", "channel": "email | sms | whatsapp" }
+```
+
+### Publishers
+
+- `EmailConfigService.upsertConfig` / `deleteConfig`
+- `SmsConfigService.upsertConfig` / `deleteConfig`
+- `WhatsAppConfigService.upsertConfig` / `deleteConfig`
+
+### Subscribers (one per process)
+
+- API process — invalidates the per-tenant client cache held inside `ResendEmailProvider`, `TwilioSmsProvider`, `TwilioWhatsAppProvider`.
+- Worker processes — same; the worker mirrors the providers.
+
+### Failure modes
+
+If Redis is unhealthy at the moment of a credential rotation, the publish silently no-ops. The cache TTL (30-min idle eviction) eventually evicts the stale client. See DZ-Comms-1.

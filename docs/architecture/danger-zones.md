@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-07
+> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; six new DZ-Comms entries added covering tenant credential cache coherence, mid-flight `is_enabled` flips, webhook signature trust, suppression-list growth, WhatsApp service window staleness, and the one-way `.env` removal)
 
 ---
 
@@ -1323,3 +1323,157 @@ Adding a database-level partial unique constraint on `staff_compensation (staff_
 - `SELECT staff_profile_id, COUNT(*) FROM staff_compensation WHERE effective_to IS NULL GROUP BY 1 HAVING COUNT(*) > 1;` returns rows on a tenant — that tenant has overlap and should be cleaned up before adding the constraint.
 
 **Reference**: `payrollnew/PLAN.md` §"Period-bracketed compensation"; `payrollnew/IMPLEMENTATION_LOG.md` impl 02 completion record.
+
+## DZ-Comms-1: Tenant Credential Cache Coherence — Redis Pub/Sub Required
+
+**Risk**: Stale provider clients used after a tenant rotates credentials, silently sending mail from revoked Resend / Twilio keys.
+**Location**: `apps/api/src/modules/communications/comms-cache-bus.service.ts`, `apps/api/src/modules/communications/providers/per-tenant-client-cache.ts`, the worker's mirror of both
+**Status**: ACTIVE
+
+The provider classes maintain a per-process `Map<tenant_id, ProviderClient>` cache to avoid re-instantiating Resend/Twilio clients on every dispatch. To stay coherent across the API process and every worker process, every credential mutation publishes `{ tenant_id, channel }` on the Redis pub/sub channel `comms:config-changed`. Both the API and the worker subscribe and call `cache.invalidate(tenant_id)` on receipt.
+
+**Failure mode**: if Redis is unhealthy at the moment of a credential rotation, the publish silently no-ops (or the subscribe silently misses the event). The cache TTL (30-min idle eviction) eventually evicts the stale client, but for up to 30 minutes the API/worker keeps using the old credentials. From the tenant's perspective: "I rotated my Resend key but emails are still going through" — a confusing safety regression.
+
+**Mitigations**:
+
+1. The `CommsCacheBusService` logs every publish + receive with `tenant_id` + `channel` at INFO level. After a credential rotation, the operator can grep worker logs for the publish/receive pair to confirm propagation.
+2. Manual invalidation: `pm2 restart api worker` clears every per-process cache.
+3. The worker also re-reads `is_enabled` per notification (not once per batch — see DZ-Comms-2) which catches "tenant disabled the channel" within at most one notification's worth of staleness.
+4. Monitoring: Prometheus counter `notifications_dispatched_total{channel, status}` should drop sharply for the affected tenant within seconds of a cache invalidation if their old credentials are revoked. Lack of a drop = cache didn't invalidate; investigate Redis pub/sub.
+
+**Where to look first when something goes wrong**: Redis health (`redis-cli ping`), worker logs filtered by `comms:config-changed`, and the per-tenant client cache eviction events in the API logs.
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 04 (provider refactor + per-tenant client cache + Redis pub/sub).
+
+## DZ-Comms-2: Mid-Flight `is_enabled` Flip Drops In-Batch Sends
+
+**Risk**: A batch of N notifications is partially dispatched when a tenant disables a channel — some land, some are marked `failed:channel_disabled`. The "some land" half can confuse the user into thinking nothing was disabled.
+**Location**: `apps/worker/src/processors/communications/dispatch-notifications.processor.ts`
+**Status**: ACTIVE — by design
+
+The dispatch worker batches up to 100 notification rows per tenant per tick. Inside the batch, every row re-reads `is_enabled` from the per-tenant config (NOT once per batch — Impl 05 explicitly closed that gap). If a tenant flips `is_enabled = false` at a moment when 30 of a 100-row batch have already dispatched, the next 70 rows mark `failed:channel_disabled`.
+
+**Why this is the right behaviour**: re-reading per-batch (the alternative) would force the worker to either (a) abort the entire batch on any change — which loses the 30 already-dispatched rows' acknowledgment, or (b) continue using the stale read — which is the failure mode we're trying to avoid. Per-row re-read is the only correct compromise.
+
+**Failure mode**: user disables a channel mid-announcement and observes "30 of 100 parents got the email; 70 didn't." The 70 are marked `failed:channel_disabled` in the `notification` table; the announcement audit log shows the partial dispatch.
+
+**Mitigations**:
+
+1. The frontend `(school)/settings/communications/{email,sms,whatsapp}/page.tsx` should warn when disabling a channel that there may be in-flight dispatches. (Impl 11 polish: optional toast.)
+2. Operations runbook `comms-tenant-dispatch-failures.md` documents this as expected behaviour and walks through how to identify partial-dispatch incidents.
+3. The `notification` table has `failure_reason='channel_disabled'`; the dashboard surfaces the count.
+
+**Where to look first when something goes wrong**: Filter `notification` rows by `tenant_id`, `failure_reason='channel_disabled'`, and the timestamp window of the disable event. Compare against the `audit_log` event for the `tenant_*_config.update` action with `is_enabled` going false.
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 05 (worker parity + mid-flight `is_enabled` enforcement).
+
+## DZ-Comms-3: Webhook Signature Trust Depends on Per-Tenant `webhook_secret`
+
+**Risk**: A tenant whose `webhook_secret` is missing/null has every webhook event rejected. Notification statuses for that tenant never advance past `sent` — bounces, complaints, deliveries are never reflected.
+**Location**: `apps/api/src/modules/communications/webhooks/webhook-signature-verifier.service.ts`, `apps/api/src/modules/communications/webhooks/communications-webhooks.controller.ts`
+**Status**: ACTIVE
+
+Every inbound webhook on `POST /v1/webhooks/communications/{email,sms,whatsapp}/:tenantId` verifies the per-tenant signature against the tenant's `webhook_secret_encrypted` column. If the secret is missing, the verifier fails closed (returns 401, writes `notification_webhook_events` with `signature_verified=false`).
+
+**Why this is the right behaviour**: webhooks are public endpoints. Trusting unsigned bodies would let an attacker mark every notification as `delivered`/`bounced` for any tenant. The fail-closed posture is non-negotiable.
+
+**Failure mode**: a tenant onboarded without a `webhook_secret` (e.g. partial Impl 13 backfill, or a manual platform-admin row insert that skipped the field) → every webhook event for that tenant is logged as `signature_verified=false` and dropped. From the tenant's perspective, all their emails show `status=sent` forever, never advancing to `delivered` / `bounced`.
+
+**Mitigations**:
+
+1. The Zod schema on `upsertEmailConfigSchema` / `upsertSmsConfigSchema` / `upsertWhatsAppConfigSchema` requires `webhook_secret` — any new tenant config gets one (Impl 03 enforced this).
+2. Impl 13's backfill script populates `webhook_secret_encrypted` for all five test tenants.
+3. The runbook `comms-webhook-debugging.md` includes the SQL query to find tenants whose `webhook_secret` is null:
+
+```sql
+SELECT t.subdomain, tec.id IS NOT NULL AS has_email_config,
+       tec.webhook_secret_encrypted IS NULL AS missing_email_secret,
+       tsc.webhook_secret_encrypted IS NULL AS missing_sms_secret,
+       twc.webhook_secret_encrypted IS NULL AS missing_whatsapp_secret
+FROM tenants t
+LEFT JOIN tenant_email_configs tec ON tec.tenant_id = t.id
+LEFT JOIN tenant_sms_configs tsc ON tsc.tenant_id = t.id
+LEFT JOIN tenant_whatsapp_configs twc ON twc.tenant_id = t.id;
+```
+
+4. Monitoring: alert when `notifications_webhook_received_total{signature_valid="false"}` exceeds 1% of total webhook ingest for any tenant over a 1-hour window — likely a signing-secret mismatch.
+
+**Where to look first when something goes wrong**: `notification_webhook_events` filtered by `tenant_id`, ordered by `received_at DESC`, with `signature_verified=false`. If every recent event for a tenant has `signature_verified=false`, the secret is wrong (or missing). Cross-check against the provider dashboard for the actual signing secret.
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 06 (webhooks + signature verification + suppression list).
+
+## DZ-Comms-4: Suppression List Unbounded Growth
+
+**Risk**: `notification_suppression_list` accumulates rows over time. Hard bounces and complaints are permanent until manually cleared (no UI for that yet — V2). For a tenant with high recipient churn, the table can grow to hundreds of thousands of rows, slowing every outbound dispatch (each consults the list) and increasing Postgres storage.
+**Location**: `apps/api/src/modules/communications/suppression/suppression-list.service.ts`, `apps/worker/src/processors/communications/suppression-list-cleanup.processor.ts`
+**Status**: ACTIVE
+
+The `comms:suppression-list-cleanup` cron runs daily at 03:00 UTC and expires soft-bounce rows older than 30 days. Hard bounces, complaints, manual blocks, and unsubscribes are NEVER auto-expired — they're permanent until cleared via a future admin UI (out of scope V1).
+
+**Failure mode**: a tenant with 10,000 recipients × monthly emails × 2% hard bounce rate over a year = ~2,400 permanent rows. With many channels and several years, a single tenant could exceed 50k rows. The Redis cache (5-minute TTL keyed on `(tenant_id, channel, recipient_address)`) hides most of the perf cost, but cold-cache lookups on a large list are slow.
+
+**Mitigations**:
+
+1. Index `idx_suppression_tenant_channel_expiry` (already created in Impl 01) makes the lookup O(log n) regardless of size.
+2. Redis cache hides the perf for hot recipients.
+3. Monitoring: alert when any tenant's row count in `notification_suppression_list` exceeds 100,000. Investigation may reveal a mailing list issue (e.g. a corrupt CSV import) rather than expected churn.
+4. V2 will ship a manual-clear admin UI; until then, ad hoc SQL is the recovery path.
+
+**Where to look first when something goes wrong**: SQL row count per tenant + per channel. If a single tenant dominates, look at their bounce rate (hint: their sender reputation is probably already damaged — investigate their domain verification status and recent send history).
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 06 (suppression list + cleanup cron).
+
+## DZ-Comms-5: WhatsApp Service Window Staleness
+
+**Risk**: If the inbound WhatsApp webhook fails to update `whatsapp_service_windows.last_inbound_at`, outbound free-form sends (which would otherwise be allowed within the 24-hour window) get rejected by Twilio because Twilio's view of the window doesn't match ours.
+**Location**: `apps/api/src/modules/communications/whatsapp-templates/whatsapp-service-window.service.ts`, `apps/api/src/modules/communications/webhooks/twilio-webhook-handler.service.ts`
+**Status**: ACTIVE
+
+Twilio's WhatsApp Business policy enforces a 24-hour service window from the recipient's last inbound message. Within the window, free-form sends are allowed; outside, only pre-approved templates are. We mirror this state in `whatsapp_service_windows` so the worker can refuse to attempt out-of-window free-form sends without burning a Twilio API call.
+
+**Failure mode**: Twilio sends an inbound webhook → our endpoint fails signature verification (e.g. tenant rotated their auth token without updating the webhook signature) → we return 401 → Twilio retries a few times then drops → our `whatsapp_service_windows` row never updates. The next outbound free-form send checks the table, sees `expires_at < now()`, and refuses with `failure_reason='outside_service_window_no_template'`. Twilio's view says the window is open. The tenant sees "WhatsApp says my window is open but the platform won't send."
+
+**Mitigations**:
+
+1. Webhook signature failures are surfaced via the `notifications_webhook_received_total{signature_valid="false"}` Prometheus counter. Per-tenant elevation is investigated.
+2. The `notification_webhook_events` table preserves every event payload; a failed signature can be retroactively replayed once the secret is fixed (operator action).
+3. The runbook `comms-webhook-debugging.md` includes a SQL query to find recent inbound WhatsApp webhooks per tenant and verify their signature status.
+4. Outbound retry policy: a `failed:outside_service_window_no_template` row can be re-attempted after the next inbound webhook lands — the dispatch service handles this.
+
+**Where to look first when something goes wrong**: Filter `notification_webhook_events` by `tenant_id`, `channel='whatsapp'`, `event_type` matching inbound, `signature_verified=false`. Cross-check against `whatsapp_service_windows.last_inbound_at` — if the timestamp lags real Twilio inbound, signatures aren't being verified.
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 08 (WhatsApp templates + 24-hour service window).
+
+## DZ-Comms-6: `.env` Credential Removal Is One-Way (Post Impl 05)
+
+**Risk**: Reverting Impl 05 is the only way to restore the `.env`-fallback dispatch path. After Impl 05, the env vars `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`, `TWILIO_WHATSAPP_FROM` are removed from env validation — re-adding them does nothing because the providers no longer read them.
+**Location**: `apps/api/src/modules/communications/providers/{resend-email,twilio-sms,twilio-whatsapp}.provider.ts`, `apps/api/src/config/env.validation.ts`
+**Status**: ACTIVE — by design
+
+Pre-rebuild, every tenant shared the platform's Resend/Twilio credentials read from `.env`. Post-Impl-05, providers read tenant config first; there is no fallback. If a tenant has no config row, the provider returns `{ skipped: true, reason: 'channel_not_configured' }` and the notification is marked `failed:channel_not_configured`.
+
+**Why this is correct**: a `.env` fallback would mean tenants without configs send from the platform's shared credentials, which is exactly the security/deliverability disaster the rebuild eliminates.
+
+**Failure mode**: in a rollback scenario where the user wants to "temporarily fall back to the old single-tenant behaviour," they cannot — the providers won't read env vars even if they're present. The only path to send is to populate tenant config tables (or `git revert` Impl 05 entirely).
+
+**Mitigations**:
+
+1. The completion record for Impl 05 in `IMPLEMENTATION_LOG.md` §5 includes the exact `git revert` SHA + manual env-var restoration steps.
+2. The production cutover script (`communicationnew/cutover/production-cutover.sh`) pre-populates tenant config rows for all production tenants before the merge, so the cutover is one atomic step and rollback is a `git revert + restart`, not a config migration.
+
+**Where to look first when something goes wrong**: confirm tenant config rows exist:
+
+```sql
+SELECT t.subdomain,
+       tec.id IS NOT NULL AS email_configured,
+       tsc.id IS NOT NULL AS sms_configured,
+       twc.id IS NOT NULL AS whatsapp_configured
+FROM tenants t
+LEFT JOIN tenant_email_configs tec ON tec.tenant_id = t.id
+LEFT JOIN tenant_sms_configs tsc ON tsc.tenant_id = t.id
+LEFT JOIN tenant_whatsapp_configs twc ON twc.tenant_id = t.id;
+```
+
+Any tenant with `_configured=false` for a channel they expect to use is the cause.
+
+**Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 05 (worker parity + `.env` removal).
