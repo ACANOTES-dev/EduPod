@@ -298,10 +298,24 @@ export class NotificationDispatchService {
     const renderedBody = this.templateRenderer.render(template.body_template, variables);
     const strippedBody = this.templateRenderer.stripHtml(renderedBody);
 
+    // Impl 08: extract optional template_variables from payload_json so
+    // approved templates can be dispatched outside the 24h window. Inside
+    // the window the provider prefers free-form `body` and falls back to
+    // the template only when body is empty.
+    const tplVars =
+      variables && typeof variables === 'object'
+        ? ((variables as Record<string, unknown>).template_variables as
+            | Record<string, string>
+            | undefined)
+        : undefined;
+
     // Send via Twilio WhatsApp
     const result = await this.twilioWhatsApp.send(notification.tenant_id, {
       to: phone,
       body: strippedBody,
+      template_key: notification.template_key ?? undefined,
+      template_variables: tplVars,
+      locale: notification.locale,
     });
 
     if (isDispatchSkip(result)) {

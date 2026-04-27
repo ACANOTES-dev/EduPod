@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SuppressionListService } from '../suppression/suppression-list.service';
+import { WhatsAppServiceWindowService } from '../whatsapp-templates/whatsapp-service-window.service';
 
 /**
  * Twilio error codes that mean the destination is unusable forever.
@@ -24,6 +25,7 @@ export class TwilioWebhookHandlerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly suppressionService: SuppressionListService,
+    private readonly serviceWindow: WhatsAppServiceWindowService,
   ) {}
 
   async handleSms(tenantId: string, params: Record<string, string>): Promise<void> {
@@ -34,13 +36,21 @@ export class TwilioWebhookHandlerService {
     // WhatsApp inbound has `From` set to the recipient and no `MessageStatus`.
     const isInbound = !params['MessageStatus'] && Boolean(params['From']);
     if (isInbound) {
-      // Service-window updates are owned by Impl 08. Until that lands we
-      // log and return — the webhook event log row is already written
-      // by the controller, so Impl 08 can rely on
-      // `notification_webhook_events` as a backup.
-      this.logger.log(
-        `WhatsApp inbound for tenant ${tenantId} from ${params['From']} — service-window update deferred to Impl 08`,
-      );
+      // Impl 08: open the 24-hour service window for this recipient.
+      // Synchronous within the webhook so the next outbound check sees
+      // fresh state. Failures are logged but never crash the webhook —
+      // Twilio retries 5xx responses and we'd rather process the rest
+      // of the payload than spam failures.
+      const fromPhone = params['From'] ?? '';
+      try {
+        await this.serviceWindow.recordInbound(tenantId, fromPhone);
+      } catch (err) {
+        this.logger.error(
+          `[handleWhatsApp inbound] tenant=${tenantId} from=${fromPhone}: ${
+            err instanceof Error ? err.message : 'unknown'
+          }`,
+        );
+      }
       return;
     }
 

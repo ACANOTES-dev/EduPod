@@ -17,8 +17,13 @@ function build(notification: unknown = null) {
     },
   };
   const suppression = { addSuppression: jest.fn().mockResolvedValue(undefined) };
-  const svc = new TwilioWebhookHandlerService(prisma as never, suppression as never);
-  return { svc, prisma, suppression };
+  const serviceWindow = { recordInbound: jest.fn().mockResolvedValue(undefined) };
+  const svc = new TwilioWebhookHandlerService(
+    prisma as never,
+    suppression as never,
+    serviceWindow as never,
+  );
+  return { svc, prisma, suppression, serviceWindow };
 }
 
 const SMS_NOTIFICATION = {
@@ -126,14 +131,15 @@ describe('TwilioWebhookHandlerService — SMS', () => {
 });
 
 describe('TwilioWebhookHandlerService — WhatsApp', () => {
-  it('inbound message (no MessageStatus, has From) is logged and returns (Impl 08 stub)', async () => {
-    const { svc, prisma } = build(null);
+  it('inbound message (no MessageStatus, has From) opens the service window and returns', async () => {
+    const { svc, prisma, serviceWindow } = build(null);
     await svc.handleWhatsApp(TENANT_A, {
       MessageSid: 'SM1',
       From: 'whatsapp:+15550000',
       To: 'whatsapp:+15551111',
     });
     expect(prisma.notification.update).not.toHaveBeenCalled();
+    expect(serviceWindow.recordInbound).toHaveBeenCalledWith(TENANT_A, 'whatsapp:+15550000');
   });
 
   it('outbound status callback for WhatsApp follows SMS path', async () => {

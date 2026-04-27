@@ -7,6 +7,8 @@ import type { CommsCacheBusEvent, WhatsAppDispatchResult } from '@school/shared'
 import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
 import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
 import { CommsCacheBusService } from '../comms-cache-bus.service';
+import { WhatsAppServiceWindowService } from '../whatsapp-templates/whatsapp-service-window.service';
+import { WhatsAppTemplateService } from '../whatsapp-templates/whatsapp-template.service';
 
 import { PerTenantClientCache } from './per-tenant-client-cache';
 
@@ -28,6 +30,8 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
     private readonly circuitBreaker: CircuitBreakerRegistry,
     private readonly whatsappConfigService: WhatsAppConfigService,
     private readonly cacheBus: CommsCacheBusService,
+    private readonly serviceWindow: WhatsAppServiceWindowService,
+    private readonly templates: WhatsAppTemplateService,
   ) {}
 
   onModuleInit(): void {
@@ -45,7 +49,13 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
 
   async send(
     tenantId: string,
-    params: { to: string; body: string },
+    params: {
+      to: string;
+      body: string;
+      template_key?: string | null;
+      template_variables?: Record<string, string>;
+      locale?: string;
+    },
   ): Promise<WhatsAppDispatchResult> {
     const tenantConfig = await this.whatsappConfigService.getDecryptedConfig(tenantId);
 
@@ -54,6 +64,42 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
     }
     if (!tenantConfig.is_enabled) {
       return { skipped: true, reason: 'channel_disabled' };
+    }
+
+    // Impl 08: 24-hour service window check.
+    //   - INSIDE the window: free-form `body` allowed (or an approved template).
+    //   - OUTSIDE the window: only approved templates pass; everything else is
+    //     skipped before reaching Twilio so we own the audit trail.
+    const insideWindow = await this.serviceWindow.isInsideWindow(tenantId, params.to);
+    const locale = params.locale ?? 'en';
+
+    let messageBody: string | undefined;
+    let contentSid: string | undefined;
+    let contentVariables: string | undefined;
+
+    if (insideWindow) {
+      if (params.body && params.body.trim().length > 0) {
+        messageBody = params.body;
+      } else if (params.template_key) {
+        const tpl = await this.templates.getApprovedByKey(tenantId, params.template_key, locale);
+        if (!tpl?.twilio_template_sid) {
+          return { skipped: true, reason: 'template_not_approved_inside_window' };
+        }
+        contentSid = tpl.twilio_template_sid;
+        contentVariables = JSON.stringify(params.template_variables ?? {});
+      } else {
+        return { skipped: true, reason: 'whatsapp_payload_missing_body_and_template' };
+      }
+    } else {
+      if (!params.template_key) {
+        return { skipped: true, reason: 'outside_service_window_no_template' };
+      }
+      const tpl = await this.templates.getApprovedByKey(tenantId, params.template_key, locale);
+      if (!tpl?.twilio_template_sid) {
+        return { skipped: true, reason: 'outside_service_window_no_template' };
+      }
+      contentSid = tpl.twilio_template_sid;
+      contentVariables = JSON.stringify(params.template_variables ?? {});
     }
 
     const resolved = this.tenantClientCache.getOrCreate(tenantId, () => ({
@@ -66,10 +112,19 @@ export class TwilioWhatsAppProvider implements OnModuleInit {
       ? resolved.fromNumber
       : `whatsapp:${resolved.fromNumber}`;
 
-    this.logger.log(`Sending WhatsApp tenant=${tenantId} to=${to}`);
+    this.logger.log(
+      `Sending WhatsApp tenant=${tenantId} to=${to} ${
+        contentSid ? `template=${contentSid}` : 'free-form'
+      }`,
+    );
 
     const message = await this.circuitBreaker.exec('twilio', () =>
-      resolved.client.messages.create({ body: params.body, from, to }),
+      resolved.client.messages.create({
+        from,
+        to,
+        ...(messageBody !== undefined ? { body: messageBody } : {}),
+        ...(contentSid !== undefined ? { contentSid, contentVariables } : {}),
+      }),
     );
 
     this.logger.log(`WhatsApp sent tenant=${tenantId} sid=${message.sid}`);

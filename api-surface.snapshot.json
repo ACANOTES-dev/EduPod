@@ -12937,6 +12937,62 @@
   },
   {
     "method": "GET",
+    "path": "/v1/whatsapp-templates",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-templates",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/whatsapp-templates/:id",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/whatsapp-templates/:id",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-templates/:id/pause",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-templates/:id/resume",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-templates/:id/submit",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/whatsapp-templates/:id/sync",
+    "controller": "WhatsAppTemplateController",
+    "module": "communications",
+    "permission": "configuration.communications.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/year-groups",
     "controller": "YearGroupsController",
     "module": "academics",

@@ -44,6 +44,9 @@ import { CommunicationsWebhooksController } from './webhooks/communications-webh
 import { ResendWebhookHandlerService } from './webhooks/resend-webhook-handler.service';
 import { TwilioWebhookHandlerService } from './webhooks/twilio-webhook-handler.service';
 import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-verifier.service';
+import { WhatsAppServiceWindowService } from './whatsapp-templates/whatsapp-service-window.service';
+import { WhatsAppTemplateController } from './whatsapp-templates/whatsapp-template.controller';
+import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.service';
 
 @Module({
   imports: [
@@ -69,6 +72,7 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     WebhookController,
     CommunicationsWebhooksController,
     EmailDomainController,
+    WhatsAppTemplateController,
   ],
   providers: [
     AnnouncementsService,
@@ -94,6 +98,8 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     EmailDomainService,
     EmailDomainNotifierAdapter,
     { provide: EMAIL_DOMAIN_NOTIFIER, useExisting: EmailDomainNotifierAdapter },
+    WhatsAppTemplateService,
+    WhatsAppServiceWindowService,
   ],
   exports: [
     AnnouncementsService,
@@ -108,6 +114,8 @@ import { WebhookSignatureVerifierService } from './webhooks/webhook-signature-ve
     IsEnabledCacheService,
     SuppressionListService,
     EmailDomainService,
+    WhatsAppTemplateService,
+    WhatsAppServiceWindowService,
   ],
 })
 export class CommunicationsModule {}
