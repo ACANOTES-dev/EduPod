@@ -69,6 +69,10 @@ export async function createTestApp(): Promise<INestApplication> {
 
   // Clear volatile Redis auth/cache state so repeated local e2e runs do not
   // inherit brute-force counters, sessions, or stale tenant-domain caches.
+  // Do not delete `platform_owner_user_ids`: parallel Jest workers share Redis,
+  // and removing that set while another worker is exercising platform-admin
+  // routes causes transient 403s. The per-user platform-owner cache is safe to
+  // clear because the guard can rebuild it from the shared set.
   await cleanupRedisKeys([
     'brute_force:*',
     'ip_login_throttle:*',
@@ -76,7 +80,7 @@ export async function createTestApp(): Promise<INestApplication> {
     'user_sessions:*',
     'tenant_domain:*',
     'permissions:*',
-    'platform_owner_user_ids',
+    'is_platform_owner:*',
   ]);
 
   // Ensure Redis platform_owner_user_ids set is populated
