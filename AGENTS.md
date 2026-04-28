@@ -2,98 +2,18 @@
 
 ## What This Is
 
-Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~721k tracked lines across code, docs, and config. Two confirmed tenants pending onboarding.
-
-### Codebase Scale
-
-As of **2026-03-29**, the monorepo consists of **~721k tracked lines** across **2,588 tracked files** (excluding dependencies, builds, and config caches).
-
-**Top 7 Language Breakdown:**
-
-- **TypeScript (incl. TSX):** 516,387 lines
-- **Markdown:** 141,611 lines
-- **YAML:** 17,017 lines
-- **JSON:** 15,811 lines
-- **SQL:** 11,164 lines
-- **HTML:** 9,752 lines
-- **Prisma Schema:** 8,025 lines
-
-**Test Suite Scale:**
-
-- **Test File Count:** 569 test files (`.spec.ts`, `.test.ts`, `.e2e-spec.ts`)
-- **Cumulative Test Lines:** 174,698 lines of test code
-- **Explicit Test Declarations:** 5,945 tracked `it()` / `test()` calls across repo test files
-
----
-
-## Project Context & Working Principles
-
-This section is the institutional knowledge of the project. Read it before doing anything.
-
-### Who You're Working For
-
-The user is **Ramadan (Ram) Duadu** — the founder and sole developer of EduPod. Not an employee, not a contractor. Every product decision is his. "Yusuf Rahman" in seed data is a test user, not a real person.
-
-### Product Philosophy
-
-1. **Everything must be tenant-configurable.** The system adapts to the school, never the other way around. Schools have wildly different policies, workflows, and terminology. If you're building a feature and wondering whether a behaviour should be configurable per tenant — the answer is yes.
-
-2. **Hide the complexity.** The product is technically sophisticated but the interface must be simple and friendly. Users are teachers, parents, and school admins — not engineers. If a school admin needs training to use a feature, the feature has failed. The bar is "a teacher can figure this out in 30 seconds." Never expose IDs, technical status names, or system terminology in the UI.
-
-### Target Market
-
-EduPod is an **Irish product with national aspirations**. Ireland is the sole target market. All compliance (Tusla, DES Returns, P-POD), payroll (Irish PAYE/PRSI/USC), and integration decisions (HEAnet/SMIS framework) are Ireland-specific. The multilingual support exists because Irish schools have diverse student populations, not because the product targets other countries.
-
-### Infrastructure
-
-- **Production:** Hetzner VPS (`edupod-prod-1`), PM2 process manager
-- **CI/CD:** GitHub Actions deploys on push to main
-- **Domain:** edupod.app with tenant subdomains
-- **Database:** PostgreSQL with PgBouncer (transaction mode)
-- **Cache/Queues:** Redis (BullMQ)
-- **No staging environment** — every push to main is a production deploy. Treat accordingly.
-
-### Non-Negotiable Workflow Rules
-
-- **CI pre-flight before every push:** `turbo type-check` and `turbo lint` must both pass. Never push code that fails either. This is non-negotiable regardless of how small the change is.
-- **Architecture files must stay current (#1 rule):** Every code change must be assessed for whether it affects files in `architecture/`. If it does, update them as part of the same change. A code change without its corresponding architecture update is incomplete. At 300k+ LOC, these files are the only way to understand cross-cutting concerns. Read `architecture/pre-flight-checklist.md` before making changes.
-- **Pre-launch items:** Anything deferred to "before we go live" goes to `Manuals/PRE-LAUNCH-CHECKLIST.md` → Part 5. Not in comments, not in memory, not in TODO files.
-
-### Roadmap
-
-Specs for future work live at `Roadmap/` in the repo root:
-
-```
-Roadmap/
-├── Phase-1/                        # Feature expansions (next after current work)
-│   ├── Expansion-A/                # DES Returns, P-POD, POD, Tusla, SMIS
-│   ├── Expansion-B/                # SEN, Predictive Early Warning, Smart Parent Digest
-│   ├── Expansion-C/                # Events, Digital Forms, Google/MS, Parent Conferences, Homework
-│   ├── Expansion-D/                # Staff CPD, Leave/Substitution, Board of Management, ETB
-│   └── Expansion-E/                # Payroll Integration
-├── Phase-2/                        # UI Revamp + Multilingual (10 languages)
-└── Phase-3/                        # Mobile App (iOS/Android)
-```
-
-Expansions within Phase-1 are executed in order (A, B, C, D, E). Phases are sequential.
-
-### Local Dev Quirks
-
-- **iCloud cache eviction:** The repo lives in iCloud Drive. macOS can evict `node_modules` to free storage. If builds fail with missing modules, re-run `pnpm install`.
-- **.app HSTS:** The `edupod.app` TLD has HSTS preloaded in all browsers — local dev must use `localhost`, not `.app` domains.
-
----
+Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. Two confirmed tenants pending onboarding.
 
 ## Reference Documents
 
 ```
-Plans/
+docs/plans/
 ├── context.md                    # Architecture, RLS, auth, RBAC — ALWAYS LOAD
 ├── ux-redesign-final-spec.md     # ACTIVE frontend source of truth — LOAD FOR ANY FRONTEND WORK
 ├── deployment-architecture.md    # Deployment setup and environment plan
-└── archive/                      # Historical phase plans, results, testing (P0–P9)
+└── phases-plan/                  # Active phase implementation plans
 
-architecture/
+docs/architecture/
 ├── feature-map.md                # COMPLETE feature inventory — what exists and where it lives
 ├── module-blast-radius.md        # Cross-module dependencies — what breaks if you change X
 ├── event-job-catalog.md          # BullMQ job flows and side-effect chains
@@ -101,6 +21,42 @@ architecture/
 ├── danger-zones.md               # Non-obvious coupling and risks
 └── pre-flight-checklist.md       # Before/after checklist for every code change
 ```
+
+## Documentation Index
+
+All non-code documentation lives under `docs/`. Use this index to find what you need:
+
+| I need...                           | Look in                                |
+| ----------------------------------- | -------------------------------------- |
+| Architecture, RLS, auth context     | `docs/plans/context.md`                |
+| Active UI/component design language | `docs/plans/ux-redesign-final-spec.md` |
+| Blast radius, danger zones          | `docs/architecture/`                   |
+| Feature specs (behaviour, GDPR...)  | `docs/features/`                       |
+| Health governance, backlog, KPIs    | `docs/governance/`                     |
+| Runbooks, deployment, operations    | `docs/operations/`                     |
+| Audit reports (Claude, GPT)         | `docs/audits/`                         |
+| Roadmap phases, expansion plans     | `docs/roadmap/`                        |
+| Release targets (9.5 gate)          | `docs/targets/`                        |
+| Code review reports, QA framework   | `docs/reviews/`                        |
+| Archived/superseded specs           | `docs/archive/`                        |
+| Getting started, conventions        | `docs/`                                |
+
+## Rule Packs
+
+Detailed working rules live in `.claude/rules/`. Treat this folder as the shared rule pack for Claude and Codex. Before substantive work, load the relevant rule files for the area being touched:
+
+- Backend/API work: `.claude/rules/backend.md`
+- Frontend/UI work: `.claude/rules/frontend.md`
+- Prisma, migrations, or seed data: `.claude/rules/prisma.md`
+- Tests, E2E, or RLS leakage coverage: `.claude/rules/testing.md`
+- Worker/BullMQ jobs: `.claude/rules/worker.md`
+- TypeScript, imports, lint, or shared code quality: `.claude/rules/code-quality.md`
+- Architecture docs and blast-radius checks: `.claude/rules/architecture-policing.md`
+- Feature map updates: `.claude/rules/feature-map-maintenance.md`
+- Pre-launch deferrals: `.claude/rules/pre-launch-tracking.md`
+- Health-governance work: `.claude/rules/health-governance.md`
+
+These rule packs are not optional side notes. They are part of the operating instructions for the matching work area.
 
 ---
 
@@ -140,6 +96,18 @@ Current work is iterative: refining existing functionality, adding enhancements 
 - Architecture changes or major unplanned functionality
 - A blocker forces a materially different approach
 
+## Sentry Triage — Autonomous Runbook
+
+If the user triggers with an action verb + Sentry reference — **"fix the Sentry thing"**, **"triage the Sentry alert"**, **"Sentry flagged X"**, **"Sentry emailed me about X"**, etc. — open and follow `docs/runbooks/agent-sentry-triage.md` end to end before doing anything else. That runbook owns:
+
+- The bash wrapper `./scripts/sentry-cli.sh` (list / get / check-if-fixed / resolve / new-events-since)
+- Hard guardrails (failing-test-first, 100-line diff cap, auto-revert on post-deploy regression, STOP on schema/migration/deploy-config/secret edits)
+- The mandatory audit-log append to `docs/runbooks/agent-fix-log.md`
+
+**A Sentry triage is not complete without the audit-log entry.** The log is how the user recovers from a bad autonomous fix (every entry includes an exact `git revert` rollback command).
+
+If the user only says "check Sentry" / "look at Sentry" with no action verb, that's read-only — just run `./scripts/sentry-cli.sh list-unresolved` and report.
+
 ## GitHub — Hard Rules
 
 - **Only interact with `ACANOTES-dev/EduPod`.** Never access, read, push to, or reference any other repo on this account. No exceptions.
@@ -153,6 +121,32 @@ The server is a live production environment. Every action carries real consequen
 - **Operational deletions are permitted** — removing corrupted files, reverting a bad commit, cleaning up a failed deployment. These are maintenance, not destruction.
 - **Never change credentials** (passwords, SSH keys, API keys, secrets) without explicit approval.
 - **Never upgrade packages on the server** — versions are controlled from the codebase, not ad-hoc on the server.
+- **NEVER touch the production `.env` file.** The `.env` on the server contains production secrets (Hetzner Object Storage, Resend, Sentry, database roles) that differ from the local dev template. It is `.gitignore`d and never shipped through CI. If you need to add or rotate a production env var, ask the user — never edit it directly on the server, never commit it. The `.env` symlinks at `apps/api/.env` and `apps/worker/.env` point to `../../.env` and must stay that way.
+
+## Deployment — Hard Rules
+
+**Deploy only via `git push origin main`.** GitHub Actions runs `.github/workflows/ci.yml` (parallel lint / type-check / tests / build) → `scripts/deploy-production.sh` (pg_dump backup, migrations, rebuild, PM2 restart, smoke tests, auto-rollback on failure). Warm turbo cache: ~6 min push → live. Cold: ~11 min.
+
+**Direct rsync + SSH deploys are retired.** Do not use them, even for one-file tweaks. If CI fails, fix forward with another commit + push — never bypass CI by rsyncing. SSH access remains available for diagnostics only (logs, PM2 status, DB inspection), not for shipping code.
+
+### Per-session commit hygiene (parallel sessions share `main`)
+
+Multiple sessions may be working on `main` at the same time. The local working tree at any moment may contain uncommitted or untracked files belonging to other sessions. **Each session commits ONLY its own work:**
+
+- Stage by explicit pathspec only: `git add apps/web/src/foo.ts apps/web/src/bar.ts`. **Never** `git add .` or `git add -A` — those sweep up sibling sessions' files and trigger revert wars.
+- Run `git status` immediately before `git commit` and read the output. If the staged set contains files you did not touch, ABORT, unstage them, investigate.
+- Leave untracked files alone unless they belong to you.
+- For shared files (translations, nav config, log files): re-read the file content on disk immediately before writing, then deep-merge your additions. Don't overwrite with a stale version from earlier in your session.
+
+### Pre-push branch-state check
+
+`git push origin main` ships the whole branch, including legitimate commits from sibling sessions. Before every push:
+
+1. `git fetch origin main`
+2. `git log --oneline origin/main..HEAD` — list every commit about to ship
+3. For each commit not authored by your session: `git show --stat <sha>` — verify it looks like a complete, intentional sibling-session commit, not a sweep-up of mixed working trees
+4. If any commit looks suspicious, STOP and investigate before pushing
+5. If clean: `git push origin main`, then watch with `gh run watch` / `gh run view --log-failed`
 
 ---
 
@@ -291,6 +285,20 @@ Reserve for non-obvious behavior — describe what the method does and key side-
 - Locale from `[locale]` param. Direction: `locale === 'ar' ? 'rtl' : 'ltr'`
 - **Use logical CSS properties**: `start`/`end`, `ps-`/`pe-`/`ms-`/`me-` — never `left`/`right`
 
+### Frontend Source Of Truth
+
+- `docs/plans/ux-redesign-final-spec.md` is the active frontend source of truth for navigation, shell behaviour, typography, theming, spacing, and major interaction patterns
+- Do not consult or reference the pre-redesign frontend brief for current frontend work
+
+### App Shell & Navigation
+
+- The school-facing shell uses the redesign's **Morphing Shell**: a persistent top morph bar with contextual module sub-strip navigation
+- Do **not** build or reintroduce the old desktop sidebar pattern for school-facing routes
+- Home uses the collapsed morph bar; module pages add the sub-strip beneath it
+- Navigation visibility remains permission-aware and tenant-aware
+- The shell must stay visually stable during navigation — no flashing, remounting, or layout jump in the morph bar or sub-strip
+- Mobile navigation follows the redesign pattern: hamburger-triggered overlay for hub navigation plus a horizontally scrollable sub-strip where applicable
+
 ### Component Patterns
 
 - Client components: `'use client'` directive at top
@@ -315,7 +323,10 @@ Individual `useState` per form field is not acceptable for new forms. Existing h
 ### Styling
 
 - Tailwind CSS with semantic design tokens: `bg-background`, `text-text-primary`, `text-text-secondary`
-- Google Fonts via `@/lib/fonts`
+- Frontend themes are token-driven: colours live in centralized CSS custom properties on `<html>` and components consume tokens rather than hardcoded values
+- Do not hardcode colour hex values inside component files
+- Google Fonts via `@/lib/fonts` — do not use CSS `@import` for app fonts inside components or page styles
+- Latin UI typography follows the redesign spec: `Figtree` for primary UI text and `JetBrains Mono` for codes/reference values
 
 ---
 

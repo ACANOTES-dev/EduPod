@@ -41,6 +41,23 @@ All non-code documentation lives under `docs/`. Use this index to find what you 
 | Archived/superseded specs           | `docs/archive/`                        |
 | Getting started, conventions        | `docs/`                                |
 
+## Rule Packs
+
+Detailed working rules live in `.claude/rules/`. Treat this folder as the shared rule pack for Claude and Codex. Before substantive work, load the relevant rule files for the area being touched:
+
+- Backend/API work: `.claude/rules/backend.md`
+- Frontend/UI work: `.claude/rules/frontend.md`
+- Prisma, migrations, or seed data: `.claude/rules/prisma.md`
+- Tests, E2E, or RLS leakage coverage: `.claude/rules/testing.md`
+- Worker/BullMQ jobs: `.claude/rules/worker.md`
+- TypeScript, imports, lint, or shared code quality: `.claude/rules/code-quality.md`
+- Architecture docs and blast-radius checks: `.claude/rules/architecture-policing.md`
+- Feature map updates: `.claude/rules/feature-map-maintenance.md`
+- Pre-launch deferrals: `.claude/rules/pre-launch-tracking.md`
+- Health-governance work: `.claude/rules/health-governance.md`
+
+These rule packs are not optional side notes. They are part of the operating instructions for the matching work area.
+
 ---
 
 ## Current Workflow
