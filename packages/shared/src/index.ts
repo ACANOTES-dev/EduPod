@@ -22,6 +22,11 @@ export * from './constants/feature-flags';
 export * from './constants/communications';
 export * from './constants/notification-failure-reasons';
 
+// i18n shared kernel (locale codes + Zod schemas — used cross-cuttingly by
+// tenant config, household preferences, and any controller that accepts a
+// locale-bearing payload).
+export * from './i18n/locale-codes';
+
 // Types
 export * from './types/api-response';
 export * from './types/auth';
