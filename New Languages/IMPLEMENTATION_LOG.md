@@ -2,6 +2,7 @@
 
 **Project:** Add 4 Tier-1 (`ga`, `fr`, `de`, `es`) and 3 Tier-2 (`it`, `ro`, `pl`) languages to SDB.
 **Strategy:** see `STRATEGY.md` in this folder.
+**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder.
 **Started:** 2026-04-25 (Phase 0 spec authored)
 
 ---
@@ -9,37 +10,42 @@
 ## Status legend
 
 - ⚪ **Pending** — not yet started
-- 🟡 **In progress** — session is currently active or partially complete
-- 🟢 **Complete & deployed** — all checks passed, deployed to production, Playwright-verified, codebase released to next session
-- 🔴 **Blocked / Failed** — session hit an issue that prevents completion; details in the entry's "Notes" section
+- 🟡 **In progress** — implementation is currently active or partially complete
+- 🟢 **Complete & deployed** — all checks passed, deployed to production, Playwright-verified, codebase released to next implementation
+- 🔴 **Blocked / Failed** — implementation hit an issue that prevents completion; details in the entry's "Notes" section
 
-A session is **not 🟢** until: local tests pass + commit on main + CI green + production deploy succeeds + Playwright verification passes + log entry updated with commit SHA(s) + deploy timestamp.
+An implementation is **not 🟢** until: local tests pass + commit on main + CI green + production deploy succeeds + Playwright verification passes + log entry updated with commit SHA(s) + deploy timestamp.
 
 ---
 
-## Session index
+## Implementation index
 
-| ID    | Phase               | Title                                          | Status         | Model      | Effort   |
-| ----- | ------------------- | ---------------------------------------------- | -------------- | ---------- | -------- |
-| P0    | 0 — Spec & Strategy | Strategy & implementation log                  | 🟡 In progress | Opus 4.7   | High     |
-| P1A   | 1 — Foundation      | Schema, RLS, locale registry                   | ⚪ Pending     | Opus 4.7   | High     |
-| P1B   | 1 — Foundation      | Arabic placeholder cleanup + hard-error flip   | ⚪ Pending     | Opus 4.7   | Max      |
-| P1C   | 1 — Foundation      | Tenant gating UI + language picker refactor    | ⚪ Pending     | Opus 4.7   | Standard |
-| P2A   | 2 — Refactor        | PDF templates: locale-driven refactor          | ⚪ Pending     | Opus 4.7   | Max      |
-| P2B   | 2 — Refactor        | NotificationTemplate refactor                  | ⚪ Pending     | Opus 4.7   | High     |
-| P3    | 3 — Dispatch        | Dual-language household dispatch fanout        | ⚪ Pending     | Opus 4.7   | High     |
-| P4-GA | 4 — Tier 1          | Irish (Gaeilge) full catalogue + Playwright    | ⚪ Pending     | Opus 4.7   | Max      |
-| P4-FR | 4 — Tier 1          | French full catalogue + Playwright             | ⚪ Pending     | Opus 4.7   | High     |
-| P4-DE | 4 — Tier 1          | German full catalogue + Playwright             | ⚪ Pending     | Opus 4.7   | Max      |
-| P4-ES | 4 — Tier 1          | Spanish full catalogue + Playwright            | ⚪ Pending     | Opus 4.7   | High     |
-| P5-IT | 5 — Tier 2          | Italian parent+student catalogue + Playwright  | ⚪ Pending     | Sonnet 4.6 | Max      |
-| P5-RO | 5 — Tier 2          | Romanian parent+student catalogue + Playwright | ⚪ Pending     | Opus 4.7   | High     |
-| P5-PL | 5 — Tier 2          | Polish parent+student catalogue + Playwright   | ⚪ Pending     | Opus 4.7   | Max      |
-| P6.\* | 6 — Rollout         | Per-tenant `supported_locales` flips           | ⚪ Pending     | n/a        | n/a      |
+> Implementations are numbered 1–13 (sequential at codebase level — only one runs at a time).
+> Within Phase 4 and Phase 5, the _content_ is reorderable (FR ↔ ES ↔ DE ↔ GA, and IT ↔ RO ↔ PL). The numbering below reflects the **recommended execution order** (easiest → hardest within each tier).
 
-**Critical path:** P0 → P1A → P1B → P1C → P2A → P2B → P3 → P4-_ → P5-_ → P6.\*
+| #   | Phase                 | Spec                                                         | Locale / Topic                             | Status     | Model      | Effort   |
+| --- | --------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------- | ---------- | -------- |
+| 01  | 1 — Foundation        | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | ⚪ Pending | Opus 4.7   | High     |
+| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | ⚪ Pending | Opus 4.7   | Max      |
+| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | ⚪ Pending | Opus 4.7   | Standard |
+| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | ⚪ Pending | Opus 4.7   | Max      |
+| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | ⚪ Pending | Opus 4.7   | High     |
+| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | ⚪ Pending | Opus 4.7   | High     |
+| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | ⚪ Pending | Opus 4.7   | High     |
+| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending | Opus 4.7   | High     |
+| 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending | Opus 4.7   | Max      |
+| 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending | Opus 4.7   | Max      |
+| 11  | 5 — Tier 2            | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending | Sonnet 4.6 | Max      |
+| 12  | 5 — Tier 2            | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending | Opus 4.7   | High     |
+| 13  | 5 — Tier 2            | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending | Opus 4.7   | Max      |
+| —   | 6 — Rollout (rolling) | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending | n/a        | n/a      |
 
-**Sessions are sequential at the codebase level** (no worktrees/branches). Within Phase 4 and Phase 5, the order of `*-GA / *-FR / *-DE / *-ES` (and `*-IT / *-RO / *-PL`) is reorderable — they don't depend on each other content-wise — but **only one runs on the codebase at a time**.
+**Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → Phase 6 rollout
+
+**Sequential at the codebase level** (no worktrees / no branches / no PRs). Only one implementation runs on the codebase at a time.
+
+> **Legacy ID mapping** (for historical reference — the strategy still uses these in some places):
+> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 13=P5-PL.
 
 ---
 
@@ -47,54 +53,48 @@ A session is **not 🟢** until: local tests pass + commit on main + CI green + 
 
 ### P0 — Strategy & implementation log
 
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Complete (documentation only — no production deploy)
 - **Model:** Opus 4.7 / High effort
 - **Began:** 2026-04-25
-- **Completed:** —
+- **Completed:** 2026-04-28 (this rewrite numbered the specs and produced the per-implementation blueprints)
 - **Tasks:**
   - [x] Audit current i18n infrastructure (frontend, backend, worker, tests)
   - [x] Brainstorm scope, tiers, dual-language model, launch threshold, pacing
   - [x] Archive obsolete prior strategy files to `_archive/`
   - [x] Write `STRATEGY.md`
-  - [x] Write `IMPLEMENTATION_LOG.md`
-  - [ ] Spec self-review
-  - [ ] Commit P0 deliverables on `main`
+  - [x] Write `IMPLEMENTATION_LOG.md` (this file)
+  - [x] Author per-implementation specs under `implementations/01-13`
+  - [x] Renumber from alphanumeric (P1A/P2B/P4-FR…) to plain numbers (01–13)
+  - [ ] Spec self-review — pending user
+  - [ ] Commit deliverables on `main` — pending user
   - [ ] User review gate
-  - [ ] Transition to `superpowers:writing-plans` skill to author per-session blueprints under `sessions/`
-
-### Commits (on main)
-
-- (pending) `docs(i18n): add Multi-Language Expansion strategy + implementation log`
 
 ### Notes
 
-- This session does not deploy to production (no code changes); the deliverable is documentation + planning. The "deploy" gate doesn't apply to P0.
+- This phase does not deploy to production (no code changes); the deliverable is documentation + planning. The "deploy" gate doesn't apply.
+- The slash command equivalent (`/NL <id>`) can be authored from the existing `/SW`, `/BH`, `/WBR` templates and would invoke `implementations/<NN>-*.md`. Not authored here — wait for user direction on whether to keep the rebuild slash-command pattern.
 
 ---
 
 ## Phase 1 — Foundation
 
-### P1A — Schema, RLS, locale registry
+### 01 — Schema, RLS, locale registry
 
+- **Spec:** `implementations/01-schema-rls-locale-registry.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / High effort
 - **Depends on:** P0 approved
 - **Began:** —
 - **Completed:** —
 
-**Scope (summary; full blueprint in `sessions/P1A-schema-rls.md` after writing-plans):**
+**Scope summary:**
 
-- Migration: `add_locale_expansion_columns`
-  - `Tenant.supported_locales TEXT[] NOT NULL DEFAULT ARRAY['en']::TEXT[]`
-  - `Tenant.default_locale = ANY(supported_locales)` CHECK constraint
-  - `Household.secondary_locale TEXT NULL`
-  - `Household.dual_language_opt_in BOOLEAN NOT NULL DEFAULT false`
-- Backfill `Tenant.supported_locales = ['en', 'ar']` for every existing tenant (simplified rule per STRATEGY.md §4.1 — preserves both currently-served languages; platform admin can trim a tenant's array later via the P1C admin UI)
-- New file: `apps/web/i18n/registry.ts` — single source of truth for locale metadata (code, English name, native name, direction, tier)
-- `apps/web/i18n/config.ts` — derive active `locales` array from registry; register all new locales as metadata-only (not yet in active set)
-- New file: `apps/web/i18n/tier-scopes.ts` — `tier_2_namespaces` allowlist
-- Backend Zod schemas for new locale operations
-- Tests: Jest unit tests for registry + allowlist + schemas; RLS leakage test for new Household columns
+- Migration `add_locale_expansion_columns`: `Tenant.supported_locales TEXT[]`, `Household.secondary_locale TEXT`, `Household.dual_language_opt_in BOOLEAN`. Backfill every existing tenant to `['en','ar']`. CHECK constraint `default_locale = ANY(supported_locales)`.
+- New file `apps/web/i18n/registry.ts` — single source of truth for locale metadata (code, English name, native name, direction, tier, active flag).
+- `apps/web/i18n/config.ts` — derive active `locales` array from registry.
+- New file `apps/web/i18n/tier-scopes.ts` — `TIER_2_NAMESPACES` allowlist.
+- Backend Zod schemas in `packages/shared/src/i18n/locale-codes.ts`.
+- Tests: registry unit tests, allowlist subset test, RLS leakage tests for new Household columns and Tenant.supported_locales.
 
 ### Acceptance
 
@@ -103,341 +103,247 @@ A session is **not 🟢** until: local tests pass + commit on main + CI green + 
 - [ ] Existing en + ar Playwright suite passes (no regression)
 - [ ] CI green on main
 - [ ] Production deploy successful
-- [ ] Production verification: spot-check that schema changes are live (psql query into NHQS)
+- [ ] Production verification: `SELECT supported_locales FROM tenants` shows `{en,ar}` for every row
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending — Phase 1 only requires regression check on en + ar)
-
-### Notes
-
-- (none yet)
 
 ---
 
-### P1B — Arabic placeholder cleanup + hard-error flip
+### 02 — Arabic placeholder cleanup + hard-error flip
 
+- **Spec:** `implementations/02-arabic-cleanup-hard-error-flip.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** P1A complete
+- **Depends on:** 01 complete
 - **Began:** —
 - **Completed:** —
 
-**Scope:**
+**Scope summary:**
 
-- Audit `apps/web/messages/ar.json` for `[AR] …` placeholder strings
-- Translate placeholders to proper Arabic
-- Run `translation-parity.spec.ts` until 100% pass for `en` ↔ `ar`
-- Flip `next-intl` `getRequestConfig` to `onError: throw` (dev) / Sentry-then-throw (prod)
-- Extend translation-parity test to support N locales
-- Extend `scripts/check-i18n.js` to scan all registered locales
-- Update CI workflow to enforce parity gate on every push
+- Audit `ar.json` for `[AR] …` placeholders; translate to proper Arabic.
+- Generalise `translation-parity.spec.ts` to N locales with Tier 2 allowlist branch.
+- `next-intl` `onError`: throw in dev, Sentry-then-throw in prod.
+- Extend `scripts/check-i18n.js` to scan all active locales.
+- Add parity test as a CI hard gate on every push.
 
 ### Acceptance
 
 - [ ] AR placeholder audit: 0 remaining `[AR] …` strings
-- [ ] `translation-parity.spec.ts` passes
-- [ ] `scripts/check-i18n.js` reports 0 missing/orphan keys for en + ar
+- [ ] `translation-parity.spec.ts` passes for every active locale
+- [ ] `scripts/check-i18n.js` reports 0 missing/orphan keys
 - [ ] Hard-error flag is on; missing key in dev throws visibly
 - [ ] CI parity gate active
-- [ ] AR Playwright suite (regulatory + general) passes
+- [ ] AR Playwright suite passes
 - [ ] Production deploy successful
+- [ ] Sentry: zero `MISSING_MESSAGE` exceptions in 30 minutes post-deploy
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending — focus on AR regression + verify hard-error doesn't break existing pages)
-
-### Notes
-
-- (none yet)
 
 ---
 
-### P1C — Tenant gating UI + language picker refactor
+### 03 — Tenant gating UI + language picker refactor
 
+- **Spec:** `implementations/03-tenant-gating-ui-language-picker.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / Standard
-- **Depends on:** P1B complete
+- **Depends on:** 02 complete
 
-**Scope:**
+**Scope summary:**
 
-- `apps/web/src/components/user-menu.tsx`: replace binary EN ↔ AR toggle with dynamic dropdown sourced from `tenant.supported_locales`
-- Profile page locale selector: same filter
-- Backend: `Tenant.supported_locales` admin endpoint (platform-admin-only)
-- Frontend: super-admin UI in `(platform)/` for flipping `supported_locales` per tenant
-- Tests: Playwright journey for tenant-gated picker behaviour
+- `apps/web/src/components/locale-picker.tsx`: dynamic dropdown sourced from `tenant.supported_locales`.
+- Replace binary EN/AR toggle in `user-menu.tsx` and profile page.
+- Backend `PATCH /v1/admin/tenants/:id/supported-locales` with platform-admin permission and safety checks (block removing default; block removing locale users prefer).
+- Platform-admin frontend in `(platform)/admin/tenants/[id]/locales`.
+- Validation: every locale-related write checks the value is in `tenant.supported_locales`.
 
 ### Acceptance
 
-- [ ] Picker shows only locales in tenant's `supported_locales`
+- [ ] Picker dynamic + tenant-gated
 - [ ] Profile selector enforces same filter
 - [ ] Platform admin can flip `supported_locales` per tenant via UI
-- [ ] CI green
-- [ ] Production deploy successful
-- [ ] Playwright: NHQS user sees en + ar only (since no T1 yet); admin enables fr; reload shows fr in picker
+- [ ] CI green; production deploy successful
+- [ ] Playwright: NHQS user sees en + ar only
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending)
-
-### Notes
-
-- (none yet)
 
 ---
 
 ## Phase 2 — Template Refactor
 
-### P2A — PDF templates: locale-driven refactor
+### 04 — PDF templates: locale-driven refactor
 
+- **Spec:** `implementations/04-pdf-templates-locale-driven-refactor.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** P1 complete (all of P1A, P1B, P1C)
+- **Depends on:** 03 complete
 
-**Scope:**
+**Scope summary:**
 
-- Refactor 14 PDF template types from file-pair (`*-en.template.ts` + `*-ar.template.ts`) to a single locale-driven template per type
-- Extract string content to `pdf-templates.{locale}.json` (en + ar populated as part of refactor)
-- New Handlebars helpers: `t`, `formatDate`, `formatCurrency`, `formatNumber`, `getLocalizedSchoolName`
-- Regression test: render every PDF type pre/post in en + ar, pixel-diff at 1% threshold; block merge on regression
-- The 14 PDF types: report-card, transcript, invoice, receipt, household-statement, payslip, report-card-modern, pastoral-summary, sst-activity, safeguarding-compliance, wellbeing-programme, trip-leader-pack, des-inspection, (compliance variants)
+- Refactor 13 PDF template types from file pair (`*-en.template.ts` + `*-ar.template.ts`) to a single locale-driven template per type.
+- Extract strings to `messages/{type}.{locale}.json` (en + ar populated by porting from current file pairs).
+- New Handlebars helpers: `t`, `formatDate`, `formatCurrency`, `formatNumber`, `getLocalizedSchoolName`.
+- Pre-refactor PDF baselines committed; pixel-diff regression test enforces ≤1% threshold; blocks merge on regression.
+- 13 PDF types: receipt, invoice, household-statement, report-card, report-card-modern, transcript, payslip, des-inspection, pastoral-summary, sst-activity, safeguarding-compliance, wellbeing-programme, trip-leader-pack.
 
 ### Acceptance
 
-- [ ] All 14 types render in en + ar identically pre/post (≤1% pixel diff)
+- [ ] All 13 types render in en + ar identically pre/post (≤1% pixel diff)
 - [ ] New Handlebars helpers added with unit tests
-- [ ] PDF regression test added to CI
+- [ ] PDF regression test added to CI hard gate
 - [ ] Production deploy successful
-- [ ] Manual verification: generate sample receipt + report card on NHQS, visually inspect
+- [ ] Manual verification: receipt + report card on NHQS visually identical
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending — PDF generation triggered via API, verify no regression)
-
-### Notes
-
-- (none yet)
 
 ---
 
-### P2B — NotificationTemplate refactor
+### 05 — NotificationTemplate refactor
 
+- **Spec:** `implementations/05-notification-template-refactor.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / High effort
-- **Depends on:** P2A complete
+- **Depends on:** 04 complete
 
-**Scope:**
+**Scope summary:**
 
-- Migrate system `NotificationTemplate` rows to reference message-catalogue keys via `t:` prefix
-- Update `dispatch-notifications.processor.ts` to resolve `t:` references at render time
-- Tenant-specific override rows continue to work as raw Handlebars strings
-- Migration: update system rows; tenant rows untouched
-- Update Resend / Twilio providers to pass locale to renderer
-- Tests: send test notification in en + ar, verify identical to pre-refactor output; send in `fr` (using temp en stub) — verify renderer doesn't throw
+- Migrate system `notification_templates` rows to reference message-catalogue keys via `t:` prefix.
+- Tenant-specific override rows untouched (raw Handlebars).
+- New file `apps/api/src/modules/notifications/template-renderer.ts` with hard-error policy on missing key.
+- Update `dispatch-notifications.processor.ts` to use renderer.
+- Resend / Twilio / WhatsApp adapters pass locale through.
 
 ### Acceptance
 
-- [ ] All existing en + ar notification flows work identically pre/post
-- [ ] System rows migrated; tenant rows untouched
-- [ ] Renderer resolves `t:` references correctly
+- [ ] All system rows reference `t:` keys
+- [ ] Tenant override rows untouched
+- [ ] `notifications.{en,ar}.json` exist and parse
+- [ ] Renderer unit + integration tested
 - [ ] Production deploy successful
-- [ ] Manual verification: trigger a real `payment.received` notification on NHQS; check rendered output
+- [ ] Real `payment.received` on NHQS renders correctly in en + ar
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending — verify notification UI on NHQS shows correct content)
-
-### Notes
-
-- (none yet)
 
 ---
 
 ## Phase 3 — Dual-Language Dispatch
 
-### P3 — Dual-language household dispatch fanout
+### 06 — Dual-language household dispatch fanout
 
+- **Spec:** `implementations/06-dual-language-household-dispatch.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / High effort
-- **Depends on:** P2 complete
+- **Depends on:** 05 complete
 
-**Scope:**
+**Scope summary:**
 
-- Household profile UI: `secondary_locale` dropdown + `dual_language_opt_in` toggle
-- New service: `NotificationDispatcher.fanout(notification, household)`
-- Idempotency keys suffixed per locale
-- Audit log entries for both dispatched notifications
-- Unit tests: all permutations of `opt_in` × `secondary_locale` × `default_locale`
-- Integration test: trigger `payment.received` for opt-in household; assert two notification rows
-- Playwright: parent profile flow
+- Household profile UI: `secondary_locale` dropdown + `dual_language_opt_in` toggle (`PATCH /v1/households/:id/locale-preferences`).
+- New service `fanoutNotification(notification, household)` in worker with truth-table semantics.
+- Idempotency keys suffixed per locale.
+- Audit log entries for both dispatches when fanout fires.
+- Integration test: real dispatch produces exactly two rows when opt-in fires.
 
 ### Acceptance
 
 - [ ] Household opt-in UI functional
-- [ ] Dispatcher fanout correct in all permutations
+- [ ] Fanout correct in all four permutations
 - [ ] Idempotency: no duplicate emit on retry
-- [ ] Audit log shows both entries
+- [ ] Audit log shows both entries with locale tags
 - [ ] Production deploy successful
-- [ ] Playwright pass
+- [ ] Live verification on NHQS: dual-language opt-in produces two notifications
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending)
-
-### Notes
-
-- (none yet)
 
 ---
 
 ## Phase 4 — Tier 1 Languages
 
-> **Order recommendation:** P4-FR → P4-ES → P4-DE → P4-GA (easiest to hardest). User may reorder.
->
-> Each P4 session has the same shape — see STRATEGY.md §5.5. Per-session log entries below.
+> Recommended execution order: 07 (FR) → 08 (ES) → 09 (DE) → 10 (GA). Easiest → hardest. User may reorder; only the codebase-sequential rule is hard.
 
-### P4-GA — Irish (Gaeilge)
+### 07 — French (`fr`)
 
+- **Spec:** `implementations/07-french.md`
 - **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** P3 complete; recommended after P4-FR/ES/DE so glossary is well-developed
+- **Model:** Opus 4.7 / High effort
+- **Depends on:** 06 complete
 - **Began:** —
 - **Completed:** —
 
-**Scope:**
+**Scope summary:**
 
-- Translate `en.json` → `ga.json` (full catalogue, all 118 namespaces)
-- Translate `pdf-templates.en.json` → `pdf-templates.ga.json`
-- Generate notification-template strings for `ga`
-- Add `ga` to active locales in `apps/web/i18n/config.ts`
-- Enable `ga` for NHQS via SQL on prod server: `UPDATE tenants SET supported_locales = supported_locales || '{ga}'::text[] WHERE slug = 'nhqs'`
-- Commit Playwright baselines for `ga` (per-route snapshots)
-- Run full Playwright verification spec (smoke, locale switch, leak detector, visual, parity, dispatch, PDF render)
+- Translate `en.json` → `fr.json` (full catalogue, all 118 namespaces).
+- Translate `notifications.en.json` → `notifications.fr.json`.
+- Translate all 13 PDF type catalogues `messages/{type}.fr.json`.
+- Flip `fr.active = true` in registry.
+- Add `fr-ltr` + `fr-mobile` Playwright projects + commit baselines.
+- Enable for NHQS via `UPDATE tenants SET supported_locales = supported_locales || '{fr}'::text[] WHERE slug = 'nhqs'`.
 
 ### Acceptance
 
-- [ ] Translation parity: 100% match against `en.json` shape
-- [ ] No `MISSING_MESSAGE` warnings on any route in `[ga]/` segment
-- [ ] All Playwright smoke + visual + dispatch + PDF tests pass
-- [ ] en + ar visual regression: no regression
-- [ ] NHQS-only: `supported_locales = ['en','ar','ga']` (or whatever T1 are already there)
-- [ ] CI green
-- [ ] Production deploy successful
+- [ ] Translation parity 100% against `en.json`
+- [ ] No `MISSING_MESSAGE` warnings on any route in `[fr]/`
+- [ ] Smoke + leak + visual + dispatch + PDF tests pass
+- [ ] en + ar visual regression: clean
+- [ ] NHQS-only `supported_locales` includes `fr`
+- [ ] CI green; production deploy successful
 
-### Commits (on main)
-
-- (pending)
-
-### CI / Deploy
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
 
 - (pending)
-
-### Playwright verification
-
-- (pending)
-
-### NHQS rollout
-
-- (pending)
-
-### Other tenants
-
-- (gated; awaiting human QA on NHQS)
-
-### Notes
-
-- Glossary updates: (pending)
-- Strings flagged for human review: (pending)
 
 ---
 
-### P4-FR — French
+### 08 — Spanish (`es`)
 
+- **Spec:** `implementations/08-spanish.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / High effort
-- **Depends on:** P3 complete
-- **Began:** —
-- **Completed:** —
+- **Depends on:** 07 complete
 
-**Scope:** Same shape as P4-GA but for `fr`.
+**Scope summary:** Same shape as 07-FR. Use neutral Spanish (tuteo, no voseo). Watch UI overflow (~115% length).
 
-### Acceptance / Commits / CI / Playwright / Rollout / Notes
+### Acceptance / Sections
 
-- (sections identical to P4-GA, populated during execution)
+- (populated during execution; mirror 07 structure)
 
 ---
 
-### P4-DE — German
+### 09 — German (`de`)
 
+- **Spec:** `implementations/09-german.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** P3 complete
+- **Depends on:** 08 complete
 
-**Scope:** Same shape as P4-GA but for `de`. Pay special attention to compound noun overflow on buttons and labels.
+**Scope summary:** Same shape as 07/08. Compound nouns + UI overflow are the #1 risk. Use formal "Sie", capitalise nouns.
 
-### Acceptance / Commits / CI / Playwright / Rollout / Notes
+### Acceptance / Sections
 
 - (populated during execution)
 
 ---
 
-### P4-ES — Spanish
+### 10 — Irish (`ga`)
 
+- **Spec:** `implementations/10-irish.md`
 - **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / High effort
-- **Depends on:** P3 complete
+- **Model:** Opus 4.7 / **Max effort**
+- **Depends on:** 09 complete (recommended last so glossary is well-developed)
 
-**Scope:** Same shape as P4-GA but for `es`. Use neutral Spanish (not regional ES-MX vs ES-ES).
+**Scope summary:** Same shape as 07/08/09. Smaller AI training corpus + irregular grammar = highest QA risk in Tier 1. Maintain `ga-review-queue.md` for post-launch native-speaker QA.
 
-### Acceptance / Commits / CI / Playwright / Rollout / Notes
+### Acceptance / Sections
 
 - (populated during execution)
 
@@ -445,96 +351,83 @@ A session is **not 🟢** until: local tests pass + commit on main + CI green + 
 
 ## Phase 5 — Tier 2 Languages
 
-> **Order recommendation:** P5-IT → P5-RO → P5-PL.
+> Recommended execution order: 11 (IT) → 12 (RO) → 13 (PL).
 >
-> Each P5 session translates only the `tier_2_namespaces` allowlist (parent + student surface). Out-of-scope namespaces fall back to tenant default with a route-level guard. See STRATEGY.md §5.6.
+> Each Phase 5 implementation translates ONLY the `tier_2_namespaces` allowlist (parent + student surface). The route-level guard (introduced in 11) redirects out-of-scope paths to the tenant default locale.
 
-### P5-IT — Italian
+### 11 — Italian (`it`)
 
+- **Spec:** `implementations/11-italian.md`
 - **Status:** ⚪ Pending
 - **Model:** Sonnet 4.6 / Max effort
-- **Depends on:** P4 complete
+- **Depends on:** 10 complete
 
-**Scope:**
+**Scope summary:** Translate `en.json` → `it.json` for the Tier 2 allowlist subset only. Translate parent-relevant PDF templates only (receipt, invoice, household-statement, report-card). Add Tier 2 route guard. Add `it-ltr` + `it-mobile` Playwright projects (parent+student). Enable for NHQS.
 
-- Translate `en.json` → `it.json` for the `tier_2_namespaces` allowlist subset only
-- Translate parent-relevant PDF templates (receipt, invoice, household statement, report card)
-- Generate parent-relevant notification-template strings
-- Add `it` to active locales
-- Add route-level guard: if user's resolved locale is `it` and they navigate outside the allowlist, redirect to the same path under tenant default locale
-- Enable for NHQS, run full Playwright verification
-
-### Acceptance
-
-- [ ] Translation parity: 100% match against `en.json` for in-scope namespaces only
-- [ ] Out-of-scope guard works: visiting `/it/finance/payroll` redirects to `/en/finance/payroll`
-- [ ] No `MISSING_MESSAGE` on parent + student surface in `[it]/`
-- [ ] Playwright smoke pass on parent + student routes
-- [ ] en + ar regression: clean
-- [ ] CI green; production deploy successful
-
-### Commits / CI / Playwright / Rollout / Notes
+### Acceptance / Sections
 
 - (populated during execution)
 
 ---
 
-### P5-RO — Romanian
+### 12 — Romanian (`ro`)
 
+- **Spec:** `implementations/12-romanian.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / High effort
-- **Depends on:** P4 complete
+- **Depends on:** 11 complete
 
-**Scope:** Same shape as P5-IT but for `ro`.
+**Scope summary:** Same shape as 11. Use comma-below diacritics (`ș`, `ț`), not cedilla. Use formal "dumneavoastră".
 
-### Sections
+### Acceptance / Sections
 
 - (populated during execution)
 
 ---
 
-### P5-PL — Polish
+### 13 — Polish (`pl`)
 
+- **Spec:** `implementations/13-polish.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** P4 complete
+- **Depends on:** 12 complete
 
-**Scope:** Same shape as P5-IT but for `pl`. Watch for grammar complexity (cases, gendered verbs).
+**Scope summary:** Same shape as 11/12. Watch 7-case grammar, 3 genders, perfective/imperfective aspect. Maintain `pl-review-queue.md`.
 
-### Sections
+### Acceptance / Sections
 
 - (populated during execution)
 
 ---
 
-## Phase 6 — Tenant rollout
+## Phase 6 — Tenant rollout (rolling, operational)
 
-> Per-locale, per-tenant. Each row appended after NHQS QA passes for that locale.
+Per locale, after NHQS QA passes:
 
 | Locale       | Tenant          | Date enabled                 | Operator | Notes              |
 | ------------ | --------------- | ---------------------------- | -------- | ------------------ |
-| ga           | nhqs            | (pending P4-GA completion)   | —        | Pilot tenant       |
-| fr           | nhqs            | (pending P4-FR completion)   | —        | Pilot tenant       |
-| de           | nhqs            | (pending P4-DE completion)   | —        | Pilot tenant       |
-| es           | nhqs            | (pending P4-ES completion)   | —        | Pilot tenant       |
-| it           | nhqs            | (pending P5-IT completion)   | —        | Pilot tenant       |
-| ro           | nhqs            | (pending P5-RO completion)   | —        | Pilot tenant       |
-| pl           | nhqs            | (pending P5-PL completion)   | —        | Pilot tenant       |
+| ga           | nhqs            | (pending 10 completion)      | —        | Pilot tenant       |
+| fr           | nhqs            | (pending 07 completion)      | —        | Pilot tenant       |
+| de           | nhqs            | (pending 09 completion)      | —        | Pilot tenant       |
+| es           | nhqs            | (pending 08 completion)      | —        | Pilot tenant       |
+| it           | nhqs            | (pending 11 completion)      | —        | Pilot tenant       |
+| ro           | nhqs            | (pending 12 completion)      | —        | Pilot tenant       |
+| pl           | nhqs            | (pending 13 completion)      | —        | Pilot tenant       |
 | (per locale) | (other tenants) | (pending NHQS QA per locale) | —        | GA rollout post-QA |
 
 ---
 
 ## Summary metrics (live)
 
-- **Total sessions planned:** 13 (excl. P0 + Phase 6 ops)
-- **Sessions complete:** 0
-- **Sessions in progress:** 1 (P0)
-- **Sessions pending:** 13
-- **Sessions blocked:** 0
+- **Total implementations planned:** 13 (excl. P0 + Phase 6 ops)
+- **Implementations complete:** 0
+- **Implementations in progress:** 0
+- **Implementations pending:** 13
+- **Implementations blocked:** 0
 - **Languages live (NHQS):** en, ar
 - **Languages live (other tenants):** en, ar
 - **Translation parity status:** en ↔ ar (existing); other locales not yet active
-- **Hard-error flag:** off (will flip in P1B)
+- **Hard-error flag:** off (will flip in 02)
 - **Visual suite in CI:** smoke only (will expand to full in Phase 4)
 
 ---
@@ -544,7 +437,7 @@ A session is **not 🟢** until: local tests pass + commit on main + CI green + 
 ### Commit message template
 
 ```
-feat(i18n): <session-id> <description>
+feat(i18n): <impl-id> <description>
 
 - Phase: <phase number>
 - Languages: <locale codes>
@@ -556,7 +449,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ### Verification commands
 
 ```bash
-# Translation parity (extended for N locales after P1B)
+# Translation parity (extended for N locales after 02)
 pnpm --filter @school/web test -- translation-parity
 
 # i18n key usage scanner
@@ -580,10 +473,11 @@ pnpm --filter @school/web exec playwright test
 
 ```bash
 ssh root@46.62.244.139
-sudo -u postgres psql edupod_prod
+sudo -u edupod psql edupod_prod
 UPDATE tenants
 SET supported_locales = supported_locales || '{<locale>}'::text[]
-WHERE slug = '<tenant-slug>';
+WHERE slug = '<tenant-slug>'
+  AND NOT '<locale>' = ANY(supported_locales);
 ```
 
 ### Rollback (if a deployed locale regresses production)
@@ -594,7 +488,7 @@ UPDATE tenants
 SET supported_locales = array_remove(supported_locales, '<locale>');
 
 # 2. If hard-error is biting on existing locales: revert next-intl config
-git revert <P1B-commit-sha>
+git revert <impl-02-commit-sha>
 git push origin main
 
 # 3. Watch CI deploy the revert; verify Sentry quiets
@@ -604,4 +498,4 @@ git push origin main
 
 ## Lessons learned
 
-(Populated as sessions complete.)
+(Populated as implementations complete.)
