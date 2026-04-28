@@ -1477,3 +1477,34 @@ LEFT JOIN tenant_whatsapp_configs twc ON twc.tenant_id = t.id;
 Any tenant with `_configured=false` for a channel they expect to use is the cause.
 
 **Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 05 (worker parity + `.env` removal).
+
+---
+
+## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)
+
+**Location**: `apps/web/i18n/request.ts`, `apps/web/messages/{locale}.json`, `apps/web/src/__tests__/translation-parity.spec.ts`, `scripts/check-i18n.js`
+**Status**: ACTIVE once Multi-Language Expansion impl 02 ships (currently scheduled — impl 01 lands the registry + Tier 2 allowlist + schema; impl 02 flips the hard-error flag).
+
+Pre-impl-02, `next-intl` falls back to the message KEY when a translation is missing — pages still render, only with broken-looking text. Post-impl-02, missing keys throw in development and Sentry-then-throw in production, so any unfilled key surfaces as a 500 on the page that consumed it.
+
+**Why this is correct**: the previous silent-fallback behaviour let untranslated strings ship to production unnoticed for months. Hard-error makes parity violations impossible to ignore.
+
+**Failure mode**: any developer who adds a new translation key to `apps/web/messages/en.json` but forgets to mirror it in **every** active locale's message file (`ar.json`, plus any locale flipped to `active: true` in `apps/web/i18n/registry.ts`) will:
+
+- Pass local TypeScript + lint checks (Zod doesn't validate JSON message catalogues).
+- Pass the unit test suite (the translation lookup happens at request time, not at compile time).
+- Fail the dedicated parity test (`apps/web/src/__tests__/translation-parity.spec.ts`) which is a CI hard gate from impl 02 onward.
+- If somehow merged anyway, render 500 on the page that consumes the key in production.
+
+**Mitigations**:
+
+1. CI parity gate runs the parity test on every push (added in impl 02). Any missing key blocks merge.
+2. `scripts/check-i18n.js` scans active locales for missing/orphan keys and is wired into the same CI workflow.
+3. Tier 2 locales (`it`, `ro`, `pl`) are scoped: parity is enforced only against `apps/web/i18n/tier-scopes.ts → TIER_2_NAMESPACES`. Out-of-scope namespaces fall back to the tenant default locale via the route-level guard (impl 11).
+4. Adding a new locale to active is a **two-file commit**: flip `active: true` in `apps/web/i18n/registry.ts` AND add `apps/web/messages/{code}.json` in the same commit. Splitting the change across commits leaves the runtime referencing a missing file — a 500 on every route under that locale.
+
+**Where to look first when something goes wrong**: if Sentry shows a sudden spike of `MISSING_MESSAGE` exceptions, the offending key is in the exception payload — find the file in `apps/web/messages/en.json` that owns that key and propagate to every other active locale. If the spike is on every route, the root cause is almost certainly a locale that was flipped `active: true` without its message file landing.
+
+**Do NOT** "soften" the hard-error to silently fall back to English "for safety". That re-introduces the silent-failure bug class the hard-error was meant to eliminate.
+
+**Reference**: `New Languages/STRATEGY.md`, `New Languages/implementations/02-arabic-cleanup-hard-error-flip.md`.

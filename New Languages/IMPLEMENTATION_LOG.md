@@ -81,10 +81,10 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 01 — Schema, RLS, locale registry
 
 - **Spec:** `implementations/01-schema-rls-locale-registry.md`
-- **Status:** ⚪ Pending
+- **Status:** 🟡 In progress
 - **Model:** Opus 4.7 / High effort
 - **Depends on:** P0 approved
-- **Began:** —
+- **Began:** 2026-04-28
 - **Completed:** —
 
 **Scope summary:**
