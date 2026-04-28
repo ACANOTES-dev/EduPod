@@ -48,6 +48,10 @@ export function DomainVerificationCard() {
   const [refreshingId, setRefreshingId] = React.useState<string | null>(null);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [showAdd, setShowAdd] = React.useState(false);
+  // Inline error captured from the most recent Add Domain submit. Surfaces
+  // verbatim provider rejection (e.g. "Domain already exists in Resend") in
+  // a persistent banner under the form so users don't miss the brief toast.
+  const [addError, setAddError] = React.useState<string | null>(null);
 
   const form = useForm<AddDomainForm>({
     resolver: zodResolver(addDomainSchema),
@@ -57,7 +61,12 @@ export function DomainVerificationCard() {
   const load = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const raw = await apiClient<{ data: DomainRow[] } | DomainRow[]>('/api/v1/email-domains');
+      // silent:true — handle in catch; the load is not user-initiated and a
+      // global toast on initial render is noise (e.g. "permission denied" if
+      // the role can't list domains is conveyed by the 404 status above).
+      const raw = await apiClient<{ data: DomainRow[] } | DomainRow[]>('/api/v1/email-domains', {
+        silent: true,
+      });
       setRows(unwrap<DomainRow[]>(raw));
     } catch (err) {
       console.error('[DomainVerificationCard.load]', err);
@@ -71,18 +80,28 @@ export function DomainVerificationCard() {
   }, [load]);
 
   const onAdd = form.handleSubmit(async (values) => {
+    setAddError(null);
     try {
+      // silent:true so we control surfacing — both as a toast AND as an
+      // inline persistent banner under the form (toasts can be missed when
+      // the user is reading the form area).
       await apiClient('/api/v1/email-domains', {
         method: 'POST',
         body: JSON.stringify(values),
+        silent: true,
       });
       toast.success(t('add.success'));
       form.reset();
       setShowAdd(false);
       await load();
     } catch (err: unknown) {
-      const errorObj = err as { error?: { message?: string } };
-      toast.error(errorObj?.error?.message ?? t('add.error'));
+      const errorObj = err as {
+        error?: { message?: string; details?: { provider_error?: string } };
+      };
+      const message =
+        errorObj?.error?.details?.provider_error ?? errorObj?.error?.message ?? t('add.error');
+      setAddError(message);
+      toast.error(message);
     }
   });
 
@@ -91,14 +110,18 @@ export function DomainVerificationCard() {
     try {
       const raw = await apiClient<{ data: DomainRow } | DomainRow>(
         `/api/v1/email-domains/${id}/refresh`,
-        { method: 'POST' },
+        { method: 'POST', silent: true },
       );
       const updated = unwrap<DomainRow>(raw);
       setRows((rs) => rs.map((r) => (r.id === id ? updated : r)));
       toast.success(t('refresh.success'));
     } catch (err: unknown) {
-      const errorObj = err as { error?: { message?: string } };
-      toast.error(errorObj?.error?.message ?? t('refresh.error'));
+      const errorObj = err as {
+        error?: { message?: string; details?: { provider_error?: string } };
+      };
+      toast.error(
+        errorObj?.error?.details?.provider_error ?? errorObj?.error?.message ?? t('refresh.error'),
+      );
     } finally {
       setRefreshingId(null);
     }
@@ -107,7 +130,7 @@ export function DomainVerificationCard() {
   async function onDelete(id: string, domain: string) {
     if (!window.confirm(t('delete.confirm', { domain }))) return;
     try {
-      await apiClient(`/api/v1/email-domains/${id}`, { method: 'DELETE' });
+      await apiClient(`/api/v1/email-domains/${id}`, { method: 'DELETE', silent: true });
       setRows((rs) => rs.filter((r) => r.id !== id));
       toast.success(t('delete.success'));
     } catch (err: unknown) {
@@ -129,27 +152,42 @@ export function DomainVerificationCard() {
       </header>
 
       {showAdd && (
-        <form onSubmit={onAdd} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <Label htmlFor="domain-input">{t('add.domainLabel')}</Label>
-            <Input
-              id="domain-input"
-              type="text"
-              dir="ltr"
-              placeholder={t('add.domainPlaceholder')}
-              className="mt-1 font-mono text-base"
-              {...form.register('domain')}
-            />
-            {form.formState.errors.domain && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.domain.message}
-              </p>
-            )}
-          </div>
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? t('add.submitting') : t('add.submit')}
-          </Button>
-        </form>
+        <>
+          <form onSubmit={onAdd} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <Label htmlFor="domain-input">{t('add.domainLabel')}</Label>
+              <Input
+                id="domain-input"
+                type="text"
+                dir="ltr"
+                placeholder={t('add.domainPlaceholder')}
+                className="mt-1 font-mono text-base"
+                aria-invalid={form.formState.errors.domain ? true : undefined}
+                aria-describedby={form.formState.errors.domain ? 'domain-input-error' : undefined}
+                {...form.register('domain')}
+              />
+              {form.formState.errors.domain && (
+                <p id="domain-input-error" role="alert" className="mt-1 text-xs text-destructive">
+                  {form.formState.errors.domain.message}
+                </p>
+              )}
+            </div>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? t('add.submitting') : t('add.submit')}
+            </Button>
+          </form>
+          {addError && (
+            <div
+              role="alert"
+              className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3"
+            >
+              <p className="text-sm font-medium text-destructive">{t('add.errorTitle')}</p>
+              <pre className="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-destructive">
+                {addError}
+              </pre>
+            </div>
+          )}
+        </>
       )}
 
       <div className="mt-6 space-y-3">

@@ -65,8 +65,11 @@ export default function EmailConfigPage() {
     if (!canManage) return;
     void (async () => {
       try {
+        // silent:true — 404 is the expected "no config yet" state. We map it
+        // into the empty form below; other failures still surface a toast.
         const raw = await apiClient<MaskedEmailConfig | { data: MaskedEmailConfig }>(
           '/api/v1/email-config',
+          { silent: true },
         );
         const config = unwrap<MaskedEmailConfig>(raw);
         setMasked(config);
@@ -214,7 +217,25 @@ export default function EmailConfigPage() {
             >
               {tCommon('actions.delete')}
             </Button>
-            <Button type="button" onClick={() => setIsEditing(true)}>
+            <Button
+              type="button"
+              onClick={() => {
+                // Pre-fill non-secret fields from the masked config so the
+                // Update flow doesn't blank them out and overwrite saved
+                // values with empty strings on a partial save. Secrets stay
+                // blank — leaving them blank means "don't change". A separate
+                // useEffect on submit ensures empty secrets fall back to the
+                // saved-on-server values rather than overwriting them.
+                form.reset({
+                  resend_api_key: '',
+                  from_email: masked.from_email,
+                  from_name: masked.from_name ?? '',
+                  reply_to_email: masked.reply_to_email ?? '',
+                  webhook_secret: '',
+                });
+                setIsEditing(true);
+              }}
+            >
               {tCommon('actions.update')}
             </Button>
           </div>
@@ -223,17 +244,30 @@ export default function EmailConfigPage() {
 
       {isEditing && (
         <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-surface p-6">
+          {isConfigured && (
+            <div
+              role="status"
+              className="mb-4 rounded-xl border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800"
+            >
+              {t('update.secretsRequiredNotice')}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               label={t('fields.resendApiKey')}
               hint={t('fields.resendApiKeyHint')}
               error={form.formState.errors.resend_api_key?.message}
+              fieldId="resend_api_key"
             >
               <PasswordInput
                 id="resend_api_key"
                 value={form.watch('resend_api_key')}
                 onChange={(v) => form.setValue('resend_api_key', v, { shouldValidate: true })}
                 placeholder="re_xxxxxxxxxxxx"
+                aria-invalid={form.formState.errors.resend_api_key ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.resend_api_key ? 'resend_api_key-error' : undefined
+                }
               />
             </FormField>
 
@@ -241,6 +275,7 @@ export default function EmailConfigPage() {
               label={t('fields.fromEmail')}
               hint={t('fields.fromEmailHint')}
               error={form.formState.errors.from_email?.message}
+              fieldId="from_email"
             >
               <Input
                 id="from_email"
@@ -248,11 +283,17 @@ export default function EmailConfigPage() {
                 dir="ltr"
                 className="text-base"
                 placeholder="noreply@school.example"
+                aria-invalid={form.formState.errors.from_email ? true : undefined}
+                aria-describedby={form.formState.errors.from_email ? 'from_email-error' : undefined}
                 {...form.register('from_email')}
               />
             </FormField>
 
-            <FormField label={t('fields.fromName')} hint={t('fields.fromNameHint')}>
+            <FormField
+              label={t('fields.fromName')}
+              hint={t('fields.fromNameHint')}
+              fieldId="from_name"
+            >
               <Input
                 id="from_name"
                 type="text"
@@ -261,7 +302,11 @@ export default function EmailConfigPage() {
               />
             </FormField>
 
-            <FormField label={t('fields.replyToEmail')} hint={t('fields.replyToEmailHint')}>
+            <FormField
+              label={t('fields.replyToEmail')}
+              hint={t('fields.replyToEmailHint')}
+              fieldId="reply_to_email"
+            >
               <Input
                 id="reply_to_email"
                 type="email"
@@ -275,6 +320,7 @@ export default function EmailConfigPage() {
               label={t('fields.webhookSecret')}
               hint={t('fields.webhookSecretHint')}
               error={form.formState.errors.webhook_secret?.message}
+              fieldId="webhook_secret"
               fullWidth
             >
               <PasswordInput
@@ -282,6 +328,10 @@ export default function EmailConfigPage() {
                 value={form.watch('webhook_secret')}
                 onChange={(v) => form.setValue('webhook_secret', v, { shouldValidate: true })}
                 placeholder="whsec_xxxxxxxx"
+                aria-invalid={form.formState.errors.webhook_secret ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.webhook_secret ? 'webhook_secret-error' : undefined
+                }
               />
             </FormField>
           </div>
@@ -340,20 +390,28 @@ function FormField({
   hint,
   error,
   fullWidth,
+  fieldId,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
   fullWidth?: boolean;
+  /** Used to derive the error span's id for aria-describedby wiring on screen readers. */
+  fieldId?: string;
   children: React.ReactNode;
 }) {
+  const errorId = fieldId && error ? `${fieldId}-error` : undefined;
   return (
     <div className={`space-y-1 ${fullWidth ? 'md:col-span-2' : ''}`}>
-      <Label>{label}</Label>
+      <Label htmlFor={fieldId}>{label}</Label>
       {hint && <p className="text-xs text-text-tertiary">{hint}</p>}
       {children}
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

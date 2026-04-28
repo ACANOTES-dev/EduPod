@@ -77,6 +77,7 @@ export function TemplateSubmitForm({ onCreated }: { onCreated: () => void }) {
           label={t('templateKey')}
           hint={t('templateKeyHint')}
           error={form.formState.errors.template_key?.message}
+          fieldId="template_key"
         >
           <Input
             id="template_key"
@@ -84,10 +85,12 @@ export function TemplateSubmitForm({ onCreated }: { onCreated: () => void }) {
             dir="ltr"
             className="text-base font-mono"
             placeholder="parent_attendance_alert"
+            aria-invalid={form.formState.errors.template_key ? true : undefined}
+            aria-describedby={form.formState.errors.template_key ? 'template_key-error' : undefined}
             {...form.register('template_key')}
           />
         </FormField>
-        <FormField label={t('languageCode')}>
+        <FormField label={t('languageCode')} fieldId="language_code">
           <select
             id="language_code"
             className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base"
@@ -97,7 +100,7 @@ export function TemplateSubmitForm({ onCreated }: { onCreated: () => void }) {
             <option value="ar">ar</option>
           </select>
         </FormField>
-        <FormField label={t('category')}>
+        <FormField label={t('category')} fieldId="category">
           <select
             id="category"
             className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base"
@@ -113,12 +116,15 @@ export function TemplateSubmitForm({ onCreated }: { onCreated: () => void }) {
           label={t('body')}
           hint={t('bodyHint')}
           error={form.formState.errors.body?.message}
+          fieldId="body"
           fullWidth
         >
           <textarea
             id="body"
             rows={4}
             className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
+            aria-invalid={form.formState.errors.body ? true : undefined}
+            aria-describedby={form.formState.errors.body ? 'body-error' : undefined}
             {...form.register('body')}
           />
         </FormField>
@@ -147,20 +153,27 @@ function FormField({
   hint,
   error,
   fullWidth,
+  fieldId,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
   fullWidth?: boolean;
+  fieldId?: string;
   children: React.ReactNode;
 }) {
+  const errorId = fieldId && error ? `${fieldId}-error` : undefined;
   return (
     <div className={`space-y-1 ${fullWidth ? 'md:col-span-2' : ''}`}>
-      <Label>{label}</Label>
+      <Label htmlFor={fieldId}>{label}</Label>
       {hint && <p className="text-xs text-text-tertiary">{hint}</p>}
       {children}
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

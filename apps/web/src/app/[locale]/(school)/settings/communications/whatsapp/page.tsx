@@ -68,8 +68,11 @@ export default function WhatsAppConfigPage() {
     if (!canManage) return;
     void (async () => {
       try {
+        // silent:true — 404 is the expected "no config yet" state, mapped to
+        // the empty form. Other failures still surface a toast.
         const raw = await apiClient<MaskedWhatsAppConfig | { data: MaskedWhatsAppConfig }>(
           '/api/v1/whatsapp-config',
+          { silent: true },
         );
         setMasked(unwrap<MaskedWhatsAppConfig>(raw));
         setIsConfigured(true);
@@ -230,7 +233,22 @@ export default function WhatsAppConfigPage() {
             >
               {tCommon('actions.delete')}
             </Button>
-            <Button type="button" onClick={() => setIsEditing(true)}>
+            <Button
+              type="button"
+              onClick={() => {
+                // Pre-fill non-secret fields so an Update doesn't blank them.
+                // Secrets stay blank — user must re-enter them per the schema's
+                // PUT-replace semantics. Notice banner above the form clarifies.
+                form.reset({
+                  twilio_account_sid: '',
+                  twilio_auth_token: '',
+                  twilio_whatsapp_from_number: masked.twilio_whatsapp_from_number,
+                  business_profile_id: masked.business_profile_id ?? '',
+                  webhook_secret: '',
+                });
+                setIsEditing(true);
+              }}
+            >
               {tCommon('actions.update')}
             </Button>
           </div>
@@ -239,35 +257,54 @@ export default function WhatsAppConfigPage() {
 
       {isEditing && (
         <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-surface p-6">
+          {isConfigured && (
+            <div
+              role="status"
+              className="mb-4 rounded-xl border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800"
+            >
+              {t('update.secretsRequiredNotice')}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               label={t('fields.accountSid')}
               hint={t('fields.accountSidHint')}
               error={form.formState.errors.twilio_account_sid?.message}
+              fieldId="twilio_account_sid"
             >
               <PasswordInput
                 id="twilio_account_sid"
                 value={form.watch('twilio_account_sid')}
                 onChange={(v) => form.setValue('twilio_account_sid', v, { shouldValidate: true })}
                 placeholder="ACxxxxxxxxxxxx"
+                aria-invalid={form.formState.errors.twilio_account_sid ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.twilio_account_sid ? 'twilio_account_sid-error' : undefined
+                }
               />
             </FormField>
             <FormField
               label={t('fields.authToken')}
               hint={t('fields.authTokenHint')}
               error={form.formState.errors.twilio_auth_token?.message}
+              fieldId="twilio_auth_token"
             >
               <PasswordInput
                 id="twilio_auth_token"
                 value={form.watch('twilio_auth_token')}
                 onChange={(v) => form.setValue('twilio_auth_token', v, { shouldValidate: true })}
                 placeholder="••••••••"
+                aria-invalid={form.formState.errors.twilio_auth_token ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.twilio_auth_token ? 'twilio_auth_token-error' : undefined
+                }
               />
             </FormField>
             <FormField
               label={t('fields.fromNumber')}
               hint={t('fields.fromNumberHint')}
               error={form.formState.errors.twilio_whatsapp_from_number?.message}
+              fieldId="twilio_whatsapp_from_number"
             >
               <Input
                 id="twilio_whatsapp_from_number"
@@ -276,12 +313,19 @@ export default function WhatsAppConfigPage() {
                 inputMode="tel"
                 className="text-base font-mono"
                 placeholder="+44XXXXXXXXX"
+                aria-invalid={form.formState.errors.twilio_whatsapp_from_number ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.twilio_whatsapp_from_number
+                    ? 'twilio_whatsapp_from_number-error'
+                    : undefined
+                }
                 {...form.register('twilio_whatsapp_from_number')}
               />
             </FormField>
             <FormField
               label={t('fields.businessProfileId')}
               hint={t('fields.businessProfileIdHint')}
+              fieldId="business_profile_id"
             >
               <Input
                 id="business_profile_id"
@@ -296,12 +340,17 @@ export default function WhatsAppConfigPage() {
               label={t('fields.webhookSecret')}
               hint={t('fields.webhookSecretHint')}
               error={form.formState.errors.webhook_secret?.message}
+              fieldId="webhook_secret"
             >
               <PasswordInput
                 id="webhook_secret"
                 value={form.watch('webhook_secret')}
                 onChange={(v) => form.setValue('webhook_secret', v, { shouldValidate: true })}
                 placeholder="whsec_xxxxxxxx"
+                aria-invalid={form.formState.errors.webhook_secret ? true : undefined}
+                aria-describedby={
+                  form.formState.errors.webhook_secret ? 'webhook_secret-error' : undefined
+                }
               />
             </FormField>
           </div>
@@ -397,19 +446,26 @@ function FormField({
   label,
   hint,
   error,
+  fieldId,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
+  fieldId?: string;
   children: React.ReactNode;
 }) {
+  const errorId = fieldId && error ? `${fieldId}-error` : undefined;
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      <Label htmlFor={fieldId}>{label}</Label>
       {hint && <p className="text-xs text-text-tertiary">{hint}</p>}
       {children}
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

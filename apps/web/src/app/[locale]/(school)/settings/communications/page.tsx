@@ -70,10 +70,23 @@ export default function CommunicationsIndexPage() {
     if (!canManage) return;
     let cancelled = false;
     void (async () => {
+      // silent:true so 404 ("no config yet" — the expected empty state) does not
+      // surface via the global apiClient error toast. Per-channel cards render
+      // the "Not configured" badge from the rejected promise; only non-404
+      // failures need the user-facing banner below.
       const [email, sms, whatsapp] = await Promise.allSettled([
-        apiClient<MaskedEmailConfig | { data: MaskedEmailConfig }>('/api/v1/email-config'),
-        apiClient<MaskedSmsConfig | { data: MaskedSmsConfig }>('/api/v1/sms-config'),
-        apiClient<MaskedWhatsAppConfig | { data: MaskedWhatsAppConfig }>('/api/v1/whatsapp-config'),
+        apiClient<MaskedEmailConfig | { data: MaskedEmailConfig }>('/api/v1/email-config', {
+          silent: true,
+        }),
+        apiClient<MaskedSmsConfig | { data: MaskedSmsConfig }>('/api/v1/sms-config', {
+          silent: true,
+        }),
+        apiClient<MaskedWhatsAppConfig | { data: MaskedWhatsAppConfig }>(
+          '/api/v1/whatsapp-config',
+          {
+            silent: true,
+          },
+        ),
       ]);
       if (cancelled) return;
       setEmailStatus(toStatus(email));

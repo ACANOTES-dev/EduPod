@@ -2478,6 +2478,9 @@
           "success": "Email configuration saved.",
           "error": "Failed to save email configuration."
         },
+        "update": {
+          "secretsRequiredNotice": "Re-enter your Resend API key and webhook secret to save changes — secrets are never displayed and saving without them would clear them."
+        },
         "delete": {
           "confirm": "This will remove the email configuration and disable outbound email. Continue?",
           "success": "Email configuration deleted.",
@@ -2511,7 +2514,8 @@
             "submit": "Register",
             "submitting": "Registering…",
             "success": "Domain registered. DNS verification will start shortly.",
-            "error": "Failed to register domain."
+            "error": "Failed to register domain.",
+            "errorTitle": "Couldn't register domain"
           },
           "refresh": {
             "button": "Refresh now",
@@ -2574,6 +2578,9 @@
           "success": "SMS configuration saved.",
           "error": "Failed to save SMS configuration."
         },
+        "update": {
+          "secretsRequiredNotice": "Re-enter your Twilio Account SID, Auth token, and webhook secret to save changes — secrets are never displayed and saving without them would clear them."
+        },
         "delete": {
           "confirm": "This will remove the SMS configuration and disable outbound SMS. Continue?",
           "success": "SMS configuration deleted.",
@@ -2618,6 +2625,9 @@
         "save": {
           "success": "WhatsApp configuration saved.",
           "error": "Failed to save WhatsApp configuration."
+        },
+        "update": {
+          "secretsRequiredNotice": "Re-enter your Twilio Account SID, Auth token, and webhook secret to save changes — secrets are never displayed and saving without them would clear them."
         },
         "delete": {
           "confirm": "This will remove the WhatsApp configuration and disable outbound WhatsApp. Continue?",
@@ -2700,7 +2710,7 @@
             "languageCode": "Language",
             "category": "Category",
             "body": "Body",
-            "bodyHint": "Use {{1}}, {{2}}, … for variables. Body must be ≤ 1024 characters.",
+            "bodyHint": "Use '{{'1'}}', '{{'2'}}', … for variables. Body must be ≤ 1024 characters.",
             "saveAndSubmit": "Save & Submit",
             "submitting": "Saving…",
             "success": "Template submitted to Twilio.",

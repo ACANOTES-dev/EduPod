@@ -13,6 +13,8 @@ export function PasswordInput({
   disabled,
   showLabel = 'Show',
   hideLabel = 'Hide',
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: {
   id: string;
   value: string;
@@ -21,6 +23,9 @@ export function PasswordInput({
   disabled?: boolean;
   showLabel?: string;
   hideLabel?: string;
+  /** Forwarded to the underlying input so screen readers announce validation errors. */
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
 }) {
   const [visible, setVisible] = React.useState(false);
   return (
@@ -36,6 +41,8 @@ export function PasswordInput({
         autoComplete="off"
         spellCheck={false}
         dir="ltr"
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
       />
       <button
         type="button"
