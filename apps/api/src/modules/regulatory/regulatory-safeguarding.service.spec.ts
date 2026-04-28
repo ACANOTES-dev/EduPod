@@ -87,7 +87,10 @@ describe('RegulatorySafeguardingService', () => {
     service = module.get(RegulatorySafeguardingService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
 
   // ─── Dashboard ───────────────────────────────────────────────────────────
 
@@ -108,8 +111,9 @@ describe('RegulatorySafeguardingService', () => {
     });
 
     it('computes days until annual review from the next scheduled review', async () => {
-      const now = Date.now();
-      const fortyDaysOut = new Date(now + 40 * 24 * 60 * 60 * 1000);
+      const now = new Date('2026-04-29T12:00:00.000Z');
+      jest.useFakeTimers().setSystemTime(now);
+      const fortyDaysOut = new Date(now.getTime() + 40 * 24 * 60 * 60 * 1000);
 
       mockPrisma.childProtectionReview.findFirst
         .mockResolvedValueOnce({ next_review_due: fortyDaysOut })
