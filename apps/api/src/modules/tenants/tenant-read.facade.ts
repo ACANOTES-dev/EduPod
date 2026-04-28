@@ -28,6 +28,7 @@ const TENANT_CORE_SELECT = {
   slug: true,
   status: true,
   default_locale: true,
+  supported_locales: true,
   timezone: true,
   date_format: true,
   currency_code: true,
@@ -61,6 +62,10 @@ export interface TenantCoreRow {
   slug: string;
   status: string;
   default_locale: string;
+  /** ISO codes for every locale this tenant can serve. Always includes
+   * default_locale (enforced via DB CHECK). Backfilled to ['en','ar'] for
+   * every existing tenant at impl-01 time. */
+  supported_locales: string[];
   timezone: string;
   date_format: string;
   currency_code: string;

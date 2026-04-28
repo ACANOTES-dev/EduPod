@@ -25,6 +25,7 @@ interface MockTenant {
   name: string;
   status: 'active' | 'suspended' | 'archived';
   default_locale: string;
+  supported_locales: string[];
 }
 
 interface MockBranding {
@@ -47,6 +48,7 @@ function buildTenant(overrides: Partial<MockTenant> = {}): MockTenant {
     name: 'Nurul Huda',
     status: 'active',
     default_locale: 'en',
+    supported_locales: ['en', 'ar'],
     ...overrides,
   };
 }
@@ -148,6 +150,7 @@ describe('PublicTenantsService — findBySlug', () => {
       support_email: 'admissions@nhqs.test',
       support_phone: '+971 50 000 0000',
       default_locale: 'en',
+      supported_locales: ['en', 'ar'],
       public_domain: 'nhqs.edupod.app',
     });
   });

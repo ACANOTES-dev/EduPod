@@ -35,6 +35,13 @@ export interface HouseholdListItem {
   city: string | null;
   country: string | null;
   postal_code: string | null;
+  /** Optional second language for household communications. Null when no
+   * preference set. UI for editing lands in implementation 06. */
+  secondary_locale: string | null;
+  /** When true, dispatch notifications in BOTH the household's primary
+   * (tenant default) AND secondary locale. Service-side fanout lands in
+   * implementation 06. */
+  dual_language_opt_in: boolean;
   needs_completion: boolean;
   status: string;
   created_at: Date;
@@ -86,6 +93,10 @@ export interface HouseholdDetail {
   city: string | null;
   country: string | null;
   postal_code: string | null;
+  /** See HouseholdListItem.secondary_locale. */
+  secondary_locale: string | null;
+  /** See HouseholdListItem.dual_language_opt_in. */
+  dual_language_opt_in: boolean;
   needs_completion: boolean;
   status: string;
   created_at: Date;

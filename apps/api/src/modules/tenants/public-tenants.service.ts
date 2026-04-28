@@ -15,6 +15,9 @@ export interface PublicTenantConfig {
   support_email: string | null;
   support_phone: string | null;
   default_locale: string;
+  /** Locales this tenant can serve. Used by the public apply form's
+   * locale picker (impl 03) to gate language selection per tenant. */
+  supported_locales: string[];
   public_domain: string | null;
 }
 
@@ -83,6 +86,7 @@ export class PublicTenantsService {
       support_email: related.branding?.support_email ?? null,
       support_phone: related.branding?.support_phone ?? null,
       default_locale: tenant.default_locale,
+      supported_locales: tenant.supported_locales,
       public_domain: related.domain?.domain ?? null,
     };
   }
