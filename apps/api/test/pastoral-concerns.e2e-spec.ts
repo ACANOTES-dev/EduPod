@@ -212,26 +212,7 @@ describe('Pastoral Concerns — RLS & Permission Tests (e2e)', () => {
   afterAll(async () => {
     if (!tablesExist) return;
 
-    // Clean up test data
     if (directPrisma) {
-      try {
-        const idsToClean = [alNoorConcernId, alNoorTier3ConcernId].filter(Boolean);
-        if (idsToClean.length > 0) {
-          await directPrisma.pastoralEvent.deleteMany({
-            where: { entity_id: { in: idsToClean } },
-          });
-          await directPrisma.pastoralConcernVersion.deleteMany({
-            where: { concern_id: { in: idsToClean } },
-          });
-          await directPrisma.pastoralConcern.deleteMany({
-            where: { id: { in: idsToClean } },
-          });
-        }
-      } catch (err) {
-        // Cleanup failures are non-fatal in test teardown — the subsequent
-        // deleteTenantFixture cascade will remove whatever survives.
-        console.error('[pastoral-concerns teardown]', err);
-      }
       await directPrisma.$disconnect();
     }
     await deleteTenantFixture(prisma, fixture);

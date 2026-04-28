@@ -515,9 +515,6 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
             where: { case_id: caseId },
             data: { case_id: null },
           });
-          await directPrisma.pastoralEvent.deleteMany({
-            where: { entity_id: caseId },
-          });
           await directPrisma.pastoralCaseStudent.deleteMany({
             where: { case_id: caseId },
           });

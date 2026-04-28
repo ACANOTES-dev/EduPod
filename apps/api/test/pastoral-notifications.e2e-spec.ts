@@ -124,36 +124,6 @@ describe('Pastoral Notifications — E2E Integration Tests', () => {
     if (!tablesExist) return;
 
     if (directPrisma) {
-      try {
-        if (createdConcernIds.length > 0) {
-          // Clean up notifications linked to test concerns
-          await directPrisma.notification.deleteMany({
-            where: {
-              source_entity_type: 'pastoral_concern',
-              source_entity_id: { in: createdConcernIds },
-            },
-          });
-
-          // Clean up events linked to test concerns
-          await directPrisma.pastoralEvent.deleteMany({
-            where: { entity_id: { in: createdConcernIds } },
-          });
-
-          // Clean up versions
-          await directPrisma.pastoralConcernVersion.deleteMany({
-            where: { concern_id: { in: createdConcernIds } },
-          });
-
-          // Clean up concerns
-          await directPrisma.pastoralConcern.deleteMany({
-            where: { id: { in: createdConcernIds } },
-          });
-        }
-      } catch (err) {
-        // Cleanup failures are non-fatal in test teardown — the subsequent
-        // deleteTenantFixture cascade will remove whatever survives.
-        console.error('[pastoral-notifications teardown]', err);
-      }
       await directPrisma.$disconnect();
     }
     await deleteTenantFixture(prisma, fixture);
