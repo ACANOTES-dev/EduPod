@@ -12,6 +12,12 @@ export interface DevTenant {
   name: string;
   slug: string;
   default_locale: string;
+  /**
+   * Locales this dev tenant can serve. Mirrors production policy where every
+   * tenant supports en + ar regardless of which one is the default. Required
+   * by the tenants_default_locale_in_supported CHECK constraint.
+   */
+  supported_locales: string[];
   timezone: string;
   date_format: string;
   currency_code: string;
@@ -34,6 +40,7 @@ export const DEV_TENANTS: DevTenant[] = [
     name: 'Al Noor Academy',
     slug: 'al-noor',
     default_locale: 'ar',
+    supported_locales: ['en', 'ar'],
     timezone: 'Asia/Dubai',
     date_format: 'DD-MM-YYYY',
     currency_code: 'AED',
@@ -44,6 +51,7 @@ export const DEV_TENANTS: DevTenant[] = [
     name: 'Cedar International School',
     slug: 'cedar',
     default_locale: 'en',
+    supported_locales: ['en', 'ar'],
     timezone: 'Asia/Dubai',
     date_format: 'DD-MM-YYYY',
     currency_code: 'AED',
@@ -54,6 +62,7 @@ export const DEV_TENANTS: DevTenant[] = [
     name: 'Nurul Huda School',
     slug: 'nhqs',
     default_locale: 'en',
+    supported_locales: ['en', 'ar'],
     timezone: 'Asia/Dubai',
     date_format: 'DD-MM-YYYY',
     currency_code: 'AED',
@@ -64,6 +73,7 @@ export const DEV_TENANTS: DevTenant[] = [
     name: 'Midaad Ul Qalam',
     slug: 'mdad',
     default_locale: 'ar',
+    supported_locales: ['en', 'ar'],
     timezone: 'Asia/Dubai',
     date_format: 'DD-MM-YYYY',
     currency_code: 'AED',
@@ -81,25 +91,137 @@ export const DEV_PLATFORM_USER = {
 
 export const DEV_USERS: DevUser[] = [
   // Al Noor
-  { email: 'owner@alnoor.test', first_name: 'Fatima', last_name: 'Al-Rashid', preferred_locale: 'ar', role_key: 'school_principal', tenant_slug: 'al-noor' },
-  { email: 'admin@alnoor.test', first_name: 'Ahmed', last_name: 'Hassan', preferred_locale: 'ar', role_key: 'admin', tenant_slug: 'al-noor' },
-  { email: 'teacher@alnoor.test', first_name: 'Layla', last_name: 'Ibrahim', preferred_locale: 'ar', role_key: 'teacher', tenant_slug: 'al-noor' },
-  { email: 'parent@alnoor.test', first_name: 'Omar', last_name: 'Khalil', preferred_locale: 'ar', role_key: 'parent', tenant_slug: 'al-noor' },
+  {
+    email: 'owner@alnoor.test',
+    first_name: 'Fatima',
+    last_name: 'Al-Rashid',
+    preferred_locale: 'ar',
+    role_key: 'school_principal',
+    tenant_slug: 'al-noor',
+  },
+  {
+    email: 'admin@alnoor.test',
+    first_name: 'Ahmed',
+    last_name: 'Hassan',
+    preferred_locale: 'ar',
+    role_key: 'admin',
+    tenant_slug: 'al-noor',
+  },
+  {
+    email: 'teacher@alnoor.test',
+    first_name: 'Layla',
+    last_name: 'Ibrahim',
+    preferred_locale: 'ar',
+    role_key: 'teacher',
+    tenant_slug: 'al-noor',
+  },
+  {
+    email: 'parent@alnoor.test',
+    first_name: 'Omar',
+    last_name: 'Khalil',
+    preferred_locale: 'ar',
+    role_key: 'parent',
+    tenant_slug: 'al-noor',
+  },
   // Cedar
-  { email: 'owner@cedar.test', first_name: 'Sarah', last_name: 'Mitchell', preferred_locale: 'en', role_key: 'school_principal', tenant_slug: 'cedar' },
-  { email: 'admin@cedar.test', first_name: 'James', last_name: 'Cooper', preferred_locale: 'en', role_key: 'admin', tenant_slug: 'cedar' },
-  { email: 'teacher@cedar.test', first_name: 'Emily', last_name: 'Chen', preferred_locale: 'en', role_key: 'teacher', tenant_slug: 'cedar' },
-  { email: 'parent@cedar.test', first_name: 'David', last_name: 'Brown', preferred_locale: 'en', role_key: 'parent', tenant_slug: 'cedar' },
+  {
+    email: 'owner@cedar.test',
+    first_name: 'Sarah',
+    last_name: 'Mitchell',
+    preferred_locale: 'en',
+    role_key: 'school_principal',
+    tenant_slug: 'cedar',
+  },
+  {
+    email: 'admin@cedar.test',
+    first_name: 'James',
+    last_name: 'Cooper',
+    preferred_locale: 'en',
+    role_key: 'admin',
+    tenant_slug: 'cedar',
+  },
+  {
+    email: 'teacher@cedar.test',
+    first_name: 'Emily',
+    last_name: 'Chen',
+    preferred_locale: 'en',
+    role_key: 'teacher',
+    tenant_slug: 'cedar',
+  },
+  {
+    email: 'parent@cedar.test',
+    first_name: 'David',
+    last_name: 'Brown',
+    preferred_locale: 'en',
+    role_key: 'parent',
+    tenant_slug: 'cedar',
+  },
   // Nurul Huda
-  { email: 'owner@nhqs.test', first_name: 'Yusuf', last_name: 'Rahman', preferred_locale: 'en', role_key: 'school_principal', tenant_slug: 'nhqs' },
-  { email: 'admin@nhqs.test', first_name: 'Aisha', last_name: 'Patel', preferred_locale: 'en', role_key: 'admin', tenant_slug: 'nhqs' },
-  { email: 'teacher@nhqs.test', first_name: 'Hamza', last_name: 'Khan', preferred_locale: 'en', role_key: 'teacher', tenant_slug: 'nhqs' },
-  { email: 'parent@nhqs.test', first_name: 'Zainab', last_name: 'Ali', preferred_locale: 'en', role_key: 'parent', tenant_slug: 'nhqs' },
+  {
+    email: 'owner@nhqs.test',
+    first_name: 'Yusuf',
+    last_name: 'Rahman',
+    preferred_locale: 'en',
+    role_key: 'school_principal',
+    tenant_slug: 'nhqs',
+  },
+  {
+    email: 'admin@nhqs.test',
+    first_name: 'Aisha',
+    last_name: 'Patel',
+    preferred_locale: 'en',
+    role_key: 'admin',
+    tenant_slug: 'nhqs',
+  },
+  {
+    email: 'teacher@nhqs.test',
+    first_name: 'Hamza',
+    last_name: 'Khan',
+    preferred_locale: 'en',
+    role_key: 'teacher',
+    tenant_slug: 'nhqs',
+  },
+  {
+    email: 'parent@nhqs.test',
+    first_name: 'Zainab',
+    last_name: 'Ali',
+    preferred_locale: 'en',
+    role_key: 'parent',
+    tenant_slug: 'nhqs',
+  },
   // Midaad Ul Qalam
-  { email: 'owner@mdad.test', first_name: 'Abdullah', last_name: 'Al-Farsi', preferred_locale: 'ar', role_key: 'school_principal', tenant_slug: 'mdad' },
-  { email: 'admin@mdad.test', first_name: 'Maryam', last_name: 'Al-Sayed', preferred_locale: 'ar', role_key: 'admin', tenant_slug: 'mdad' },
-  { email: 'teacher@mdad.test', first_name: 'Ibrahim', last_name: 'Nasser', preferred_locale: 'ar', role_key: 'teacher', tenant_slug: 'mdad' },
-  { email: 'parent@mdad.test', first_name: 'Khadija', last_name: 'Mahmoud', preferred_locale: 'ar', role_key: 'parent', tenant_slug: 'mdad' },
+  {
+    email: 'owner@mdad.test',
+    first_name: 'Abdullah',
+    last_name: 'Al-Farsi',
+    preferred_locale: 'ar',
+    role_key: 'school_principal',
+    tenant_slug: 'mdad',
+  },
+  {
+    email: 'admin@mdad.test',
+    first_name: 'Maryam',
+    last_name: 'Al-Sayed',
+    preferred_locale: 'ar',
+    role_key: 'admin',
+    tenant_slug: 'mdad',
+  },
+  {
+    email: 'teacher@mdad.test',
+    first_name: 'Ibrahim',
+    last_name: 'Nasser',
+    preferred_locale: 'ar',
+    role_key: 'teacher',
+    tenant_slug: 'mdad',
+  },
+  {
+    email: 'parent@mdad.test',
+    first_name: 'Khadija',
+    last_name: 'Mahmoud',
+    preferred_locale: 'ar',
+    role_key: 'parent',
+    tenant_slug: 'mdad',
+  },
 ];
 
 export async function hashPassword(password: string): Promise<string> {

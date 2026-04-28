@@ -384,6 +384,7 @@ async function main() {
           name: t.name,
           slug: t.slug,
           default_locale: t.default_locale,
+          supported_locales: t.supported_locales,
           timezone: t.timezone,
           date_format: t.date_format,
           currency_code: t.currency_code,

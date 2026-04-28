@@ -1,15 +1,26 @@
 -- =============================================================
 -- Multi-Language Expansion (Impl 01) — schema foundation
 -- =============================================================
--- Adds three new columns + a CHECK constraint + a GIN index.
--- Backfills every existing tenant to {en, ar} so the CHECK
--- constraint passes immediately. New tenants default to {en}
--- only — platform admin opts them into more later via the
--- admin UI shipped in implementation 03.
+-- Adds three new columns and backfills existing tenants to {en, ar}
+-- so the CHECK constraint added in post_migrate.sql passes for every
+-- pre-existing row.
+--
+-- Why split CHECK + index into post_migrate.sql instead of keeping
+-- everything here? The pre-push hook bootstraps the paralleltest DB
+-- with `prisma db push`, which syncs schema.prisma but does NOT execute
+-- migration files. Anything that lives only in migration.sql will be
+-- absent on the integration test DB. Schema-level CHECK constraints
+-- and GIN indexes can't be expressed in schema.prisma, so they MUST
+-- live in post_migrate.sql (which IS run by the pre-push hook + by
+-- production deploys after `prisma migrate deploy`).
+--
+-- This file therefore handles:
+--   * Column adds (also reflected in schema.prisma)
+--   * One-time backfill of existing tenants
 
--- 1. Add new columns. supported_locales must default to {en} so
--- new tenants are valid against the CHECK constraint at insert
--- time without explicit population.
+-- 1. Add new columns. supported_locales defaults to {en} so new
+-- tenants are immediately valid against the CHECK constraint that
+-- post_migrate.sql adds.
 ALTER TABLE "tenants"
   ADD COLUMN "supported_locales" VARCHAR(10)[] NOT NULL DEFAULT ARRAY['en']::VARCHAR(10)[];
 
@@ -20,19 +31,10 @@ ALTER TABLE "households"
 -- 2. Backfill: every existing tenant supports en + ar (preserves
 -- status quo — both languages have always been served). Only touch
 -- rows that still hold the column default; if a future migration
--- pre-populates them, we leave that custom value alone.
+-- pre-populates them, we leave that custom value alone. This MUST
+-- run before the CHECK constraint in post_migrate.sql attaches —
+-- otherwise rows whose default_locale='ar' would fail validation
+-- ('ar' not in {'en'}).
 UPDATE "tenants"
 SET "supported_locales" = ARRAY['en','ar']::VARCHAR(10)[]
 WHERE "supported_locales" = ARRAY['en']::VARCHAR(10)[];
-
--- 3. Enforce: default_locale must be one of the supported locales.
--- We add the constraint AFTER the backfill so it doesn't reject any
--- existing row whose default_locale is 'ar' (or anything other than 'en').
-ALTER TABLE "tenants"
-  ADD CONSTRAINT "tenants_default_locale_in_supported"
-  CHECK ("default_locale" = ANY ("supported_locales"));
-
--- 4. GIN index for membership queries
--- (e.g., "all tenants supporting fr" in admin tooling).
-CREATE INDEX "idx_tenants_supported_locales"
-  ON "tenants" USING GIN ("supported_locales");
