@@ -517,6 +517,12 @@ model Tenant {
   slug                      String       @unique @db.VarChar(100)
   status                    TenantStatus @default(active)
   default_locale            String       @default("en") @db.VarChar(10)
+  // supported_locales lists every locale this tenant can serve. Backfilled
+  // to {en, ar} for every existing tenant in migration
+  // 20260428000000_add_locale_expansion_columns. New tenants default to {en}
+  // only — platform admin opts them into more later. Enforced via DB CHECK
+  // that default_locale must be in supported_locales.
+  supported_locales         String[]     @default(["en"]) @db.VarChar(10)
   timezone                  String       @db.VarChar(100)
   date_format               String       @db.VarChar(50)
   currency_code             String       @db.VarChar(10)
@@ -1897,6 +1903,13 @@ model Household {
   city                      String?         @db.VarChar(100)
   country                   String?         @db.VarChar(100)
   postal_code               String?         @db.VarChar(30)
+  // Optional second language for household communications. Null = no
+  // preference set. UI lands in implementation 06.
+  secondary_locale          String?         @db.VarChar(10)
+  // When true, dispatch notifications in BOTH the household's primary
+  // (tenant default) AND secondary locale. Service-side fanout lands in
+  // implementation 06.
+  dual_language_opt_in      Boolean         @default(false)
   needs_completion          Boolean         @default(false)
   status                    HouseholdStatus @default(active)
   created_at                DateTime        @default(now()) @db.Timestamptz()
