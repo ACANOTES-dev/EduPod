@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+// Empty form fields arrive as "" (not undefined) from controlled inputs. For
+// optional fields we coerce "" → undefined before running the inner validator
+// so an empty optional email doesn't fail with "invalid email" — it simply
+// becomes "not provided". Without this preprocessing, RHF + zodResolver
+// silently rejects valid forms whose optional email fields are blank.
+const optionalEmail = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().email().optional(),
+);
+
+const optionalString = (max: number) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().max(max).optional(),
+  );
+
 // ─── Email (Resend) ──────────────────────────────────────────────────────────
 
 export const upsertEmailConfigSchema = z.object({
@@ -10,8 +26,8 @@ export const upsertEmailConfigSchema = z.object({
       message: 'Resend API key must start with "re_"',
     }),
   from_email: z.string().email('A valid sender email address is required'),
-  from_name: z.string().max(255).optional(),
-  reply_to_email: z.string().email().optional(),
+  from_name: optionalString(255),
+  reply_to_email: optionalEmail,
   webhook_secret: z.string().min(8, 'Webhook secret must be at least 8 characters'),
 });
 
@@ -50,7 +66,7 @@ export const upsertWhatsAppConfigSchema = z.object({
   twilio_whatsapp_from_number: z
     .string()
     .regex(E164_REGEX, 'WhatsApp sender must be E.164 format (e.g. +14155551234)'),
-  business_profile_id: z.string().max(255).optional(),
+  business_profile_id: optionalString(255),
   webhook_secret: z.string().min(8, 'Webhook secret must be at least 8 characters'),
 });
 
