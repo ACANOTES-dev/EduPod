@@ -1,6 +1,7 @@
 import { getRequestConfig } from 'next-intl/server';
 
 import { defaultLocale, isLocale } from './config';
+import { onMissingMessage } from './error-handler';
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;
@@ -9,5 +10,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
   return {
     locale,
     messages: (await import(`../messages/${locale}.json`)).default,
+    onError: onMissingMessage,
   };
 });

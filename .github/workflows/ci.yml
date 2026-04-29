@@ -118,6 +118,9 @@ jobs:
       - name: Check i18n completeness
         run: pnpm i18n:check
 
+      - name: Translation parity (i18n hard gate)
+        run: pnpm --filter @school/web test -- translation-parity --runInBand
+
       - name: Check hotspot complexity budgets
         run: pnpm hotspots:check
 

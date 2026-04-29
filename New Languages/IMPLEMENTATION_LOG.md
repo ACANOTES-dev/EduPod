@@ -23,22 +23,22 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 > Implementations are numbered 1–13 (sequential at codebase level — only one runs at a time).
 > Within Phase 4 and Phase 5, the _content_ is reorderable (FR ↔ ES ↔ DE ↔ GA, and IT ↔ RO ↔ PL). The numbering below reflects the **recommended execution order** (easiest → hardest within each tier).
 
-| #   | Phase                 | Spec                                                         | Locale / Topic                             | Status     | Model      | Effort   |
-| --- | --------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------- | ---------- | -------- |
-| 01  | 1 — Foundation        | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | ⚪ Pending | Opus 4.7   | High     |
-| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | ⚪ Pending | Opus 4.7   | Max      |
-| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | ⚪ Pending | Opus 4.7   | Standard |
-| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | ⚪ Pending | Opus 4.7   | Max      |
-| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | ⚪ Pending | Opus 4.7   | High     |
-| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | ⚪ Pending | Opus 4.7   | High     |
-| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | ⚪ Pending | Opus 4.7   | High     |
-| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending | Opus 4.7   | High     |
-| 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending | Opus 4.7   | Max      |
-| 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending | Opus 4.7   | Max      |
-| 11  | 5 — Tier 2            | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending | Sonnet 4.6 | Max      |
-| 12  | 5 — Tier 2            | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending | Opus 4.7   | High     |
-| 13  | 5 — Tier 2            | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending | Opus 4.7   | Max      |
-| —   | 6 — Rollout (rolling) | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending | n/a        | n/a      |
+| #   | Phase                 | Spec                                                         | Locale / Topic                             | Status         | Model      | Effort   |
+| --- | --------------------- | ------------------------------------------------------------ | ------------------------------------------ | -------------- | ---------- | -------- |
+| 01  | 1 — Foundation        | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | ⚪ Pending     | Opus 4.7   | High     |
+| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | 🟡 In progress | Opus 4.7   | Max      |
+| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | ⚪ Pending     | Opus 4.7   | Standard |
+| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | ⚪ Pending     | Opus 4.7   | Max      |
+| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | ⚪ Pending     | Opus 4.7   | High     |
+| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | ⚪ Pending     | Opus 4.7   | High     |
+| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | ⚪ Pending     | Opus 4.7   | High     |
+| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending     | Opus 4.7   | High     |
+| 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending     | Opus 4.7   | Max      |
+| 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending     | Opus 4.7   | Max      |
+| 11  | 5 — Tier 2            | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending     | Sonnet 4.6 | Max      |
+| 12  | 5 — Tier 2            | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending     | Opus 4.7   | High     |
+| 13  | 5 — Tier 2            | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending     | Opus 4.7   | Max      |
+| —   | 6 — Rollout (rolling) | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending     | n/a        | n/a      |
 
 **Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → Phase 6 rollout
 
@@ -114,10 +114,10 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 02 — Arabic placeholder cleanup + hard-error flip
 
 - **Spec:** `implementations/02-arabic-cleanup-hard-error-flip.md`
-- **Status:** ⚪ Pending
+- **Status:** 🟡 In progress — local implementation and regression verification complete; commit, CI, production deploy, production Sentry observation pending.
 - **Model:** Opus 4.7 / **Max effort**
 - **Depends on:** 01 complete
-- **Began:** —
+- **Began:** 2026-04-29
 - **Completed:** —
 
 **Scope summary:**
@@ -130,18 +130,29 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ### Acceptance
 
-- [ ] AR placeholder audit: 0 remaining `[AR] …` strings
-- [ ] `translation-parity.spec.ts` passes for every active locale
-- [ ] `scripts/check-i18n.js` reports 0 missing/orphan keys
-- [ ] Hard-error flag is on; missing key in dev throws visibly
-- [ ] CI parity gate active
-- [ ] AR Playwright suite passes
+- [x] AR placeholder audit: 0 remaining `[AR] …` strings
+- [x] `translation-parity.spec.ts` passes for every active locale
+- [x] `scripts/check-i18n.js` passes across active locales; parity gaps are `en=0, ar=0` (baseline tracked static missing keys remain `en=56, ar=56`)
+- [x] Hard-error flag is on; missing key handler throws and is unit-tested
+- [x] CI parity gate active
+- [x] AR Playwright suite passes
 - [ ] Production deploy successful
 - [ ] Sentry: zero `MISSING_MESSAGE` exceptions in 30 minutes post-deploy
 
 ### Commits / CI / Deploy / Playwright / Notes
 
-- (pending)
+- Local verification passed 2026-04-29:
+  - `pnpm --filter @school/web test -- translation-parity --runInBand`
+  - `pnpm --filter @school/web test -- missing-message-handler --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/web lint:ci`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm turbo run type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/api lint`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm turbo run test` completed all non-shared packages; `@school/shared` was rerun directly after the shared worker stalled and passed with 50 suites / 947 tests.
+  - `pnpm --filter @school/web build`
+  - `pnpm --filter @school/web exec playwright test regulatory-rtl --config e2e/playwright.regulatory.config.ts --project=ar-rtl` — 33 Arabic RTL regulatory routes passed.
+- Commit / CI / deploy / production Sentry observation pending.
 
 ---
 

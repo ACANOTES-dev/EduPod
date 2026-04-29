@@ -7,14 +7,33 @@ const ts = require('typescript');
 const REPO_ROOT = process.cwd();
 const WEB_SRC_DIR = path.join(REPO_ROOT, 'apps', 'web', 'src');
 const BASELINE_PATH = path.join(REPO_ROOT, 'scripts', 'i18n-baseline.json');
-const LOCALE_FILES = {
-  en: path.join(REPO_ROOT, 'apps', 'web', 'messages', 'en.json'),
-  ar: path.join(REPO_ROOT, 'apps', 'web', 'messages', 'ar.json'),
-};
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx']);
 const TEST_FILE_PATTERN = /\.(spec|test)\.tsx?$/;
 const TRANSLATION_FACTORY_NAMES = new Set(['useTranslations', 'getTranslations']);
 const TRANSLATION_METHOD_NAMES = new Set(['rich', 'has', 'markup', 'raw']);
+
+function readActiveLocales() {
+  const registryPath = path.join(REPO_ROOT, 'apps', 'web', 'i18n', 'registry.ts');
+  const registrySource = fs.readFileSync(registryPath, 'utf8');
+  const entries = [];
+  const entryPattern = /code:\s*'([a-z]{2,5})'[\s\S]*?active:\s*(true|false)/g;
+  let match;
+
+  while ((match = entryPattern.exec(registrySource)) !== null) {
+    entries.push({ active: match[2] === 'true', code: match[1] });
+  }
+
+  return entries.filter((entry) => entry.active).map((entry) => entry.code);
+}
+
+function buildLocaleFiles() {
+  return Object.fromEntries(
+    readActiveLocales().map((locale) => [
+      locale,
+      path.join(REPO_ROOT, 'apps', 'web', 'messages', `${locale}.json`),
+    ]),
+  );
+}
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -270,8 +289,9 @@ function diffValues(currentValues, baselineValues) {
 
 function main() {
   const shouldWriteBaseline = process.argv.includes('--write-baseline');
+  const localeFiles = buildLocaleFiles();
   const localeMaps = Object.fromEntries(
-    Object.entries(LOCALE_FILES).map(([locale, filePath]) => [
+    Object.entries(localeFiles).map(([locale, filePath]) => [
       locale,
       flattenMessages(readJson(filePath)),
     ]),
@@ -337,7 +357,7 @@ function main() {
   const baseline = readJson(BASELINE_PATH);
   const failures = [];
 
-  for (const locale of Object.keys(LOCALE_FILES)) {
+  for (const locale of Object.keys(localeFiles)) {
     const currentMissing = currentSnapshot.missingReferencedKeys[locale] ?? [];
     const baselineMissing = baseline.missingReferencedKeys?.[locale] ?? [];
     const unexpectedMissing = diffValues(currentMissing, baselineMissing);
@@ -396,13 +416,17 @@ function main() {
   }
 
   console.log(
-    `i18n completeness check passed: ${usedKeys.size} static translation keys verified across ${files.length} source files.`,
+    `i18n completeness check passed: ${usedKeys.size} static translation keys verified across ${files.length} source files and ${Object.keys(localeFiles).length} active locales.`,
   );
   console.log(
-    `Baseline tracked missing keys: en=${currentSnapshot.missingReferencedKeys.en.length}, ar=${currentSnapshot.missingReferencedKeys.ar.length}`,
+    `Baseline tracked missing keys: ${Object.entries(currentSnapshot.missingReferencedKeys)
+      .map(([locale, keys]) => `${locale}=${keys.length}`)
+      .join(', ')}`,
   );
   console.log(
-    `Baseline tracked parity gaps: en=${currentSnapshot.parityGaps.en.length}, ar=${currentSnapshot.parityGaps.ar.length}`,
+    `Baseline tracked parity gaps: ${Object.entries(currentSnapshot.parityGaps)
+      .map(([locale, keys]) => `${locale}=${keys.length}`)
+      .join(', ')}`,
   );
 
   if (dynamicUsages.length > 0) {

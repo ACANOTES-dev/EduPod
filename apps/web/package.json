@@ -10,6 +10,7 @@
     "lint:ci": "next lint --quiet",
     "type-check": "NODE_OPTIONS=--max-old-space-size=12288 tsc --noEmit",
     "test": "jest --passWithNoTests",
+    "test:regulatory": "playwright test --config e2e/playwright.regulatory.config.ts",
     "test:visual": "playwright test --config e2e/playwright.visual-smoke.config.ts",
     "test:visual:full": "playwright test --config e2e/playwright.config.ts",
     "test:visual:update": "playwright test --config e2e/playwright.visual-smoke.config.ts --update-snapshots"

@@ -1483,9 +1483,9 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)
 
 **Location**: `apps/web/i18n/request.ts`, `apps/web/messages/{locale}.json`, `apps/web/src/__tests__/translation-parity.spec.ts`, `scripts/check-i18n.js`
-**Status**: ACTIVE once Multi-Language Expansion impl 02 ships (currently scheduled — impl 01 lands the registry + Tier 2 allowlist + schema; impl 02 flips the hard-error flag).
+**Status**: ACTIVE in code since 2026-04-29 via Multi-Language Expansion impl 02. Production is expected to run the hard-error path once the impl 02 deploy completes.
 
-Pre-impl-02, `next-intl` falls back to the message KEY when a translation is missing — pages still render, only with broken-looking text. Post-impl-02, missing keys throw in development and Sentry-then-throw in production, so any unfilled key surfaces as a 500 on the page that consumed it.
+Missing keys throw in development and Sentry-then-throw in production, so any unfilled key surfaces as a 500 on the page that consumed it.
 
 **Why this is correct**: the previous silent-fallback behaviour let untranslated strings ship to production unnoticed for months. Hard-error makes parity violations impossible to ignore.
 
