@@ -107,6 +107,15 @@ describe('TemplateRendererService', () => {
       expect(result).toContain('تم إلغاء');
     });
 
+    it('should render t-prefixed French templates', () => {
+      const result = service.render(
+        't:absence_cancelled.email.body',
+        { reporter_name: 'Ada' },
+        'fr',
+      );
+      expect(result).toContain("L'absence de Ada a été annulée.");
+    });
+
     it('should throw when a t-prefixed message key is missing', () => {
       expect(() => service.render('t:does.not.exist', {}, 'en')).toThrow(
         /MISSING_NOTIFICATION_MESSAGE/,
@@ -114,7 +123,7 @@ describe('TemplateRendererService', () => {
     });
 
     it('should throw when a t-prefixed locale catalogue is missing', () => {
-      expect(() => service.render('t:absence_cancelled.email.body', {}, 'fr')).toThrow(
+      expect(() => service.render('t:absence_cancelled.email.body', {}, 'ga')).toThrow(
         /MISSING_NOTIFICATION_LOCALE/,
       );
     });

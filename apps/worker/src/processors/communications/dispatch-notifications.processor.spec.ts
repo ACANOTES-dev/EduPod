@@ -374,6 +374,50 @@ describe('DispatchNotificationsProcessor', () => {
       });
       expect(mockTx.notification.create).not.toHaveBeenCalled();
     });
+
+    it('uses the English t-prefixed platform row to render a French catalogue notification', async () => {
+      const notification = buildNotification({
+        channel: 'email',
+        locale: 'fr',
+        payload_json: { reporter_name: 'Ada' },
+        template_key: 'absence.cancelled',
+      });
+
+      mockTx.notification.findMany.mockResolvedValue([notification]);
+      mockTx.notificationTemplate.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          body_template: 't:absence_cancelled.email.body',
+          subject_template: 't:absence_cancelled.email.subject',
+        });
+      mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
+      mockGetEmailCreds.mockResolvedValueOnce(null);
+
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notificationTemplate.findFirst).toHaveBeenNthCalledWith(3, {
+        where: {
+          tenant_id: null,
+          template_key: 'absence.cancelled',
+          channel: 'email',
+          locale: 'en',
+        },
+        select: { subject_template: true, body_template: true },
+      });
+      expect(mockTx.notification.update).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID_1 },
+        data: expect.objectContaining({
+          failure_reason: 'channel_not_configured',
+          status: 'failed',
+        }),
+      });
+    });
   });
 
   describe('process — retry and dead-letter handling', () => {

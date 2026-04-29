@@ -411,6 +411,44 @@ describe('NotificationTemplatesService', () => {
       expect(prisma.notificationTemplate.findFirst).toHaveBeenCalledTimes(2);
     });
 
+    it('falls back to the English catalogue-backed platform row for shipped catalogue locales', async () => {
+      const platformTpl = makePlatformTemplate({
+        body_template: 't:absence_cancelled.email.body',
+        subject_template: 't:absence_cancelled.email.subject',
+      });
+      prisma.notificationTemplate.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(platformTpl);
+
+      const result = await service.resolveTemplate('tenant-1', 'absence.cancelled', 'email', 'fr');
+
+      expect(result).toEqual(platformTpl);
+      expect(prisma.notificationTemplate.findFirst).toHaveBeenNthCalledWith(3, {
+        where: {
+          tenant_id: null,
+          template_key: 'absence.cancelled',
+          channel: 'email',
+          locale: 'en',
+        },
+      });
+    });
+
+    it('does not fall back to raw English platform templates for other locales', async () => {
+      const platformTpl = makePlatformTemplate({
+        body_template: '<p>Hello {{name}}</p>',
+        subject_template: 'Welcome {{name}}',
+      });
+      prisma.notificationTemplate.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(platformTpl);
+
+      const result = await service.resolveTemplate('tenant-1', 'welcome', 'email', 'fr');
+
+      expect(result).toBeNull();
+    });
+
     it('edge: tenant template for wrong channel returns platform fallback for correct channel', async () => {
       // Tenant has email template only; requesting whatsapp
       // First call (tenant whatsapp) returns null

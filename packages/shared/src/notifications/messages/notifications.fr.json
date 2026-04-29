@@ -1,0 +1,286 @@
+{
+  "absence_admin_notice": {
+    "email": {
+      "subject": "{{reporter_name}} est absent",
+      "body": "{{reporter_name}} a signalé une absence de {{date_from}}{{#if date_to}} à {{date_to}}{{/if}}. {{#if nominated_substitute}}{{nominated_substitute}} s'est vu proposer une couverture directe.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "{{reporter_name}} a signalé une absence de {{date_from}}{{#if date_to}} à {{date_to}}{{/if}}. {{#if nominated_substitute}}{{nominated_substitute}} s'est vu proposer une couverture directe.{{/if}}"
+    },
+    "in_app": {
+      "subject": "{{reporter_name}} est absent",
+      "body": "{{reporter_name}} a signalé une absence de {{date_from}}{{#if date_to}} à {{date_to}}{{/if}}. {{#if nominated_substitute}}{{nominated_substitute}} s'est vu proposer une couverture directe.{{/if}}"
+    },
+    "sms": {
+      "body": "{{reporter_name}} a signalé une absence de {{date_from}}{{#if date_to}} à {{date_to}}{{/if}}. {{#if nominated_substitute}}{{nominated_substitute}} s'est vu proposer une couverture directe.{{/if}}"
+    }
+  },
+  "absence_cancelled": {
+    "email": {
+      "subject": "Absence annulée",
+      "body": "L'absence de {{reporter_name}} a été annulée. Toute couverture attribuée a été libérée."
+    },
+    "whatsapp": {
+      "body": "L'absence de {{reporter_name}} a été annulée. Toute couverture attribuée a été libérée."
+    },
+    "in_app": {
+      "subject": "Absence annulée",
+      "body": "L'absence de {{reporter_name}} a été annulée. Toute couverture attribuée a été libérée."
+    },
+    "sms": {
+      "body": "L'absence de {{reporter_name}} a été annulée. Toute couverture attribuée a été libérée."
+    }
+  },
+  "absence_self_reported_confirmation": {
+    "email": {
+      "subject": "Absence signalée",
+      "body": "Votre absence du {{date_from}}{{#if date_to}} au {{date_to}}{{/if}} a été enregistrée. {{#if nominated_substitute}}Nous avons offert la couverture à {{nominated_substitute}}.{{else}}Nous trouvons une couverture maintenant.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Votre absence du {{date_from}}{{#if date_to}} au {{date_to}}{{/if}} a été enregistrée. {{#if nominated_substitute}}Nous avons offert la couverture à {{nominated_substitute}}.{{else}}Nous trouvons une couverture maintenant.{{/if}}"
+    },
+    "in_app": {
+      "subject": "Absence signalée",
+      "body": "Votre absence du {{date_from}}{{#if date_to}} au {{date_to}}{{/if}} a été enregistrée. {{#if nominated_substitute}}Nous avons offert la couverture à {{nominated_substitute}}.{{else}}Nous trouvons une couverture maintenant.{{/if}}"
+    },
+    "sms": {
+      "body": "Votre absence du {{date_from}}{{#if date_to}} au {{date_to}}{{/if}} a été enregistrée. {{#if nominated_substitute}}Nous avons offert la couverture à {{nominated_substitute}}.{{else}}Nous trouvons une couverture maintenant.{{/if}}"
+    }
+  },
+  "admissions_application_received": {
+    "email": {
+      "subject": "Demande reçue — {{school_name}}",
+      "body": "<p>Cher parent,</p><p>Merci d'avoir soumis votre candidature à <strong>{{school_name}}</strong>. Nous avons reçu les éléments suivants :</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>Vous pouvez suivre la progression de votre (vos) candidature(s) en vous connectant à votre portail parent.</p><p>Merci,<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "Demande retirée — {{student_name}}",
+      "body": "<p>Cher parent,</p><p>Nous souhaitons confirmer que la demande de <strong>{{student_name}}</strong> (numéro de demande <strong>{{application_number}}</strong>) à <strong>{{school_name}}</strong> a été retirée.</p><p>Si vous n'avez pas initié ce retrait ou si vous pensez qu'il a été effectué par erreur, veuillez contacter le bureau des admissions de l'école.</p><p>Merci,<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "Nouvelle annonce : {{title}}",
+      "body": "Cher {{recipient_name}},\n\nUne nouvelle annonce a été publiée :\n\n**{{title}}**\n\n{{body}}\n\nCette annonce émane de {{school_name}}.\n\nCordialement,\n{{school_name}} L'équipe"
+    },
+    "in_app": {
+      "body": "Nouvelle annonce : {{title}}"
+    }
+  },
+  "approval_decided": {
+    "email": {
+      "subject": "Votre demande a été {{decision}} : {{action_type}}",
+      "body": "Cher {{recipient_name}},\n\nVotre demande pour \"{{action_type}}\" a été **{{decision}}**.\n\n**Décinée par :** {{approver_name}}\n**Commentaire :** {{comment}}\n\n Cordialement,\n{{school_name}} L'équipe"
+    },
+    "in_app": {
+      "body": "Votre demande \"{{action_type}}\" était {{decision}} par {{approver_name}}"
+    }
+  },
+  "approval_requested": {
+    "email": {
+      "subject": "Approbation requise : {{action_type}}",
+      "body": "Cher {{recipient_name}},\n\nVotre approbation est requise pour les éléments suivants :\n\n**Action :** {{action_type}}\n**Demandée par :** {{requester_name}}\n**Raison :** {{reason}}\n\nVeuillez vous connecter pour examiner et approuver ou rejeter ce document. demande.\n\nCordialement,\n{{school_name}} L'équipe"
+    },
+    "in_app": {
+      "body": "Approbation demandée : {{action_type}} par {{requester_name}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "Nouveau message de {{sender_name}}",
+      "body": "<p>Vous avez un message non lu de <strong>{{sender_name}}</strong> dans la boîte de réception de votre école.</p><blockquote>{{snippet}}</blockquote><p>Ouvrez votre boîte de réception pour lire le message complet et répondez si les réponses sont activées.</p>"
+    },
+    "whatsapp": {
+      "body": "*Nouveau message de {{sender_name}}*\n\n{{snippet}}\n\nOuvrez la boîte de réception de votre école pour lire le message complet et répondre."
+    },
+    "sms": {
+      "body": "{{sender_name}} : {{snippet}} — Ouvrez la boîte de réception de votre école pour lire l'intégralité du message et y répondre."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "Nouveau message concernant votre demande : {{subject}}",
+      "body": "Cher {{recipient_name}},\n\nVous avez reçu un nouveau message concernant votre demande \"{{subject}} :\n\n{{message}}\n\nVeuillez vous connecter au portail parent pour répondre.\n\nCordialement,\n{{school_name}} L'équipe"
+    },
+    "in_app": {
+      "body": "Nouveau message de demande : {{subject}}"
+    }
+  },
+  "leave_request_approved": {
+    "email": {
+      "subject": "Congé approuvé",
+      "body": "Votre demande de congé a été approuvée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Votre demande de congé a été approuvée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Congé approuvé",
+      "body": "Votre demande de congé a été approuvée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Votre demande de congé a été approuvée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_rejected": {
+    "email": {
+      "subject": "Demande de congé rejetée",
+      "body": "Votre demande de congé a été rejetée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Votre demande de congé a été rejetée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Demande de congé rejetée",
+      "body": "Votre demande de congé a été rejetée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Votre demande de congé a été rejetée par {{reviewer_name}}.{{#if review_notes}} Notes : {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_submitted": {
+    "email": {
+      "subject": "Demande de congé : {{requester_name}}",
+      "body": "{{requester_name}} a soumis une demande {{leave_label}} de {{date_from}} à {{date_to}}. Veuillez réviser."
+    },
+    "whatsapp": {
+      "body": "{{requester_name}} a soumis une demande {{leave_label}} de {{date_from}} à {{date_to}}. Veuillez réviser."
+    },
+    "in_app": {
+      "subject": "Demande de congé : {{requester_name}}",
+      "body": "{{requester_name}} a soumis une demande {{leave_label}} de {{date_from}} à {{date_to}}. Veuillez réviser."
+    },
+    "sms": {
+      "body": "{{requester_name}} a soumis une demande {{leave_label}} de {{date_from}} à {{date_to}}. Veuillez réviser."
+    }
+  },
+  "substitution_accepted": {
+    "email": {
+      "subject": "Couverture confirmée : {{substitute_name}}",
+      "body": "{{substitute_name}} a accepté la couverture de {{reporter_name}} le {{absence_date}}."
+    },
+    "whatsapp": {
+      "body": "{{substitute_name}} a accepté la couverture de {{reporter_name}} le {{absence_date}}."
+    },
+    "in_app": {
+      "subject": "Couverture confirmée : {{substitute_name}}",
+      "body": "{{substitute_name}} a accepté la couverture de {{reporter_name}} le {{absence_date}}."
+    },
+    "sms": {
+      "body": "{{substitute_name}} a accepté la couverture de {{reporter_name}} le {{absence_date}}."
+    }
+  },
+  "substitution_admin_offer_dispatched": {
+    "email": {
+      "subject": "Offres de couverture envoyées",
+      "body": "{{offers_count}} offre(s) de couverture envoyée(s) pour l'absence de {{reporter_name}}."
+    },
+    "whatsapp": {
+      "body": "{{offers_count}} offre(s) de couverture envoyée(s) pour l'absence de {{reporter_name}}."
+    },
+    "in_app": {
+      "subject": "Offres de couverture envoyées",
+      "body": "{{offers_count}} offre(s) de couverture envoyée(s) pour l'absence de {{reporter_name}}."
+    },
+    "sms": {
+      "body": "{{offers_count}} offre(s) de couverture envoyée(s) pour l'absence de {{reporter_name}}."
+    }
+  },
+  "substitution_cascade_exhausted": {
+    "email": {
+      "subject": "Couverture manuelle nécessaire",
+      "body": "Toutes les offres de couverture automatique pour {{reporter_name}} ont été refusées ou ont expiré. Veuillez attribuer la couverture manuellement."
+    },
+    "whatsapp": {
+      "body": "Toutes les offres de couverture automatique pour {{reporter_name}} ont été refusées ou ont expiré. Veuillez attribuer la couverture manuellement."
+    },
+    "in_app": {
+      "subject": "Couverture manuelle nécessaire",
+      "body": "Toutes les offres de couverture automatique pour {{reporter_name}} ont été refusées ou ont expiré. Veuillez attribuer la couverture manuellement."
+    },
+    "sms": {
+      "body": "Toutes les offres de couverture automatique pour {{reporter_name}} ont été refusées ou ont expiré. Veuillez attribuer la couverture manuellement."
+    }
+  },
+  "substitution_declined": {
+    "email": {
+      "subject": "Offre de couverture refusée",
+      "body": "{{decliner_name}} a décliné une offre de couverture. Si aucun frère ou sœur n’accepte, la cascade avancera automatiquement."
+    },
+    "whatsapp": {
+      "body": "{{decliner_name}} a décliné une offre de couverture. Si aucun frère ou sœur n’accepte, la cascade avancera automatiquement."
+    },
+    "in_app": {
+      "subject": "Offre de couverture refusée",
+      "body": "{{decliner_name}} a décliné une offre de couverture. Si aucun frère ou sœur n’accepte, la cascade avancera automatiquement."
+    },
+    "sms": {
+      "body": "{{decliner_name}} a décliné une offre de couverture. Si aucun frère ou sœur n’accepte, la cascade avancera automatiquement."
+    }
+  },
+  "substitution_nominated_rejected": {
+    "email": {
+      "subject": "Couverture nommée refusée",
+      "body": "{{decliner_name}} a refusé la couverture nominée. Veuillez affecter quelqu'un manuellement : la cascade n'a pas avancé automatiquement."
+    },
+    "whatsapp": {
+      "body": "{{decliner_name}} a refusé la couverture nominée. Veuillez affecter quelqu'un manuellement : la cascade n'a pas avancé automatiquement."
+    },
+    "in_app": {
+      "subject": "Couverture nommée refusée",
+      "body": "{{decliner_name}} a refusé la couverture nominée. Veuillez affecter quelqu'un manuellement : la cascade n'a pas avancé automatiquement."
+    },
+    "sms": {
+      "body": "{{decliner_name}} a refusé la couverture nominée. Veuillez affecter quelqu'un manuellement : la cascade n'a pas avancé automatiquement."
+    }
+  },
+  "substitution_offer_nominated": {
+    "email": {
+      "subject": "{{reporter_name}} vous a demandé de couvrir",
+      "body": "{{reporter_name}} vous a nommé pour couvrir leur {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} sur {{absence_date}}. Veuillez accepter ou refuser."
+    },
+    "whatsapp": {
+      "body": "{{reporter_name}} vous a nommé pour couvrir leur {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} sur {{absence_date}}. Veuillez accepter ou refuser."
+    },
+    "in_app": {
+      "subject": "{{reporter_name}} vous a demandé de couvrir",
+      "body": "{{reporter_name}} vous a nommé pour couvrir leur {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} sur {{absence_date}}. Veuillez accepter ou refuser."
+    },
+    "sms": {
+      "body": "{{reporter_name}} vous a nommé pour couvrir leur {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} sur {{absence_date}}. Veuillez accepter ou refuser."
+    }
+  },
+  "substitution_offer_received": {
+    "email": {
+      "subject": "Demande de couverture : {{reporter_name}}",
+      "body": "On vous a proposé une couverture pour {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} sur {{absence_date}}. Veuillez répondre bientôt."
+    },
+    "whatsapp": {
+      "body": "On vous a proposé une couverture pour {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} sur {{absence_date}}. Veuillez répondre bientôt."
+    },
+    "in_app": {
+      "subject": "Demande de couverture : {{reporter_name}}",
+      "body": "On vous a proposé une couverture pour {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} sur {{absence_date}}. Veuillez répondre bientôt."
+    },
+    "sms": {
+      "body": "On vous a proposé une couverture pour {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} sur {{absence_date}}. Veuillez répondre bientôt."
+    }
+  },
+  "substitution_offer_revoked": {
+    "email": {
+      "subject": "L'offre de couverture n'est plus nécessaire",
+      "body": "Votre offre de couverture n'est plus nécessaire ({{reason}}). Aucune action requise."
+    },
+    "whatsapp": {
+      "body": "Votre offre de couverture n'est plus nécessaire ({{reason}}). Aucune action requise."
+    },
+    "in_app": {
+      "subject": "L'offre de couverture n'est plus nécessaire",
+      "body": "Votre offre de couverture n'est plus nécessaire ({{reason}}). Aucune action requise."
+    },
+    "sms": {
+      "body": "Votre offre de couverture n'est plus nécessaire ({{reason}}). Aucune action requise."
+    }
+  }
+}

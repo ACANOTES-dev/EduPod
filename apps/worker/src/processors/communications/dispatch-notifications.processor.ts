@@ -117,6 +117,15 @@ function renderSubject(
   return renderTemplate(subjectTemplate, variables, locale);
 }
 
+function isCatalogueBackedTemplate(
+  template: { subject_template: string | null; body_template: string } | null,
+): template is { subject_template: string | null; body_template: string } {
+  if (!template) return false;
+  const subjectIsCatalogue =
+    template.subject_template === null || template.subject_template.startsWith('t:');
+  return template.body_template.startsWith('t:') && subjectIsCatalogue;
+}
+
 // ─── SMS length limit ────────────────────────────────────────────────────────
 
 const SMS_MAX_LENGTH = 1600;
@@ -665,7 +674,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     if (tenantTemplate) return tenantTemplate;
 
     // Platform-level fallback (tenant_id IS NULL)
-    return this.prisma.notificationTemplate.findFirst({
+    const platformTemplate = await this.prisma.notificationTemplate.findFirst({
       where: {
         tenant_id: null,
         template_key: templateKey,
@@ -674,6 +683,22 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       },
       select: { subject_template: true, body_template: true },
     });
+
+    if (platformTemplate || locale === 'en') return platformTemplate;
+
+    const englishCatalogueTemplate = await this.prisma.notificationTemplate.findFirst({
+      where: {
+        tenant_id: null,
+        template_key: templateKey,
+        channel: toNotificationChannel(channel),
+        locale: 'en',
+      },
+      select: { subject_template: true, body_template: true },
+    });
+
+    if (!isCatalogueBackedTemplate(englishCatalogueTemplate)) return null;
+
+    return englishCatalogueTemplate;
   }
 
   // ─── Recipient contact resolution ─────────────────────────────────────

@@ -139,7 +139,7 @@ export class NotificationTemplatesService {
     if (tenantTemplate) return tenantTemplate;
 
     // Platform-level fallback
-    return this.prisma.notificationTemplate.findFirst({
+    const platformTemplate = await this.prisma.notificationTemplate.findFirst({
       where: {
         tenant_id: null,
         template_key: templateKey,
@@ -147,5 +147,32 @@ export class NotificationTemplatesService {
         locale,
       },
     });
+
+    if (platformTemplate || locale === 'en') return platformTemplate;
+
+    const englishCatalogueTemplate = await this.prisma.notificationTemplate.findFirst({
+      where: {
+        tenant_id: null,
+        template_key: templateKey,
+        channel: toNotificationChannel(channel),
+        locale: 'en',
+      },
+    });
+
+    if (!isCatalogueBackedTemplate(englishCatalogueTemplate)) return null;
+
+    return englishCatalogueTemplate;
   }
+}
+
+function isCatalogueBackedTemplate(
+  template: {
+    subject_template: string | null;
+    body_template: string;
+  } | null,
+): boolean {
+  if (!template) return false;
+  const subjectIsCatalogue =
+    template.subject_template === null || template.subject_template.startsWith('t:');
+  return template.body_template.startsWith('t:') && subjectIsCatalogue;
 }
