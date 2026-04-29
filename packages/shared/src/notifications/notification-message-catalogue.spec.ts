@@ -5,7 +5,7 @@ import {
 
 describe('notification message catalogue', () => {
   it('lists shipped notification catalogues', () => {
-    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'en', 'fr']);
+    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'en', 'es', 'fr']);
   });
 
   it('returns raw Handlebars templates unchanged', () => {
@@ -27,6 +27,12 @@ describe('notification message catalogue', () => {
   it('resolves t-prefixed French keys', () => {
     expect(resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'fr')).toBe(
       'Absence annulée',
+    );
+  });
+
+  it('resolves t-prefixed Spanish keys', () => {
+    expect(resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'es')).toBe(
+      'Ausencia cancelada',
     );
   });
 

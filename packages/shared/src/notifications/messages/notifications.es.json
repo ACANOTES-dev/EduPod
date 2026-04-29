@@ -1,0 +1,286 @@
+{
+  "absence_admin_notice": {
+    "email": {
+      "subject": "Ausencia de {{reporter_name}}",
+      "body": "{{reporter_name}} ha comunicado una ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}}. {{#if nominated_substitute}}Se ha ofrecido la sustitución directa a {{nominated_substitute}}.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "{{reporter_name}} ha comunicado una ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}}. {{#if nominated_substitute}}Se ha ofrecido la sustitución directa a {{nominated_substitute}}.{{/if}}"
+    },
+    "in_app": {
+      "subject": "Ausencia de {{reporter_name}}",
+      "body": "{{reporter_name}} ha comunicado una ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}}. {{#if nominated_substitute}}Se ha ofrecido la sustitución directa a {{nominated_substitute}}.{{/if}}"
+    },
+    "sms": {
+      "body": "{{reporter_name}} ha comunicado una ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}}. {{#if nominated_substitute}}Se ha ofrecido la sustitución directa a {{nominated_substitute}}.{{/if}}"
+    }
+  },
+  "absence_cancelled": {
+    "email": {
+      "subject": "Ausencia cancelada",
+      "body": "La ausencia de {{reporter_name}} se ha cancelado. Se ha liberado cualquier sustitución asignada."
+    },
+    "whatsapp": {
+      "body": "La ausencia de {{reporter_name}} se ha cancelado. Se ha liberado cualquier sustitución asignada."
+    },
+    "in_app": {
+      "subject": "Ausencia cancelada",
+      "body": "La ausencia de {{reporter_name}} se ha cancelado. Se ha liberado cualquier sustitución asignada."
+    },
+    "sms": {
+      "body": "La ausencia de {{reporter_name}} se ha cancelado. Se ha liberado cualquier sustitución asignada."
+    }
+  },
+  "absence_self_reported_confirmation": {
+    "email": {
+      "subject": "Ausencia comunicada",
+      "body": "Tu ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}} se ha registrado. {{#if nominated_substitute}}Hemos ofrecido la sustitución a {{nominated_substitute}}.{{else}}Estamos buscando sustitución ahora.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Tu ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}} se ha registrado. {{#if nominated_substitute}}Hemos ofrecido la sustitución a {{nominated_substitute}}.{{else}}Estamos buscando sustitución ahora.{{/if}}"
+    },
+    "in_app": {
+      "subject": "Ausencia comunicada",
+      "body": "Tu ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}} se ha registrado. {{#if nominated_substitute}}Hemos ofrecido la sustitución a {{nominated_substitute}}.{{else}}Estamos buscando sustitución ahora.{{/if}}"
+    },
+    "sms": {
+      "body": "Tu ausencia del {{date_from}}{{#if date_to}} al {{date_to}}{{/if}} se ha registrado. {{#if nominated_substitute}}Hemos ofrecido la sustitución a {{nominated_substitute}}.{{else}}Estamos buscando sustitución ahora.{{/if}}"
+    }
+  },
+  "admissions_application_received": {
+    "email": {
+      "subject": "Solicitud recibida — {{school_name}}",
+      "body": "<p>Estimada familia,</p><p>Gracias por enviar tu solicitud a <strong>{{school_name}}</strong>. Hemos recibido lo siguiente:</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>Puedes seguir el progreso de tu solicitud iniciando sesión en el portal para padres.</p><p>Gracias,<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "Solicitud retirada — {{student_name}}",
+      "body": "<p>Estimada familia,</p><p>Confirmamos que la solicitud de <strong>{{student_name}}</strong> (n.º de solicitud <strong>{{application_number}}</strong>) en <strong>{{school_name}}</strong> se ha retirado.</p><p>Si no iniciaste esta retirada o crees que se hizo por error, ponte en contacto con la oficina de admisiones del centro.</p><p>Gracias,<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "Nuevo anuncio: {{title}}",
+      "body": "Hola {{recipient_name}},\n\nSe ha publicado un nuevo anuncio:\n\n**{{title}}**\n\n{{body}}\n\nEste anuncio es de {{school_name}}.\n\nSaludos,\nEquipo de {{school_name}}"
+    },
+    "in_app": {
+      "body": "Nuevo anuncio: {{title}}"
+    }
+  },
+  "approval_decided": {
+    "email": {
+      "subject": "Tu solicitud ha sido {{decision}}: {{action_type}}",
+      "body": "Hola {{recipient_name}},\n\nTu solicitud de \"{{action_type}}\" ha sido **{{decision}}**.\n\n**Decidido por:** {{approver_name}}\n**Comentario:** {{comment}}\n\nSaludos,\nEquipo de {{school_name}}"
+    },
+    "in_app": {
+      "body": "Tu solicitud \"{{action_type}}\" fue {{decision}} por {{approver_name}}"
+    }
+  },
+  "approval_requested": {
+    "email": {
+      "subject": "Aprobación requerida: {{action_type}}",
+      "body": "Hola {{recipient_name}},\n\nSe requiere tu aprobación para lo siguiente:\n\n**Acción:** {{action_type}}\n**Solicitado por:** {{requester_name}}\n**Motivo:** {{reason}}\n\nInicia sesión para revisar y aprobar o rechazar esta solicitud.\n\nSaludos,\nEquipo de {{school_name}}"
+    },
+    "in_app": {
+      "body": "Aprobación solicitada: {{action_type}} por {{requester_name}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "Nuevo mensaje de {{sender_name}}",
+      "body": "<p>Tienes un mensaje no leído de <strong>{{sender_name}}</strong> en la bandeja de entrada de tu escuela.</p><blockquote>{{snippet}}</blockquote><p>Abre tu bandeja de entrada para leer el mensaje completo y responder si las respuestas están habilitadas.</p>"
+    },
+    "whatsapp": {
+      "body": "*Nuevo mensaje de {{sender_name}}*\n\n{{snippet}}\n\nAbre la bandeja de entrada de tu centro para leer el mensaje completo y responder."
+    },
+    "sms": {
+      "body": "{{sender_name}}: {{snippet}} — abre la bandeja de entrada de tu centro para leer el mensaje completo y responder."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "Nuevo mensaje sobre tu consulta: {{subject}}",
+      "body": "Hola {{recipient_name}},\n\nHas recibido un nuevo mensaje sobre tu consulta \"{{subject}}\":\n\n{{message}}\n\nInicia sesión en el portal para padres para responder.\n\nSaludos,\nEquipo de {{school_name}}"
+    },
+    "in_app": {
+      "body": "Nuevo mensaje en consulta: {{subject}}"
+    }
+  },
+  "leave_request_approved": {
+    "email": {
+      "subject": "Solicitud de ausencia aprobada",
+      "body": "Tu solicitud de ausencia ha sido aprobada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Tu solicitud de ausencia ha sido aprobada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Solicitud de ausencia aprobada",
+      "body": "Tu solicitud de ausencia ha sido aprobada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Tu solicitud de ausencia ha sido aprobada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_rejected": {
+    "email": {
+      "subject": "Solicitud de ausencia rechazada",
+      "body": "Tu solicitud de ausencia fue rechazada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Tu solicitud de ausencia fue rechazada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Solicitud de ausencia rechazada",
+      "body": "Tu solicitud de ausencia fue rechazada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Tu solicitud de ausencia fue rechazada por {{reviewer_name}}.{{#if review_notes}} Notas: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_submitted": {
+    "email": {
+      "subject": "Solicitud de ausencia: {{requester_name}}",
+      "body": "{{requester_name}} ha enviado una solicitud de {{leave_label}} del {{date_from}} al {{date_to}}. Revísala, por favor."
+    },
+    "whatsapp": {
+      "body": "{{requester_name}} ha enviado una solicitud de {{leave_label}} del {{date_from}} al {{date_to}}. Revísala, por favor."
+    },
+    "in_app": {
+      "subject": "Solicitud de ausencia: {{requester_name}}",
+      "body": "{{requester_name}} ha enviado una solicitud de {{leave_label}} del {{date_from}} al {{date_to}}. Revísala, por favor."
+    },
+    "sms": {
+      "body": "{{requester_name}} ha enviado una solicitud de {{leave_label}} del {{date_from}} al {{date_to}}. Revísala, por favor."
+    }
+  },
+  "substitution_accepted": {
+    "email": {
+      "subject": "Sustitución confirmada: {{substitute_name}}",
+      "body": "{{substitute_name}} ha aceptado la sustitución de {{reporter_name}} el {{absence_date}}."
+    },
+    "whatsapp": {
+      "body": "{{substitute_name}} ha aceptado la sustitución de {{reporter_name}} el {{absence_date}}."
+    },
+    "in_app": {
+      "subject": "Sustitución confirmada: {{substitute_name}}",
+      "body": "{{substitute_name}} ha aceptado la sustitución de {{reporter_name}} el {{absence_date}}."
+    },
+    "sms": {
+      "body": "{{substitute_name}} ha aceptado la sustitución de {{reporter_name}} el {{absence_date}}."
+    }
+  },
+  "substitution_admin_offer_dispatched": {
+    "email": {
+      "subject": "Ofertas de sustitución enviadas",
+      "body": "Se han enviado {{offers_count}} oferta(s) de sustitución por la ausencia de {{reporter_name}}."
+    },
+    "whatsapp": {
+      "body": "Se han enviado {{offers_count}} oferta(s) de sustitución por la ausencia de {{reporter_name}}."
+    },
+    "in_app": {
+      "subject": "Ofertas de sustitución enviadas",
+      "body": "Se han enviado {{offers_count}} oferta(s) de sustitución por la ausencia de {{reporter_name}}."
+    },
+    "sms": {
+      "body": "Se han enviado {{offers_count}} oferta(s) de sustitución por la ausencia de {{reporter_name}}."
+    }
+  },
+  "substitution_cascade_exhausted": {
+    "email": {
+      "subject": "Se necesita sustitución manual",
+      "body": "Todas las ofertas de sustitución automática para {{reporter_name}} se han rechazado o han vencido. Asigna la sustitución manualmente."
+    },
+    "whatsapp": {
+      "body": "Todas las ofertas de sustitución automática para {{reporter_name}} se han rechazado o han vencido. Asigna la sustitución manualmente."
+    },
+    "in_app": {
+      "subject": "Se necesita sustitución manual",
+      "body": "Todas las ofertas de sustitución automática para {{reporter_name}} se han rechazado o han vencido. Asigna la sustitución manualmente."
+    },
+    "sms": {
+      "body": "Todas las ofertas de sustitución automática para {{reporter_name}} se han rechazado o han vencido. Asigna la sustitución manualmente."
+    }
+  },
+  "substitution_declined": {
+    "email": {
+      "subject": "Oferta de sustitución rechazada",
+      "body": "{{decliner_name}} rechazó una oferta de sustitución. Si ningún compañero acepta, la secuencia avanzará automáticamente."
+    },
+    "whatsapp": {
+      "body": "{{decliner_name}} rechazó una oferta de sustitución. Si ningún compañero acepta, la secuencia avanzará automáticamente."
+    },
+    "in_app": {
+      "subject": "Oferta de sustitución rechazada",
+      "body": "{{decliner_name}} rechazó una oferta de sustitución. Si ningún compañero acepta, la secuencia avanzará automáticamente."
+    },
+    "sms": {
+      "body": "{{decliner_name}} rechazó una oferta de sustitución. Si ningún compañero acepta, la secuencia avanzará automáticamente."
+    }
+  },
+  "substitution_nominated_rejected": {
+    "email": {
+      "subject": "Cobertura nominada rechazada",
+      "body": "{{decliner_name}} rechazó la sustitución nominada. Asigna a alguien manualmente: la secuencia no avanzó automáticamente."
+    },
+    "whatsapp": {
+      "body": "{{decliner_name}} rechazó la sustitución nominada. Asigna a alguien manualmente: la secuencia no avanzó automáticamente."
+    },
+    "in_app": {
+      "subject": "Cobertura nominada rechazada",
+      "body": "{{decliner_name}} rechazó la sustitución nominada. Asigna a alguien manualmente: la secuencia no avanzó automáticamente."
+    },
+    "sms": {
+      "body": "{{decliner_name}} rechazó la sustitución nominada. Asigna a alguien manualmente: la secuencia no avanzó automáticamente."
+    }
+  },
+  "substitution_offer_nominated": {
+    "email": {
+      "subject": "{{reporter_name}} te ha pedido que cubras",
+      "body": "{{reporter_name}} te ha propuesto para cubrir {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} el {{absence_date}}. Acepta o rechaza la solicitud, por favor."
+    },
+    "whatsapp": {
+      "body": "{{reporter_name}} te ha propuesto para cubrir {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} el {{absence_date}}. Acepta o rechaza la solicitud, por favor."
+    },
+    "in_app": {
+      "subject": "{{reporter_name}} te ha pedido que cubras",
+      "body": "{{reporter_name}} te ha propuesto para cubrir {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} el {{absence_date}}. Acepta o rechaza la solicitud, por favor."
+    },
+    "sms": {
+      "body": "{{reporter_name}} te ha propuesto para cubrir {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} el {{absence_date}}. Acepta o rechaza la solicitud, por favor."
+    }
+  },
+  "substitution_offer_received": {
+    "email": {
+      "subject": "Solicitud de sustitución: {{reporter_name}}",
+      "body": "Te han ofrecido una sustitución para {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} el {{absence_date}}. Responde pronto, por favor."
+    },
+    "whatsapp": {
+      "body": "Te han ofrecido una sustitución para {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} el {{absence_date}}. Responde pronto, por favor."
+    },
+    "in_app": {
+      "subject": "Solicitud de sustitución: {{reporter_name}}",
+      "body": "Te han ofrecido una sustitución para {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} el {{absence_date}}. Responde pronto, por favor."
+    },
+    "sms": {
+      "body": "Te han ofrecido una sustitución para {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} de {{reporter_name}} el {{absence_date}}. Responde pronto, por favor."
+    }
+  },
+  "substitution_offer_revoked": {
+    "email": {
+      "subject": "La oferta de cobertura ya no es necesaria",
+      "body": "Tu oferta de sustitución ya no es necesaria ({{reason}}). No se requiere ninguna acción."
+    },
+    "whatsapp": {
+      "body": "Tu oferta de sustitución ya no es necesaria ({{reason}}). No se requiere ninguna acción."
+    },
+    "in_app": {
+      "subject": "La oferta de cobertura ya no es necesaria",
+      "body": "Tu oferta de sustitución ya no es necesaria ({{reason}}). No se requiere ninguna acción."
+    },
+    "sms": {
+      "body": "Tu oferta de sustitución ya no es necesaria ({{reason}}). No se requiere ninguna acción."
+    }
+  }
+}
