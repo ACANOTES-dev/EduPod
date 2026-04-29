@@ -230,10 +230,15 @@ export class NotificationDispatchService {
 
     // Render template
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = this.templateRenderer.render(template.body_template, variables);
+    const renderedBody = this.templateRenderer.render(
+      template.body_template,
+      variables,
+      notification.locale,
+    );
     const renderedSubject = this.templateRenderer.renderSubject(
       template.subject_template ?? '',
       variables,
+      notification.locale,
     );
 
     // Send via Resend (per-tenant credentials resolved by the provider)
@@ -347,7 +352,11 @@ export class NotificationDispatchService {
 
     // Render template and strip HTML for WhatsApp
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = this.templateRenderer.render(template.body_template, variables);
+    const renderedBody = this.templateRenderer.render(
+      template.body_template,
+      variables,
+      notification.locale,
+    );
     const strippedBody = this.templateRenderer.stripHtml(renderedBody);
 
     // Impl 08: extract optional template_variables from payload_json so
@@ -446,7 +455,11 @@ export class NotificationDispatchService {
 
     // Render template and strip HTML for SMS
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = this.templateRenderer.render(template.body_template, variables);
+    const renderedBody = this.templateRenderer.render(
+      template.body_template,
+      variables,
+      notification.locale,
+    );
     const strippedBody = this.templateRenderer.stripHtml(renderedBody);
 
     // Send via Twilio SMS

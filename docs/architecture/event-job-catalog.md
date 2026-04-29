@@ -339,6 +339,17 @@ Missing any one of those leaves “approved but not actually executed” items i
 - **Sources**: announcement publish flows, parent inquiries, retries, platform monitoring, behaviour/pastoral fan-out, cron scheduler
 - **Major side effects**: this is the central delivery queue for almost every user-facing notification surface
 
+#### `communications:dispatch-notifications` locale rendering
+
+System notification template rows resolve `t:`-prefixed keys against
+`packages/shared/src/notifications/messages/notifications.{locale}.json`.
+Tenant override rows with non-null `tenant_id` continue to use raw Handlebars strings.
+
+Locale resolution is stored on the `notifications.locale` row before dispatch. The worker
+passes that locale into the renderer for email, SMS, and WhatsApp. Missing `t:` keys throw
+`MISSING_NOTIFICATION_MESSAGE`; missing catalogues throw `MISSING_NOTIFICATION_LOCALE`.
+There is no silent fallback to English.
+
 ### `pastoral`
 
 - `pastoral:notify-concern`

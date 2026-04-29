@@ -312,6 +312,70 @@ describe('DispatchNotificationsProcessor', () => {
     });
   });
 
+  describe('process — email channel catalogue rendering', () => {
+    it('renders a system t-prefixed template before dispatch handling', async () => {
+      const notification = buildNotification({
+        channel: 'email',
+        payload_json: { reporter_name: 'Ada' },
+        template_key: 'absence.cancelled',
+      });
+
+      mockTx.notification.findMany.mockResolvedValue([notification]);
+      mockTx.notificationTemplate.findFirst.mockResolvedValue({
+        body_template: 't:absence_cancelled.email.body',
+        subject_template: 't:absence_cancelled.email.subject',
+      });
+      mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
+      mockGetEmailCreds.mockResolvedValueOnce(null);
+
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notification.update).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID_1 },
+        data: expect.objectContaining({
+          failure_reason: 'channel_not_configured',
+          status: 'failed',
+        }),
+      });
+    });
+
+    it('hard-fails missing t-prefixed template keys', async () => {
+      const notification = buildNotification({
+        channel: 'email',
+        payload_json: { reporter_name: 'Ada' },
+        template_key: 'absence.cancelled',
+      });
+
+      mockTx.notification.findMany.mockResolvedValue([notification]);
+      mockTx.notificationTemplate.findFirst.mockResolvedValue({
+        body_template: 't:absence_cancelled.email.missing',
+        subject_template: 't:absence_cancelled.email.subject',
+      });
+      mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
+
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notification.update).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID_1 },
+        data: expect.objectContaining({
+          failure_reason: expect.stringContaining('MISSING_NOTIFICATION_MESSAGE'),
+          status: 'failed',
+        }),
+      });
+      expect(mockTx.notification.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('process — retry and dead-letter handling', () => {
     beforeEach(() => {
       jest.useFakeTimers().setSystemTime(new Date('2026-04-01T12:00:00.000Z'));

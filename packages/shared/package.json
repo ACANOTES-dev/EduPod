@@ -48,6 +48,9 @@
       "inbox": [
         "src/inbox/index.ts"
       ],
+      "notifications": [
+        "src/notifications/index.ts"
+      ],
       "wellbeing": [
         "src/wellbeing/index.ts"
       ],
@@ -141,6 +144,10 @@
     "./inbox": {
       "types": "./src/inbox/index.ts",
       "default": "./dist/inbox/index.js"
+    },
+    "./notifications": {
+      "types": "./src/notifications/index.ts",
+      "default": "./dist/notifications/index.js"
     },
     "./wellbeing": {
       "types": "./src/wellbeing/index.ts",

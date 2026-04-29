@@ -9,6 +9,7 @@ import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
 import { toNotificationChannel } from '@school/shared';
+import { resolveNotificationTemplateSource } from '@school/shared/notifications';
 
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -90,11 +91,19 @@ function compileTemplate(body: string): CompiledTemplate {
   return compiled;
 }
 
-function renderTemplate(templateBody: string, variables: Record<string, unknown>): string {
-  const compiled = compileTemplate(templateBody);
+function renderTemplate(
+  templateBody: string,
+  variables: Record<string, unknown>,
+  locale: string,
+): string {
+  const source = resolveNotificationTemplateSource(templateBody, locale);
+  const compiled = compileTemplate(source);
   try {
     return compiled(variables);
-  } catch {
+  } catch (error) {
+    if (templateBody.startsWith('t:')) {
+      throw error;
+    }
     return templateBody;
   }
 }
@@ -102,9 +111,10 @@ function renderTemplate(templateBody: string, variables: Record<string, unknown>
 function renderSubject(
   subjectTemplate: string | null,
   variables: Record<string, unknown>,
+  locale: string,
 ): string | null {
   if (subjectTemplate === null) return null;
-  return renderTemplate(subjectTemplate, variables);
+  return renderTemplate(subjectTemplate, variables, locale);
 }
 
 // ─── SMS length limit ────────────────────────────────────────────────────────
@@ -401,8 +411,12 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Render template
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = renderTemplate(template.body_template, variables);
-    const renderedSubject = renderSubject(template.subject_template, variables);
+    const renderedBody = renderTemplate(template.body_template, variables, notification.locale);
+    const renderedSubject = renderSubject(
+      template.subject_template,
+      variables,
+      notification.locale,
+    );
 
     // Resolve per-tenant Resend creds (Impl 05: no .env fallback)
     const creds = await this.resolveEmail(notification.tenant_id);
@@ -496,7 +510,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Render template and strip HTML for WhatsApp
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = renderTemplate(template.body_template, variables);
+    const renderedBody = renderTemplate(template.body_template, variables, notification.locale);
     const strippedBody = stripHtmlText(renderedBody);
 
     // Resolve per-tenant Twilio WhatsApp creds (Impl 05: no .env fallback)
@@ -582,7 +596,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Render template and strip HTML for SMS
     const variables = (notification.payload_json as Record<string, unknown>) ?? {};
-    const renderedBody = renderTemplate(template.body_template, variables);
+    const renderedBody = renderTemplate(template.body_template, variables, notification.locale);
     let strippedBody = stripHtmlText(renderedBody);
 
     // Truncate if exceeds SMS max length

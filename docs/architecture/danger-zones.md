@@ -1367,6 +1367,18 @@ The dispatch worker batches up to 100 notification rows per tenant per tick. Ins
 
 **Reference**: `communicationnew/IMPLEMENTATION_LOG.md` Impl 05 (worker parity + mid-flight `is_enabled` enforcement).
 
+## DZ-Comms-2A: System Notification Template Keys Are Runtime Contracts
+
+**Risk**: Renaming a `t:` key breaks live notification dispatch for every system row that references it.
+**Location**: `packages/shared/src/notifications/messages/`, `packages/prisma/migrations/*_migrate_system_notification_templates_to_catalogue/`, `apps/worker/src/processors/communications/dispatch-notifications.processor.ts`
+**Status**: ACTIVE
+
+System `notification_templates` rows (`tenant_id IS NULL`) now store `t:`-prefixed catalogue keys, for example `t:absence_cancelled.email.body`. Tenant overrides remain raw Handlebars, but system rows are hard-linked to the JSON catalogues.
+
+**Failure mode**: deleting or renaming a key in `notifications.en.json` or `notifications.ar.json` without migrating the matching DB rows makes dispatch throw `MISSING_NOTIFICATION_MESSAGE`. Adding a locale to `tenant.supported_locales` before shipping `notifications.{locale}.json` makes dispatch throw `MISSING_NOTIFICATION_LOCALE`.
+
+**Rule**: Treat notification catalogue keys as append-only. If a key must change, ship the catalogue change and the DB migration that updates every affected system row in the same release.
+
 ## DZ-Comms-3: Webhook Signature Trust Depends on Per-Tenant `webhook_secret`
 
 **Risk**: A tenant whose `webhook_secret` is missing/null has every webhook event rejected. Notification statuses for that tenant never advance past `sent` — bounces, complaints, deliveries are never reflected.

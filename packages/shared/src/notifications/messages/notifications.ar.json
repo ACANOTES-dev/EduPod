@@ -1,0 +1,286 @@
+{
+  "absence_admin_notice": {
+    "email": {
+      "subject": "{{reporter_name}} غائب",
+      "body": "أبلغ {{reporter_name}} عن غياب من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية المباشرة على {{nominated_substitute}}.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "أبلغ {{reporter_name}} عن غياب من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية المباشرة على {{nominated_substitute}}.{{/if}}"
+    },
+    "in_app": {
+      "subject": "{{reporter_name}} غائب",
+      "body": "أبلغ {{reporter_name}} عن غياب من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية المباشرة على {{nominated_substitute}}.{{/if}}"
+    },
+    "sms": {
+      "body": "أبلغ {{reporter_name}} عن غياب من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية المباشرة على {{nominated_substitute}}.{{/if}}"
+    }
+  },
+  "absence_cancelled": {
+    "email": {
+      "subject": "تم إلغاء الغياب",
+      "body": "تم إلغاء غياب {{reporter_name}}. تم إلغاء أي تغطية مخصصة."
+    },
+    "whatsapp": {
+      "body": "تم إلغاء غياب {{reporter_name}}. تم إلغاء أي تغطية مخصصة."
+    },
+    "in_app": {
+      "subject": "تم إلغاء الغياب",
+      "body": "تم إلغاء غياب {{reporter_name}}. تم إلغاء أي تغطية مخصصة."
+    },
+    "sms": {
+      "body": "تم إلغاء غياب {{reporter_name}}. تم إلغاء أي تغطية مخصصة."
+    }
+  },
+  "absence_self_reported_confirmation": {
+    "email": {
+      "subject": "تم تسجيل الغياب",
+      "body": "تم تسجيل غيابك من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية على {{nominated_substitute}}.{{else}}جاري إيجاد بديل الآن.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "تم تسجيل غيابك من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية على {{nominated_substitute}}.{{else}}جاري إيجاد بديل الآن.{{/if}}"
+    },
+    "in_app": {
+      "subject": "تم تسجيل الغياب",
+      "body": "تم تسجيل غيابك من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية على {{nominated_substitute}}.{{else}}جاري إيجاد بديل الآن.{{/if}}"
+    },
+    "sms": {
+      "body": "تم تسجيل غيابك من {{date_from}}{{#if date_to}} إلى {{date_to}}{{/if}}. {{#if nominated_substitute}}تم عرض التغطية على {{nominated_substitute}}.{{else}}جاري إيجاد بديل الآن.{{/if}}"
+    }
+  },
+  "admissions_application_received": {
+    "email": {
+      "subject": "تم استلام الطلب — {{school_name}}",
+      "body": "<p>عزيزي ولي الأمر،</p><p>شكراً لتقديم طلبكم إلى <strong>{{school_name}}</strong>. لقد استلمنا ما يلي:</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>يمكنكم متابعة تقدم طلبكم من خلال بوابة ولي الأمر.</p><p>شكراً لكم،<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "سحب الطلب — {{student_name}}",
+      "body": "<p>عزيزي ولي الأمر،</p><p>نؤكد لكم أن طلب القبول الخاص بـ <strong>{{student_name}}</strong> (رقم الطلب: <strong>{{application_number}}</strong>) في <strong>{{school_name}}</strong> قد تم سحبه.</p><p>إذا لم تقم بهذا السحب أو تعتقد أنه تم بالخطأ، يرجى التواصل مع مكتب القبول في المدرسة.</p><p>شكراً لكم،<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "إعلان جديد: {{title}}",
+      "body": "عزيزي {{recipient_name}}،\n\nتم نشر إعلان جديد:\n\n**{{title}}**\n\n{{body}}\n\nهذا الإعلان من {{school_name}}.\n\nمع التحية،\nفريق {{school_name}}"
+    },
+    "in_app": {
+      "body": "إعلان جديد: {{title}}"
+    }
+  },
+  "approval_decided": {
+    "email": {
+      "subject": "تم {{decision}} طلبك: {{action_type}}",
+      "body": "عزيزي {{recipient_name}}،\n\nتم **{{decision}}** طلبك بخصوص \"{{action_type}}\".\n\n**تم البت من قبل:** {{approver_name}}\n**التعليق:** {{comment}}\n\nمع التحية،\nفريق {{school_name}}"
+    },
+    "in_app": {
+      "body": "تم {{decision}} طلبك \"{{action_type}}\" من قِبَل {{approver_name}}"
+    }
+  },
+  "approval_requested": {
+    "email": {
+      "subject": "مطلوب موافقة: {{action_type}}",
+      "body": "عزيزي {{recipient_name}}،\n\nمطلوب موافقتك على ما يلي:\n\n**الإجراء:** {{action_type}}\n**طلب من:** {{requester_name}}\n**السبب:** {{reason}}\n\nيرجى تسجيل الدخول لمراجعة الطلب والموافقة عليه أو رفضه.\n\nمع التحية،\nفريق {{school_name}}"
+    },
+    "in_app": {
+      "body": "طلب موافقة: {{action_type}} من {{requester_name}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "رسالة جديدة من {{sender_name}}",
+      "body": "<p>لديك رسالة غير مقروءة من <strong>{{sender_name}}</strong> في صندوق الوارد الخاص بالمدرسة.</p><blockquote>{{snippet}}</blockquote><p>افتح صندوق الوارد لقراءة الرسالة الكاملة والرد إذا كان الرد مفعَّلاً.</p>"
+    },
+    "whatsapp": {
+      "body": "*رسالة جديدة من {{sender_name}}*\n\n{{snippet}}\n\nافتح صندوق الوارد المدرسي لقراءة الرسالة الكاملة والرد."
+    },
+    "sms": {
+      "body": "{{sender_name}}: {{snippet}} — افتح صندوق الوارد المدرسي لقراءة الرسالة الكاملة والرد."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "رسالة جديدة على استفسارك: {{subject}}",
+      "body": "عزيزي {{recipient_name}}،\n\nلديك رسالة جديدة على استفسارك \"{{subject}}\":\n\n{{message}}\n\nيرجى تسجيل الدخول إلى بوابة أولياء الأمور للرد.\n\nمع التحية،\nفريق {{school_name}}"
+    },
+    "in_app": {
+      "body": "رسالة جديدة على الاستفسار: {{subject}}"
+    }
+  },
+  "leave_request_approved": {
+    "email": {
+      "subject": "تمت الموافقة على الإجازة",
+      "body": "تمت الموافقة على طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "تمت الموافقة على طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "تمت الموافقة على الإجازة",
+      "body": "تمت الموافقة على طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "تمت الموافقة على طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_rejected": {
+    "email": {
+      "subject": "تم رفض طلب الإجازة",
+      "body": "تم رفض طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "تم رفض طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "تم رفض طلب الإجازة",
+      "body": "تم رفض طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "تم رفض طلب الإجازة من قبل {{reviewer_name}}.{{#if review_notes}} الملاحظات: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_submitted": {
+    "email": {
+      "subject": "طلب إجازة: {{requester_name}}",
+      "body": "قدم {{requester_name}} طلب {{leave_label}} من {{date_from}} إلى {{date_to}}. يرجى المراجعة."
+    },
+    "whatsapp": {
+      "body": "قدم {{requester_name}} طلب {{leave_label}} من {{date_from}} إلى {{date_to}}. يرجى المراجعة."
+    },
+    "in_app": {
+      "subject": "طلب إجازة: {{requester_name}}",
+      "body": "قدم {{requester_name}} طلب {{leave_label}} من {{date_from}} إلى {{date_to}}. يرجى المراجعة."
+    },
+    "sms": {
+      "body": "قدم {{requester_name}} طلب {{leave_label}} من {{date_from}} إلى {{date_to}}. يرجى المراجعة."
+    }
+  },
+  "substitution_accepted": {
+    "email": {
+      "subject": "تم تأكيد التغطية: {{substitute_name}}",
+      "body": "قبل {{substitute_name}} تغطية حصة {{reporter_name}} في {{absence_date}}."
+    },
+    "whatsapp": {
+      "body": "قبل {{substitute_name}} تغطية حصة {{reporter_name}} في {{absence_date}}."
+    },
+    "in_app": {
+      "subject": "تم تأكيد التغطية: {{substitute_name}}",
+      "body": "قبل {{substitute_name}} تغطية حصة {{reporter_name}} في {{absence_date}}."
+    },
+    "sms": {
+      "body": "قبل {{substitute_name}} تغطية حصة {{reporter_name}} في {{absence_date}}."
+    }
+  },
+  "substitution_admin_offer_dispatched": {
+    "email": {
+      "subject": "تم إرسال عروض التغطية",
+      "body": "تم إرسال {{offers_count}} عرض تغطية لغياب {{reporter_name}}."
+    },
+    "whatsapp": {
+      "body": "تم إرسال {{offers_count}} عرض تغطية لغياب {{reporter_name}}."
+    },
+    "in_app": {
+      "subject": "تم إرسال عروض التغطية",
+      "body": "تم إرسال {{offers_count}} عرض تغطية لغياب {{reporter_name}}."
+    },
+    "sms": {
+      "body": "تم إرسال {{offers_count}} عرض تغطية لغياب {{reporter_name}}."
+    }
+  },
+  "substitution_cascade_exhausted": {
+    "email": {
+      "subject": "التغطية اليدوية مطلوبة",
+      "body": "تم رفض أو انتهاء صلاحية جميع عروض التغطية التلقائية لغياب {{reporter_name}}. يرجى تعيين بديل يدوياً."
+    },
+    "whatsapp": {
+      "body": "تم رفض أو انتهاء صلاحية جميع عروض التغطية التلقائية لغياب {{reporter_name}}. يرجى تعيين بديل يدوياً."
+    },
+    "in_app": {
+      "subject": "التغطية اليدوية مطلوبة",
+      "body": "تم رفض أو انتهاء صلاحية جميع عروض التغطية التلقائية لغياب {{reporter_name}}. يرجى تعيين بديل يدوياً."
+    },
+    "sms": {
+      "body": "تم رفض أو انتهاء صلاحية جميع عروض التغطية التلقائية لغياب {{reporter_name}}. يرجى تعيين بديل يدوياً."
+    }
+  },
+  "substitution_declined": {
+    "email": {
+      "subject": "تم رفض عرض التغطية",
+      "body": "رفض {{decliner_name}} عرض التغطية. إذا لم يقبل أحد، سيتم الانتقال تلقائياً للجولة التالية."
+    },
+    "whatsapp": {
+      "body": "رفض {{decliner_name}} عرض التغطية. إذا لم يقبل أحد، سيتم الانتقال تلقائياً للجولة التالية."
+    },
+    "in_app": {
+      "subject": "تم رفض عرض التغطية",
+      "body": "رفض {{decliner_name}} عرض التغطية. إذا لم يقبل أحد، سيتم الانتقال تلقائياً للجولة التالية."
+    },
+    "sms": {
+      "body": "رفض {{decliner_name}} عرض التغطية. إذا لم يقبل أحد، سيتم الانتقال تلقائياً للجولة التالية."
+    }
+  },
+  "substitution_nominated_rejected": {
+    "email": {
+      "subject": "تم رفض التغطية المرشحة",
+      "body": "رفض {{decliner_name}} التغطية المرشحة. يرجى تعيين بديل يدوياً — لم يتم الانتقال تلقائياً."
+    },
+    "whatsapp": {
+      "body": "رفض {{decliner_name}} التغطية المرشحة. يرجى تعيين بديل يدوياً — لم يتم الانتقال تلقائياً."
+    },
+    "in_app": {
+      "subject": "تم رفض التغطية المرشحة",
+      "body": "رفض {{decliner_name}} التغطية المرشحة. يرجى تعيين بديل يدوياً — لم يتم الانتقال تلقائياً."
+    },
+    "sms": {
+      "body": "رفض {{decliner_name}} التغطية المرشحة. يرجى تعيين بديل يدوياً — لم يتم الانتقال تلقائياً."
+    }
+  },
+  "substitution_offer_nominated": {
+    "email": {
+      "subject": "{{reporter_name}} طلب منك التغطية",
+      "body": "رشحك {{reporter_name}} لتغطية حصة {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى القبول أو الرفض."
+    },
+    "whatsapp": {
+      "body": "رشحك {{reporter_name}} لتغطية حصة {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى القبول أو الرفض."
+    },
+    "in_app": {
+      "subject": "{{reporter_name}} طلب منك التغطية",
+      "body": "رشحك {{reporter_name}} لتغطية حصة {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى القبول أو الرفض."
+    },
+    "sms": {
+      "body": "رشحك {{reporter_name}} لتغطية حصة {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى القبول أو الرفض."
+    }
+  },
+  "substitution_offer_received": {
+    "email": {
+      "subject": "طلب تغطية: {{reporter_name}}",
+      "body": "تم عرض تغطية حصة {{reporter_name}} لـ {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى الرد قريباً."
+    },
+    "whatsapp": {
+      "body": "تم عرض تغطية حصة {{reporter_name}} لـ {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى الرد قريباً."
+    },
+    "in_app": {
+      "subject": "طلب تغطية: {{reporter_name}}",
+      "body": "تم عرض تغطية حصة {{reporter_name}} لـ {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى الرد قريباً."
+    },
+    "sms": {
+      "body": "تم عرض تغطية حصة {{reporter_name}} لـ {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} في {{absence_date}}. يرجى الرد قريباً."
+    }
+  },
+  "substitution_offer_revoked": {
+    "email": {
+      "subject": "عرض التغطية لم يعد مطلوباً",
+      "body": "عرض التغطية الخاص بك لم يعد مطلوباً ({{reason}}). لا يلزم أي إجراء."
+    },
+    "whatsapp": {
+      "body": "عرض التغطية الخاص بك لم يعد مطلوباً ({{reason}}). لا يلزم أي إجراء."
+    },
+    "in_app": {
+      "subject": "عرض التغطية لم يعد مطلوباً",
+      "body": "عرض التغطية الخاص بك لم يعد مطلوباً ({{reason}}). لا يلزم أي إجراء."
+    },
+    "sms": {
+      "body": "عرض التغطية الخاص بك لم يعد مطلوباً ({{reason}}). لا يلزم أي إجراء."
+    }
+  }
+}

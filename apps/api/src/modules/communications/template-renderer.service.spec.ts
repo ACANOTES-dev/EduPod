@@ -85,6 +85,39 @@ describe('TemplateRendererService', () => {
       const result = service.render(template, { amount: 150.5, count: 3 });
       expect(result).toBe('Amount: 150.5 - Count: 3');
     });
+
+    it('should resolve t-prefixed templates before rendering variables', () => {
+      const result = service.render(
+        't:absence_cancelled.email.body',
+        { reporter_name: 'Ada' },
+        'en',
+      );
+      expect(result).toBe(
+        "Ada's absence has been cancelled. Any assigned cover has been released.",
+      );
+    });
+
+    it('should render t-prefixed Arabic templates', () => {
+      const result = service.render(
+        't:absence_cancelled.email.body',
+        { reporter_name: 'أحمد' },
+        'ar',
+      );
+      expect(result).toContain('أحمد');
+      expect(result).toContain('تم إلغاء');
+    });
+
+    it('should throw when a t-prefixed message key is missing', () => {
+      expect(() => service.render('t:does.not.exist', {}, 'en')).toThrow(
+        /MISSING_NOTIFICATION_MESSAGE/,
+      );
+    });
+
+    it('should throw when a t-prefixed locale catalogue is missing', () => {
+      expect(() => service.render('t:absence_cancelled.email.body', {}, 'fr')).toThrow(
+        /MISSING_NOTIFICATION_LOCALE/,
+      );
+    });
   });
 
   // ─── renderSubject() ───────────────────────────────────────────────────────

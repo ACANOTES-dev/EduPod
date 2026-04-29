@@ -2,32 +2,31 @@ import * as crypto from 'crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
 
+import { resolveNotificationTemplateSource } from '@school/shared/notifications';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const Handlebars = require('handlebars') as typeof import('handlebars');
 
 // Register custom helpers once at module load
-Handlebars.registerHelper(
-  'formatDate',
-  (date: unknown, locale?: unknown): string => {
-    if (!date) return '';
-    const d = date instanceof Date ? date : new Date(String(date));
-    if (isNaN(d.getTime())) return String(date);
-    const loc = typeof locale === 'string' ? locale : 'en';
-    try {
-      return d.toLocaleDateString(loc, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return d.toLocaleDateString('en', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    }
-  },
-);
+Handlebars.registerHelper('formatDate', (date: unknown, locale?: unknown): string => {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(String(date));
+  if (isNaN(d.getTime())) return String(date);
+  const loc = typeof locale === 'string' ? locale : 'en';
+  try {
+    return d.toLocaleDateString(loc, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return d.toLocaleDateString('en', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+});
 
 Handlebars.registerHelper('stripHtml', (html: unknown): string => {
   if (typeof html !== 'string') return '';
@@ -45,16 +44,16 @@ export class TemplateRendererService {
    * Render a template body with variables using Handlebars.
    * Missing variables render as empty string (strict: false).
    */
-  render(
-    templateBody: string,
-    variables: Record<string, unknown>,
-  ): string {
-    const compiled = this.getCompiledTemplate(templateBody);
+  render(templateBody: string, variables: Record<string, unknown>, locale = 'en'): string {
+    const source = resolveNotificationTemplateSource(templateBody, locale);
+    const compiled = this.getCompiledTemplate(source);
     try {
       return compiled(variables);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown render error';
+      if (templateBody.startsWith('t:')) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : 'Unknown render error';
       this.logger.error(
         `Template render failed: ${message}`,
         error instanceof Error ? error.stack : undefined,
@@ -69,9 +68,10 @@ export class TemplateRendererService {
   renderSubject(
     subjectTemplate: string | null,
     variables: Record<string, unknown>,
+    locale = 'en',
   ): string | null {
     if (subjectTemplate === null) return null;
-    return this.render(subjectTemplate, variables);
+    return this.render(subjectTemplate, variables, locale);
   }
 
   /**
@@ -119,10 +119,7 @@ export class TemplateRendererService {
    * Get or create a compiled Handlebars template, keyed by content hash.
    */
   private getCompiledTemplate(body: string): CompiledTemplate {
-    const hash = crypto
-      .createHash('sha256')
-      .update(body)
-      .digest('hex');
+    const hash = crypto.createHash('sha256').update(body).digest('hex');
 
     const cached = this.compiledCache.get(hash);
     if (cached) return cached;
