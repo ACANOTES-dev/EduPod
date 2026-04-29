@@ -9780,6 +9780,7 @@
     "successTitle": "تم الإرسال",
     "successMessage": "شكراً لتواصلك معنا. سنرد عليك في أقرب وقت ممكن.",
     "errorGeneric": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "errorRequired": "يرجى ملء جميع الحقول المطلوبة.",
     "errorRateLimit": "طلبات كثيرة جداً. يرجى الانتظار بضع دقائق قبل المحاولة مجدداً.",
     "namePlaceholder": "اسمك الكامل",
     "emailPlaceholder": "example@mail.com",

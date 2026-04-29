@@ -29,7 +29,7 @@ export default function PublicContactPage() {
     if (honeypot) return;
 
     if (!name.trim() || !email.trim() || !message.trim()) {
-      setError('Please fill in all required fields.');
+      setError(t('errorRequired'));
       return;
     }
 
@@ -57,12 +57,12 @@ export default function PublicContactPage() {
       ) {
         const apiError = (err as { error: { code?: string; message?: string } }).error;
         if (apiError.code === 'RATE_LIMITED') {
-          setError('Too many submissions. Please wait a few minutes before trying again.');
+          setError(t('errorRateLimit'));
         } else {
-          setError(apiError.message ?? 'Something went wrong. Please try again.');
+          setError(apiError.message ?? t('errorGeneric'));
         }
       } else {
-        setError('Something went wrong. Please try again.');
+        setError(t('errorGeneric'));
       }
     } finally {
       setSubmitting(false);
@@ -100,7 +100,9 @@ export default function PublicContactPage() {
           <div className="space-y-4">
             {/* Name */}
             <div className="space-y-1.5">
-              <Label htmlFor="name">{t('name')}<span className="text-error-text">*</span>
+              <Label htmlFor="name">
+                {t('name')}
+                <span className="text-error-text">*</span>
               </Label>
               <Input
                 id="name"
@@ -114,7 +116,9 @@ export default function PublicContactPage() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email">{t('email')}<span className="text-error-text">*</span>
+              <Label htmlFor="email">
+                {t('email')}
+                <span className="text-error-text">*</span>
               </Label>
               <Input
                 id="email"
@@ -124,7 +128,7 @@ export default function PublicContactPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="you@example.com"
+                placeholder={t('emailPlaceholder')}
               />
             </div>
 
@@ -144,7 +148,9 @@ export default function PublicContactPage() {
 
             {/* Message */}
             <div className="space-y-1.5">
-              <Label htmlFor="message">{t('message')}<span className="text-error-text">*</span>
+              <Label htmlFor="message">
+                {t('message')}
+                <span className="text-error-text">*</span>
               </Label>
               <Textarea
                 id="message"
@@ -178,11 +184,13 @@ export default function PublicContactPage() {
 
         <div className="flex justify-end">
           <Button type="submit" disabled={submitting} className="min-w-[120px]">
-            {submitting ? 'Sending...' : 'Send Message'}
+            {submitting ? t('sending') : t('send')}
           </Button>
         </div>
 
-        <p className="text-xs leading-relaxed text-text-secondary">{t('yourIpAddressIsRecorded')}</p>
+        <p className="text-xs leading-relaxed text-text-secondary">
+          {t('yourIpAddressIsRecorded')}
+        </p>
       </form>
     </div>
   );

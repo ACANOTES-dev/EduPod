@@ -9780,6 +9780,7 @@
     "successTitle": "Message Sent",
     "successMessage": "Thank you for reaching out. We will get back to you as soon as possible.",
     "errorGeneric": "Something went wrong. Please try again.",
+    "errorRequired": "Please fill in all required fields.",
     "errorRateLimit": "Too many submissions. Please wait a few minutes before trying again.",
     "namePlaceholder": "Your full name",
     "emailPlaceholder": "you@example.com",

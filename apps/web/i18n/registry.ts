@@ -58,7 +58,7 @@ export const LOCALE_REGISTRY: readonly LocaleEntry[] = [
     nativeName: 'Français',
     direction: 'ltr',
     tier: 1,
-    active: false,
+    active: true,
   },
   {
     code: 'de',
