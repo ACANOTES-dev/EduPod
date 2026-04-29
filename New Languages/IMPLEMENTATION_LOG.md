@@ -31,7 +31,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟡 In progress         | GPT-5.5    | High     |
+| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending             | Opus 4.7   | High     |
 | 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | Max      |
 | 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
@@ -389,11 +389,11 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 07 — French (`fr`)
 
 - **Spec:** `implementations/07-french.md`
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Complete & deployed
 - **Model:** GPT-5.5 / High effort
 - **Depends on:** 06 complete
 - **Began:** 2026-04-29
-- **Completed:** —
+- **Completed:** 2026-04-29
 
 **Scope summary:**
 
@@ -414,8 +414,8 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - [x] Full local lint + type-check + regression tests pass
 - [x] Production web build passes
 - [x] Public en + ar visual smoke remains clean
-- [ ] NHQS-only `supported_locales` includes `fr`
-- [ ] CI green; production deploy successful
+- [x] NHQS-only `supported_locales` includes `fr`
+- [x] CI green; production deploy successful
 
 ### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
 
@@ -432,11 +432,27 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
   - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint`
   - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/web build`
+- Commits:
+  - `0ce70ab5` — `docs(i18n): seed French rollout glossary`
+  - `735f59f4` — `feat(i18n): add and activate French web locale`
+  - `247bf0bc` — `feat(notifications): support French catalogue rendering`
+  - `faa7e9ca` — `feat(pdf): enable French PDF rendering smoke path`
+  - `505ea984` — `feat(i18n): accept registered locales in exports`
+  - `ec9cc970` — `test(e2e): add French public visual smoke coverage`
+- CI / deploy:
+  - Production run `25095725330` succeeded.
+  - Deploy completed 2026-04-29 07:25 UTC.
+- NHQS rollout:
+  - Production update applied 2026-04-29 12:25 UTC.
+  - Readback: `nhqs.supported_locales = {en,ar,fr}`.
+- Production verification:
+  - Public `/fr/login` and `/fr/contact` returned 200 with `html lang="fr"` and no visible placeholder leaks.
+  - NHQS owner login succeeded on `/fr/login`; `/fr/dashboard`, `/fr/students`, `/fr/finance`, and `/fr/profile` rendered in French with no visible placeholder leaks.
+  - User-menu language picker showed `en`, `ar`, and `fr` for NHQS after the tenant flip.
 - Notes:
   - `fr` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
   - Notification template lookup now falls back from non-English locales to the platform English catalogue-backed `t:` row, allowing the requested locale's catalogue to render without duplicating database template rows for every new language.
   - PDF rendering did not add `templates/messages/{type}.fr.json` files because implementation 04 left the live renderer on locale-specific TypeScript templates plus `renderLegacyLocaleTemplate`; French is enabled through that current extension point and covered by a smoke test.
-  - Production deploy, CI run ID, commit SHA(s), and NHQS-only locale flip are still pending.
 
 ---
 
