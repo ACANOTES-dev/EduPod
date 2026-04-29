@@ -63,6 +63,16 @@ cleanup_build_outputs() {
   fi
 }
 
+clean_untracked_build_inputs() {
+  # Turbo hashes untracked, non-ignored files. Keep the server checkout's
+  # build inputs identical to the Git commit so CI-warmed remote cache keys
+  # remain reusable during production deploys. This intentionally avoids -x:
+  # ignored runtime/build artifacts such as .env, node_modules, .next, dist,
+  # and the solver-py venv are preserved.
+  log 'Removing untracked build input files'
+  git clean -fd -- apps/api apps/worker apps/web packages scripts
+}
+
 # Curl-with-retry: try the URL up to `attempts` times, sleeping `delay`
 # seconds between attempts. Returns 0 the moment any attempt succeeds.
 # This lets slow-booting services (especially the NestJS worker after a
@@ -468,6 +478,7 @@ main() {
   git checkout "$target_sha"
   deployed_sha="$(git rev-parse HEAD)"
   log "Deploying commit ${deployed_sha}"
+  clean_untracked_build_inputs
 
   load_runtime_env
   install_dependencies
