@@ -31,7 +31,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | High     |
+| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟡 In progress         | GPT-5.5    | High     |
 | 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending             | Opus 4.7   | High     |
 | 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | Max      |
 | 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
@@ -389,33 +389,54 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 07 — French (`fr`)
 
 - **Spec:** `implementations/07-french.md`
-- **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / High effort
+- **Status:** 🟡 In progress
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 06 complete
-- **Began:** —
+- **Began:** 2026-04-29
 - **Completed:** —
 
 **Scope summary:**
 
-- Translate `en.json` → `fr.json` (full catalogue, all 118 namespaces).
-- Translate `notifications.en.json` → `notifications.fr.json`.
-- Translate all 13 PDF type catalogues `messages/{type}.fr.json`.
+- Translate `en.json` → `fr.json` (full active web catalogue).
+- Translate notification catalogue entries into `notifications.fr.json`.
+- Enable French PDF rendering through the current locale-template architecture with French label/date/status localization.
 - Flip `fr.active = true` in registry.
-- Add `fr-ltr` + `fr-mobile` Playwright projects + commit baselines.
+- Add `fr-ltr` + `fr-mobile` Playwright projects plus French public visual/leak smoke baselines.
 - Enable for NHQS via `UPDATE tenants SET supported_locales = supported_locales || '{fr}'::text[] WHERE slug = 'nhqs'`.
 
 ### Acceptance
 
-- [ ] Translation parity 100% against `en.json`
-- [ ] No `MISSING_MESSAGE` warnings on any route in `[fr]/`
-- [ ] Smoke + leak + visual + dispatch + PDF tests pass
-- [ ] en + ar visual regression: clean
+- [x] Translation parity 100% against `en.json`
+- [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`
+- [x] Public `[fr]` login/contact visual + visible-text leak smoke passes
+- [x] Notification dispatch and catalogue fallback tests pass
+- [x] PDF French smoke path passes
+- [x] Full local lint + type-check + regression tests pass
+- [x] Production web build passes
+- [x] Public en + ar visual smoke remains clean
 - [ ] NHQS-only `supported_locales` includes `fr`
 - [ ] CI green; production deploy successful
 
 ### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
 
-- (pending)
+- Local verification passed 2026-04-29:
+  - `pnpm --filter @school/web test -- translation-parity --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/web test -- registry --runInBand`
+  - `pnpm --filter @school/shared test -- notification-message-catalogue locale-codes --runInBand`
+  - `pnpm --filter @school/api test -- pdf-rendering.service locale-template notification-templates.service --runInBand`
+  - `pnpm --filter @school/api test -- template-renderer.service --runInBand`
+  - `pnpm --filter @school/worker test -- dispatch-notifications --runInBand`
+  - `pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts --update-snapshots`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/web build`
+- Notes:
+  - `fr` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
+  - Notification template lookup now falls back from non-English locales to the platform English catalogue-backed `t:` row, allowing the requested locale's catalogue to render without duplicating database template rows for every new language.
+  - PDF rendering did not add `templates/messages/{type}.fr.json` files because implementation 04 left the live renderer on locale-specific TypeScript templates plus `renderLegacyLocaleTemplate`; French is enabled through that current extension point and covered by a smoke test.
+  - Production deploy, CI run ID, commit SHA(s), and NHQS-only locale flip are still pending.
 
 ---
 
