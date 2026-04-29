@@ -21,10 +21,32 @@
       ]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "CP_SAT_EARLY_STOP_GAP_THRESHOLD",
+        "CP_SAT_EARLY_STOP_MIN_RUNTIME_SECONDS",
+        "CP_SAT_EARLY_STOP_STAGNATION_SECONDS",
+        "CP_SAT_NUM_SEARCH_WORKERS",
+        "CP_SAT_REGRESSION",
+        "CP_SAT_SIDECAR_CWD",
+        "CP_SAT_SIDECAR_PORT",
+        "CP_SAT_SIDECAR_UVICORN",
+        "CP_SAT_WATCHDOG_SILENCE_SECONDS"
+      ]
     },
     "test:changed": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "CP_SAT_EARLY_STOP_GAP_THRESHOLD",
+        "CP_SAT_EARLY_STOP_MIN_RUNTIME_SECONDS",
+        "CP_SAT_EARLY_STOP_STAGNATION_SECONDS",
+        "CP_SAT_NUM_SEARCH_WORKERS",
+        "CP_SAT_REGRESSION",
+        "CP_SAT_SIDECAR_CWD",
+        "CP_SAT_SIDECAR_PORT",
+        "CP_SAT_SIDECAR_UVICORN",
+        "CP_SAT_WATCHDOG_SILENCE_SECONDS"
+      ]
     }
   }
 }

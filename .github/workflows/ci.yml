@@ -655,6 +655,7 @@ jobs:
         # later fixtures. We pass the venv's uvicorn path via env so the
         # test doesn't have to guess a repo-relative path.
         env:
+          CP_SAT_REGRESSION: '1'
           CP_SAT_SIDECAR_PORT: '5557'
           CP_SAT_SIDECAR_UVICORN: ${{ github.workspace }}/apps/solver-py/.venv/bin/uvicorn
           CP_SAT_SIDECAR_CWD: ${{ github.workspace }}/apps/solver-py

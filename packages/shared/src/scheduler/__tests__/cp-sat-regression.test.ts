@@ -8,15 +8,16 @@
  * CP-SAT is the only engine under test here.
  *
  * Behaviour:
- *   - When the sidecar is unreachable, every CP-SAT call is reported as
- *     ``skipped`` and the test still passes — CI environments without
- *     Python don't fail.
- *   - When reachable, assertions fire: zero Tier-1 violations on every
- *     fixture, determinism across repeated runs, and a markdown report
- *     is written to ``/tmp/cp-sat-regression-report-YYYY-MM-DD.md``.
+ *   - By default, every CP-SAT call is reported as ``skipped`` so normal
+ *     shared package tests stay fast even when a local solver-py venv exists.
+ *   - Set ``CP_SAT_REGRESSION=1`` to run the live sidecar harness. When
+ *     enabled, a missing uvicorn binary is a hard failure.
+ *   - When enabled, assertions fire: zero Tier-1 violations on every fixture,
+ *     determinism across repeated runs, and a markdown report is written to
+ *     ``/tmp/cp-sat-regression-report-YYYY-MM-DD.md``.
  *
  * Run standalone:
- *   pnpm --filter @school/shared test -- cp-sat-regression
+ *   CP_SAT_REGRESSION=1 pnpm --filter @school/shared test -- cp-sat-regression
  */
 
 /* eslint-disable no-console */
@@ -56,7 +57,8 @@ const UVICORN_BIN =
   resolve(__dirname, '../../../../../apps/solver-py/.venv/bin/uvicorn');
 const SOLVER_PY_CWD =
   process.env.CP_SAT_SIDECAR_CWD ?? resolve(__dirname, '../../../../../apps/solver-py');
-const SIDECAR_AVAILABLE = existsSync(UVICORN_BIN);
+const CP_SAT_REGRESSION_ENABLED = process.env.CP_SAT_REGRESSION === '1';
+const SIDECAR_AVAILABLE = CP_SAT_REGRESSION_ENABLED && existsSync(UVICORN_BIN);
 
 async function waitForHealth(timeoutMs = 20_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
@@ -223,22 +225,28 @@ function buildReport(rows: RegressionRow[]): string {
 describe('CP-SAT regression harness', () => {
   const rows: RegressionRow[] = [];
 
+  function markAllSkipped(reason: string): void {
+    for (const fixture of PARITY_FIXTURES) {
+      rows.push({
+        fixture: fixture.name,
+        category: fixture.category,
+        cpsat: {
+          status: 'skipped',
+          errorMessage: reason,
+        },
+      });
+    }
+  }
+
   beforeAll(async () => {
-    if (!SIDECAR_AVAILABLE) {
-      console.log(
-        `[cp-sat-regression] uvicorn not found at ${UVICORN_BIN}; all fixtures marked skipped`,
-      );
-      for (const fixture of PARITY_FIXTURES) {
-        rows.push({
-          fixture: fixture.name,
-          category: fixture.category,
-          cpsat: {
-            status: 'skipped',
-            errorMessage: `uvicorn binary not found at ${UVICORN_BIN}`,
-          },
-        });
-      }
+    if (!CP_SAT_REGRESSION_ENABLED) {
+      const reason = 'CP_SAT_REGRESSION is not set to 1';
+      console.log(`[cp-sat-regression] ${reason}; all fixtures marked skipped`);
+      markAllSkipped(reason);
       return;
+    }
+    if (!SIDECAR_AVAILABLE) {
+      throw new Error(`CP_SAT_REGRESSION=1 but uvicorn binary was not found at ${UVICORN_BIN}`);
     }
     for (const fixture of PARITY_FIXTURES) {
       let proc: ChildProcess | null = null;
