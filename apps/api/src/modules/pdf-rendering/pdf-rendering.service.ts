@@ -61,7 +61,7 @@ export class PdfRenderingService implements OnModuleDestroy {
    * Render a PDF from a registered template.
    *
    * @param templateKey - Template identifier (e.g., 'report-card', 'transcript')
-   * @param locale - Locale code ('en' or 'ar')
+   * @param locale - Locale code ('en', 'ar', or 'fr')
    * @param data - Payload data for the template
    * @param branding - School branding info
    * @returns PDF as a Buffer
@@ -174,7 +174,7 @@ export class PdfRenderingService implements OnModuleDestroy {
       });
     }
 
-    if (!['en', 'ar'].includes(locale)) {
+    if (!['en', 'ar', 'fr'].includes(locale)) {
       throw new InternalServerErrorException({
         code: 'TEMPLATE_NOT_FOUND',
         message: `PDF template "${templateKey}" not available for locale "${locale}"`,

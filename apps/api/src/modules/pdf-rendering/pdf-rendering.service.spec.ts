@@ -15,7 +15,9 @@ jest.mock('./templates/invoice-ar.template', () => ({
   renderInvoiceAr: jest.fn().mockReturnValue('<html>ar-inv</html>'),
 }));
 jest.mock('./templates/invoice-en.template', () => ({
-  renderInvoiceEn: jest.fn().mockReturnValue('<html>en-inv</html>'),
+  renderInvoiceEn: jest
+    .fn()
+    .mockReturnValue('<html lang="en" dir="ltr"><body>en-inv <h1>INVOICE</h1></body></html>'),
 }));
 jest.mock('./templates/payslip-ar.template', () => ({
   renderPayslipAr: jest.fn().mockReturnValue('<html>ar-pay</html>'),
@@ -147,8 +149,16 @@ describe('PdfRenderingService', () => {
     );
   });
 
+  it('should render French through the LTR French localiser', () => {
+    const result = service.renderHtml('invoice', 'fr', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('FACTURE');
+    expect(result).not.toContain('INVOICE');
+  });
+
   it('should throw InternalServerErrorException for unsupported locale', () => {
-    expect(() => service.renderHtml('invoice', 'fr', {}, BRANDING)).toThrow(
+    expect(() => service.renderHtml('invoice', 'ga', {}, BRANDING)).toThrow(
       InternalServerErrorException,
     );
   });
@@ -267,7 +277,7 @@ describe('PdfRenderingService', () => {
       'des-inspection',
       'trip-leader-pack',
     ];
-    const locales = ['en', 'ar'];
+    const locales = ['en', 'ar', 'fr'];
 
     for (const tmpl of templates) {
       for (const locale of locales) {
