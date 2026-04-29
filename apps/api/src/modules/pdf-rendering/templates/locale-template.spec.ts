@@ -64,6 +64,27 @@ describe('renderLegacyLocaleTemplate', () => {
     expect(html).not.toContain('Bill To');
   });
 
+  it('localises the English LTR template for de', () => {
+    const html = renderLegacyLocaleTemplate(
+      'de',
+      {
+        en: () =>
+          '<html lang="en" dir="ltr"><body><h1>INVOICE</h1><p>Bill To</p><p>Status: Partially Paid</p><p>Generated: 29 Apr 2026 &mdash; Confidential</p></body></html>',
+        ar: () => '<html lang="ar" dir="rtl"><body>فاتورة</body></html>',
+      },
+      {},
+      BRANDING,
+    );
+
+    expect(html).toContain('lang="de"');
+    expect(html).toContain('RECHNUNG');
+    expect(html).toContain('Rechnung an');
+    expect(html).toContain('Status: Teilweise bezahlt');
+    expect(html).toContain('Erstellt: 29 Apr. 2026 &mdash; Vertraulich');
+    expect(html).not.toContain('INVOICE');
+    expect(html).not.toContain('Bill To');
+  });
+
   it('uses English unchanged for en', () => {
     const html = renderLegacyLocaleTemplate(
       'en',

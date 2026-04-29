@@ -2,42 +2,43 @@
 
 Shared school-management terminology for the language expansion work. Keep this as a running ledger: add terms when a translation choice should stay consistent across UI, notifications, PDFs, and future locales.
 
-| English term                    | French                         | Spanish                                 | Notes                                                              |
-| ------------------------------- | ------------------------------ | --------------------------------------- | ------------------------------------------------------------------ |
-| Tutor period                    | Heure de tutorat               | Hora de tutoría                         | Spanish: neutral school timetable term.                            |
-| Behaviour incident              | Incident de conduite           | Incidencia de conducta                  | Prefer over a literal "incidente de comportamiento".               |
-| Scheme of work                  | Programme pedagogique          | Programación didáctica                  | UK/Irish school planning term; Iberian education term is clearest. |
-| Year group                      | Niveau scolaire                | Curso                                   | Use "nivel" only where "curso" would be ambiguous.                 |
-| Form tutor                      | Professeur principal           | Tutor                                   | Standard school role label.                                        |
-| Detention                       | Retenue                        | Castigo después de clase                | Avoid "detención", which suggests police custody.                  |
-| Merit                           | Bonus de comportement          | Punto positivo                          | Positive behaviour point.                                          |
-| Demerit                         | Avertissement                  | Amonestación                            | Negative behaviour point or sanction marker.                       |
-| Parent-teacher meeting          | Reunion parents-profs          | Reunión de padres y profesores          | Neutral parent-facing phrase.                                      |
-| Report card                     | Bulletin scolaire              | Boletín de notas                        | Parent/student-facing academic report.                             |
-| Attendance register             | Registre de presence           | Registro de asistencia                  | School attendance context.                                         |
-| Safeguarding                    | Protection de l'enfance        | Protección del menor                    | Sensitive area; prefer official-style wording over "salvaguardia". |
-| Special Educational Needs (SEN) | Besoins educatifs particuliers | Necesidades educativas especiales (NEE) | Standard Spanish education term; use NEE where space is tight.     |
-| Headteacher                     | Directeur ou directrice        | Director/a                              | Use inclusive compact wording in labels.                           |
-| Household                       | Foyer                          | Unidad familiar                         | Use for the family/account grouping in EduPod.                     |
-| Fee structure                   | Structure tarifaire            | Estructura de cuotas                    | Finance setup object.                                              |
-| Payment plan                    | Plan de paiement               | Plan de pago                            | Parent-facing and finance-facing.                                  |
-| Credit note                     | Avoir                          | Nota de crédito                         | Standard finance term.                                             |
-| Pastoral care                   | Accompagnement pastoral        | Atención pastoral                       | Student wellbeing/support context.                                 |
-| Wellbeing                       | Bien-etre                      | Bienestar                               | Use for module labels and student support content.                 |
-| Timetable                       | Emploi du temps                | Horario                                 | School schedule.                                                   |
-| Cover                           | Remplacement                   | Sustitución                             | Staff absence / substitution coverage.                             |
-| Admissions                      | Admissions                     | Admisiones                              | School intake/application area.                                    |
-| Enrolment                       | Inscription                    | Matrícula                               | Student enrolment context.                                         |
-| School closure                  | Fermeture de l'etablissement   | Cierre del centro                       | Operational closure notice.                                        |
-| Leave request                   | Demande de conge               | Solicitud de ausencia                   | Staff leave/absence workflow.                                      |
-| Invoice                         | Facture                        | Factura                                 | Finance document.                                                  |
-| Receipt                         | Recu                           | Recibo                                  | Finance document.                                                  |
-| Payslip                         | Bulletin de paie               | Nómina                                  | Staff payroll document.                                            |
-| Transcript                      | Releve de notes                | Expediente académico                    | Formal academic record.                                            |
-| Approval request                | Demande d'approbation          | Solicitud de aprobación                 | Workflow item.                                                     |
-| Inquiry                         | Demande                        | Consulta                                | Parent admissions/inquiry message.                                 |
-| Submitted                       | Soumis                         | Enviado                                 | Prefer "enviado" for forms, "presentado" for formal submissions.   |
-| Draft                           | Brouillon                      | Borrador                                | Status value.                                                      |
-| Pending                         | En attente                     | Pendiente                               | Status value.                                                      |
-| Approved                        | Approuve                       | Aprobado                                | Status value.                                                      |
-| Rejected                        | Rejete                         | Rechazado                               | Status value.                                                      |
+| English term                    | French                         | Spanish                                 | German                                 | Notes                                                              |
+| ------------------------------- | ------------------------------ | --------------------------------------- | -------------------------------------- | ------------------------------------------------------------------ |
+| Tutor period                    | Heure de tutorat               | Hora de tutoría                         | Tutorzeit                              | Spanish: neutral school timetable term.                            |
+| Behaviour incident              | Incident de conduite           | Incidencia de conducta                  | Verhaltensvorfall                      | Prefer over a literal "incidente de comportamiento".               |
+| Scheme of work                  | Programme pedagogique          | Programación didáctica                  | Lehrplan                               | UK/Irish school planning term; Iberian education term is clearest. |
+| Year group                      | Niveau scolaire                | Curso                                   | Klassenstufe                           | Use "nivel" only where "curso" would be ambiguous.                 |
+| Form tutor                      | Professeur principal           | Tutor                                   | Klassenlehrer:in                       | Use gender-neutral German form.                                    |
+| Detention                       | Retenue                        | Castigo después de clase                | Nachsitzen                             | Avoid "detención", which suggests police custody.                  |
+| Merit                           | Bonus de comportement          | Punto positivo                          | Pluspunkt                              | Positive behaviour point.                                          |
+| Demerit                         | Avertissement                  | Amonestación                            | Verwarnung                             | Negative behaviour point or sanction marker.                       |
+| Parent-teacher meeting          | Reunion parents-profs          | Reunión de padres y profesores          | Elternsprechtag                        | Neutral parent-facing phrase.                                      |
+| Report card                     | Bulletin scolaire              | Boletín de notas                        | Zeugnis                                | Parent/student-facing academic report.                             |
+| Attendance register             | Registre de presence           | Registro de asistencia                  | Anwesenheitsliste                      | School attendance context.                                         |
+| Safeguarding                    | Protection de l'enfance        | Protección del menor                    | Kinderschutz                           | Sensitive area; prefer official-style wording over "salvaguardia". |
+| Special Educational Needs (SEN) | Besoins educatifs particuliers | Necesidades educativas especiales (NEE) | Sonderpädagogischer Förderbedarf (SPF) | Standard German term; use SPF where space is tight.                |
+| Headteacher                     | Directeur ou directrice        | Director/a                              | Schulleiter:in                         | Use inclusive compact wording in labels.                           |
+| Legal guardian                  | Tuteur legal                   | Tutor legal                             | Erziehungsberechtigte:r                | Long but precise; use "Eltern" only where legally safe.            |
+| Household                       | Foyer                          | Unidad familiar                         | Haushalt                               | Use for the family/account grouping in EduPod.                     |
+| Fee structure                   | Structure tarifaire            | Estructura de cuotas                    | Gebührenstruktur                       | Finance setup object.                                              |
+| Payment plan                    | Plan de paiement               | Plan de pago                            | Zahlungsplan                           | Parent-facing and finance-facing.                                  |
+| Credit note                     | Avoir                          | Nota de crédito                         | Gutschrift                             | Standard finance term.                                             |
+| Pastoral care                   | Accompagnement pastoral        | Atención pastoral                       | Pädagogische Betreuung                 | Student wellbeing/support context.                                 |
+| Wellbeing                       | Bien-etre                      | Bienestar                               | Wohlbefinden                           | Use for module labels and student support content.                 |
+| Timetable                       | Emploi du temps                | Horario                                 | Stundenplan                            | School schedule.                                                   |
+| Cover                           | Remplacement                   | Sustitución                             | Vertretung                             | Staff absence / substitution coverage.                             |
+| Admissions                      | Admissions                     | Admisiones                              | Aufnahme                               | School intake/application area.                                    |
+| Enrolment                       | Inscription                    | Matrícula                               | Einschreibung                          | Student enrolment context.                                         |
+| School closure                  | Fermeture de l'etablissement   | Cierre del centro                       | Schulschließung                        | Operational closure notice.                                        |
+| Leave request                   | Demande de conge               | Solicitud de ausencia                   | Abwesenheitsantrag                     | Staff leave/absence workflow.                                      |
+| Invoice                         | Facture                        | Factura                                 | Rechnung                               | Finance document.                                                  |
+| Receipt                         | Recu                           | Recibo                                  | Quittung                               | Finance document.                                                  |
+| Payslip                         | Bulletin de paie               | Nómina                                  | Gehaltsabrechnung                      | Staff payroll document.                                            |
+| Transcript                      | Releve de notes                | Expediente académico                    | Leistungsübersicht                     | Formal academic record.                                            |
+| Approval request                | Demande d'approbation          | Solicitud de aprobación                 | Genehmigungsanfrage                    | Workflow item.                                                     |
+| Inquiry                         | Demande                        | Consulta                                | Anfrage                                | Parent admissions/inquiry message.                                 |
+| Submitted                       | Soumis                         | Enviado                                 | Eingereicht                            | Prefer "enviado" for forms, "presentado" for formal submissions.   |
+| Draft                           | Brouillon                      | Borrador                                | Entwurf                                | Status value.                                                      |
+| Pending                         | En attente                     | Pendiente                               | Ausstehend                             | Status value.                                                      |
+| Approved                        | Approuve                       | Aprobado                                | Genehmigt                              | Status value.                                                      |
+| Rejected                        | Rejete                         | Rechazado                               | Abgelehnt                              | Status value.                                                      |

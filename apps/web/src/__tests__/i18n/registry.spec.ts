@@ -13,13 +13,15 @@ describe('locale registry', () => {
     expect(isActiveLocale('ar')).toBe(true);
   });
 
-  it('fr and es are active and the remaining expansion locales are registered but not active', () => {
+  it('fr, de, and es are active and the remaining expansion locales are registered but not active', () => {
     expect(isRegisteredLocale('fr')).toBe(true);
     expect(isActiveLocale('fr')).toBe(true);
+    expect(isRegisteredLocale('de')).toBe(true);
+    expect(isActiveLocale('de')).toBe(true);
     expect(isRegisteredLocale('es')).toBe(true);
     expect(isActiveLocale('es')).toBe(true);
 
-    for (const code of ['ga', 'de', 'it', 'ro', 'pl']) {
+    for (const code of ['ga', 'it', 'ro', 'pl']) {
       expect(isRegisteredLocale(code)).toBe(true);
       expect(isActiveLocale(code)).toBe(false);
     }
@@ -45,6 +47,6 @@ describe('locale registry', () => {
   });
 
   it('ACTIVE_LOCALE_CODES contains shipped runtime locales', () => {
-    expect(ACTIVE_LOCALE_CODES).toEqual(['en', 'ar', 'fr', 'es']);
+    expect(ACTIVE_LOCALE_CODES).toEqual(['en', 'ar', 'fr', 'de', 'es']);
   });
 });

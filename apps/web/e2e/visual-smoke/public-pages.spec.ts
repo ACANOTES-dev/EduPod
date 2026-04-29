@@ -5,6 +5,10 @@ type VisualPageCase = {
   expectedLang: string;
   path: string;
   snapshot: string;
+  viewport?: {
+    height: number;
+    width: number;
+  };
   viewportHeight?: number;
 };
 
@@ -34,6 +38,19 @@ const PAGE_CASES: readonly VisualPageCase[] = [
     snapshot: 'login-es.png',
   },
   {
+    path: '/de/login',
+    expectedDir: 'ltr',
+    expectedLang: 'de',
+    snapshot: 'login-de.png',
+  },
+  {
+    path: '/de/login',
+    expectedDir: 'ltr',
+    expectedLang: 'de',
+    snapshot: 'login-de-mobile.png',
+    viewport: { height: 812, width: 375 },
+  },
+  {
     path: '/en/contact',
     expectedDir: 'ltr',
     expectedLang: 'en',
@@ -58,10 +75,28 @@ const PAGE_CASES: readonly VisualPageCase[] = [
     snapshot: 'contact-es.png',
     viewportHeight: 900,
   },
+  {
+    path: '/de/contact',
+    expectedDir: 'ltr',
+    expectedLang: 'de',
+    snapshot: 'contact-de.png',
+    viewportHeight: 900,
+  },
+  {
+    path: '/de/contact',
+    expectedDir: 'ltr',
+    expectedLang: 'de',
+    snapshot: 'contact-de-mobile.png',
+    viewport: { height: 900, width: 375 },
+  },
 ] as const;
 
 for (const pageCase of PAGE_CASES) {
-  test(`visual smoke for ${pageCase.path}`, async ({ page }) => {
+  test(`visual smoke for ${pageCase.path} (${pageCase.snapshot})`, async ({ page }) => {
+    if (pageCase.viewport) {
+      await page.setViewportSize(pageCase.viewport);
+    }
+
     if (pageCase.viewportHeight) {
       await page.setViewportSize({ height: pageCase.viewportHeight, width: 1280 });
     }
