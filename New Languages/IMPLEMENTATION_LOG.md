@@ -32,7 +32,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending             | Opus 4.7   | High     |
+| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | Max      |
 | 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
 | 11  | 5 — Tier 2            | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending             | Sonnet 4.6 | Max      |
@@ -459,15 +459,72 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 08 — Spanish (`es`)
 
 - **Spec:** `implementations/08-spanish.md`
-- **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / High effort
+- **Status:** 🟢 Complete & deployed
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 07 complete
+- **Began:** 2026-04-29
+- **Completed:** 2026-04-29
 
-**Scope summary:** Same shape as 07-FR. Use neutral Spanish (tuteo, no voseo). Watch UI overflow (~115% length).
+**Scope summary:**
 
-### Acceptance / Sections
+- Extend `New Languages/glossary.md` with neutral Spanish terms.
+- Translate `en.json` → `es.json` (full active web catalogue; tuteo, no voseo).
+- Translate notification catalogue entries into `notifications.es.json`.
+- Enable Spanish PDF rendering through the current locale-template architecture with Spanish label/date/status localization.
+- Flip `es.active = true` in registry.
+- Add `es-ltr` + `es-mobile` Playwright projects plus Spanish public visual/leak smoke baselines.
+- Enable for NHQS via `UPDATE tenants SET supported_locales = supported_locales || '{es}'::text[] WHERE slug = 'nhqs'`.
 
-- (populated during execution; mirror 07 structure)
+### Acceptance
+
+- [x] Translation parity 100% against `en.json`
+- [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`, `es`
+- [x] Public `[es]` login/contact visual + visible-text leak smoke passes
+- [x] Notification dispatch and catalogue fallback tests pass
+- [x] PDF Spanish smoke path passes
+- [x] Full local lint + type-check + regression tests pass
+- [x] Production web build passes
+- [x] Public en + ar + fr + es visual smoke remains clean
+- [x] NHQS-only `supported_locales` includes `es`
+- [x] CI green; production deploy successful
+
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
+
+- Local verification passed 2026-04-29:
+  - `pnpm --filter @school/web test -- translation-parity --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/web test -- registry --runInBand`
+  - `pnpm --filter @school/shared test -- notification-message-catalogue locale-codes --runInBand`
+  - `pnpm --filter @school/api test -- locale-template pdf-rendering.service --runInBand`
+  - `pnpm --filter @school/api test -- template-renderer.service notification-templates.service --runInBand`
+  - `pnpm --filter @school/worker test -- dispatch-notifications --runInBand`
+  - `CI=1 pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/web build`
+- Commits:
+  - `e7c45635` — `docs(i18n): extend glossary with Spanish entries`
+  - `9b265940` — `feat(i18n): add Spanish web locale`
+  - `744b3652` — `feat(notifications): add Spanish catalogue`
+  - `d2f72aa1` — `feat(pdf): enable Spanish rendering smoke path`
+  - `ee1b93b3` — `test(i18n): stabilize Spanish contact visual smoke`
+- CI / deploy:
+  - Initial run `25111247639` reached deploy success but failed the visual job on the Spanish contact baseline height.
+  - Follow-up run `25112138224` succeeded.
+  - Deploy completed 2026-04-29 13:47 UTC.
+- NHQS rollout:
+  - Production update applied 2026-04-29 13:49 UTC.
+  - Readback: `nhqs.supported_locales = {en,ar,fr,es}`.
+- Production verification:
+  - Public `/es/login` and `/es/contact` returned 200 with `html lang="es"` / `dir="ltr"` and no visible placeholder leaks.
+  - NHQS owner login succeeded on `/es/login`; `/es/dashboard`, `/es/students`, `/es/finance`, and `/es/profile` rendered in Spanish with no visible placeholder leaks.
+  - User-menu language picker showed `en`, `ar`, `fr`, and `es` for NHQS after the tenant flip.
+  - API readback from `/api/v1/tenants/me` returned `supported_locales = ["en","ar","fr","es"]`.
+- Notes:
+  - `es` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
+  - Spanish PDF rendering follows the same interim compatibility-localizer path as French; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
+  - Two local full-suite pre-push attempts hit unrelated Jest worker SIGSEGVs in existing API suites; both affected specs passed directly with `--runInBand`, and the final GitHub Actions run completed green.
 
 ---
 
@@ -559,9 +616,9 @@ Per locale, after NHQS QA passes:
 | Locale       | Tenant          | Date enabled                 | Operator | Notes              |
 | ------------ | --------------- | ---------------------------- | -------- | ------------------ |
 | ga           | nhqs            | (pending 10 completion)      | —        | Pilot tenant       |
-| fr           | nhqs            | (pending 07 completion)      | —        | Pilot tenant       |
+| fr           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | de           | nhqs            | (pending 09 completion)      | —        | Pilot tenant       |
-| es           | nhqs            | (pending 08 completion)      | —        | Pilot tenant       |
+| es           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | it           | nhqs            | (pending 11 completion)      | —        | Pilot tenant       |
 | ro           | nhqs            | (pending 12 completion)      | —        | Pilot tenant       |
 | pl           | nhqs            | (pending 13 completion)      | —        | Pilot tenant       |
@@ -572,13 +629,13 @@ Per locale, after NHQS QA passes:
 ## Summary metrics (live)
 
 - **Total implementations planned:** 13 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 6
+- **Implementations complete:** 8
 - **Implementations in progress:** 0
-- **Implementations pending:** 7
+- **Implementations pending:** 5
 - **Implementations blocked:** 0
-- **Languages live (NHQS):** en, ar
+- **Languages live (NHQS):** en, ar, fr, es
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar (existing); other locales not yet active
+- **Translation parity status:** en ↔ ar ↔ fr ↔ es active; remaining locales pending
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 
