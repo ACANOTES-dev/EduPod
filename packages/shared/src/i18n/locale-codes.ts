@@ -22,6 +22,12 @@ export const supportedLocalesSchema = z
   .min(1, 'At least one locale must be supported')
   .refine((arr) => new Set(arr).size === arr.length, 'Duplicate locale in supported_locales');
 
+export const updateSupportedLocalesSchema = z
+  .object({
+    supported_locales: supportedLocalesSchema,
+  })
+  .strict();
+
 // Patch payload for `PATCH /v1/households/:id/locale-preferences` (lands in
 // implementation 06). Both fields are independently optional; secondary_locale
 // is nullable so a household can clear its dual-language preference. `.strict()`
@@ -34,4 +40,5 @@ export const householdLocaleUpdateSchema = z
   .strict();
 
 export type SupportedLocales = z.infer<typeof supportedLocalesSchema>;
+export type UpdateSupportedLocales = z.infer<typeof updateSupportedLocalesSchema>;
 export type HouseholdLocaleUpdate = z.infer<typeof householdLocaleUpdateSchema>;

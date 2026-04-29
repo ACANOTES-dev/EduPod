@@ -4,7 +4,6 @@
  * UserMenu contains three private helpers that contain all the testable logic:
  *   - getInitials: derives avatar initials from first/last name
  *   - extractLocale: reads the locale segment from a pathname
- *   - buildLocaleSwitchedPath: rewrites the locale in a pathname
  *
  * We replicate these functions here so they can be tested without mounting
  * React or importing the component (which depends on Next.js internals).
@@ -21,12 +20,6 @@ function getInitials(firstName: string, lastName: string): string {
 function extractLocale(pathname: string): string {
   const segments = (pathname ?? '').split('/').filter(Boolean);
   return segments[0] ?? 'en';
-}
-
-function buildLocaleSwitchedPath(pathname: string, newLocale: string): string {
-  const segments = (pathname ?? '').split('/').filter(Boolean);
-  segments[0] = newLocale;
-  return '/' + segments.join('/');
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -92,32 +85,6 @@ describe('UserMenu — helper functions', () => {
 
     it('should return first segment regardless of its value', () => {
       expect(extractLocale('/fr/reports')).toBe('fr');
-    });
-  });
-
-  // ─── buildLocaleSwitchedPath ──────────────────────────────────────────────
-
-  describe('buildLocaleSwitchedPath', () => {
-    it('should switch locale from en to ar', () => {
-      expect(buildLocaleSwitchedPath('/en/dashboard', 'ar')).toBe('/ar/dashboard');
-    });
-
-    it('should switch locale from ar to en', () => {
-      expect(buildLocaleSwitchedPath('/ar/students/abc-123', 'en')).toBe('/en/students/abc-123');
-    });
-
-    it('should preserve the full path after the locale', () => {
-      expect(buildLocaleSwitchedPath('/en/settings/legal/privacy-notices', 'ar')).toBe(
-        '/ar/settings/legal/privacy-notices',
-      );
-    });
-
-    it('should work on a bare locale path', () => {
-      expect(buildLocaleSwitchedPath('/en', 'ar')).toBe('/ar');
-    });
-
-    it('should handle the same locale (no-op switch)', () => {
-      expect(buildLocaleSwitchedPath('/en/dashboard', 'en')).toBe('/en/dashboard');
     });
   });
 

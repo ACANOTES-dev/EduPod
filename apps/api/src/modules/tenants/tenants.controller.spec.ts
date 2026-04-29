@@ -30,6 +30,7 @@ describe('TenantsController', () => {
     listTenants: jest.Mock;
     getTenant: jest.Mock;
     updateTenant: jest.Mock;
+    updateSupportedLocales: jest.Mock;
     suspendTenant: jest.Mock;
     reactivateTenant: jest.Mock;
     archiveTenant: jest.Mock;
@@ -46,6 +47,7 @@ describe('TenantsController', () => {
       listTenants: jest.fn(),
       getTenant: jest.fn(),
       updateTenant: jest.fn(),
+      updateSupportedLocales: jest.fn(),
       suspendTenant: jest.fn(),
       reactivateTenant: jest.fn(),
       archiveTenant: jest.fn(),
@@ -117,6 +119,18 @@ describe('TenantsController', () => {
     const result = await controller.updateTenant(TENANT_ID, dto as never);
     expect(result).toEqual(updated);
     expect(mockService.updateTenant).toHaveBeenCalledWith(TENANT_ID, dto);
+  });
+
+  it('should delegate supported locale updates to the service', async () => {
+    const updated = { id: TENANT_ID, supported_locales: ['en', 'ar'] };
+    mockService.updateSupportedLocales.mockResolvedValueOnce(updated);
+
+    const result = await controller.updateSupportedLocales(TENANT_ID, {
+      supported_locales: ['en', 'ar'],
+    });
+
+    expect(result).toEqual(updated);
+    expect(mockService.updateSupportedLocales).toHaveBeenCalledWith(TENANT_ID, ['en', 'ar']);
   });
 
   it('should delegate suspendTenant to the service with actor user ID', async () => {

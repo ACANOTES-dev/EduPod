@@ -43,6 +43,7 @@ interface TenantDetail {
   slug: string;
   status: 'active' | 'suspended' | 'archived';
   default_locale: string;
+  supported_locales: string[];
   timezone: string;
   date_format: string;
   currency_code: string;
@@ -229,6 +230,14 @@ function TenantActions({
 
   return (
     <div className="flex items-center gap-2">
+      {tenant.status === 'active' && (
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/en/admin/tenants/${tenant.id}/locales`}>
+            <Globe className="me-1.5 h-3.5 w-3.5" />
+            Languages
+          </Link>
+        </Button>
+      )}
       {tenant.status === 'active' && (
         <Button
           variant="outline"

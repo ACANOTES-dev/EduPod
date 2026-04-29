@@ -18,6 +18,7 @@ import {
   createTenantSchema,
   paginationQuerySchema,
   toggleModuleSchema,
+  updateSupportedLocalesSchema,
   updateTenantSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
@@ -75,6 +76,15 @@ export class TenantsController {
     @Body(new ZodValidationPipe(updateTenantSchema)) dto: UpdateTenantDto,
   ) {
     return this.tenantsService.updateTenant(id, dto);
+  }
+
+  @Patch('tenants/:id/supported-locales')
+  async updateSupportedLocales(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateSupportedLocalesSchema))
+    dto: { supported_locales: string[] },
+  ) {
+    return this.tenantsService.updateSupportedLocales(id, dto.supported_locales);
   }
 
   @Post('tenants/:id/suspend')

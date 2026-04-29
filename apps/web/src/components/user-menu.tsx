@@ -1,6 +1,6 @@
 'use client';
 
-import { User, MessageSquare, LogOut, Sun, Moon, Monitor, ChevronDown, Globe } from 'lucide-react';
+import { User, MessageSquare, LogOut, Sun, Moon, Monitor, ChevronDown } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
@@ -18,6 +18,8 @@ import {
 
 import { useAuth } from '@/providers/auth-provider';
 
+import { LocalePicker } from './locale-picker';
+
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -33,13 +35,6 @@ function extractLocale(pathname: string): string {
   return segments[0] ?? 'en';
 }
 
-function buildLocaleSwitchedPath(pathname: string, newLocale: string): string {
-  const segments = (pathname ?? '').split('/').filter(Boolean);
-  // Replace the first segment (locale) with the new locale
-  segments[0] = newLocale;
-  return '/' + segments.join('/');
-}
-
 /* -------------------------------------------------------------------------- */
 /* User Menu                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -52,7 +47,6 @@ export function UserMenu() {
   const pathname = usePathname();
 
   const locale = extractLocale(pathname ?? '');
-  const otherLocale = locale === 'ar' ? 'en' : 'ar';
 
   if (!user) return null;
 
@@ -86,11 +80,6 @@ export function UserMenu() {
   async function handleLogout() {
     await logout();
     router.replace(`/${locale}/login`);
-  }
-
-  function handleSwitchLocale() {
-    const newPath = buildLocaleSwitchedPath(pathname ?? '', otherLocale);
-    router.push(newPath);
   }
 
   function handleTheme(value: 'light' | 'dark' | 'system') {
@@ -151,11 +140,9 @@ export function UserMenu() {
 
         <DropdownMenuSeparator />
 
-        {/* Locale switcher */}
-        <DropdownMenuItem className="cursor-pointer gap-2" onClick={handleSwitchLocale}>
-          <Globe className="h-4 w-4 text-text-secondary" />
-          <span>{locale === 'en' ? 'العربية' : 'English'}</span>
-        </DropdownMenuItem>
+        <div className="px-2 py-1.5">
+          <LocalePicker className="h-9 w-full" />
+        </div>
 
         {/* Theme submenu — three inline buttons */}
         <div className="px-2 py-1.5">

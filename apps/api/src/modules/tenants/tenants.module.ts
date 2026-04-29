@@ -9,12 +9,18 @@ import { DomainsService } from './domains.service';
 import { PublicTenantsController } from './public-tenants.controller';
 import { PublicTenantsService } from './public-tenants.service';
 import { TenantReadFacade } from './tenant-read.facade';
+import { TenantSelfController } from './tenant-self.controller';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
   imports: [S3Module, SequenceModule],
-  controllers: [TenantsController, DomainsController, PublicTenantsController],
+  controllers: [
+    TenantsController,
+    DomainsController,
+    PublicTenantsController,
+    TenantSelfController,
+  ],
   providers: [TenantsService, DomainsService, PublicTenantsService, TenantReadFacade, TokenService],
   exports: [TenantsService, SequenceModule, TenantReadFacade],
 })

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../i18n/locale-codes';
+
 import { homeworkSettingsSchema } from './homework.schema';
 import { parentDigestSettingsSchema } from './parent-digest.schema';
 
@@ -10,7 +12,7 @@ export const createTenantSchema = z.object({
     .min(1)
     .max(100)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase alphanumeric with dashes'),
-  default_locale: z.enum(['en', 'ar']),
+  default_locale: localeCodeSchema,
   timezone: z.string().min(1).max(100),
   date_format: z.string().min(1).max(50),
   currency_code: z.string().min(1).max(10),
@@ -21,7 +23,7 @@ export type CreateTenantDto = z.infer<typeof createTenantSchema>;
 
 export const updateTenantSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  default_locale: z.enum(['en', 'ar']).optional(),
+  default_locale: localeCodeSchema.optional(),
   timezone: z.string().min(1).max(100).optional(),
   date_format: z.string().min(1).max(50).optional(),
   currency_code: z.string().min(1).max(10).optional(),

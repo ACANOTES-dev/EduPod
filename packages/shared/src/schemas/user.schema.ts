@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../i18n/locale-codes';
+
 export const createUserSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
   first_name: z.string().min(1).max(100),
   last_name: z.string().min(1).max(100),
   phone: z.string().max(50).optional(),
-  preferred_locale: z.enum(['en', 'ar']).optional(),
+  preferred_locale: localeCodeSchema.optional(),
 });
 
 export type CreateUserDto = z.infer<typeof createUserSchema>;
@@ -15,7 +17,7 @@ export const updateUserProfileSchema = z.object({
   first_name: z.string().min(1).max(100).optional(),
   last_name: z.string().min(1).max(100).optional(),
   phone: z.string().max(50).nullable().optional(),
-  preferred_locale: z.enum(['en', 'ar']).optional(),
+  preferred_locale: localeCodeSchema.optional(),
 });
 
 export type UpdateUserProfileDto = z.infer<typeof updateUserProfileSchema>;

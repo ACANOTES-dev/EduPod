@@ -479,6 +479,32 @@ export class RbacReadFacade {
     });
   }
 
+  async findActiveMembersWithPreferredLocalesOutside(
+    tenantId: string,
+    supportedLocales: string[],
+    take = 5,
+  ): Promise<
+    Array<{
+      user: { id: string; email: string; preferred_locale: string | null };
+    }>
+  > {
+    return this.prisma.tenantMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        membership_status: 'active',
+        user: {
+          preferred_locale: { not: null, notIn: supportedLocales },
+        },
+      },
+      select: {
+        user: {
+          select: { id: true, email: true, preferred_locale: true },
+        },
+      },
+      take,
+    });
+  }
+
   /**
    * Find a system role by key (global role with tenant_id = null).
    * Used by platform-owner guard to check platform admin status.

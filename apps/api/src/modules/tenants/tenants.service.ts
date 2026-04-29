@@ -14,6 +14,7 @@ import {
 import {
   MODULE_KEYS,
   NOTIFICATION_TYPES,
+  REGISTERED_LOCALES,
   SEQUENCE_TYPES,
   SYSTEM_ROLE_PERMISSIONS,
   type RoleTier,
@@ -389,6 +390,26 @@ export class TenantsService {
     return tenant;
   }
 
+  async getTenantLocaleConfig(id: string): Promise<{
+    id: string;
+    default_locale: string;
+    supported_locales: string[];
+  }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id },
+      select: { id: true, default_locale: true, supported_locales: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: `Tenant with id "${id}" not found`,
+      });
+    }
+
+    return tenant;
+  }
+
   /**
    * Update a tenant. Slug is immutable.
    */
@@ -408,6 +429,59 @@ export class TenantsService {
     });
 
     // Invalidate tenant domain caches so new settings take effect
+    await this.invalidateTenantDomainCaches(id);
+
+    return updated;
+  }
+
+  async updateSupportedLocales(id: string, supportedLocales: string[]) {
+    const existing = await this.prisma.tenant.findUnique({
+      where: { id },
+      select: { id: true, default_locale: true, supported_locales: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: `Tenant with id "${id}" not found`,
+      });
+    }
+
+    if (!supportedLocales.includes(existing.default_locale)) {
+      throw new ConflictException({
+        code: 'DEFAULT_LOCALE_REMOVAL_BLOCKED',
+        message: `Default locale "${existing.default_locale}" must remain enabled for this tenant.`,
+      });
+    }
+
+    const orphaned = await this.rbacReadFacade.findActiveMembersWithPreferredLocalesOutside(
+      id,
+      supportedLocales,
+      5,
+    );
+
+    if (orphaned.length > 0) {
+      const sample = orphaned
+        .map((membership) => `${membership.user.email} (${membership.user.preferred_locale})`)
+        .join(', ');
+      throw new ConflictException({
+        code: 'PREFERRED_LOCALE_REMOVAL_BLOCKED',
+        message: `Cannot remove locales that active users still prefer. Affected users include: ${sample}.`,
+      });
+    }
+
+    const localeRank = new Map<string, number>(
+      REGISTERED_LOCALES.map((locale, index) => [locale, index]),
+    );
+    const normalised = [...supportedLocales].sort(
+      (a, b) => (localeRank.get(a) ?? 999) - (localeRank.get(b) ?? 999),
+    );
+
+    const updated = await this.prisma.tenant.update({
+      where: { id },
+      data: { supported_locales: normalised },
+      select: { id: true, default_locale: true, supported_locales: true },
+    });
+
     await this.invalidateTenantDomainCaches(id);
 
     return updated;

@@ -31,6 +31,7 @@ import {
 
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
+import { useTenantSupportedLocales } from '@/lib/use-tenant-supported-locales';
 import { useAuth } from '@/providers/auth-provider';
 
 /* -------------------------------------------------------------------------- */
@@ -66,6 +67,7 @@ export default function ProfilePage() {
   const t = useTranslations();
   const { user, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { locales: supportedLocales, loading: localesLoading } = useTenantSupportedLocales();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/')[1] ?? 'en';
 
@@ -87,6 +89,14 @@ export default function ProfilePage() {
       setPreferredLocale(user.preferred_locale ?? 'en');
     }
   }, [user]);
+
+  React.useEffect(() => {
+    if (localesLoading || supportedLocales.length === 0) return;
+    const supported = supportedLocales.some((entry) => entry.code === preferredLocale);
+    if (!supported) {
+      setPreferredLocale(supportedLocales[0]?.code ?? 'en');
+    }
+  }, [localesLoading, preferredLocale, supportedLocales]);
 
   /* ---- MFA state ---- */
   const [mfaSetupData, setMfaSetupData] = React.useState<MfaSetupData | null>(null);
@@ -254,13 +264,20 @@ export default function ProfilePage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="preferred-locale">{t('profile.preferredLocale')}</Label>
-          <Select value={preferredLocale} onValueChange={setPreferredLocale}>
+          <Select
+            value={preferredLocale}
+            onValueChange={setPreferredLocale}
+            disabled={localesLoading || supportedLocales.length === 0}
+          >
             <SelectTrigger id="preferred-locale" className="w-full sm:w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">{t('profile.localeEn')}</SelectItem>
-              <SelectItem value="ar">{t('profile.localeAr')}</SelectItem>
+              {supportedLocales.map((entry) => (
+                <SelectItem key={entry.code} value={entry.code}>
+                  {entry.nativeName}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

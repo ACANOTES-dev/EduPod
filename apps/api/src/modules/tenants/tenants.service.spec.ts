@@ -138,6 +138,7 @@ describe('TenantsService', () => {
     findAllPermissions: jest.Mock;
     findMembershipUserIds: jest.Mock;
     findMembershipWithUser: jest.Mock;
+    findActiveMembersWithPreferredLocalesOutside: jest.Mock;
     countAllActiveMemberships: jest.Mock;
     [key: string]: jest.Mock;
   };
@@ -496,6 +497,62 @@ describe('TenantsService', () => {
       // Roles created but no permission assignments
       expect(mockPrisma.role.create).toHaveBeenCalled();
       expect(mockPrisma.rolePermission.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TenantsService — updateSupportedLocales', () => {
+    it('should update supported locales in registry order', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce({
+        id: TENANT_ID,
+        default_locale: 'en',
+        supported_locales: ['en', 'ar'],
+      });
+      rbacReadFacade.findActiveMembersWithPreferredLocalesOutside.mockResolvedValueOnce([]);
+      mockPrisma.tenant.update.mockResolvedValueOnce({
+        id: TENANT_ID,
+        default_locale: 'en',
+        supported_locales: ['en', 'ar', 'fr'],
+      });
+      mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.updateSupportedLocales(TENANT_ID, ['fr', 'ar', 'en']);
+
+      expect(result.supported_locales).toEqual(['en', 'ar', 'fr']);
+      expect(mockPrisma.tenant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TENANT_ID },
+          data: { supported_locales: ['en', 'ar', 'fr'] },
+        }),
+      );
+    });
+
+    it('should block removing the default locale', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce({
+        id: TENANT_ID,
+        default_locale: 'ar',
+        supported_locales: ['en', 'ar'],
+      });
+
+      await expect(service.updateSupportedLocales(TENANT_ID, ['en'])).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.tenant.update).not.toHaveBeenCalled();
+    });
+
+    it('should block removing a locale preferred by active users', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce({
+        id: TENANT_ID,
+        default_locale: 'en',
+        supported_locales: ['en', 'ar'],
+      });
+      rbacReadFacade.findActiveMembersWithPreferredLocalesOutside.mockResolvedValueOnce([
+        { user: { id: USER_ID, email: 'parent@example.test', preferred_locale: 'ar' } },
+      ]);
+
+      await expect(service.updateSupportedLocales(TENANT_ID, ['en'])).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.tenant.update).not.toHaveBeenCalled();
     });
   });
 

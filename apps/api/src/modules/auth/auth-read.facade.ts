@@ -68,6 +68,12 @@ export interface UserSummaryRow {
   last_name: string;
 }
 
+export interface UserProfilePatch {
+  first_name?: string;
+  last_name?: string;
+  preferred_locale?: string;
+}
+
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -126,6 +132,13 @@ export class AuthReadFacade {
    */
   async countAllUsers(): Promise<number> {
     return this.prisma.user.count();
+  }
+
+  async updateUserProfile(userId: string, data: UserProfilePatch): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
   }
 
   /**

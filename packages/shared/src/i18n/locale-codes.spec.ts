@@ -3,6 +3,7 @@ import {
   householdLocaleUpdateSchema,
   localeCodeSchema,
   supportedLocalesSchema,
+  updateSupportedLocalesSchema,
 } from './locale-codes';
 
 describe('locale-codes schemas', () => {
@@ -28,6 +29,12 @@ describe('locale-codes schemas', () => {
 
   it('supportedLocalesSchema rejects unknown locale inside the array', () => {
     expect(supportedLocalesSchema.safeParse(['en', 'xx']).success).toBe(false);
+  });
+
+  it('updateSupportedLocalesSchema accepts a supported_locales payload', () => {
+    expect(
+      updateSupportedLocalesSchema.safeParse({ supported_locales: ['en', 'ar'] }).success,
+    ).toBe(true);
   });
 
   it('householdLocaleUpdateSchema accepts every documented partial shape', () => {

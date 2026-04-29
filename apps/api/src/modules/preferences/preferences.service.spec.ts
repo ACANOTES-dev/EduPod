@@ -8,7 +8,9 @@ jest.mock('../../common/helpers/with-rls', () => ({
 }));
 
 import { withRls } from '../../common/helpers/with-rls';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { PreferencesService } from './preferences.service';
 
@@ -19,7 +21,11 @@ const mockWithRls = withRls as jest.MockedFunction<typeof withRls>;
 
 describe('PreferencesService', () => {
   let service: PreferencesService;
-  let mockPrisma: { userUiPreference: { findUnique: jest.Mock; upsert: jest.Mock } };
+  let mockPrisma: {
+    userUiPreference: { findUnique: jest.Mock; upsert: jest.Mock };
+  };
+  let mockAuthReadFacade: { updateUserProfile: jest.Mock };
+  let mockTenantReadFacade: { findById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -27,6 +33,12 @@ describe('PreferencesService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({ preferences: {} }),
       },
+    };
+    mockAuthReadFacade = {
+      updateUserProfile: jest.fn().mockResolvedValue(undefined),
+    };
+    mockTenantReadFacade = {
+      findById: jest.fn().mockResolvedValue({ supported_locales: ['en', 'ar'] }),
     };
 
     // Default withRls mock: invoke the callback with a mock tx that delegates to mockPrisma
@@ -41,7 +53,12 @@ describe('PreferencesService', () => {
     );
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PreferencesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        PreferencesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuthReadFacade, useValue: mockAuthReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+      ],
     }).compile();
 
     service = module.get<PreferencesService>(PreferencesService);
@@ -157,6 +174,26 @@ describe('PreferencesService', () => {
       const result = await service.updatePreferences(TENANT_ID, USER_ID, newData);
 
       expect(result).toEqual(newData);
+    });
+
+    it('should update User.preferred_locale when the tenant supports it', async () => {
+      const newData = { preferred_locale: 'ar' };
+
+      await service.updatePreferences(TENANT_ID, USER_ID, newData);
+
+      expect(mockTenantReadFacade.findById).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockAuthReadFacade.updateUserProfile).toHaveBeenCalledWith(USER_ID, {
+        preferred_locale: 'ar',
+      });
+    });
+
+    it('should reject User.preferred_locale when the tenant does not support it', async () => {
+      mockTenantReadFacade.findById.mockResolvedValueOnce({ supported_locales: ['en'] });
+
+      await expect(
+        service.updatePreferences(TENANT_ID, USER_ID, { preferred_locale: 'ar' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockAuthReadFacade.updateUserProfile).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when merged preferences exceed 500 KB', async () => {

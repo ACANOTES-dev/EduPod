@@ -4,7 +4,9 @@ import type { Prisma } from '@prisma/client';
 import type { UpdateUiPreferencesDto } from '@school/shared';
 
 import { withRls } from '../../common/helpers/with-rls';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 const MAX_PREFERENCES_SIZE_BYTES = 500 * 1024; // 500 KB
 
@@ -45,7 +47,11 @@ function deepMerge(
 
 @Injectable()
 export class PreferencesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authReadFacade: AuthReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
+  ) {}
 
   /**
    * Get UI preferences for a user at a specific tenant.
@@ -79,6 +85,8 @@ export class PreferencesService {
     userId: string,
     data: UpdateUiPreferencesDto,
   ): Promise<Record<string, unknown>> {
+    await this.updateUserProfileFields(tenantId, userId, data as Record<string, unknown>);
+
     // Get existing preferences
     const existing = await this.getPreferences(tenantId, userId);
 
@@ -117,5 +125,43 @@ export class PreferencesService {
     })) as { preferences: unknown };
 
     return record.preferences as Record<string, unknown>;
+  }
+
+  private async updateUserProfileFields(
+    tenantId: string,
+    userId: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    const firstName = data.first_name;
+    const lastName = data.last_name;
+    const preferredLocale = data.preferred_locale;
+
+    const update: {
+      first_name?: string;
+      last_name?: string;
+      preferred_locale?: string;
+    } = {};
+    if (typeof firstName === 'string') {
+      update.first_name = firstName;
+    }
+    if (typeof lastName === 'string') {
+      update.last_name = lastName;
+    }
+    if (typeof preferredLocale === 'string') {
+      const tenant = await this.tenantReadFacade.findById(tenantId);
+      if (!tenant || !tenant.supported_locales.includes(preferredLocale)) {
+        throw new BadRequestException({
+          code: 'LOCALE_NOT_SUPPORTED',
+          message: `Locale "${preferredLocale}" is not enabled for this tenant.`,
+        });
+      }
+      update.preferred_locale = preferredLocale;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return;
+    }
+
+    await this.authReadFacade.updateUserProfile(userId, update);
   }
 }
