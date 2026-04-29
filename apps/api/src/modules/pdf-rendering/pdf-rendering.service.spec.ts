@@ -157,6 +157,14 @@ describe('PdfRenderingService', () => {
     expect(result).not.toContain('INVOICE');
   });
 
+  it('should render Spanish through the LTR Spanish localiser', () => {
+    const result = service.renderHtml('invoice', 'es', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('FACTURA');
+    expect(result).not.toContain('INVOICE');
+  });
+
   it('should throw InternalServerErrorException for unsupported locale', () => {
     expect(() => service.renderHtml('invoice', 'ga', {}, BRANDING)).toThrow(
       InternalServerErrorException,

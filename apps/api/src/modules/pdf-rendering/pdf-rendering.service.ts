@@ -174,7 +174,7 @@ export class PdfRenderingService implements OnModuleDestroy {
       });
     }
 
-    if (!['en', 'ar', 'fr'].includes(locale)) {
+    if (!['en', 'ar', 'fr', 'es'].includes(locale)) {
       throw new InternalServerErrorException({
         code: 'TEMPLATE_NOT_FOUND',
         message: `PDF template "${templateKey}" not available for locale "${locale}"`,
