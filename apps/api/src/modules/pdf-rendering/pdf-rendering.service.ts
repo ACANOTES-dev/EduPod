@@ -6,32 +6,19 @@ import {
 } from '@nestjs/common';
 import type { Browser } from 'puppeteer';
 
-import { renderDesInspectionAr } from './templates/des-inspection-ar.template';
-import { renderDesInspectionEn } from './templates/des-inspection-en.template';
-import { renderHouseholdStatementAr } from './templates/household-statement-ar.template';
-import { renderHouseholdStatementEn } from './templates/household-statement-en.template';
-import { renderInvoiceAr } from './templates/invoice-ar.template';
-import { renderInvoiceEn } from './templates/invoice-en.template';
-import { renderPastoralSummaryAr } from './templates/pastoral-summary-ar.template';
-import { renderPastoralSummaryEn } from './templates/pastoral-summary-en.template';
-import { renderPayslipAr } from './templates/payslip-ar.template';
-import { renderPayslipEn } from './templates/payslip-en.template';
-import { renderReceiptAr } from './templates/receipt-ar.template';
-import { renderReceiptEn } from './templates/receipt-en.template';
-import { renderReportCardAr } from './templates/report-card-ar.template';
-import { renderReportCardEn } from './templates/report-card-en.template';
-import { renderReportCardModernAr } from './templates/report-card-modern-ar.template';
-import { renderReportCardModernEn } from './templates/report-card-modern-en.template';
-import { renderSafeguardingComplianceAr } from './templates/safeguarding-compliance-ar.template';
-import { renderSafeguardingComplianceEn } from './templates/safeguarding-compliance-en.template';
-import { renderSstActivityAr } from './templates/sst-activity-ar.template';
-import { renderSstActivityEn } from './templates/sst-activity-en.template';
-import { renderTranscriptAr } from './templates/transcript-ar.template';
-import { renderTranscriptEn } from './templates/transcript-en.template';
-import { renderTripLeaderPackAr } from './templates/trip-leader-pack-ar.template';
-import { renderTripLeaderPackEn } from './templates/trip-leader-pack-en.template';
-import { renderWellbeingProgrammeAr } from './templates/wellbeing-programme-ar.template';
-import { renderWellbeingProgrammeEn } from './templates/wellbeing-programme-en.template';
+import { renderDesInspection } from './templates/des-inspection.template';
+import { renderHouseholdStatement } from './templates/household-statement.template';
+import { renderInvoice } from './templates/invoice.template';
+import { renderPastoralSummary } from './templates/pastoral-summary.template';
+import { renderPayslip } from './templates/payslip.template';
+import { renderReceipt } from './templates/receipt.template';
+import { renderReportCardModern } from './templates/report-card-modern.template';
+import { renderReportCard } from './templates/report-card.template';
+import { renderSafeguardingCompliance } from './templates/safeguarding-compliance.template';
+import { renderSstActivity } from './templates/sst-activity.template';
+import { renderTranscript } from './templates/transcript.template';
+import { renderTripLeaderPack } from './templates/trip-leader-pack.template';
+import { renderWellbeingProgramme } from './templates/wellbeing-programme.template';
 
 export interface PdfBranding {
   school_name: string;
@@ -41,61 +28,22 @@ export interface PdfBranding {
   report_card_title?: string;
 }
 
-type TemplateFn = (data: unknown, branding: PdfBranding) => string;
+type TemplateFn = (data: unknown, branding: PdfBranding, locale: string) => string;
 
-const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
-  'report-card': {
-    en: renderReportCardEn as TemplateFn,
-    ar: renderReportCardAr as TemplateFn,
-  },
-  transcript: {
-    en: renderTranscriptEn as TemplateFn,
-    ar: renderTranscriptAr as TemplateFn,
-  },
-  invoice: {
-    en: renderInvoiceEn as TemplateFn,
-    ar: renderInvoiceAr as TemplateFn,
-  },
-  receipt: {
-    en: renderReceiptEn as TemplateFn,
-    ar: renderReceiptAr as TemplateFn,
-  },
-  'household-statement': {
-    en: renderHouseholdStatementEn as TemplateFn,
-    ar: renderHouseholdStatementAr as TemplateFn,
-  },
-  payslip: {
-    en: renderPayslipEn as TemplateFn,
-    ar: renderPayslipAr as TemplateFn,
-  },
-  'report-card-modern': {
-    en: renderReportCardModernEn as TemplateFn,
-    ar: renderReportCardModernAr as TemplateFn,
-  },
-  'pastoral-summary': {
-    en: renderPastoralSummaryEn as TemplateFn,
-    ar: renderPastoralSummaryAr as TemplateFn,
-  },
-  'sst-activity': {
-    en: renderSstActivityEn as TemplateFn,
-    ar: renderSstActivityAr as TemplateFn,
-  },
-  'safeguarding-compliance': {
-    en: renderSafeguardingComplianceEn as TemplateFn,
-    ar: renderSafeguardingComplianceAr as TemplateFn,
-  },
-  'wellbeing-programme': {
-    en: renderWellbeingProgrammeEn as TemplateFn,
-    ar: renderWellbeingProgrammeAr as TemplateFn,
-  },
-  'des-inspection': {
-    en: renderDesInspectionEn as TemplateFn,
-    ar: renderDesInspectionAr as TemplateFn,
-  },
-  'trip-leader-pack': {
-    en: renderTripLeaderPackEn as TemplateFn,
-    ar: renderTripLeaderPackAr as TemplateFn,
-  },
+const TEMPLATES: Record<string, TemplateFn> = {
+  'des-inspection': renderDesInspection,
+  'household-statement': renderHouseholdStatement,
+  invoice: renderInvoice,
+  'pastoral-summary': renderPastoralSummary,
+  payslip: renderPayslip,
+  receipt: renderReceipt,
+  'report-card': renderReportCard,
+  'report-card-modern': renderReportCardModern,
+  'safeguarding-compliance': renderSafeguardingCompliance,
+  'sst-activity': renderSstActivity,
+  transcript: renderTranscript,
+  'trip-leader-pack': renderTripLeaderPack,
+  'wellbeing-programme': renderWellbeingProgramme,
 };
 
 @Injectable()
@@ -125,7 +73,7 @@ export class PdfRenderingService implements OnModuleDestroy {
     branding: PdfBranding,
   ): Promise<Buffer> {
     const templateFn = this.getTemplate(templateKey, locale);
-    const html = templateFn(data, branding);
+    const html = templateFn(data, branding, locale);
 
     const browser = await this.getBrowser();
     const page = await browser.newPage();
@@ -177,7 +125,7 @@ export class PdfRenderingService implements OnModuleDestroy {
    */
   renderHtml(templateKey: string, locale: string, data: unknown, branding: PdfBranding): string {
     const templateFn = this.getTemplate(templateKey, locale);
-    return templateFn(data, branding);
+    return templateFn(data, branding, locale);
   }
 
   /**
@@ -218,16 +166,15 @@ export class PdfRenderingService implements OnModuleDestroy {
   }
 
   private getTemplate(templateKey: string, locale: string): TemplateFn {
-    const localeTemplates = TEMPLATES[templateKey];
-    if (!localeTemplates) {
+    const templateFn = TEMPLATES[templateKey];
+    if (!templateFn) {
       throw new InternalServerErrorException({
         code: 'TEMPLATE_NOT_FOUND',
         message: `PDF template "${templateKey}" not found`,
       });
     }
 
-    const templateFn = localeTemplates[locale];
-    if (!templateFn) {
+    if (!['en', 'ar'].includes(locale)) {
       throw new InternalServerErrorException({
         code: 'TEMPLATE_NOT_FOUND',
         message: `PDF template "${templateKey}" not available for locale "${locale}"`,
