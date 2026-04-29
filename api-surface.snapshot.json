@@ -259,6 +259,13 @@
     "permission": null
   },
   {
+    "method": "PATCH",
+    "path": "/v1/admin/tenants/:id/supported-locales",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": null
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/suspend",
     "controller": "TenantsController",
@@ -5563,6 +5570,13 @@
     "controller": "HouseholdsController",
     "module": "households",
     "permission": "students.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/households/:id/locale-preferences",
+    "controller": "HouseholdsController",
+    "module": "households",
+    "permission": ["students.manage", "parent.view_own_students"]
   },
   {
     "method": "POST",
@@ -12710,6 +12724,13 @@
     "controller": "SubjectsController",
     "module": "academics",
     "permission": "students.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/tenants/me",
+    "controller": "TenantSelfController",
+    "module": "tenants",
+    "permission": null
   },
   {
     "method": "GET",
