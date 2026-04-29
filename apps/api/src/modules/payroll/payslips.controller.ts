@@ -2,7 +2,7 @@ import { Controller, Get, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@n
 import type { Response } from 'express';
 import { z } from 'zod';
 
-import { payslipQuerySchema } from '@school/shared';
+import { localeCodeSchema, payslipQuerySchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -17,7 +17,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PayslipsService } from './payslips.service';
 
 const payslipPdfQuerySchema = z.object({
-  locale: z.enum(['en', 'ar']).optional(),
+  locale: localeCodeSchema.optional(),
 });
 
 const myPayslipsQuerySchema = z.object({

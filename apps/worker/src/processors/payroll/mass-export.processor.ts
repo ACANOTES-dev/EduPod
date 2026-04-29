@@ -17,7 +17,7 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 export interface MassExportPayload extends TenantJobPayload {
   payroll_run_id: string;
-  locale: 'en' | 'ar';
+  locale: string;
   requested_by_user_id: string;
 }
 
@@ -42,7 +42,7 @@ interface PayslipBranding {
 
 type TemplateRenderFn = (data: unknown, branding: PayslipBranding) => string;
 
-function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
+function getTemplateRenderer(locale: string): TemplateRenderFn {
   // For the mass export, we render a simplified payslip page per entry.
   // The snapshot_payload_json already contains all necessary data.
   return (data: unknown, branding: PayslipBranding): string => {
@@ -317,7 +317,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
-function buildConsolidatedHtml(pages: string[], locale: 'en' | 'ar'): string {
+function buildConsolidatedHtml(pages: string[], locale: string): string {
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const fontFamily =
     locale === 'ar'

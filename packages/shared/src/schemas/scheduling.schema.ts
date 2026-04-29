@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../i18n/locale-codes';
+
 // ─── Curriculum Requirements ────────────────────────────────────────────────
 
 export const createCurriculumRequirementSchema = z
@@ -329,7 +331,7 @@ export const validateScheduleSchema = z.object({
 export const exportScheduleQuerySchema = z.object({
   academic_year_id: z.string().uuid(),
   format: z.enum(['pdf', 'csv']).default('pdf'),
-  locale: z.enum(['en', 'ar']).default('en'),
+  locale: localeCodeSchema.default('en'),
 });
 
 export type ExportScheduleQuery = z.infer<typeof exportScheduleQuerySchema>;

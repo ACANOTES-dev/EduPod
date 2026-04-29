@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../../i18n/locale-codes';
+
 export const createTemplateSchema = z.object({
   category_id: z.string().uuid(),
-  locale: z.enum(['en', 'ar']).default('en'),
+  locale: localeCodeSchema.default('en'),
   text: z.string().min(1).max(500),
   display_order: z.number().int().default(0),
   is_active: z.boolean().default(true),
@@ -18,7 +20,7 @@ export const listTemplatesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
   category_id: z.string().uuid().optional(),
-  locale: z.enum(['en', 'ar']).optional(),
+  locale: localeCodeSchema.optional(),
   is_active: z.coerce.boolean().optional(),
 });
 

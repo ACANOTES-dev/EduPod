@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../i18n/locale-codes';
+
 // ─── Fee Types ──────────────────────────────────────────────
 
 export const createFeeTypeSchema = z.object({
@@ -256,7 +258,7 @@ export const invoiceQuerySchema = z.object({
 });
 
 export const invoicePdfQuerySchema = z.object({
-  locale: z.enum(['en', 'ar']).optional(),
+  locale: localeCodeSchema.optional(),
 });
 
 // ─── Installments ───────────────────────────────────────────
@@ -358,7 +360,7 @@ export const statementQuerySchema = z.object({
 });
 
 export const statementPdfQuerySchema = z.object({
-  locale: z.enum(['en', 'ar']).optional(),
+  locale: localeCodeSchema.optional(),
   date_from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

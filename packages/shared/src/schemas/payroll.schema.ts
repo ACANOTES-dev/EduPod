@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { localeCodeSchema } from '../i18n/locale-codes';
+
 // ─── Compensation Schemas ─────────────────────────────────────────────────
 
 export const createCompensationSchema = z
@@ -26,9 +28,7 @@ export const createCompensationSchema = z
     (data) => {
       if (data.compensation_type === 'per_class') {
         return (
-          data.per_class_rate !== null &&
-          data.per_class_rate > 0 &&
-          data.bonus_class_rate !== null
+          data.per_class_rate !== null && data.per_class_rate > 0 && data.bonus_class_rate !== null
         );
       }
       return true;
@@ -62,17 +62,16 @@ export const createCompensationSchema = z
 
 export type CreateCompensationDto = z.infer<typeof createCompensationSchema>;
 
-export const updateCompensationSchema = z
-  .object({
-    compensation_type: z.enum(['salaried', 'per_class']).optional(),
-    base_salary: z.number().positive().multipleOf(0.01).nullable().optional(),
-    per_class_rate: z.number().positive().multipleOf(0.01).nullable().optional(),
-    assigned_class_count: z.number().int().min(0).nullable().optional(),
-    bonus_class_rate: z.number().nonnegative().multipleOf(0.01).nullable().optional(),
-    bonus_day_multiplier: z.number().min(0.01).max(10).multipleOf(0.01).optional(),
-    effective_from: z.string().date().optional(),
-    expected_updated_at: z.string().datetime(),
-  });
+export const updateCompensationSchema = z.object({
+  compensation_type: z.enum(['salaried', 'per_class']).optional(),
+  base_salary: z.number().positive().multipleOf(0.01).nullable().optional(),
+  per_class_rate: z.number().positive().multipleOf(0.01).nullable().optional(),
+  assigned_class_count: z.number().int().min(0).nullable().optional(),
+  bonus_class_rate: z.number().nonnegative().multipleOf(0.01).nullable().optional(),
+  bonus_day_multiplier: z.number().min(0.01).max(10).multipleOf(0.01).optional(),
+  effective_from: z.string().date().optional(),
+  expected_updated_at: z.string().datetime(),
+});
 
 export type UpdateCompensationDto = z.infer<typeof updateCompensationSchema>;
 
@@ -154,7 +153,7 @@ export const finaliseRunSchema = z.object({
 export type FinaliseRunDto = z.infer<typeof finaliseRunSchema>;
 
 export const massExportSchema = z.object({
-  locale: z.enum(['en', 'ar']).default('en'),
+  locale: localeCodeSchema.default('en'),
 });
 
 export type MassExportDto = z.infer<typeof massExportSchema>;
@@ -191,13 +190,16 @@ export type MarkAttendanceDto = z.infer<typeof markAttendanceSchema>;
 
 export const bulkMarkAttendanceSchema = z.object({
   date: z.string().date(),
-  records: z.array(
-    z.object({
-      staff_profile_id: z.string().uuid(),
-      status: staffAttendanceStatusSchema,
-      notes: z.string().max(2000).nullable().optional(),
-    }),
-  ).min(1).max(500),
+  records: z
+    .array(
+      z.object({
+        staff_profile_id: z.string().uuid(),
+        status: staffAttendanceStatusSchema,
+        notes: z.string().max(2000).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
 });
 
 export type BulkMarkAttendanceDto = z.infer<typeof bulkMarkAttendanceSchema>;
@@ -397,16 +399,18 @@ export type UpdateOneOffItemDto = z.infer<typeof updateOneOffItemSchema>;
 
 // ─── Payroll World-Class: Recurring Deductions ───────────────────────────────
 
-export const createRecurringDeductionSchema = z.object({
-  staff_profile_id: z.string().uuid(),
-  description: z.string().min(1).max(2000),
-  total_amount: z.number().positive().multipleOf(0.01),
-  monthly_amount: z.number().positive().multipleOf(0.01),
-  start_date: z.string().date(),
-}).refine(
-  (d) => d.monthly_amount <= d.total_amount,
-  { message: 'monthly_amount cannot exceed total_amount', path: ['monthly_amount'] },
-);
+export const createRecurringDeductionSchema = z
+  .object({
+    staff_profile_id: z.string().uuid(),
+    description: z.string().min(1).max(2000),
+    total_amount: z.number().positive().multipleOf(0.01),
+    monthly_amount: z.number().positive().multipleOf(0.01),
+    start_date: z.string().date(),
+  })
+  .refine((d) => d.monthly_amount <= d.total_amount, {
+    message: 'monthly_amount cannot exceed total_amount',
+    path: ['monthly_amount'],
+  });
 
 export type CreateRecurringDeductionDto = z.infer<typeof createRecurringDeductionSchema>;
 

@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { cpRecordTypeSchema, exportPurposeSchema, pastoralEntityTypeSchema, pastoralTierSchema } from '../enums';
+import { localeCodeSchema } from '../../i18n/locale-codes';
+import {
+  cpRecordTypeSchema,
+  exportPurposeSchema,
+  pastoralEntityTypeSchema,
+  pastoralTierSchema,
+} from '../enums';
 
 // ─── Export Request (Tier 1/2 — standard flow) ────────────────────────────
 
@@ -16,17 +22,19 @@ export type ExportTier12RequestDto = z.infer<typeof exportTier12RequestSchema>;
 
 // ─── CP Export Preview (Tier 3 — first step) ──────────────────────────────
 
-export const cpExportPreviewSchema = z.object({
-  student_id: z.string().uuid(),
-  purpose: exportPurposeSchema.optional(),
-  other_reason: z.string().min(1).max(1000).optional(),
-  record_types: z.array(cpRecordTypeSchema).optional(),
-  date_from: z.string().datetime().optional(),
-  date_to: z.string().datetime().optional(),
-}).refine(
-  (data) => data.purpose !== 'other' || (!!data.other_reason && data.other_reason.length > 0),
-  { message: 'other_reason is required when purpose is "other"', path: ['other_reason'] },
-);
+export const cpExportPreviewSchema = z
+  .object({
+    student_id: z.string().uuid(),
+    purpose: exportPurposeSchema.optional(),
+    other_reason: z.string().min(1).max(1000).optional(),
+    record_types: z.array(cpRecordTypeSchema).optional(),
+    date_from: z.string().datetime().optional(),
+    date_to: z.string().datetime().optional(),
+  })
+  .refine(
+    (data) => data.purpose !== 'other' || (!!data.other_reason && data.other_reason.length > 0),
+    { message: 'other_reason is required when purpose is "other"', path: ['other_reason'] },
+  );
 
 export type CpExportPreviewDto = z.infer<typeof cpExportPreviewSchema>;
 
@@ -41,7 +49,7 @@ export const cpExportGenerateSchema = z
     record_types: z.array(cpRecordTypeSchema).optional(),
     date_from: z.string().datetime().optional(),
     date_to: z.string().datetime().optional(),
-    locale: z.enum(['en', 'ar']).default('en'),
+    locale: localeCodeSchema.default('en'),
   })
   .superRefine((data, ctx) => {
     if (!data.preview_token && !data.student_id) {
@@ -60,10 +68,7 @@ export const cpExportGenerateSchema = z
       });
     }
 
-    if (
-      data.purpose === 'other' &&
-      (!data.other_reason || data.other_reason.trim().length === 0)
-    ) {
+    if (data.purpose === 'other' && (!data.other_reason || data.other_reason.trim().length === 0)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'other_reason is required when purpose is "other"',
