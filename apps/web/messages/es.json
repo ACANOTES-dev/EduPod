@@ -4083,7 +4083,7 @@
   },
   "cookieConsent": {
     "title": "Preferencias de cookies",
-    "description": "Utilizamos cookies para garantizar que nuestro sitio funcione correctamente. Algunas cookies nos ayudan a mejorar su experiencia.",
+    "description": "Usamos cookies para que el sitio funcione correctamente. Algunas nos ayudan a mejorar tu experiencia.",
     "cookiePolicy": "Política de cookies",
     "essentialTitle": "Esencial",
     "essentialDescription": "Requerido para la funcionalidad del sitio. No se puede desactivar.",
@@ -4091,10 +4091,10 @@
     "analyticsTitle": "Análisis / Monitoreo",
     "analyticsDescription": "Seguimiento de errores y repetición de sesiones para ayudarnos a mejorar la estabilidad.",
     "analyticsToggle": "Alternar cookies de análisis",
-    "managePreferences": "Administrar preferencias",
+    "managePreferences": "Configurar",
     "hidePreferences": "Ocultar preferencias",
     "savePreferences": "Guardar preferencias",
-    "essentialOnly": "Sólo esencial",
+    "essentialOnly": "Solo esencial",
     "acceptAll": "Aceptar todo"
   },
   "imports": {

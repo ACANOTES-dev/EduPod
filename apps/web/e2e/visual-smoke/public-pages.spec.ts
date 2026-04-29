@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-const PAGE_CASES = [
+type VisualPageCase = {
+  expectedDir: 'ltr' | 'rtl';
+  expectedLang: string;
+  path: string;
+  snapshot: string;
+  viewportHeight?: number;
+};
+
+const PAGE_CASES: readonly VisualPageCase[] = [
   {
     path: '/en/login',
     expectedDir: 'ltr',
@@ -48,11 +56,16 @@ const PAGE_CASES = [
     expectedDir: 'ltr',
     expectedLang: 'es',
     snapshot: 'contact-es.png',
+    viewportHeight: 900,
   },
 ] as const;
 
 for (const pageCase of PAGE_CASES) {
   test(`visual smoke for ${pageCase.path}`, async ({ page }) => {
+    if (pageCase.viewportHeight) {
+      await page.setViewportSize({ height: pageCase.viewportHeight, width: 1280 });
+    }
+
     await page.goto(pageCase.path);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(300);
