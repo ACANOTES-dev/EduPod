@@ -49,6 +49,17 @@ export default defineConfig({
       },
     },
     {
+      name: 'es-ltr',
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: 'es-ES',
+      },
+      metadata: {
+        locale: 'es',
+        direction: 'ltr',
+      },
+    },
+    {
       name: 'mobile-en',
       use: {
         ...devices['iPhone 14'],
@@ -78,6 +89,17 @@ export default defineConfig({
       },
       metadata: {
         locale: 'fr',
+        direction: 'ltr',
+      },
+    },
+    {
+      name: 'es-mobile',
+      use: {
+        ...devices['iPhone 14'],
+        locale: 'es-ES',
+      },
+      metadata: {
+        locale: 'es',
         direction: 'ltr',
       },
     },

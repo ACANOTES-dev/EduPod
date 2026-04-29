@@ -20,6 +20,12 @@ const PAGE_CASES = [
     snapshot: 'login-fr.png',
   },
   {
+    path: '/es/login',
+    expectedDir: 'ltr',
+    expectedLang: 'es',
+    snapshot: 'login-es.png',
+  },
+  {
     path: '/en/contact',
     expectedDir: 'ltr',
     expectedLang: 'en',
@@ -36,6 +42,12 @@ const PAGE_CASES = [
     expectedDir: 'ltr',
     expectedLang: 'fr',
     snapshot: 'contact-fr.png',
+  },
+  {
+    path: '/es/contact',
+    expectedDir: 'ltr',
+    expectedLang: 'es',
+    snapshot: 'contact-es.png',
   },
 ] as const;
 

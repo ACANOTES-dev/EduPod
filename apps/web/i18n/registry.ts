@@ -74,7 +74,7 @@ export const LOCALE_REGISTRY: readonly LocaleEntry[] = [
     nativeName: 'Español',
     direction: 'ltr',
     tier: 1,
-    active: false,
+    active: true,
   },
 
   // Tier 2 — parent + student surface only.
