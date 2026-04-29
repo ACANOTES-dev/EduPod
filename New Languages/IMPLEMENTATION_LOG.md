@@ -26,11 +26,11 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | #   | Phase                 | Spec                                                         | Locale / Topic                             | Status                 | Model      | Effort   |
 | --- | --------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------------------- | ---------- | -------- |
 | 01  | 1 — Foundation        | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | 🟢 Complete & deployed | Opus 4.7   | High     |
-| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | 🟢 Complete & deployed | Opus 4.7   | Max      |
-| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | 🟢 Complete & deployed | Opus 4.7   | Standard |
-| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | Opus 4.7   | Max      |
-| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | Opus 4.7   | High     |
-| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | Opus 4.7   | High     |
+| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | 🟢 Complete & deployed | GPT-5.5    | Max      |
+| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | 🟢 Complete & deployed | GPT-5.5    | Standard |
+| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | GPT-5.5    | Max      |
+| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | High     |
 | 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | ⚪ Pending             | Opus 4.7   | High     |
 | 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | Max      |
@@ -130,7 +130,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 - **Spec:** `implementations/02-arabic-cleanup-hard-error-flip.md`
 - **Status:** 🟢 Complete & deployed
-- **Model:** Opus 4.7 / **Max effort**
+- **Model:** GPT-5.5 / **Max effort**
 - **Depends on:** 01 complete
 - **Began:** 2026-04-29
 - **Completed:** 2026-04-29
@@ -186,7 +186,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 - **Spec:** `implementations/03-tenant-gating-ui-language-picker.md`
 - **Status:** 🟢 Complete & deployed
-- **Model:** Opus 4.7 / Standard
+- **Model:** GPT-5.5 / Standard
 - **Depends on:** 02 complete
 - **Began:** 2026-04-29
 - **Completed:** 2026-04-29
@@ -240,7 +240,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 - **Spec:** `implementations/04-pdf-templates-locale-driven-refactor.md`
 - **Status:** 🟢 Complete & deployed
-- **Model:** Opus 4.7 / **Max effort**
+- **Model:** GPT-5.5 / **Max effort**
 - **Depends on:** 03 complete
 - **Began:** 2026-04-29
 - **Completed:** 2026-04-29
@@ -281,7 +281,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 - **Spec:** `implementations/05-notification-template-refactor.md`
 - **Status:** 🟢 Complete & deployed
-- **Model:** Opus 4.7 / High effort
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 04 complete
 - **Began:** 2026-04-29
 - **Completed:** 2026-04-29
@@ -335,7 +335,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 - **Spec:** `implementations/06-dual-language-household-dispatch.md`
 - **Status:** 🟢 Complete & deployed
-- **Model:** Opus 4.7 / High effort
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 05 complete
 - **Began:** 2026-04-29
 - **Completed:** 2026-04-29
@@ -558,7 +558,7 @@ feat(i18n): <impl-id> <description>
 - Languages: <locale codes>
 - Key count: <number>
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: GPT-5.5 Codex <noreply@openai.com>
 ```
 
 ### Verification commands
