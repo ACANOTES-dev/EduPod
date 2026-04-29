@@ -13,6 +13,7 @@ import {
   GraduationCap,
   HeartHandshake,
   Inbox as InboxIcon,
+  Languages,
   Megaphone,
   MessageCircle,
   ScrollText,
@@ -45,7 +46,8 @@ interface ParentNavTile {
     | 'behaviour'
     | 'recognition'
     | 'homework'
-    | 'events';
+    | 'events'
+    | 'household';
   href: string;
   icon: LucideIcon;
   iconBg: string;
@@ -115,6 +117,13 @@ const PARENT_NAV_TILES: ParentNavTile[] = [
     icon: CalendarClock,
     iconBg: 'bg-fuchsia-100 text-fuchsia-700',
     accent: 'from-fuchsia-400 via-fuchsia-500 to-fuchsia-600',
+  },
+  {
+    key: 'household',
+    href: '/parent/household',
+    icon: Languages,
+    iconBg: 'bg-cyan-100 text-cyan-700',
+    accent: 'from-cyan-400 via-cyan-500 to-cyan-600',
   },
 ];
 

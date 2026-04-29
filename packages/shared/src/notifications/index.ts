@@ -1,3 +1,9 @@
+export { fanoutNotification } from './notification-fanout';
+export type {
+  FanoutNotificationResult,
+  HouseholdLocaleSnapshot,
+  NotificationFanoutDraft,
+} from './notification-fanout';
 export {
   listNotificationCatalogueLocales,
   resolveNotificationTemplateSource,

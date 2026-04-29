@@ -45,6 +45,21 @@ completed*
 - **Side effects**: `dropped` removes student from class. `active` (re-enrol) adds them back. `completed` is set during year-end promotion.
 - **Note**: Transition map is duplicated in shared constants AND service — keep both in sync.
 
+### Household Communication Locale Opt-In
+
+This is not a status enum, but the two household locale fields form a small dispatch state machine:
+
+```
+dual_language_opt_in=false, secondary_locale=null     -> single-locale dispatch
+dual_language_opt_in=false, secondary_locale=<locale> -> single-locale dispatch
+dual_language_opt_in=true,  secondary_locale=null     -> single-locale dispatch
+dual_language_opt_in=true,  secondary_locale=<locale> -> dual-locale dispatch when distinct from default and tenant-supported
+```
+
+- **Guarded by**: `PATCH /v1/households/:id/locale-preferences` validates `secondary_locale` against `tenant.supported_locales`.
+- **Side effects**: `NotificationsService.createBatch` emits the default-locale notification row first, then the secondary-locale row if the opt-in state is active.
+- **No-op duplicate rule**: if `secondary_locale` equals the resolved default locale, dispatch remains single-locale.
+
 ### AcademicYearStatus
 
 ```

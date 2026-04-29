@@ -19,6 +19,7 @@ import {
   addStudentToHouseholdSchema,
   createHouseholdSchema,
   emergencyContactSchema,
+  householdLocaleUpdateSchema,
   mergeHouseholdSchema,
   splitHouseholdSchema,
   updateHouseholdSchema,
@@ -27,6 +28,7 @@ import type {
   AddStudentToHouseholdDto,
   CreateHouseholdDto,
   EmergencyContactDto,
+  HouseholdLocaleUpdate,
   JwtPayload,
   MergeHouseholdDto,
   SplitHouseholdDto,
@@ -150,6 +152,17 @@ export class HouseholdsController {
     body: z.infer<typeof statusUpdateSchema>,
   ) {
     return this.householdsService.updateStatus(tenant.tenant_id, id, body.status);
+  }
+
+  @Patch(':id/locale-preferences')
+  @RequiresPermission('students.manage', 'parent.view_own_students')
+  async updateLocalePreferences(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(householdLocaleUpdateSchema)) dto: HouseholdLocaleUpdate,
+  ) {
+    return this.householdsService.updateLocalePreferences(tenant.tenant_id, user.sub, id, dto);
   }
 
   @Put(':id/billing-parent')

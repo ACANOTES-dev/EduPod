@@ -1,8 +1,10 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { NotificationsService } from './notifications.service';
 
@@ -42,6 +44,12 @@ describe('NotificationsService', () => {
       updateMany: jest.Mock;
     };
   };
+  let mockHouseholdReadFacade: {
+    findNotificationLocaleForRecipientUser: jest.Mock;
+  };
+  let mockTenantReadFacade: {
+    findById: jest.Mock;
+  };
   let mockRedisClient: {
     get: jest.Mock;
     set: jest.Mock;
@@ -63,6 +71,13 @@ describe('NotificationsService', () => {
       },
     };
 
+    mockHouseholdReadFacade = {
+      findNotificationLocaleForRecipientUser: jest.fn().mockResolvedValue(null),
+    };
+    mockTenantReadFacade = {
+      findById: jest.fn().mockResolvedValue({ supported_locales: ['en', 'ar'] }),
+    };
+
     mockRedisClient = {
       get: jest.fn(),
       set: jest.fn(),
@@ -78,6 +93,8 @@ describe('NotificationsService', () => {
         NotificationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
       ],
     }).compile();
 
@@ -549,6 +566,82 @@ describe('NotificationsService', () => {
       expect(mockRedisClient.del).toHaveBeenCalledWith(
         `tenant:${TENANT_ID}:user:user-2:unread_notifications`,
       );
+    });
+
+    it('should fan out parent notifications when household dual-language is enabled', async () => {
+      const notifications = [
+        {
+          channel: 'email',
+          idempotency_key: 'evt-123',
+          locale: 'en',
+          payload_json: { household_id: 'hh-1' },
+          recipient_user_id: USER_ID,
+          source_entity_id: 'src-1',
+          source_entity_type: 'test',
+          template_key: 'absence.cancelled',
+          tenant_id: TENANT_ID,
+        },
+      ];
+      mockHouseholdReadFacade.findNotificationLocaleForRecipientUser.mockResolvedValue({
+        dual_language_opt_in: true,
+        id: 'hh-1',
+        secondary_locale: 'ar',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.notification.createMany.mockResolvedValue({ count: 2 });
+      mockRedisClient.del.mockResolvedValue(1);
+
+      await service.createBatch(TENANT_ID, notifications);
+
+      expect(mockPrisma.notification.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            idempotency_key: 'evt-123-en',
+            locale: 'en',
+            recipient_user_id: USER_ID,
+          }),
+          expect.objectContaining({
+            idempotency_key: 'evt-123-ar',
+            locale: 'ar',
+            recipient_user_id: USER_ID,
+          }),
+        ]),
+      });
+    });
+
+    it('should skip fanout when secondary locale is not tenant-supported', async () => {
+      const notifications = [
+        {
+          channel: 'email',
+          idempotency_key: 'evt-123',
+          locale: 'en',
+          payload_json: { household_id: 'hh-1' },
+          recipient_user_id: USER_ID,
+          template_key: 'absence.cancelled',
+          tenant_id: TENANT_ID,
+        },
+      ];
+      mockTenantReadFacade.findById.mockResolvedValue({ supported_locales: ['en'] });
+      mockHouseholdReadFacade.findNotificationLocaleForRecipientUser.mockResolvedValue({
+        dual_language_opt_in: true,
+        id: 'hh-1',
+        secondary_locale: 'ar',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.notification.createMany.mockResolvedValue({ count: 1 });
+      mockRedisClient.del.mockResolvedValue(1);
+
+      await service.createBatch(TENANT_ID, notifications);
+
+      expect(mockPrisma.notification.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            idempotency_key: 'evt-123-en',
+            locale: 'en',
+            recipient_user_id: USER_ID,
+          }),
+        ],
+      });
     });
   });
 });

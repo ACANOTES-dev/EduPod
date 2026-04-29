@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import type { CreateHouseholdDto, UpdateHouseholdDto } from '@school/shared';
+import type { CreateHouseholdDto, HouseholdLocaleUpdate, UpdateHouseholdDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { createSystemUser } from '../../common/utils/system-user-factory';
@@ -378,6 +378,79 @@ export class HouseholdsCrudService {
       return db.household.update({
         where: { id },
         data: { status: status as 'active' | 'inactive' | 'archived' },
+      });
+    });
+  }
+
+  // ─── Locale Preferences ──────────────────────────────────────────────────
+
+  async updateLocalePreferences(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: HouseholdLocaleUpdate,
+  ): Promise<{ dual_language_opt_in: boolean; id: string; secondary_locale: string | null }> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const household = await db.household.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { dual_language_opt_in: true, id: true, secondary_locale: true },
+      });
+
+      if (!household) {
+        throw new NotFoundException({
+          error: {
+            code: 'HOUSEHOLD_NOT_FOUND',
+            message: `Household with id "${id}" not found`,
+          },
+        });
+      }
+
+      const parentLink = await db.householdParent.findFirst({
+        where: {
+          household_id: id,
+          parent: { user_id: userId },
+          tenant_id: tenantId,
+        },
+        select: { parent_id: true },
+      });
+
+      if (!parentLink) {
+        throw new NotFoundException({
+          error: {
+            code: 'HOUSEHOLD_NOT_FOUND',
+            message: `Household with id "${id}" not found`,
+          },
+        });
+      }
+
+      if (dto.secondary_locale !== undefined && dto.secondary_locale !== null) {
+        const tenant = await db.tenant.findUnique({
+          where: { id: tenantId },
+          select: { supported_locales: true },
+        });
+
+        if (!tenant?.supported_locales.includes(dto.secondary_locale)) {
+          throw new BadRequestException({
+            error: {
+              code: 'LOCALE_NOT_SUPPORTED',
+              message: `Locale "${dto.secondary_locale}" is not enabled for this tenant.`,
+            },
+          });
+        }
+      }
+
+      return db.household.update({
+        where: { id },
+        data: {
+          dual_language_opt_in: dto.dual_language_opt_in ?? household.dual_language_opt_in,
+          secondary_locale:
+            dto.secondary_locale === undefined ? household.secondary_locale : dto.secondary_locale,
+        },
+        select: { dual_language_opt_in: true, id: true, secondary_locale: true },
       });
     });
   }

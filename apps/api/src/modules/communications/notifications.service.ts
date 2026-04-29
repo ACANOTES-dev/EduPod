@@ -2,9 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { toNotificationChannel } from '@school/shared';
+import { fanoutNotification } from '@school/shared/notifications';
 
+import type { HouseholdNotificationLocaleRow } from '../households/household-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 interface ListNotificationsFilters {
   page: number;
@@ -14,6 +18,7 @@ interface ListNotificationsFilters {
 }
 
 export interface CreateNotificationInput {
+  idempotency_key?: string | null;
   tenant_id: string;
   recipient_user_id: string;
   channel: string;
@@ -29,6 +34,8 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly tenantReadFacade: TenantReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
   ) {}
 
   async listForUser(tenantId: string, userId: string, filters: ListNotificationsFilters) {
@@ -147,10 +154,16 @@ export class NotificationsService {
   }
 
   async createBatch(tenantId: string, notifications: CreateNotificationInput[]) {
-    const data = notifications.map((n) => ({
+    const expandedNotifications = await this.expandDualLanguageParentNotifications(
+      tenantId,
+      notifications,
+    );
+
+    const data = expandedNotifications.map((n) => ({
       tenant_id: tenantId,
       recipient_user_id: n.recipient_user_id,
       channel: toNotificationChannel(n.channel),
+      idempotency_key: n.idempotency_key ?? null,
       template_key: n.template_key,
       locale: n.locale,
       status: n.channel === 'in_app' ? ('delivered' as const) : ('queued' as const),
@@ -163,12 +176,72 @@ export class NotificationsService {
     await this.prisma.notification.createMany({ data });
 
     // Invalidate unread count caches for all recipients
-    const uniqueUserIds = [...new Set(notifications.map((n) => n.recipient_user_id))];
+    const uniqueUserIds = [...new Set(expandedNotifications.map((n) => n.recipient_user_id))];
     const client = this.redis.getClient();
     await Promise.all(
       uniqueUserIds.map((userId) =>
         client.del(`tenant:${tenantId}:user:${userId}:unread_notifications`),
       ),
+    );
+  }
+
+  private async expandDualLanguageParentNotifications(
+    tenantId: string,
+    notifications: CreateNotificationInput[],
+  ): Promise<CreateNotificationInput[]> {
+    if (notifications.length === 0) return [];
+
+    const tenant = await this.tenantReadFacade.findById(tenantId);
+    const supportedLocales = tenant?.supported_locales ?? ['en'];
+
+    const out: CreateNotificationInput[] = [];
+
+    for (const notification of notifications) {
+      const household = await this.findRecipientHouseholdLocaleSnapshot(tenantId, notification);
+      if (!household) {
+        out.push(notification);
+        continue;
+      }
+
+      const fanout = fanoutNotification(
+        {
+          channel: notification.channel,
+          idempotency_key: notification.idempotency_key ?? null,
+          template_key: notification.template_key,
+          variables: notification.payload_json,
+        },
+        {
+          ...household,
+          primary_billing_parent_locale: notification.locale,
+        },
+        { defaultLocale: notification.locale, supportedLocales },
+      );
+
+      out.push(
+        ...fanout.map((fanned) => ({
+          ...notification,
+          idempotency_key: fanned.idempotency_key,
+          locale: fanned.locale,
+        })),
+      );
+    }
+
+    return out;
+  }
+
+  private async findRecipientHouseholdLocaleSnapshot(
+    tenantId: string,
+    notification: CreateNotificationInput,
+  ): Promise<HouseholdNotificationLocaleRow | null> {
+    const householdId =
+      typeof notification.payload_json['household_id'] === 'string'
+        ? notification.payload_json['household_id']
+        : null;
+
+    return this.householdReadFacade.findNotificationLocaleForRecipientUser(
+      tenantId,
+      notification.recipient_user_id,
+      householdId,
     );
   }
 }

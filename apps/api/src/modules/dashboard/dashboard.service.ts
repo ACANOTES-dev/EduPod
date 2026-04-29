@@ -199,11 +199,25 @@ export class DashboardService {
       // Find the parent record linked to this user_id in this tenant
       const parentRecord = await txClient.parent.findFirst({
         where: { tenant_id: tenantId, user_id: userId },
-        select: { id: true },
+        select: {
+          household_parents: {
+            select: {
+              household: {
+                select: {
+                  dual_language_opt_in: true,
+                  household_name: true,
+                  id: true,
+                  secondary_locale: true,
+                },
+              },
+            },
+          },
+          id: true,
+        },
       });
 
       if (!parentRecord) {
-        return { students: [] };
+        return { households: [], students: [] };
       }
 
       // Load linked students via student_parents
@@ -229,13 +243,16 @@ export class DashboardService {
         class_homeroom_name: link.student.homeroom_class?.name ?? null,
       }));
 
-      return { students };
-    })) as { students: ParentDashboardStudent[] };
+      const households = (parentRecord.household_parents ?? []).map((link) => link.household);
+
+      return { households, students };
+    })) as Pick<ParentDashboard, 'households' | 'students'>;
 
     const greeting = buildGreeting(user.first_name, user.preferred_locale);
 
     return {
       greeting,
+      households: dashboardData.households,
       students: dashboardData.students,
       announcements: [],
     };

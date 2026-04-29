@@ -1099,6 +1099,10 @@
         "events": {
           "title": "Events & Consents",
           "description": "Trips, forms, and permissions"
+        },
+        "household": {
+          "title": "Household languages",
+          "description": "Choose communication languages"
         }
       }
     },
@@ -12735,20 +12739,20 @@
         "fri": "Fri"
       },
       "days": {
-        "mon": "Mon",
-        "tue": "Tue",
-        "wed": "Wed",
-        "thu": "Thu",
-        "fri": "Fri",
-        "sat": "Sat",
-        "sun": "Sun",
+        "0": "Sun",
         "1": "Mon",
         "2": "Tue",
         "3": "Wed",
         "4": "Thu",
         "5": "Fri",
         "6": "Sat",
-        "0": "Sun"
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
       },
       "trends": {
         "improving": "improving",
@@ -20341,6 +20345,25 @@
       "consent_archive": {
         "title": "Consent Archive",
         "description": "Search, filter, and audit consent history by student, form, or status."
+      }
+    }
+  },
+  "parent": {
+    "household": {
+      "loading": "Loading household...",
+      "notFound": "No household found",
+      "notFoundDescription": "We could not find a household linked to your parent account.",
+      "subtitle": "Manage the languages used for household communications.",
+      "localePreferences": {
+        "title": "Communication languages",
+        "optInLabel": "Send communications in two languages",
+        "optInHint": "When enabled, parent communications are sent in your usual language and the second language below.",
+        "secondaryLocaleLabel": "Second language",
+        "none": "No second language",
+        "save": "Save",
+        "saving": "Saving...",
+        "saved": "Communication languages saved.",
+        "saveError": "Could not save communication languages."
       }
     }
   }

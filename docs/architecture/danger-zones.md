@@ -1379,6 +1379,18 @@ System `notification_templates` rows (`tenant_id IS NULL`) now store `t:`-prefix
 
 **Rule**: Treat notification catalogue keys as append-only. If a key must change, ship the catalogue change and the DB migration that updates every affected system row in the same release.
 
+## DZ-Comms-2B: Dual-Language Notification Idempotency Suffix
+
+**Risk**: The second locale row is silently deduped if dispatch idempotency keys are not suffixed per locale.
+**Location**: `packages/shared/src/notifications/notification-fanout.ts`, `apps/api/src/modules/communications/notifications.service.ts`
+**Status**: ACTIVE
+
+Dual-language household fanout emits the default-language notification first and the secondary-language notification second. When an upstream caller provides an `idempotency_key`, fanout appends `-{locale}` to each emitted row.
+
+**Failure mode**: changing fanout or notification creation to reuse the same idempotency key for both rows hits `idx_notifications_idempotency` on `(tenant_id, idempotency_key)`. Depending on the insert path, the second locale either fails the batch or is dropped if a future insert uses `skipDuplicates`.
+
+**Rule**: Any change to notification dedupe must preserve the locale suffix for dual-language household emits.
+
 ## DZ-Comms-3: Webhook Signature Trust Depends on Per-Tenant `webhook_secret`
 
 **Risk**: A tenant whose `webhook_secret` is missing/null has every webhook event rejected. Notification statuses for that tenant never advance past `sent` — bounces, complaints, deliveries are never reflected.

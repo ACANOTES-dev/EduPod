@@ -13,6 +13,7 @@ import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
@@ -65,6 +66,7 @@ import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.
     MetricsModule,
     ParentsModule,
     StudentsModule,
+    TenantsModule,
     CommsCacheBusModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],

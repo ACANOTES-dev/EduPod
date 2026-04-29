@@ -92,6 +92,13 @@ export interface HouseholdEmergencyContactRow {
   display_order: number;
 }
 
+export interface HouseholdNotificationLocaleRow {
+  dual_language_opt_in: boolean;
+  id: string;
+  secondary_locale: string | null;
+  tenant_id: string;
+}
+
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -201,6 +208,37 @@ export class HouseholdReadFacade {
     });
 
     return [...new Set(links.map((hp) => hp.parent_id))];
+  }
+
+  /**
+   * Find the household locale preferences for a recipient user.
+   * Used by communications fanout without reaching into household-owned tables.
+   */
+  async findNotificationLocaleForRecipientUser(
+    tenantId: string,
+    userId: string,
+    householdId?: string | null,
+  ): Promise<HouseholdNotificationLocaleRow | null> {
+    return this.prisma.household.findFirst({
+      where: {
+        ...(householdId ? { id: householdId } : {}),
+        tenant_id: tenantId,
+        household_parents: {
+          some: {
+            tenant_id: tenantId,
+            parent: {
+              user_id: userId,
+            },
+          },
+        },
+      },
+      select: {
+        dual_language_opt_in: true,
+        id: true,
+        secondary_locale: true,
+        tenant_id: true,
+      },
+    });
   }
 
   // ─── Emergency Contacts ─────────────────────────────────────────────────────

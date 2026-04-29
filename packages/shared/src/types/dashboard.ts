@@ -40,7 +40,15 @@ export interface ParentDashboardAnnouncement {
   published_at: string;
 }
 
+export interface ParentDashboardHousehold {
+  id: string;
+  household_name: string;
+  secondary_locale: string | null;
+  dual_language_opt_in: boolean;
+}
+
 export interface ParentDashboard {
   students: ParentDashboardStudent[];
+  households: ParentDashboardHousehold[];
   announcements: ParentDashboardAnnouncement[];
 }

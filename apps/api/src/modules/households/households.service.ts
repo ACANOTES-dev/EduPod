@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import type {
   CreateHouseholdDto,
   EmergencyContactDto,
+  HouseholdLocaleUpdate,
   MergeHouseholdDto,
   SplitHouseholdDto,
   UpdateHouseholdDto,
@@ -152,6 +153,15 @@ export class HouseholdsService {
 
   async updateStatus(tenantId: string, id: string, status: string) {
     return this.crud.updateStatus(tenantId, id, status);
+  }
+
+  async updateLocalePreferences(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: HouseholdLocaleUpdate,
+  ) {
+    return this.crud.updateLocalePreferences(tenantId, userId, id, dto);
   }
 
   // ─── Relations ──────────────────────────────────────────────────────────────

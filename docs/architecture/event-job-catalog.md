@@ -350,6 +350,13 @@ passes that locale into the renderer for email, SMS, and WhatsApp. Missing `t:` 
 `MISSING_NOTIFICATION_MESSAGE`; missing catalogues throw `MISSING_NOTIFICATION_LOCALE`.
 There is no silent fallback to English.
 
+Dual-language household opt-in is applied when notification rows are emitted
+through `NotificationsService.createBatch`. Parent recipients linked to a household
+with `dual_language_opt_in=true` and a distinct, tenant-supported `secondary_locale`
+receive two rows: the original locale first, then the secondary locale. Idempotency
+keys, when present, are suffixed with `-{locale}` so the unique constraint does not
+collapse the pair.
+
 ### `pastoral`
 
 - `pastoral:notify-concern`
