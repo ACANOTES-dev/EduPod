@@ -19608,81 +19608,103 @@
       "reminders": "Reminders"
     },
     "event": {
-      "incident.logged": {
-        "label": "Incident logged",
-        "description": "Sent to parents and assigned staff when a behaviour incident is recorded."
+      "incident": {
+        "logged": {
+          "label": "Incident logged",
+          "description": "Sent to parents and assigned staff when a behaviour incident is recorded."
+        },
+        "escalated": {
+          "label": "Incident escalated",
+          "description": "Sent when an incident is escalated to the principal or DLP."
+        },
+        "parent_meeting_scheduled": {
+          "label": "Parent meeting scheduled",
+          "description": "Sent when a parent meeting is booked in response to an incident."
+        }
       },
-      "incident.escalated": {
-        "label": "Incident escalated",
-        "description": "Sent when an incident is escalated to the principal or DLP."
+      "sanction": {
+        "scheduled": {
+          "label": "Sanction scheduled",
+          "description": "Sent to the student's parents when a sanction is placed on the calendar."
+        },
+        "served": {
+          "label": "Sanction served",
+          "description": "Sent once the sanction has been served (attended / completed)."
+        },
+        "no_show": {
+          "label": "Sanction no-show",
+          "description": "Sent when the student misses a scheduled sanction."
+        }
       },
-      "incident.parent_meeting_scheduled": {
-        "label": "Parent meeting scheduled",
-        "description": "Sent when a parent meeting is booked in response to an incident."
+      "recognition": {
+        "awarded": {
+          "label": "Recognition awarded",
+          "description": "Sent to parents and the student when a positive recognition is granted."
+        }
       },
-      "sanction.scheduled": {
-        "label": "Sanction scheduled",
-        "description": "Sent to the student's parents when a sanction is placed on the calendar."
+      "amendment": {
+        "sent": {
+          "label": "Incident amendment sent",
+          "description": "Sent to parents when a previously-issued incident is corrected or amended."
+        }
       },
-      "sanction.served": {
-        "label": "Sanction served",
-        "description": "Sent once the sanction has been served (attended / completed)."
+      "document": {
+        "sent_to_parent": {
+          "label": "Document sent to parent",
+          "description": "Sent when a behaviour-related document (policy letter, sanction notice) is dispatched."
+        }
       },
-      "sanction.no_show": {
-        "label": "Sanction no-show",
-        "description": "Sent when the student misses a scheduled sanction."
+      "concern": {
+        "raised": {
+          "label": "Pastoral concern raised",
+          "description": "Sent to the designated tutor and pastoral team when a concern is logged."
+        },
+        "acknowledged": {
+          "label": "Pastoral concern acknowledged",
+          "description": "Sent to the raiser when their concern has been acknowledged."
+        }
       },
-      "recognition.awarded": {
-        "label": "Recognition awarded",
-        "description": "Sent to parents and the student when a positive recognition is granted."
+      "sla": {
+        "breach": {
+          "label": "Safeguarding SLA breach",
+          "description": "Sent to the DLP when a safeguarding first-response SLA deadline passes without acknowledgement."
+        }
       },
-      "amendment.sent": {
-        "label": "Incident amendment sent",
-        "description": "Sent to parents when a previously-issued incident is corrected or amended."
+      "critical": {
+        "declared": {
+          "label": "Critical concern declared",
+          "description": "Sent to the DLP and safeguarding leads when a concern is escalated to critical."
+        },
+        "acknowledged": {
+          "label": "Critical concern acknowledged",
+          "description": "Sent once a critical concern has been acknowledged by the DLP."
+        }
       },
-      "document.sent_to_parent": {
-        "label": "Document sent to parent",
-        "description": "Sent when a behaviour-related document (policy letter, sanction notice) is dispatched."
+      "break_glass": {
+        "granted": {
+          "label": "Break-glass access granted",
+          "description": "Sent to the DLP and audit inbox when emergency CP record access is granted."
+        },
+        "expired": {
+          "label": "Break-glass access expired",
+          "description": "Sent when time-limited emergency access is automatically revoked."
+        }
       },
-      "concern.raised": {
-        "label": "Pastoral concern raised",
-        "description": "Sent to the designated tutor and pastoral team when a concern is logged."
+      "appeal": {
+        "submitted": {
+          "label": "Appeal submitted",
+          "description": "Sent to the principal when a parent submits a behaviour appeal."
+        },
+        "decided": {
+          "label": "Appeal decided",
+          "description": "Sent to the parent once the principal has ruled on their appeal."
+        }
       },
-      "concern.acknowledged": {
-        "label": "Pastoral concern acknowledged",
-        "description": "Sent to the raiser when their concern has been acknowledged."
-      },
-      "sla.breach": {
-        "label": "Safeguarding SLA breach",
-        "description": "Sent to the DLP when a safeguarding first-response SLA deadline passes without acknowledgement."
-      },
-      "critical.declared": {
-        "label": "Critical concern declared",
-        "description": "Sent to the DLP and safeguarding leads when a concern is escalated to critical."
-      },
-      "critical.acknowledged": {
-        "label": "Critical concern acknowledged",
-        "description": "Sent once a critical concern has been acknowledged by the DLP."
-      },
-      "break_glass.granted": {
-        "label": "Break-glass access granted",
-        "description": "Sent to the DLP and audit inbox when emergency CP record access is granted."
-      },
-      "break_glass.expired": {
-        "label": "Break-glass access expired",
-        "description": "Sent when time-limited emergency access is automatically revoked."
-      },
-      "appeal.submitted": {
-        "label": "Appeal submitted",
-        "description": "Sent to the principal when a parent submits a behaviour appeal."
-      },
-      "appeal.decided": {
-        "label": "Appeal decided",
-        "description": "Sent to the parent once the principal has ruled on their appeal."
-      },
-      "reminder.acknowledgement": {
-        "label": "Acknowledgement reminder",
-        "description": "Sent to parents who have not yet acknowledged a document they were asked to confirm."
+      "reminder": {
+        "acknowledgement": {
+          "label": "Acknowledgement reminder",
+          "description": "Sent to parents who have not yet acknowledged a document they were asked to confirm."
+        }
       }
     }
   },
