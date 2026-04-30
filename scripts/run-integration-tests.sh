@@ -35,6 +35,7 @@ cd "$REPO_ROOT/apps/api"
 # components (e.g. `applications\.e2e-spec` must not match
 # `parent-applications.e2e-spec`).
 COLLIDERS_PATTERN='/([^/]+[.\-]rls\.spec|[^/]*rls-leakage\.e2e-spec|rls-leakage-p2\.e2e-spec|rls-comprehensive\.e2e-spec|p8-rls\.e2e-spec|p6-finance\.e2e-spec|p5-gradebook\.e2e-spec|admissions-rls\.e2e-spec|applications\.e2e-spec|invitations\.e2e-spec|p4a-dashboard-exceptions\.e2e-spec|p4a-schedules\.e2e-spec|attendance-default-present\.e2e-spec|p4b-scheduling\.e2e-spec|auth\.e2e-spec|roles\.e2e-spec|students\.e2e-spec|tenants\.e2e-spec|domains\.e2e-spec|compliance\.e2e-spec|households\.e2e-spec|household-merge\.e2e-spec)\.ts$'
+FOUNDATIONAL_RLS_PATTERN='/test/rls-leakage\.e2e-spec\.ts$'
 
 MAX_WORKERS="${INTEGRATION_MAX_WORKERS:-2}"
 
@@ -43,9 +44,16 @@ PARALLEL_EXIT=0
 
 if [ "$MODE" = "serial" ] || [ "$MODE" = "both" ]; then
   echo ""
+  echo "=== Foundational RLS leakage (isolated) ==="
+  npx jest --config jest.integration.config.js --runInBand --bail=0 --forceExit \
+    --testPathPattern="$FOUNDATIONAL_RLS_PATTERN" \
+    || SERIAL_EXIT=$?
+
+  echo ""
   echo "=== Serial colliders (--runInBand) ==="
   npx jest --config jest.integration.config.js --runInBand --bail=0 --forceExit \
     --testPathPattern="$COLLIDERS_PATTERN" \
+    --testPathIgnorePatterns "/node_modules/" "$FOUNDATIONAL_RLS_PATTERN" \
     || SERIAL_EXIT=$?
 fi
 
