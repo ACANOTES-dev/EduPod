@@ -12,7 +12,7 @@
     "type-check": "NODE_OPTIONS=--max-old-space-size=14336 tsc --noEmit",
     "test": "jest --runInBand",
     "test:changed": "jest --changedSince=main --passWithNoTests",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --maxWorkers=${JEST_MAX_WORKERS:-2}",
     "test:integration": "bash ../../scripts/run-integration-tests.sh",
     "test:integration:serial": "bash ../../scripts/run-integration-tests.sh serial",
     "test:integration:parallel": "bash ../../scripts/run-integration-tests.sh parallel",
