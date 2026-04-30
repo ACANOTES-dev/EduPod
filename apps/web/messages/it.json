@@ -6165,6 +6165,17 @@
       "action_failed": "Azione fallita"
     }
   },
+  "scheduling": {
+    "parentTimetable": {
+      "loading": "Caricamento dell'orario...",
+      "noTimetable": "Nessun orario disponibile.",
+      "selectStudent": "Selezioni studente",
+      "period": "Ora",
+      "today": "Oggi",
+      "free": "Libero",
+      "backToDashboard": "Torna alla dashboard"
+    }
+  },
   "guardianRestriction": {
     "title": "L'accesso è attualmente limitato",
     "titleWithName": "Accesso a {name}I registri sono attualmente limitati",

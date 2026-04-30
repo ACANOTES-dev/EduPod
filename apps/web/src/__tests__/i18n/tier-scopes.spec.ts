@@ -10,12 +10,29 @@ function loadEn(): Record<string, Json> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, Json>;
 }
 
+function hasDottedPath(messages: Record<string, Json>, dottedPath: string): boolean {
+  let current: Json = messages;
+
+  for (const segment of dottedPath.split('.')) {
+    if (current === null || typeof current !== 'object' || Array.isArray(current)) {
+      return false;
+    }
+
+    if (!(segment in current)) {
+      return false;
+    }
+
+    current = (current as Record<string, Json>)[segment] as Json;
+  }
+
+  return true;
+}
+
 describe('Tier 2 namespace allowlist', () => {
   const en = loadEn();
-  const topLevelKeys = new Set(Object.keys(en));
 
-  it('every namespace in the allowlist exists as a top-level key in en.json', () => {
-    const orphans = TIER_2_NAMESPACES.filter((ns) => !topLevelKeys.has(ns));
+  it('every namespace in the allowlist exists in en.json', () => {
+    const orphans = TIER_2_NAMESPACES.filter((ns) => !hasDottedPath(en, ns));
     expect(orphans).toEqual([]);
   });
 
@@ -89,7 +106,6 @@ describe('Tier 2 namespace allowlist', () => {
       'failedCallbacks',
       'messagingPolicyPage',
       'reportsSettings',
-      'scheduling',
       // RBAC / user management
       'roles',
       'users',
@@ -108,8 +124,11 @@ describe('Tier 2 namespace allowlist', () => {
       'settings',
       'teacherAssessments',
     ];
-    const leak = TIER_2_NAMESPACES.filter((ns) =>
-      forbiddenPrefixes.some((f) => ns === f || ns.startsWith(f)),
+    const explicitAllowedScopes = new Set(['scheduling.parentTimetable']);
+    const leak = TIER_2_NAMESPACES.filter(
+      (ns) =>
+        forbiddenPrefixes.some((f) => ns === f || ns.startsWith(f)) ||
+        (ns.startsWith('scheduling.') && !explicitAllowedScopes.has(ns)),
     );
     expect(leak).toEqual([]);
   });

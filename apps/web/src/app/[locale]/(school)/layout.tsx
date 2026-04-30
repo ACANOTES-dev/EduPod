@@ -115,6 +115,14 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         return;
       }
 
+      if (
+        error.code === 'PERMISSION_DENIED' ||
+        error.message.startsWith('Missing required permission')
+      ) {
+        toast.error(t('common.accessDenied'));
+        return;
+      }
+
       toast.error(error.message);
     });
 

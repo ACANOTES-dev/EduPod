@@ -4,11 +4,13 @@
 //
 // This list governs the translation-parity test for Tier 2 locales: the
 // parity gate enforces 100% match against this subset, ignoring out-of-scope
-// namespaces.
+// namespaces. Most entries are top-level namespaces. Dotted entries are used
+// only for parent/student slices that live under a broader staff/admin
+// namespace and must not pull the whole namespace into Tier 2.
 //
-// Each entry below is a TOP-LEVEL namespace in apps/web/messages/en.json
-// (the message catalogue is flat — no dotted root paths). The list was
-// derived by scanning every useTranslations(...) call under parent-facing
+// Each entry below must exist as either a top-level namespace or an exact
+// dotted message path in apps/web/messages/en.json. The list was derived by
+// scanning every useTranslations(...) call under parent-facing
 // route directories: (auth)/, (public)/, (school)/parent/, (school)/dashboard/,
 // (school)/homework/parent/, (school)/engagement/parent/,
 // (school)/behaviour/parent-portal/, (school)/wellbeing/survey/, plus chrome
@@ -78,6 +80,7 @@ export const TIER_2_NAMESPACES: readonly string[] = [
   'transcripts',
   'reportComments',
   'wellbeing',
+  'scheduling.parentTimetable',
 
   // Parent-visible (ad hoc surfaces a parent can land on)
   'engagement',
