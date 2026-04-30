@@ -222,6 +222,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   }, [t, userRoleKeys]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || t('common.appName');
+  const handleSearchClick = isTier2Locale ? undefined : () => setCommandPaletteOpen(true);
 
   return (
     <RequireAuth>
@@ -236,7 +237,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
                   activeHub={activeHub}
                   hubs={derivedHubs}
                   onHubClick={handleHubClick}
-                  onSearchClick={() => setCommandPaletteOpen(true)}
+                  onSearchClick={handleSearchClick}
                   notificationCount={0}
                   onNotificationClick={() => {}}
                   onHamburgerClick={() => setMobileNavOpen(true)}
@@ -271,7 +272,9 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
               </ErrorBoundary>
             </AppShell>
 
-            <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+            {!isTier2Locale && (
+              <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+            )}
             <ToastProvider />
             {!isTier2Locale && (
               <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
@@ -283,10 +286,14 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
               activeHub={activeHub}
               onHubClick={handleHubClick}
               schoolName={schoolName}
-              onSearchClick={() => {
-                setMobileNavOpen(false);
-                setCommandPaletteOpen(true);
-              }}
+              onSearchClick={
+                handleSearchClick
+                  ? () => {
+                      setMobileNavOpen(false);
+                      handleSearchClick();
+                    }
+                  : undefined
+              }
             />
             {!isTier2Locale && (
               <>

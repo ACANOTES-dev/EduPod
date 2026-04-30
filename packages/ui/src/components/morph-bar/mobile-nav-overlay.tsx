@@ -60,18 +60,20 @@ export function MobileNavOverlay({
           </button>
         </div>
 
-        <div className="px-5 py-4 border-b border-[var(--color-strip-border)]">
-          <button
-            onClick={() => {
-              onClose();
-              onSearchClick?.();
-            }}
-            className="w-full flex items-center gap-3 bg-black/[0.04] hover:bg-black/[0.08] text-[var(--color-bar-text)] hover:text-[var(--color-text-primary)] rounded-xl px-4 py-3.5 transition-colors border border-[var(--color-bar-border)]"
-          >
-            <Search className="h-5 w-5" />
-            <span className="text-[15px] font-medium">Search anything...</span>
-          </button>
-        </div>
+        {onSearchClick ? (
+          <div className="px-5 py-4 border-b border-[var(--color-strip-border)]">
+            <button
+              onClick={() => {
+                onClose();
+                onSearchClick();
+              }}
+              className="w-full flex items-center gap-3 bg-black/[0.04] hover:bg-black/[0.08] text-[var(--color-bar-text)] hover:text-[var(--color-text-primary)] rounded-xl px-4 py-3.5 transition-colors border border-[var(--color-bar-border)]"
+            >
+              <Search className="h-5 w-5" />
+              <span className="text-[15px] font-medium">Search anything...</span>
+            </button>
+          </div>
+        ) : null}
 
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
           {hubs.map((hub) => {

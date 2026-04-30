@@ -17,7 +17,7 @@ export interface MorphBarProps {
   activeHub: string | null;
   hubs: MorphBarHub[];
   onHubClick: (hubKey: string) => void;
-  onSearchClick: () => void;
+  onSearchClick?: () => void;
   notificationCount: number;
   onNotificationClick: () => void;
   onHamburgerClick?: () => void;
@@ -123,17 +123,21 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden sm:block lg:hidden">
-            <SearchPill onClick={onSearchClick} aria-label="Search" />
-          </div>
-          <button
-            type="button"
-            aria-label="Search"
-            className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-bar-text)] hover:bg-black/5 hover:text-[var(--color-text-primary)] transition-colors"
-            onClick={onSearchClick}
-          >
-            <Search className="h-[18px] w-[18px]" />
-          </button>
+          {onSearchClick ? (
+            <>
+              <div className="hidden sm:block lg:hidden">
+                <SearchPill onClick={onSearchClick} aria-label="Search" />
+              </div>
+              <button
+                type="button"
+                aria-label="Search"
+                className="lg:hidden flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-bar-text)] hover:bg-black/5 hover:text-[var(--color-text-primary)] transition-colors"
+                onClick={onSearchClick}
+              >
+                <Search className="h-[18px] w-[18px]" />
+              </button>
+            </>
+          ) : null}
           {renderInboxBadge ? renderInboxBadge() : null}
           {renderNotification ? (
             renderNotification()
