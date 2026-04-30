@@ -2,7 +2,7 @@
 
 **Project:** Add 4 Tier-1 (`ga`, `fr`, `de`, `es`) and 3 Tier-2 (`it`, `ro`, `pl`) languages to SDB.
 **Strategy:** see `STRATEGY.md` in this folder.
-**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder.
+**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder, with `12.5` reserved for the PDF catalogue extraction pass.
 **Started:** 2026-04-25 (Phase 0 spec authored)
 
 ---
@@ -20,32 +20,34 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ## Implementation index
 
-> Implementations are numbered 1–13 (sequential at codebase level — only one runs at a time).
+> Implementations are numbered 1–13 plus 12.5 (sequential at codebase level — only one runs at a time).
 > Within Phase 4 and Phase 5, the _content_ is reorderable (FR ↔ ES ↔ DE ↔ GA, and IT ↔ RO ↔ PL). The numbering below reflects the **recommended execution order** (easiest → hardest within each tier).
+> Implementation 12.5 is a fixed architecture gate before 13, not a language rollout.
 
-| #   | Phase                 | Spec                                                         | Locale / Topic                             | Status                 | Model      | Effort   |
-| --- | --------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------------------- | ---------- | -------- |
-| 01  | 1 — Foundation        | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | 🟢 Complete & deployed | Opus 4.7   | High     |
-| 02  | 1 — Foundation        | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | 🟢 Complete & deployed | GPT-5.5    | Max      |
-| 03  | 1 — Foundation        | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | 🟢 Complete & deployed | GPT-5.5    | Standard |
-| 04  | 2 — Refactor          | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | GPT-5.5    | Max      |
-| 05  | 2 — Refactor          | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 06  | 3 — Dispatch          | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 07  | 4 — Tier 1            | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 08  | 4 — Tier 1            | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 09  | 4 — Tier 1            | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | ⚪ Pending             | Opus 4.7   | Max      |
-| 10  | 4 — Tier 1            | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
-| 11  | 5 — Tier 2            | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending             | Sonnet 4.6 | Max      |
-| 12  | 5 — Tier 2            | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending             | Opus 4.7   | High     |
-| 13  | 5 — Tier 2            | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
-| —   | 6 — Rollout (rolling) | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
+| #    | Phase                  | Spec                                                         | Locale / Topic                             | Status                 | Model      | Effort   |
+| ---- | ---------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------------------- | ---------- | -------- |
+| 01   | 1 — Foundation         | `implementations/01-schema-rls-locale-registry.md`           | Schema, RLS, locale registry               | 🟢 Complete & deployed | Opus 4.7   | High     |
+| 02   | 1 — Foundation         | `implementations/02-arabic-cleanup-hard-error-flip.md`       | Arabic cleanup + hard-error flip           | 🟢 Complete & deployed | GPT-5.5    | Max      |
+| 03   | 1 — Foundation         | `implementations/03-tenant-gating-ui-language-picker.md`     | Tenant gating UI + language picker         | 🟢 Complete & deployed | GPT-5.5    | Standard |
+| 04   | 2 — Refactor           | `implementations/04-pdf-templates-locale-driven-refactor.md` | PDF templates: locale-driven refactor      | 🟢 Complete & deployed | GPT-5.5    | Max      |
+| 05   | 2 — Refactor           | `implementations/05-notification-template-refactor.md`       | NotificationTemplate refactor              | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 06   | 3 — Dispatch           | `implementations/06-dual-language-household-dispatch.md`     | Dual-language household dispatch fanout    | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 07   | 4 — Tier 1             | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 08   | 4 — Tier 1             | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 09   | 4 — Tier 1             | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
+| 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
+| 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending             | Sonnet 4.6 | Max      |
+| 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending             | Opus 4.7   | High     |
+| 12.5 | 5.5 — PDF Architecture | `(to author) implementations/12.5-pdf-message-catalogues.md` | PDF templates: per-template catalogues     | ⚪ Pending             | GPT-5.5    | Max      |
+| 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
+| —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
 
-**Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → Phase 6 rollout
+**Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 12.5 → 13 → Phase 6 rollout
 
 **Sequential at the codebase level** (no worktrees / no branches / no PRs). Only one implementation runs on the codebase at a time.
 
 > **Legacy ID mapping** (for historical reference — the strategy still uses these in some places):
-> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 13=P5-PL.
+> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 12.5=P5.5-PDF-CATALOGUES · 13=P5-PL.
 
 ---
 
@@ -531,15 +533,76 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 09 — German (`de`)
 
 - **Spec:** `implementations/09-german.md`
-- **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / **Max effort**
+- **Status:** 🟢 Complete & deployed
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 08 complete
+- **Began:** 2026-04-30
+- **Completed:** 2026-04-30
 
-**Scope summary:** Same shape as 07/08. Compound nouns + UI overflow are the #1 risk. Use formal "Sie", capitalise nouns.
+**Scope summary:**
 
-### Acceptance / Sections
+- Extend `New Languages/glossary.md` with standard German / Hochdeutsch terms.
+- Translate `en.json` → `de.json` (full active web catalogue; formal `Sie`, gender-neutral colon forms where appropriate).
+- Translate notification catalogue entries into `notifications.de.json`.
+- Enable German PDF rendering through the current locale-template architecture with German label/date/status localization.
+- Flip `de.active = true` in registry.
+- Add `de-ltr` + `de-mobile` Playwright projects plus German public visual/leak smoke baselines.
+- Enable for NHQS via an idempotent `supported_locales` append.
 
-- (populated during execution)
+### Acceptance
+
+- [x] Translation parity 100% against `en.json`
+- [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`, `de`, `es`
+- [x] Public `[de]` login/contact visual + visible-text leak smoke passes
+- [x] Notification dispatch and catalogue fallback tests pass
+- [x] PDF German smoke path passes
+- [x] Full local lint + type-check + regression tests pass
+- [x] Production web build passes
+- [x] Public en + ar + fr + de + es visual smoke remains clean
+- [x] NHQS-only `supported_locales` includes `de`
+- [x] CI green; production deploy successful
+- [x] German overflow ledger recorded
+
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
+
+- Local verification passed 2026-04-30:
+  - JSON parse of `apps/web/messages/de.json` and `packages/shared/src/notifications/messages/notifications.de.json`
+  - `pnpm --filter @school/web test -- translation-parity --runInBand`
+  - `pnpm --filter @school/web test -- registry --runInBand`
+  - `pnpm --filter @school/shared test -- notification-message-catalogue --runInBand`
+  - `pnpm --filter @school/api test -- locale-template --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/shared test -- locale-codes --runInBand`
+  - `pnpm --filter @school/api test -- template-renderer.service notification-templates.service pdf-rendering.service --runInBand`
+  - `pnpm --filter @school/worker test -- dispatch-notifications --runInBand`
+  - `pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts --update-snapshots`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/web build`
+  - `pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts`
+  - `git diff --check`
+  - `pnpm exec prettier --check` on changed text files
+- Commit:
+  - `3714b576` — `feat(i18n): add German locale`
+- CI / deploy:
+  - Production run `25139894519` succeeded.
+  - Deploy completed 2026-04-30 00:04 UTC.
+- NHQS rollout:
+  - Production update applied 2026-04-30 00:08 UTC.
+  - Readback: `nhqs.supported_locales = {en,ar,fr,es,de}`.
+- Production verification:
+  - Public `/de/login` and `/de/contact` returned 200 at desktop and mobile widths with `html lang="de"` / `dir="ltr"` and no visible placeholder leaks.
+  - NHQS owner login succeeded on `/de/login`; `/de/dashboard`, `/de/students`, `/de/finance`, and `/de/profile` rendered in German with no visible placeholder leaks.
+  - User-menu language picker showed `en`, `ar`, `fr`, `de`, and `es` for NHQS after the tenant flip.
+  - API readback from `/api/v1/tenants/me` returned `supported_locales = ["en","ar","fr","es","de"]`.
+  - Sentry unresolved issue list was empty; no `MISSING_MESSAGE` events were present.
+- German overflow ledger:
+  - `0` unresolved German overflow issues.
+  - No `New Languages/_evidence/de-overflow-issues.md` file was required or created.
+- Notes:
+  - `de` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
+  - German PDF rendering follows the same interim compatibility-localizer path as French and Spanish; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
 
 ---
 
@@ -560,7 +623,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ## Phase 5 — Tier 2 Languages
 
-> Recommended execution order: 11 (IT) → 12 (RO) → 13 (PL).
+> Recommended execution order: 11 (IT) → 12 (RO) → 12.5 (PDF catalogue architecture) → 13 (PL).
 >
 > Each Phase 5 implementation translates ONLY the `tier_2_namespaces` allowlist (parent + student surface). The route-level guard (introduced in 11) redirects out-of-scope paths to the tenant default locale.
 
@@ -594,14 +657,44 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ---
 
+### 12.5 — PDF template message-catalogue extraction
+
+- **Spec:** `(to author) implementations/12.5-pdf-message-catalogues.md`
+- **Status:** ⚪ Pending
+- **Model:** GPT-5.5 / Max effort
+- **Depends on:** 12 complete
+- **Blocks:** 13 and any further PDF locale work
+
+**Scope summary:** Separate architectural pass to extract all 13 existing PDF template types into proper per-template message catalogues. Replace compatibility HTML post-processing, including the French regex localizer, with structured catalogue-backed rendering while preserving the current en/ar/fr output contract and keeping later locale additions catalogue-only.
+
+### Acceptance / Sections
+
+- [ ] All 13 PDF types use a shared locale-aware message-catalogue layer instead of regex HTML replacement.
+- [ ] Catalogue files exist for every in-scope template and runtime PDF locale, using a predictable path such as `apps/api/src/modules/pdf-rendering/templates/messages/{type}.{locale}.json`.
+- [ ] English and Arabic PDF output remains behaviourally equivalent to the pre-refactor templates, including Arabic RTL layout.
+- [ ] French PDF output moves from compatibility localization to first-class catalogue-backed rendering.
+- [ ] Missing catalogue keys fail hard in tests and render paths with a clear `MISSING_PDF_MESSAGE` error.
+- [ ] Receipt, invoice, household statement, report card, report card modern, transcript, payslip, DES inspection, pastoral summary, SST activity, safeguarding compliance, wellbeing programme, and trip leader pack all have render-smoke coverage.
+- [ ] Formatting helpers cover dates, numbers, currencies, localized school names, statuses, and common enum labels without template-specific string hacks.
+- [ ] 80mm receipt layout and A4 report layouts are visually checked for overflow in LTR and RTL.
+- [ ] Later language implementations can add or update PDF support by adding catalogue files, not by editing TypeScript templates.
+- [ ] CI green; production deploy successful; production smoke verifies at least receipt + one A4 report in `en`, `ar`, and `fr`.
+
+### Notes
+
+- This pass intentionally does **not** roll out a new user-facing language. It is an architecture cleanup so 13 and any later PDF language work have a proper catalogue foundation.
+- If 08–12 add interim compatibility localizers for new languages before this runs, migrate those strings into the new catalogue format and delete the interim paths.
+
+---
+
 ### 13 — Polish (`pl`)
 
 - **Spec:** `implementations/13-polish.md`
 - **Status:** ⚪ Pending
 - **Model:** Opus 4.7 / **Max effort**
-- **Depends on:** 12 complete
+- **Depends on:** 12.5 complete
 
-**Scope summary:** Same shape as 11/12. Watch 7-case grammar, 3 genders, perfective/imperfective aspect. Maintain `pl-review-queue.md`.
+**Scope summary:** Same shape as 11/12, using the first-class PDF message-catalogue architecture from 12.5. Watch 7-case grammar, 3 genders, perfective/imperfective aspect. Maintain `pl-review-queue.md`.
 
 ### Acceptance / Sections
 
@@ -617,7 +710,7 @@ Per locale, after NHQS QA passes:
 | ------------ | --------------- | ---------------------------- | -------- | ------------------ |
 | ga           | nhqs            | (pending 10 completion)      | —        | Pilot tenant       |
 | fr           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
-| de           | nhqs            | (pending 09 completion)      | —        | Pilot tenant       |
+| de           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
 | es           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | it           | nhqs            | (pending 11 completion)      | —        | Pilot tenant       |
 | ro           | nhqs            | (pending 12 completion)      | —        | Pilot tenant       |
@@ -628,14 +721,14 @@ Per locale, after NHQS QA passes:
 
 ## Summary metrics (live)
 
-- **Total implementations planned:** 13 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 8
+- **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
+- **Implementations complete:** 9
 - **Implementations in progress:** 0
 - **Implementations pending:** 5
 - **Implementations blocked:** 0
-- **Languages live (NHQS):** en, ar, fr, es
+- **Languages live (NHQS):** en, ar, fr, es, de
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar ↔ fr ↔ es active; remaining locales pending
+- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es active; remaining locales pending
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 
