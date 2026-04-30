@@ -36,7 +36,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 08   | 4 — Tier 1             | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 09   | 4 — Tier 1             | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | 🟢 Complete & deployed | GPT-5.5    | Max      |
-| 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending             | Sonnet 4.6 | Max      |
+| 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending             | Opus 4.7   | High     |
 | 12.5 | 5.5 — PDF Architecture | `(to author) implementations/12.5-pdf-message-catalogues.md` | PDF templates: per-template catalogues     | ⚪ Pending             | GPT-5.5    | Max      |
 | 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
@@ -702,15 +702,91 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 11 — Italian (`it`)
 
 - **Spec:** `implementations/11-italian.md`
-- **Status:** ⚪ Pending
+- **Status:** 🟢 Complete & deployed
 - **Model:** Sonnet 4.6 / Max effort
 - **Depends on:** 10 complete
+- **Began:** 2026-04-30
+- **Completed:** 2026-04-30
 
-**Scope summary:** Translate `en.json` → `it.json` for the Tier 2 allowlist subset only. Translate parent-relevant PDF templates only (receipt, invoice, household-statement, report-card). Add Tier 2 route guard. Add `it-ltr` + `it-mobile` Playwright projects (parent+student). Enable for NHQS.
+**Scope summary:**
 
-### Acceptance / Sections
+- Extend `New Languages/glossary.md` with Standard Italian parent/student-facing school terms, using formal `Lei` for parent-facing copy.
+- Add `apps/web/messages/it.json` for the Tier 2 namespace allowlist only, with no staff/admin/finance/regulatory/back-office namespaces.
+- Add Tier 2 route guard infrastructure so Italian routes are restricted to public, parent, and student surfaces; out-of-scope `/it/...` staff/admin/finance/regulatory/back-office routes redirect to the tenant default locale.
+- Add Italian parent-relevant notification catalogue support.
+- Add Italian parent-relevant PDF/current interim localizer support using the same compatibility path as 07/08/09/10, without implementing the 12.5 PDF architecture gate early.
+- Flip `it.active = true` with `tier: 2` in the i18n registry.
+- Add `it-ltr` + `it-mobile` Playwright/visual/leak coverage for public/parent/student surfaces, plus Tier 2 redirect coverage.
+- Update `docs/architecture/danger-zones.md` with Tier 2 route-guard behaviour and risk.
+- Enable for NHQS via an idempotent `supported_locales` append.
 
-- (populated during execution)
+### Acceptance
+
+- [x] Translation parity 100% against the Tier 2 namespace allowlist only
+- [x] `it.json` contains no out-of-scope/back-office namespaces
+- [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`, `de`, `es`, `ga`, `it`
+- [x] Italian notification catalogue entries parse and render through the shared catalogue path
+- [x] Italian parent-relevant PDF smoke/localizer path passes without introducing the 12.5 PDF catalogue architecture
+- [x] Tier 2 route guard redirects out-of-scope `/it/...` routes to tenant default locale instead of rendering missing-message failures
+- [x] Italian public/parent/student Playwright/visual/leak coverage added, including `it-ltr` and `it-mobile`
+- [x] Full local lint + type-check + regression gates pass
+- [x] Production web build passes
+- [x] NHQS-only `supported_locales` includes `it`
+- [x] CI green; production deploy successful
+- [x] Production verification covers `/it` public flows, authenticated parent/student routes, locale picker, API readback, Tier 2 redirects, visible placeholder/key leaks, overflow, and Sentry
+
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
+
+- Local verification passed 2026-04-30:
+  - `pnpm --filter @school/web test -- translation-parity tier-scopes tier-routes user-menu --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/ui type-check`
+  - `pnpm --filter @school/web lint:ci`
+  - `pnpm --filter @school/ui lint` (existing warning-only UI hardcoded-string baseline remains)
+  - `pnpm prettier --check` on changed files
+  - `git diff --check`
+  - Full pre-push validation hooks passed before each push.
+- Commits:
+  - `55cace17` — `feat(i18n): add Italian Tier 2 locale`
+  - `574b5bc9` — `fix(i18n): localize Tier 2 user role labels`
+  - `c7658aa7` — `test(api): keep prefixed RLS leakage specs serial`
+  - `598e18e3` — `test(api): cap coverage workers`
+  - `970b4498` — `test(api): keep gradebook e2e serial`
+  - `89e31504` — `fix(i18n): suppress Italian Tier 2 shell leaks`
+  - `cc6028ae` — `test(api): keep compliance household e2e serial`
+  - `4af632cd` — `test(api): keep households e2e serial`
+  - `83c26f9f` — `test(api): isolate foundational RLS leakage suite`
+  - `75d4b04d` — `fix(i18n): cover Italian parent timetable`
+  - `7153f9e8` — `fix(i18n): hide staff search on Tier 2 shells`
+- CI / deploy:
+  - Production run `25145595415` succeeded for `55cace17`; completed 2026-04-30 03:33 UTC.
+  - Production run `25146864471` succeeded for `970b4498`; completed 2026-04-30 04:22 UTC.
+  - Production run `25148305513` succeeded for `83c26f9f`; completed 2026-04-30 05:12 UTC.
+  - Production run `25149007715` succeeded for `75d4b04d`; completed 2026-04-30 05:37 UTC.
+  - Final code deploy run `25149686002` succeeded for `7153f9e8`; deploy completed 2026-04-30 06:00 UTC.
+- NHQS rollout:
+  - Production update applied with the idempotent append:
+    `UPDATE tenants SET supported_locales = supported_locales || '{it}'::text[] WHERE slug = 'nhqs' AND NOT 'it' = ANY(supported_locales);`
+  - Database readback: `nhqs|en|en, ar, fr, es, de, ga, it`.
+  - Public API readback from `/api/v1/public/tenants/by-slug/nhqs` returned `supported_locales = ["en","ar","fr","es","de","ga","it"]`.
+- Production verification:
+  - Public `/it/login`, `/it/contact`, and `/it/apply/nhqs` rendered at desktop and mobile widths with `html lang="it"` / `dir="ltr"`.
+  - NHQS parent routes `/it/dashboard/parent`, `/it/parent/household`, and `/it/homework/parent` rendered at desktop/mobile widths with Italian role label `Genitore`.
+  - NHQS student routes `/it/dashboard/student`, `/it/dashboard/student/homework`, and `/it/dashboard/student/timetable` rendered at desktop/mobile widths with Italian role label `Studente`.
+  - Locale picker exposed `Italiano` for authenticated NHQS parent/student users.
+  - Visible leak checks passed: no `MISSING_MESSAGE`, `IntlError`, raw namespace keys, raw permission strings, unresolved ICU placeholders, or horizontal overflow.
+  - Tier 2 shell search/back-office entry point is suppressed for Italian parent/student shells after `7153f9e8`.
+  - Tier 2 redirects verified: `/it/finance/payroll` -> `/en/finance/payroll`; `/it/dashboard/teacher` -> `/en/dashboard/teacher`.
+  - Sentry unresolved issue list was empty; no unresolved `MISSING_MESSAGE` events were present.
+- Evidence:
+  - `0` material Italian overflow issues.
+  - No `New Languages/_evidence/it-overflow-issues.md` file was required or created.
+  - No uncertain Italian string evidence file was required; glossary terms were applied directly.
+- Notes:
+  - `it` is active in the runtime registry as Tier 2, with tenant availability still gated by each tenant's `supported_locales`.
+  - Italian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, and Irish; implementation 12.5 remains the planned architecture gate for first-class PDF message catalogues.
+  - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
 ---
 
