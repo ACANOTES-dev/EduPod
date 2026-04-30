@@ -82,6 +82,18 @@ export default defineConfig({
       },
     },
     {
+      name: 'it-ltr',
+      testMatch: /.*tier2-(parent-student|route-guard)\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: 'it-IT',
+      },
+      metadata: {
+        locale: 'it',
+        direction: 'ltr',
+      },
+    },
+    {
       name: 'mobile-en',
       use: {
         ...devices['iPhone 14'],
@@ -144,6 +156,19 @@ export default defineConfig({
       },
       metadata: {
         locale: 'ga',
+        direction: 'ltr',
+      },
+    },
+    {
+      name: 'it-mobile',
+      testMatch: /.*tier2-(parent-student|route-guard)\.spec\.ts/,
+      use: {
+        ...devices['iPhone 14'],
+        browserName: 'chromium',
+        locale: 'it-IT',
+      },
+      metadata: {
+        locale: 'it',
         direction: 'ltr',
       },
     },

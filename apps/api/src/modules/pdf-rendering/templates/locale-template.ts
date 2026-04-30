@@ -26,6 +26,9 @@ export function renderLegacyLocaleTemplate(
   if (locale === 'ga') {
     return localizeIrishPdfHtml(pair.en(data, branding));
   }
+  if (locale === 'it') {
+    return localizeItalianPdfHtml(pair.en(data, branding));
+  }
   return pair.en(data, branding);
 }
 
@@ -942,6 +945,148 @@ const IRISH_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bDec\b/g, 'Noll.'],
 ];
 
+const ITALIAN_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/<html lang="en" dir="ltr">/g, '<html lang="it" dir="ltr">'],
+  [/to save as PDF/g, 'per salvare come PDF'],
+
+  // Parent/student-facing document titles
+  [/\bAcademic Transcript\b/g, 'Certificato scolastico'],
+  [/\bACCOUNT STATEMENT\b/g, 'ESTRATTO CONTO'],
+  [/\bPAYMENT RECEIPT\b/g, 'RICEVUTA DI PAGAMENTO'],
+  [/\bREPORT CARD\b/g, 'PAGELLA'],
+  [/\bTRANSCRIPT\b/g, 'CERTIFICATO SCOLASTICO'],
+  [/\bINVOICE\b/g, 'FATTURA'],
+  [/\bRECEIPT\b/g, 'RICEVUTA'],
+  [/\bReport Card\b/g, 'Pagella'],
+
+  // Common metadata
+  [/\bGenerated:/g, 'Generato:'],
+  [/\bIssued:/g, 'Emesso:'],
+  [/\bStatement Period:/g, 'Periodo dell’estratto:'],
+  [/\bPeriod:/g, 'Periodo:'],
+  [/\bOpening Balance:/g, 'Saldo iniziale:'],
+  [/\bClosing Balance\b/g, 'Saldo finale'],
+  [/\bAccount Holder\b/g, 'Intestatario conto'],
+  [/\bConfidential\b/g, 'Riservato'],
+  [/\bLogo\b/g, 'Logo'],
+  [
+    /\bThis statement is for informational purposes only\./g,
+    'Questo estratto ha solo finalità informative.',
+  ],
+
+  // People, household, and school fields
+  [/\bStudent Number:/g, 'N. studente:'],
+  [/\bStudent Number\b/g, 'N. studente'],
+  [/\bStudent Name\b/g, 'Nome studente'],
+  [/\bStudent:\b/g, 'Studente:'],
+  [/\bStudent\b/g, 'Studente'],
+  [/\bHousehold #:/g, 'N. nucleo familiare:'],
+  [/\bHousehold:\b/g, 'Nucleo familiare:'],
+  [/\bHousehold\b/g, 'Nucleo familiare'],
+  [/\bBilling Parent:/g, 'Genitore intestatario:'],
+  [/\bName:/g, 'Nome:'],
+  [/\bName\b/g, 'Nome'],
+  [/\bClass:/g, 'Classe:'],
+  [/\bClass\b/g, 'Classe'],
+  [/\bYear Group:/g, 'Classe:'],
+  [/\bYear Group\b/g, 'Classe'],
+  [/\bAcademic Year:/g, 'Anno scolastico:'],
+  [/\bAcademic Year\b/g, 'Anno scolastico'],
+  [/\bSchool Principal\b/g, 'Dirigente scolastico'],
+
+  // Finance labels
+  [/\bBill To\b/g, 'Intestare a'],
+  [/\bAttn:/g, 'Alla cortese attenzione di:'],
+  [/\bInvoice #:/g, 'Fattura n.:'],
+  [/\bReceipt #:/g, 'Ricevuta n.:'],
+  [/\bIssue Date:/g, 'Data di emissione:'],
+  [/\bDue Date:/g, 'Scadenza:'],
+  [/\bStatus:/g, 'Stato:'],
+  [/\bPayment History\b/g, 'Storico pagamenti'],
+  [/\bPayment Ref:/g, 'Rif. pagamento:'],
+  [/\bPayment\b/g, 'Pagamento'],
+  [/\bMethod:/g, 'Metodo:'],
+  [/\bOnline \(Stripe\)/g, 'Online (Stripe)'],
+  [/\bCash\b/g, 'Contanti'],
+  [/\bBank Transfer\b/g, 'Bonifico bancario'],
+  [/\bCard \(Manual\)/g, 'Carta (manuale)'],
+  [/\bReference\b/g, 'Riferimento'],
+  [/\bDescription\b/g, 'Descrizione'],
+  [/\bQty\b/g, 'Q.tà'],
+  [/\bQuantity\b/g, 'Quantità'],
+  [/\bUnit Price\b/g, 'Prezzo unitario'],
+  [/\bSubtotal:/g, 'Subtotale:'],
+  [/\bDiscount:/g, 'Sconto:'],
+  [/\bAmount Paid:/g, 'Importo pagato:'],
+  [/\bBalance Before:/g, 'Saldo precedente:'],
+  [/\bBalance Due:/g, 'Saldo dovuto:'],
+  [/\bBalance\b/g, 'Saldo'],
+  [/\bRemaining After:/g, 'Saldo residuo:'],
+  [/\bApplied To:/g, 'Applicato a:'],
+  [/\bOutstanding Before:/g, 'In sospeso prima:'],
+  [/\bTotal:/g, 'Totale:'],
+  [/\bAmount\b/g, 'Importo'],
+  [/\bDebit\b/g, 'Addebito'],
+  [/\bCredit Note\b/g, 'Nota di credito'],
+  [/\bCredit\b/g, 'Credito'],
+  [/\bAllocation\b/g, 'Allocazione'],
+  [/\bRefund\b/g, 'Rimborso'],
+  [/\bWrite-off\b/g, 'Stralcio'],
+  [/\bDate\b/g, 'Data'],
+  [/\bType\b/g, 'Tipo'],
+
+  // Academic labels
+  [/\bAttendance Summary\b/g, 'Riepilogo frequenza'],
+  [/\bTotal Days\b/g, 'Giorni totali'],
+  [/\bPresent\b/g, 'Presente'],
+  [/\bAbsent\b/g, 'Assente'],
+  [/\bLate\b/g, 'In ritardo'],
+  [/\bTeacher Comments\b/g, 'Commenti degli insegnanti'],
+  [/\bPrincipal Comments\b/g, 'Commenti del dirigente scolastico'],
+  [/\bSubject\b/g, 'Materia'],
+  [/\bScore \(%\)/g, 'Punteggio (%)'],
+  [/\bScore\b/g, 'Punteggio'],
+  [/\bGrade\b/g, 'Voto'],
+  [/\bNo academic records available\./g, 'Nessun risultato scolastico disponibile.'],
+
+  // Status values
+  [/\bPending Approval\b/g, 'In attesa di approvazione'],
+  [/\bPending\b/g, 'In attesa'],
+  [/\bPartially Paid\b/g, 'Parzialmente pagato'],
+  [/\bWritten Off\b/g, 'Stralciato'],
+  [/\bDraft\b/g, 'Bozza'],
+  [/\bIssued\b/g, 'Emesso'],
+  [/\bPaid\b/g, 'Pagato'],
+  [/\bOverdue\b/g, 'Scaduto'],
+  [/\bVoid\b/g, 'Annullato'],
+  [/\bCancelled\b/g, 'Cancellato'],
+
+  // Month names emitted by existing English date formatters.
+  [/\bJanuary\b/g, 'gennaio'],
+  [/\bFebruary\b/g, 'febbraio'],
+  [/\bMarch\b/g, 'marzo'],
+  [/\bApril\b/g, 'aprile'],
+  [/\bMay\b/g, 'maggio'],
+  [/\bJune\b/g, 'giugno'],
+  [/\bJuly\b/g, 'luglio'],
+  [/\bAugust\b/g, 'agosto'],
+  [/\bSeptember\b/g, 'settembre'],
+  [/\bOctober\b/g, 'ottobre'],
+  [/\bNovember\b/g, 'novembre'],
+  [/\bDecember\b/g, 'dicembre'],
+  [/\bJan\b/g, 'gen'],
+  [/\bFeb\b/g, 'feb'],
+  [/\bMar\b/g, 'mar'],
+  [/\bApr\b/g, 'apr'],
+  [/\bJun\b/g, 'giu'],
+  [/\bJul\b/g, 'lug'],
+  [/\bAug\b/g, 'ago'],
+  [/\bSep\b/g, 'set'],
+  [/\bOct\b/g, 'ott'],
+  [/\bNov\b/g, 'nov'],
+  [/\bDec\b/g, 'dic'],
+];
+
 function localizeFrenchPdfHtml(html: string): string {
   return FRENCH_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
@@ -965,6 +1110,13 @@ function localizeSpanishPdfHtml(html: string): string {
 
 function localizeIrishPdfHtml(html: string): string {
   return IRISH_PDF_REPLACEMENTS.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, replacement),
+    html,
+  );
+}
+
+function localizeItalianPdfHtml(html: string): string {
+  return ITALIAN_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );

@@ -5,7 +5,7 @@ import {
 
 describe('notification message catalogue', () => {
   it('lists shipped notification catalogues', () => {
-    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'de', 'en', 'es', 'fr', 'ga']);
+    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'de', 'en', 'es', 'fr', 'ga', 'it']);
   });
 
   it('returns raw Handlebars templates unchanged', () => {
@@ -48,9 +48,21 @@ describe('notification message catalogue', () => {
     );
   });
 
-  it('throws when the locale catalogue is missing', () => {
+  it('resolves t-prefixed Italian parent-facing keys', () => {
+    expect(
+      resolveNotificationTemplateSource('t:admissions_application_received.email.subject', 'it'),
+    ).toBe('Domanda ricevuta — {{school_name}}');
+  });
+
+  it('keeps Italian limited to the parent-relevant catalogue subset', () => {
     expect(() =>
       resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'it'),
+    ).toThrow(/MISSING_NOTIFICATION_MESSAGE/);
+  });
+
+  it('throws when the locale catalogue is missing', () => {
+    expect(() =>
+      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'ro'),
     ).toThrow(/MISSING_NOTIFICATION_LOCALE/);
   });
 

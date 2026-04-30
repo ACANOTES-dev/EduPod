@@ -2,7 +2,21 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; six new DZ-Comms entries added covering tenant credential cache coherence, mid-flight `is_enabled` flips, webhook signature trust, suppression-list growth, WhatsApp service window staleness, and the one-way `.env` removal)
+> **Last verified**: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering.
+
+---
+
+## DZ-i18n-1: Tier 2 Locale Route Guard Must Run Before Message Loading
+
+**Risk**: Active Tier 2 locales intentionally ship only parent, student, and public message namespaces. If a staff/admin/finance/regulatory/back-office path such as `/it/finance/payroll` reaches the normal Next.js render path, next-intl can throw a missing-message 500 instead of giving the user a usable tenant-default route.
+**Location**: `apps/web/src/middleware.ts`, `apps/web/src/middleware/tier2-route-guard.ts`, `apps/web/i18n/tier-routes.ts`, `apps/web/i18n/tier-scopes.ts`
+**Status**: ACTIVE (Italian Tier 2 launch, 2026-04-30)
+
+The middleware-level Tier 2 guard must execute before the `next-intl` middleware. For active Tier 2 locales it allows only the parent/student/public route scope and redirects anything else to the tenant default locale from the `tenant_default_locale` cookie, falling back to `en` when that cookie is unavailable. The redirect keeps the original path; only the locale segment changes.
+
+**Rule**: Any new parent/student/public route added for a Tier 2 locale must update both route scope (`tier-routes.ts`) and namespace scope (`tier-scopes.ts`) in the same change. Any new staff/admin/back-office route must remain out of Tier 2 scope so it redirects instead of requiring translated back-office messages.
+
+**Regression tests**: `apps/web/src/__tests__/i18n/tier-routes.spec.ts` covers path classification, and the Italian Playwright route-guard coverage verifies `/it/<out-of-scope-route>` redirects to the tenant default locale.
 
 ---
 

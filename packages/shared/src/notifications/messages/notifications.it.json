@@ -1,0 +1,44 @@
+{
+  "admissions_application_received": {
+    "email": {
+      "subject": "Domanda ricevuta — {{school_name}}",
+      "body": "<p>Gentile genitore,</p><p>grazie per aver inviato la domanda a <strong>{{school_name}}</strong>. Abbiamo ricevuto quanto segue:</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>Può seguire l'avanzamento della domanda accedendo al portale genitori.</p><p>Grazie,<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "Domanda ritirata — {{student_name}}",
+      "body": "<p>Gentile genitore,</p><p>confermiamo che la domanda per <strong>{{student_name}}</strong> (n. domanda <strong>{{application_number}}</strong>) presso <strong>{{school_name}}</strong> è stata ritirata.</p><p>Se non ha richiesto Lei questo ritiro o ritiene che sia stato effettuato per errore, contatti l'ufficio ammissioni della scuola.</p><p>Grazie,<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "Nuovo annuncio: {{title}}",
+      "body": "Gentile {{recipient_name}},\n\nè stato pubblicato un nuovo annuncio:\n\n**{{title}}**\n\n{{body}}\n\nQuesto annuncio proviene da {{school_name}}.\n\nCordiali saluti,\nIl team di {{school_name}}"
+    },
+    "in_app": {
+      "body": "Nuovo annuncio: {{title}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "Nuovo messaggio da {{sender_name}}",
+      "body": "<p>Ha un messaggio non letto da <strong>{{sender_name}}</strong> nella posta scolastica.</p><blockquote>{{snippet}}</blockquote><p>Apra la posta per leggere il messaggio completo e rispondere, se le risposte sono abilitate.</p>"
+    },
+    "whatsapp": {
+      "body": "*Nuovo messaggio da {{sender_name}}*\n\n{{snippet}}\n\nApra la posta scolastica per leggere il messaggio completo e rispondere."
+    },
+    "sms": {
+      "body": "{{sender_name}}: {{snippet}} — Apra la posta scolastica per leggere il messaggio completo e rispondere."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "Nuovo messaggio sulla Sua richiesta: {{subject}}",
+      "body": "Gentile {{recipient_name}},\n\nha ricevuto un nuovo messaggio sulla Sua richiesta \"{{subject}}\":\n\n{{message}}\n\nAcceda al portale genitori per rispondere.\n\nCordiali saluti,\nIl team di {{school_name}}"
+    },
+    "in_app": {
+      "body": "Nuovo messaggio sulla richiesta: {{subject}}"
+    }
+  }
+}

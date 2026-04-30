@@ -165,8 +165,32 @@ describe('PdfRenderingService', () => {
     expect(result).not.toContain('INVOICE');
   });
 
+  it('should render German through the LTR German localiser', () => {
+    const result = service.renderHtml('invoice', 'de', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('RECHNUNG');
+    expect(result).not.toContain('INVOICE');
+  });
+
+  it('should render Irish through the LTR Irish localiser', () => {
+    const result = service.renderHtml('invoice', 'ga', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('SONRASC');
+    expect(result).not.toContain('INVOICE');
+  });
+
+  it('should render Italian through the LTR Italian localiser', () => {
+    const result = service.renderHtml('invoice', 'it', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('FATTURA');
+    expect(result).not.toContain('INVOICE');
+  });
+
   it('should throw InternalServerErrorException for unsupported locale', () => {
-    expect(() => service.renderHtml('invoice', 'ga', {}, BRANDING)).toThrow(
+    expect(() => service.renderHtml('invoice', 'ro', {}, BRANDING)).toThrow(
       InternalServerErrorException,
     );
   });

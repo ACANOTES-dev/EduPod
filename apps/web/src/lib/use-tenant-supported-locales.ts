@@ -28,6 +28,9 @@ export function useTenantSupportedLocales(): {
         const result = await apiClient<TenantLocaleConfig>('/api/v1/tenants/me');
         if (!cancelled) {
           setConfig(result);
+          document.cookie = `tenant_default_locale=${encodeURIComponent(
+            result.default_locale,
+          )}; path=/; max-age=2592000; samesite=lax`;
         }
       } catch (err) {
         console.error('[useTenantSupportedLocales]', err);

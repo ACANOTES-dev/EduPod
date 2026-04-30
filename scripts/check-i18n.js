@@ -16,21 +16,39 @@ function readActiveLocales() {
   const registryPath = path.join(REPO_ROOT, 'apps', 'web', 'i18n', 'registry.ts');
   const registrySource = fs.readFileSync(registryPath, 'utf8');
   const entries = [];
-  const entryPattern = /code:\s*'([a-z]{2,5})'[\s\S]*?active:\s*(true|false)/g;
+  const entryPattern = /code:\s*'([a-z]{2,5})'[\s\S]*?tier:\s*(1|2)[\s\S]*?active:\s*(true|false)/g;
   let match;
 
   while ((match = entryPattern.exec(registrySource)) !== null) {
-    entries.push({ active: match[2] === 'true', code: match[1] });
+    entries.push({ active: match[3] === 'true', code: match[1], tier: Number(match[2]) });
   }
 
-  return entries.filter((entry) => entry.active).map((entry) => entry.code);
+  return entries.filter((entry) => entry.active);
+}
+
+function readTier2Namespaces() {
+  const scopePath = path.join(REPO_ROOT, 'apps', 'web', 'i18n', 'tier-scopes.ts');
+  const scopeSource = fs.readFileSync(scopePath, 'utf8');
+  const entries = [];
+  const entryPattern = /^\s*'([^']+)',/gm;
+  let match;
+
+  while ((match = entryPattern.exec(scopeSource)) !== null) {
+    entries.push(match[1]);
+  }
+
+  return entries;
+}
+
+function isInTier2Scope(key, tier2Namespaces) {
+  return tier2Namespaces.some((namespace) => key === namespace || key.startsWith(`${namespace}.`));
 }
 
 function buildLocaleFiles() {
   return Object.fromEntries(
-    readActiveLocales().map((locale) => [
-      locale,
-      path.join(REPO_ROOT, 'apps', 'web', 'messages', `${locale}.json`),
+    readActiveLocales().map((entry) => [
+      entry.code,
+      path.join(REPO_ROOT, 'apps', 'web', 'messages', `${entry.code}.json`),
     ]),
   );
 }
@@ -252,19 +270,16 @@ function collectTranslatorBindings(sourceFile) {
   };
 }
 
-function compareLocaleParity(localeMaps) {
+function compareLocaleParity(localeMaps, activeLocales, tier2Namespaces) {
   const missingByLocale = new Map();
-  const allKeys = new Set();
-
-  Object.values(localeMaps).forEach((messagesMap) => {
-    messagesMap.forEach((_, key) => {
-      allKeys.add(key);
-    });
-  });
+  const enKeys = [...(localeMaps.en?.keys() ?? [])].sort();
 
   for (const [locale, messagesMap] of Object.entries(localeMaps)) {
+    const entry = activeLocales.find((candidate) => candidate.code === locale);
+    const expectedKeys =
+      entry?.tier === 2 ? enKeys.filter((key) => isInTier2Scope(key, tier2Namespaces)) : enKeys;
     const missingKeys = [];
-    for (const key of allKeys) {
+    for (const key of expectedKeys) {
       if (!messagesMap.has(key)) {
         missingKeys.push(key);
       }
@@ -289,6 +304,8 @@ function diffValues(currentValues, baselineValues) {
 
 function main() {
   const shouldWriteBaseline = process.argv.includes('--write-baseline');
+  const activeLocales = readActiveLocales();
+  const tier2Namespaces = readTier2Namespaces();
   const localeFiles = buildLocaleFiles();
   const localeMaps = Object.fromEntries(
     Object.entries(localeFiles).map(([locale, filePath]) => [
@@ -323,9 +340,18 @@ function main() {
   }
 
   const missingByLocale = new Map();
+  const englishMessagesMap = localeMaps.en ?? new Map();
   for (const [locale, messagesMap] of Object.entries(localeMaps)) {
+    const entry = activeLocales.find((candidate) => candidate.code === locale);
     const missingKeys = [];
     for (const [key, usage] of usedKeys.entries()) {
+      if (entry?.tier === 2 && !isInTier2Scope(key, tier2Namespaces)) {
+        continue;
+      }
+      if (entry?.tier === 2 && !englishMessagesMap.has(key)) {
+        continue;
+      }
+
       if (!messagesMap.has(key)) {
         missingKeys.push({ key, usage });
       }
@@ -337,7 +363,7 @@ function main() {
     );
   }
 
-  const parityGaps = compareLocaleParity(localeMaps);
+  const parityGaps = compareLocaleParity(localeMaps, activeLocales, tier2Namespaces);
   const currentSnapshot = {
     missingReferencedKeys: Object.fromEntries(
       [...missingByLocale.entries()].map(([locale, values]) => [
