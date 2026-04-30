@@ -64,6 +64,7 @@ export const TIER_2_NAMESPACES: readonly string[] = [
   'parentSelfReferral',
 
   // Parent/student data lookups
+  'parent',
   'parents',
   'students',
   'households',

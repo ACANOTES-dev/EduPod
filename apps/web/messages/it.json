@@ -1877,6 +1877,25 @@
     "submittedBody": "Abbiamo ricevuto la Sua preoccupazione. Il capo pastorale vi contatterà entro 48 ore.",
     "errorGeneric": "Non potevo sottometterlo. Per favore riprovate."
   },
+  "parent": {
+    "household": {
+      "loading": "Caricamento del nucleo familiare...",
+      "notFound": "Nessun nucleo familiare trovato",
+      "notFoundDescription": "Non abbiamo trovato un nucleo familiare collegato al Suo account genitore.",
+      "subtitle": "Gestisca le lingue usate per le comunicazioni del nucleo familiare.",
+      "localePreferences": {
+        "title": "Lingue di comunicazione",
+        "optInLabel": "Inviare le comunicazioni in due lingue",
+        "optInHint": "Se attivata, le comunicazioni ai genitori vengono inviate nella Sua lingua abituale e nella seconda lingua indicata sotto.",
+        "secondaryLocaleLabel": "Seconda lingua",
+        "none": "Nessuna seconda lingua",
+        "save": "Salva",
+        "saving": "Salvataggio...",
+        "saved": "Lingue di comunicazione salvate.",
+        "saveError": "Impossibile salvare le lingue di comunicazione."
+      }
+    }
+  },
   "parents": {
     "title": "Genitori",
     "firstName": "Nome",

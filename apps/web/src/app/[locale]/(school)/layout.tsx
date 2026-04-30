@@ -33,6 +33,8 @@ import { RequireAuth, useAuth } from '@/providers/auth-provider';
 import { ExamSolverProgressProvider } from '@/providers/exam-solver-progress-provider';
 import { SolverProgressProvider } from '@/providers/solver-progress-provider';
 
+import { getLocaleEntry } from '../../../../i18n/registry';
+
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 import { InboxPollingProvider } from './_providers/inbox-polling-provider';
 
@@ -137,6 +139,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   // Determine active hub
   const locale = (pathname ?? '').split('/')[1] ?? 'en';
   const currentPathWithoutLocale = (pathname ?? '').replace(new RegExp(`^/${locale}`), '') || '/';
+  const isTier2Locale = getLocaleEntry(locale)?.tier === 2;
 
   const activeHub = React.useMemo(() => {
     for (const hub of hubConfigs) {
@@ -262,7 +265,9 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
 
             <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
             <ToastProvider />
-            <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+            {!isTier2Locale && (
+              <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+            )}
             <MobileNavOverlay
               open={mobileNavOpen}
               onClose={() => setMobileNavOpen(false)}
@@ -275,8 +280,12 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
                 setCommandPaletteOpen(true);
               }}
             />
-            <SolverProgressWidget />
-            <ExamSolverProgressWidget />
+            {!isTier2Locale && (
+              <>
+                <SolverProgressWidget />
+                <ExamSolverProgressWidget />
+              </>
+            )}
           </ExamSolverProgressProvider>
         </SolverProgressProvider>
       </InboxPollingProvider>
