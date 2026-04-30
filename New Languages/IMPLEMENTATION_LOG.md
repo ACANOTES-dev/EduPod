@@ -35,7 +35,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 07   | 4 — Tier 1             | `implementations/07-french.md`                               | French (`fr`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 08   | 4 — Tier 1             | `implementations/08-spanish.md`                              | Spanish (`es`) full catalogue + Playwright | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 09   | 4 — Tier 1             | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
-| 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | ⚪ Pending             | Opus 4.7   | Max      |
+| 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | ⚪ Pending             | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending             | Opus 4.7   | High     |
 | 12.5 | 5.5 — PDF Architecture | `(to author) implementations/12.5-pdf-message-catalogues.md` | PDF templates: per-template catalogues     | ⚪ Pending             | GPT-5.5    | Max      |
@@ -609,15 +609,87 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 10 — Irish (`ga`)
 
 - **Spec:** `implementations/10-irish.md`
-- **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / **Max effort**
+- **Status:** 🟢 Complete & deployed
+- **Model:** GPT-5.5 / **Max effort**
 - **Depends on:** 09 complete (recommended last so glossary is well-developed)
+- **Began:** 2026-04-30
+- **Completed:** 2026-04-30
 
-**Scope summary:** Same shape as 07/08/09. Smaller AI training corpus + irregular grammar = highest QA risk in Tier 1. Maintain `ga-review-queue.md` for post-launch native-speaker QA.
+**Scope summary:**
 
-### Acceptance / Sections
+- Extend `New Languages/glossary.md` with Irish / An Caighdeán Oifigiúil school terms.
+- Translate `en.json` → `ga.json` (full active web catalogue; Standard Irish, placeholders and ICU syntax preserved).
+- Translate notification catalogue entries into `notifications.ga.json`.
+- Enable Irish PDF rendering through the current locale-template architecture with Irish label/date/status localization.
+- Flip `ga.active = true` in registry.
+- Add `ga-ltr` + `ga-mobile` Playwright projects plus Irish public visual/leak smoke baselines.
+- Maintain `New Languages/_evidence/ga-review-queue.md` aggressively for native-speaker review.
+- Enable for NHQS via an idempotent `supported_locales` append.
 
-- (populated during execution)
+### Acceptance
+
+- [x] Translation parity 100% against `en.json`
+- [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`, `de`, `es`, `ga`
+- [x] Public `[ga]` login/contact visual + visible-text leak smoke passes
+- [x] Notification dispatch and catalogue fallback tests pass
+- [x] PDF Irish smoke path passes
+- [x] Full local lint + type-check + regression tests pass
+- [x] Production web build passes
+- [x] Public en + ar + fr + de + es + ga visual smoke remains clean
+- [x] NHQS-only `supported_locales` includes `ga`
+- [x] CI green; production deploy successful
+- [x] Irish review queue recorded
+- [x] Irish overflow ledger recorded
+
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
+
+- Local verification passed 2026-04-30:
+  - `pnpm --filter @school/web test -- translation-parity --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/shared test -- notification-message-catalogue --runInBand`
+  - `pnpm --filter @school/api test -- locale-template --runInBand`
+  - `pnpm --filter @school/web test -- registry --runInBand`
+  - `pnpm --filter @school/shared test -- locale-codes --runInBand`
+  - `pnpm --filter @school/api test -- template-renderer.service notification-templates.service pdf-rendering.service --runInBand`
+  - `pnpm --filter @school/worker test -- dispatch-notifications --runInBand`
+  - `pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts --update-snapshots`
+  - `CI=1 pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts --grep "@locale-leak ga"`
+  - `CI=1 pnpm --filter @school/web exec playwright test --config e2e/playwright.visual-smoke.config.ts`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm build`
+  - Placeholder/ICU/Handlebars parity sweep
+  - `git diff --check`
+  - `pnpm exec prettier --write` on changed files
+  - Full pre-push hook passed before push.
+- Commits:
+  - `3d163629` — `feat(i18n): add Irish locale`
+  - `ee376cb8` — `test(api): run invitations e2e serially`
+- CI / deploy:
+  - Production run `25142563592` succeeded.
+  - Deploy completed 2026-04-30 01:38 UTC.
+- NHQS rollout:
+  - Production update applied 2026-04-30 01:45 UTC.
+  - Readback: `nhqs.supported_locales = {en,ar,fr,es,de,ga}`.
+- Production verification:
+  - Public `/ga` redirected to `/ga/login`; `/ga/login` and `/ga/contact` rendered at desktop and mobile widths with `html lang="ga"` / `dir="ltr"` and no visible placeholder leaks.
+  - NHQS owner login succeeded on `/ga/login`; `/ga/dashboard` and `/ga/profile` rendered in Irish at desktop and mobile widths with no visible placeholder leaks.
+  - User-menu language picker showed `en`, `ar`, `ga`, `fr`, `de`, and `es` for NHQS after the tenant flip, including `gaGaeilge`.
+  - API readback from `/api/v1/tenants/me` returned `supported_locales = ["en","ar","fr","es","de","ga"]`.
+  - Sentry unresolved issue list was empty; no `MISSING_MESSAGE` events were present.
+- Irish review queue:
+  - `New Languages/_evidence/ga-review-queue.md`
+  - `2800` queued strings for native Irish speaker review (`2696` web, `104` notification strings).
+- Irish overflow ledger:
+  - `0` unresolved Irish overflow issues.
+  - No `New Languages/_evidence/ga-overflow-issues.md` file was required or created.
+  - Visual inspection covered desktop/mobile Irish snapshots, including accented/precomposed characters (`É`, `Á`, `Í`, `Ó`, `Ú`); no Irish-specific overflow was found.
+- Notes:
+  - `ga` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
+  - Irish PDF rendering follows the same interim compatibility-localizer path as French, Spanish, and German; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
+  - The local pre-push hook initially exposed `test/invitations.e2e-spec.ts` as an integration collider under parallel execution; the same spec passed directly with `--runInBand`, then it was added to the serial collider group and the full pre-push hook passed.
+  - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
 ---
 
@@ -708,7 +780,7 @@ Per locale, after NHQS QA passes:
 
 | Locale       | Tenant          | Date enabled                 | Operator | Notes              |
 | ------------ | --------------- | ---------------------------- | -------- | ------------------ |
-| ga           | nhqs            | (pending 10 completion)      | —        | Pilot tenant       |
+| ga           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
 | fr           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | de           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
 | es           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
@@ -722,13 +794,13 @@ Per locale, after NHQS QA passes:
 ## Summary metrics (live)
 
 - **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 9
+- **Implementations complete:** 10
 - **Implementations in progress:** 0
-- **Implementations pending:** 5
+- **Implementations pending:** 4
 - **Implementations blocked:** 0
-- **Languages live (NHQS):** en, ar, fr, es, de
+- **Languages live (NHQS):** en, ar, fr, es, de, ga
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es active; remaining locales pending
+- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; remaining locales pending
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 
