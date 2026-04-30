@@ -85,6 +85,27 @@ describe('renderLegacyLocaleTemplate', () => {
     expect(html).not.toContain('Bill To');
   });
 
+  it('localises the English LTR template for ga', () => {
+    const html = renderLegacyLocaleTemplate(
+      'ga',
+      {
+        en: () =>
+          '<html lang="en" dir="ltr"><body><h1>INVOICE</h1><p>Bill To</p><p>Status: Partially Paid</p><p>Generated: 29 Apr 2026 &mdash; Confidential</p></body></html>',
+        ar: () => '<html lang="ar" dir="rtl"><body>فاتورة</body></html>',
+      },
+      {},
+      BRANDING,
+    );
+
+    expect(html).toContain('lang="ga"');
+    expect(html).toContain('SONRASC');
+    expect(html).toContain('Bille chuig');
+    expect(html).toContain('Stádas: Íoctha go páirteach');
+    expect(html).toContain('Ginte: 29 Aib. 2026 &mdash; Rúnda');
+    expect(html).not.toContain('INVOICE');
+    expect(html).not.toContain('Bill To');
+  });
+
   it('uses English unchanged for en', () => {
     const html = renderLegacyLocaleTemplate(
       'en',

@@ -1,0 +1,286 @@
+{
+  "absence_admin_notice": {
+    "email": {
+      "subject": "Tá {{reporter_name}} as láthair",
+      "body": "Thuairiscigh {{reporter_name}} neamhláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}}. {{#if nominated_substitute}}Tairgeadh clúdach díreach do {{nominated_substitute}}.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Thuairiscigh {{reporter_name}} neamhláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}}. {{#if nominated_substitute}}Tairgeadh clúdach díreach do {{nominated_substitute}}.{{/if}}"
+    },
+    "in_app": {
+      "subject": "Tá {{reporter_name}} as láthair",
+      "body": "Thuairiscigh {{reporter_name}} neamhláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}}. {{#if nominated_substitute}}Tairgeadh clúdach díreach do {{nominated_substitute}}.{{/if}}"
+    },
+    "sms": {
+      "body": "Thuairiscigh {{reporter_name}} neamhláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}}. {{#if nominated_substitute}}Tairgeadh clúdach díreach do {{nominated_substitute}}.{{/if}}"
+    }
+  },
+  "absence_cancelled": {
+    "email": {
+      "subject": "Neamhláithreacht cealaithe",
+      "body": "Tá neamhláithreacht {{reporter_name}} curtha ar ceal. Tá aon chlúdach sannta scaoilte."
+    },
+    "whatsapp": {
+      "body": "Tá neamhláithreacht {{reporter_name}} curtha ar ceal. Tá aon chlúdach sannta scaoilte."
+    },
+    "in_app": {
+      "subject": "Neamhláithreacht cealaithe",
+      "body": "Tá neamhláithreacht {{reporter_name}} curtha ar ceal. Tá aon chlúdach sannta scaoilte."
+    },
+    "sms": {
+      "body": "Tá neamhláithreacht {{reporter_name}} curtha ar ceal. Tá aon chlúdach sannta scaoilte."
+    }
+  },
+  "absence_self_reported_confirmation": {
+    "email": {
+      "subject": "Neamhláithreacht tuairiscithe",
+      "body": "Tá d'asláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}} logáilte. {{#if nominated_substitute}}Tá an clúdach tairgthe againn do {{nominated_substitute}}.{{else}}Tá clúdach á fháil againn anois.{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Tá d'asláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}} logáilte. {{#if nominated_substitute}}Tá an clúdach tairgthe againn do {{nominated_substitute}}.{{else}}Tá clúdach á fháil againn anois.{{/if}}"
+    },
+    "in_app": {
+      "subject": "Neamhláithreacht tuairiscithe",
+      "body": "Tá d'asláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}} logáilte. {{#if nominated_substitute}}Tá an clúdach tairgthe againn do {{nominated_substitute}}.{{else}}Tá clúdach á fháil againn anois.{{/if}}"
+    },
+    "sms": {
+      "body": "Tá d'asláithreacht ó {{date_from}}{{#if date_to}} go {{date_to}}{{/if}} logáilte. {{#if nominated_substitute}}Tá an clúdach tairgthe againn do {{nominated_substitute}}.{{else}}Tá clúdach á fháil againn anois.{{/if}}"
+    }
+  },
+  "admissions_application_received": {
+    "email": {
+      "subject": "Iarratas Faighte - {{school_name}}",
+      "body": "<p>A Thuismitheoir,</p><p>Go raibh maith agat as d’iarratas a chur isteach chuig <strong>{{school_name}}</strong>. Tá an méid seo a leanas faighte againn:</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>Is féidir leat dul chun cinn d’iarratais a rianú trí logáil isteach i dtairseach na dtuismitheoirí.</p><p>Go raibh maith agat,<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "Iarratas Aistarraingthe — {{student_name}}",
+      "body": "<p>A Thuismitheoir,</p><p>Deimhnítear leis seo go bhfuil an t-iarratas ar <strong>{{student_name}}</strong> (Iarratas Uimh. <strong>{{application_number}}</strong>) ag <strong>{{school_name}}</strong> aistarraingthe.</p><p>Mura ndearna tú an aistarraingt seo nó má cheapann tú gur botún a bhí ann, déan teagmháil le hoifig iontrála na scoile le do thoil.</p><p>Go raibh maith agat,<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "Fógra Nua: {{title}}",
+      "body": "A chara {{recipient_name}},\n\nTá fógra nua foilsithe:\n\n**{{title}}**\n\n{{body}}\n\nTháinig an fógra seo ó {{school_name}}.\n\nMaidir,\nFoireann {{school_name}}"
+    },
+    "in_app": {
+      "body": "Fógra nua: {{title}}"
+    }
+  },
+  "approval_decided": {
+    "email": {
+      "subject": "Cuireadh d'iarratas {{decision}}: {{action_type}}",
+      "body": "A chara {{recipient_name}},\n\nIs é **{{decision}}** d'iarratas ar \"{{action_type}}\".\n\n** Arna chinneadh ag:** {{approver_name}}\n**Nóta:** {{comment}}\n\nMaidir,\n{{school_name}} Foireann"
+    },
+    "in_app": {
+      "body": "Ba é {{decision}} d'iarratas \"{{action_type}}\" le {{approver_name}}"
+    }
+  },
+  "approval_requested": {
+    "email": {
+      "subject": "Faomhadh ag Teastáil: {{action_type}}",
+      "body": "A chara {{recipient_name}},\n\nTá do cheadú ag teastáil le haghaidh na nithe seo a leanas:\n\n**Gníomh:** {{action_type}}\n** Arna iarraidh ag:** {{requester_name}}\n**Cúis:** {{reason}}\n\nLogáil isteach chun an t-iarratas seo a athbhreithniú agus a cheadú nó a dhiúltú.\n\nMaidir,\nFoireann {{school_name}}"
+    },
+    "in_app": {
+      "body": "Faomhadh iarrtha: {{action_type}} le {{requester_name}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "Teachtaireacht nua ó {{sender_name}}",
+      "body": "<p>Tá teachtaireacht neamhléite agat ó <strong>{{sender_name}}</strong> i mbosca isteach do scoile.</p><blockquote>{{snippet}}</blockquote><p>Oscail do bhosca isteach chun an teachtaireacht iomlán a léamh agus freagair má tá freagraí cumasaithe.</p>"
+    },
+    "whatsapp": {
+      "body": "*Teachtaireacht nua ó {{sender_name}}*\n\n{{snippet}}\n\nOscail do bhosca isteach scoile chun an teachtaireacht iomlán a léamh agus chun freagra a thabhairt."
+    },
+    "sms": {
+      "body": "{{sender_name}}: {{snippet}} — Oscail do bhosca isteach scoile chun an teachtaireacht iomlán a léamh agus freagra a thabhairt."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "Teachtaireacht nua ar d'fhiosrúchán: {{subject}}",
+      "body": "A chara {{recipient_name}},\n\nTá teachtaireacht nua faighte agat ar d'fhiosrúchán \"{{subject}}\":\n\n{{message}}\n\nLogáil isteach ar thairseach na dtuismitheoirí chun freagra a thabhairt.\n\nMaidir,\n{{school_name}} Foireann"
+    },
+    "in_app": {
+      "body": "Teachtaireacht nua faoi fhiosrúchán: {{subject}}"
+    }
+  },
+  "leave_request_approved": {
+    "email": {
+      "subject": "Saoire ceadaithe",
+      "body": "Tá d’iarratas saoire ceadaithe ag {{reviewer_name}}.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Tá d’iarratas saoire ceadaithe ag {{reviewer_name}}.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Saoire ceadaithe",
+      "body": "Tá d’iarratas saoire ceadaithe ag {{reviewer_name}}.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Tá d’iarratas saoire ceadaithe ag {{reviewer_name}}.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_rejected": {
+    "email": {
+      "subject": "Diúltaíodh don iarratas saoire",
+      "body": "Dhiúltaigh {{reviewer_name}} do d’iarratas saoire.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "whatsapp": {
+      "body": "Dhiúltaigh {{reviewer_name}} do d’iarratas saoire.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "in_app": {
+      "subject": "Diúltaíodh don iarratas saoire",
+      "body": "Dhiúltaigh {{reviewer_name}} do d’iarratas saoire.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    },
+    "sms": {
+      "body": "Dhiúltaigh {{reviewer_name}} do d’iarratas saoire.{{#if review_notes}} Nótaí: {{review_notes}}{{/if}}"
+    }
+  },
+  "leave_request_submitted": {
+    "email": {
+      "subject": "Iarratas saoire: {{requester_name}}",
+      "body": "Chuir {{requester_name}} iarratas {{leave_label}} isteach ó {{date_from}} go {{date_to}}. Déan athbhreithniú le do thoil."
+    },
+    "whatsapp": {
+      "body": "Chuir {{requester_name}} iarratas {{leave_label}} isteach ó {{date_from}} go {{date_to}}. Déan athbhreithniú le do thoil."
+    },
+    "in_app": {
+      "subject": "Iarratas saoire: {{requester_name}}",
+      "body": "Chuir {{requester_name}} iarratas {{leave_label}} isteach ó {{date_from}} go {{date_to}}. Déan athbhreithniú le do thoil."
+    },
+    "sms": {
+      "body": "Chuir {{requester_name}} iarratas {{leave_label}} isteach ó {{date_from}} go {{date_to}}. Déan athbhreithniú le do thoil."
+    }
+  },
+  "substitution_accepted": {
+    "email": {
+      "subject": "Clúdach deimhnithe: {{substitute_name}}",
+      "body": "Ghlac {{substitute_name}} le clúdach {{reporter_name}} ar {{absence_date}}."
+    },
+    "whatsapp": {
+      "body": "Ghlac {{substitute_name}} le clúdach {{reporter_name}} ar {{absence_date}}."
+    },
+    "in_app": {
+      "subject": "Clúdach deimhnithe: {{substitute_name}}",
+      "body": "Ghlac {{substitute_name}} le clúdach {{reporter_name}} ar {{absence_date}}."
+    },
+    "sms": {
+      "body": "Ghlac {{substitute_name}} le clúdach {{reporter_name}} ar {{absence_date}}."
+    }
+  },
+  "substitution_admin_offer_dispatched": {
+    "email": {
+      "subject": "Tairiscintí clúdaigh seolta",
+      "body": "{{offers_count}} tairiscint/tairiscintí clúdaigh seolta nuair a bhíonn {{reporter_name}} as láthair."
+    },
+    "whatsapp": {
+      "body": "{{offers_count}} tairiscint/tairiscintí clúdaigh seolta nuair a bhíonn {{reporter_name}} as láthair."
+    },
+    "in_app": {
+      "subject": "Tairiscintí clúdaigh seolta",
+      "body": "{{offers_count}} tairiscint/tairiscintí clúdaigh seolta nuair a bhíonn {{reporter_name}} as láthair."
+    },
+    "sms": {
+      "body": "{{offers_count}} tairiscint/tairiscintí clúdaigh seolta nuair a bhíonn {{reporter_name}} as láthair."
+    }
+  },
+  "substitution_cascade_exhausted": {
+    "email": {
+      "subject": "Clúdach láimhe ag teastáil",
+      "body": "Diúltaíodh do gach tairiscint chumhdaigh uathoibríoch do {{reporter_name}} nó chuaigh sé in éag. Tabhair clúdach de láimh le do thoil."
+    },
+    "whatsapp": {
+      "body": "Diúltaíodh do gach tairiscint chumhdaigh uathoibríoch do {{reporter_name}} nó chuaigh sé in éag. Tabhair clúdach de láimh le do thoil."
+    },
+    "in_app": {
+      "subject": "Clúdach láimhe ag teastáil",
+      "body": "Diúltaíodh do gach tairiscint chumhdaigh uathoibríoch do {{reporter_name}} nó chuaigh sé in éag. Tabhair clúdach de láimh le do thoil."
+    },
+    "sms": {
+      "body": "Diúltaíodh do gach tairiscint chumhdaigh uathoibríoch do {{reporter_name}} nó chuaigh sé in éag. Tabhair clúdach de láimh le do thoil."
+    }
+  },
+  "substitution_declined": {
+    "email": {
+      "subject": "Diúltaíodh don tairiscint clúdaigh",
+      "body": "Dhiúltaigh {{decliner_name}} tairiscint chumhdaigh. Mura nglacann siblíní ar bith, rachaidh an easghluaiseachta chun cinn go huathoibríoch."
+    },
+    "whatsapp": {
+      "body": "Dhiúltaigh {{decliner_name}} tairiscint chumhdaigh. Mura nglacann siblíní ar bith, rachaidh an easghluaiseachta chun cinn go huathoibríoch."
+    },
+    "in_app": {
+      "subject": "Diúltaíodh don tairiscint clúdaigh",
+      "body": "Dhiúltaigh {{decliner_name}} tairiscint chumhdaigh. Mura nglacann siblíní ar bith, rachaidh an easghluaiseachta chun cinn go huathoibríoch."
+    },
+    "sms": {
+      "body": "Dhiúltaigh {{decliner_name}} tairiscint chumhdaigh. Mura nglacann siblíní ar bith, rachaidh an easghluaiseachta chun cinn go huathoibríoch."
+    }
+  },
+  "substitution_nominated_rejected": {
+    "email": {
+      "subject": "Diúltaíodh don chlúdach ainmnithe",
+      "body": "Dhiúltaigh {{decliner_name}} an clúdach ainmnithe. Le do thoil a shannadh duine éigin de láimh - ní raibh an easghluaiseachta uathoibríoch-chun cinn."
+    },
+    "whatsapp": {
+      "body": "Dhiúltaigh {{decliner_name}} an clúdach ainmnithe. Le do thoil a shannadh duine éigin de láimh - ní raibh an easghluaiseachta uathoibríoch-chun cinn."
+    },
+    "in_app": {
+      "subject": "Diúltaíodh don chlúdach ainmnithe",
+      "body": "Dhiúltaigh {{decliner_name}} an clúdach ainmnithe. Le do thoil a shannadh duine éigin de láimh - ní raibh an easghluaiseachta uathoibríoch-chun cinn."
+    },
+    "sms": {
+      "body": "Dhiúltaigh {{decliner_name}} an clúdach ainmnithe. Le do thoil a shannadh duine éigin de láimh - ní raibh an easghluaiseachta uathoibríoch-chun cinn."
+    }
+  },
+  "substitution_offer_nominated": {
+    "email": {
+      "subject": "D'iarr {{reporter_name}} ort clúdach",
+      "body": "D’ainmnigh {{reporter_name}} tú chun a {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} a chlúdach ar {{absence_date}}. Glac le do thoil nó diúltaigh."
+    },
+    "whatsapp": {
+      "body": "D’ainmnigh {{reporter_name}} tú chun a {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} a chlúdach ar {{absence_date}}. Glac le do thoil nó diúltaigh."
+    },
+    "in_app": {
+      "subject": "D'iarr {{reporter_name}} ort clúdach",
+      "body": "D’ainmnigh {{reporter_name}} tú chun a {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} a chlúdach ar {{absence_date}}. Glac le do thoil nó diúltaigh."
+    },
+    "sms": {
+      "body": "D’ainmnigh {{reporter_name}} tú chun a {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} a chlúdach ar {{absence_date}}. Glac le do thoil nó diúltaigh."
+    }
+  },
+  "substitution_offer_received": {
+    "email": {
+      "subject": "Iarratas clúdaigh: {{reporter_name}}",
+      "body": "Tairgeadh clúdach duit le haghaidh {{reporter_name}} ar {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} ar {{absence_date}}. Tabhair freagra go luath."
+    },
+    "whatsapp": {
+      "body": "Tairgeadh clúdach duit le haghaidh {{reporter_name}} ar {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} ar {{absence_date}}. Tabhair freagra go luath."
+    },
+    "in_app": {
+      "subject": "Iarratas clúdaigh: {{reporter_name}}",
+      "body": "Tairgeadh clúdach duit le haghaidh {{reporter_name}} ar {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} ar {{absence_date}}. Tabhair freagra go luath."
+    },
+    "sms": {
+      "body": "Tairgeadh clúdach duit le haghaidh {{reporter_name}} ar {{#if subject_name}}{{subject_name}} — {{/if}}{{class_name}} ar {{absence_date}}. Tabhair freagra go luath."
+    }
+  },
+  "substitution_offer_revoked": {
+    "email": {
+      "subject": "Níl gá le tairiscint chlúdaigh a thuilleadh",
+      "body": "Níl do thairiscint chlúdaigh ag teastáil a thuilleadh ({{reason}}). Níl gá le gníomh."
+    },
+    "whatsapp": {
+      "body": "Níl do thairiscint chlúdaigh ag teastáil a thuilleadh ({{reason}}). Níl gá le gníomh."
+    },
+    "in_app": {
+      "subject": "Níl gá le tairiscint chlúdaigh a thuilleadh",
+      "body": "Níl do thairiscint chlúdaigh ag teastáil a thuilleadh ({{reason}}). Níl gá le gníomh."
+    },
+    "sms": {
+      "body": "Níl do thairiscint chlúdaigh ag teastáil a thuilleadh ({{reason}}). Níl gá le gníomh."
+    }
+  }
+}

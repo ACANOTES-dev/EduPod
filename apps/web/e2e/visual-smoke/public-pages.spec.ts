@@ -51,6 +51,19 @@ const PAGE_CASES: readonly VisualPageCase[] = [
     viewport: { height: 812, width: 375 },
   },
   {
+    path: '/ga/login',
+    expectedDir: 'ltr',
+    expectedLang: 'ga',
+    snapshot: 'login-ga.png',
+  },
+  {
+    path: '/ga/login',
+    expectedDir: 'ltr',
+    expectedLang: 'ga',
+    snapshot: 'login-ga-mobile.png',
+    viewport: { height: 812, width: 375 },
+  },
+  {
     path: '/en/contact',
     expectedDir: 'ltr',
     expectedLang: 'en',
@@ -87,6 +100,20 @@ const PAGE_CASES: readonly VisualPageCase[] = [
     expectedDir: 'ltr',
     expectedLang: 'de',
     snapshot: 'contact-de-mobile.png',
+    viewport: { height: 900, width: 375 },
+  },
+  {
+    path: '/ga/contact',
+    expectedDir: 'ltr',
+    expectedLang: 'ga',
+    snapshot: 'contact-ga.png',
+    viewportHeight: 900,
+  },
+  {
+    path: '/ga/contact',
+    expectedDir: 'ltr',
+    expectedLang: 'ga',
+    snapshot: 'contact-ga-mobile.png',
     viewport: { height: 900, width: 375 },
   },
 ] as const;

@@ -5,7 +5,7 @@ import {
 
 describe('notification message catalogue', () => {
   it('lists shipped notification catalogues', () => {
-    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'de', 'en', 'es', 'fr']);
+    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'de', 'en', 'es', 'fr', 'ga']);
   });
 
   it('returns raw Handlebars templates unchanged', () => {
@@ -42,9 +42,15 @@ describe('notification message catalogue', () => {
     );
   });
 
+  it('resolves t-prefixed Irish keys', () => {
+    expect(resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'ga')).toBe(
+      'Neamhláithreacht cealaithe',
+    );
+  });
+
   it('throws when the locale catalogue is missing', () => {
     expect(() =>
-      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'ga'),
+      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'it'),
     ).toThrow(/MISSING_NOTIFICATION_LOCALE/);
   });
 

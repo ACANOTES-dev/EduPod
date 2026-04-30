@@ -116,6 +116,16 @@ describe('TemplateRendererService', () => {
       expect(result).toContain("L'absence de Ada a été annulée.");
     });
 
+    it('should render t-prefixed Irish templates', () => {
+      const result = service.render(
+        't:absence_cancelled.email.body',
+        { reporter_name: 'Ada' },
+        'ga',
+      );
+      expect(result).toContain('neamhláithreacht Ada');
+      expect(result).toContain('curtha ar ceal');
+    });
+
     it('should throw when a t-prefixed message key is missing', () => {
       expect(() => service.render('t:does.not.exist', {}, 'en')).toThrow(
         /MISSING_NOTIFICATION_MESSAGE/,
@@ -123,7 +133,7 @@ describe('TemplateRendererService', () => {
     });
 
     it('should throw when a t-prefixed locale catalogue is missing', () => {
-      expect(() => service.render('t:absence_cancelled.email.body', {}, 'ga')).toThrow(
+      expect(() => service.render('t:absence_cancelled.email.body', {}, 'it')).toThrow(
         /MISSING_NOTIFICATION_LOCALE/,
       );
     });

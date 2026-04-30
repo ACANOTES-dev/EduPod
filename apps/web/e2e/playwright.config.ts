@@ -71,6 +71,17 @@ export default defineConfig({
       },
     },
     {
+      name: 'ga-ltr',
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: 'ga-IE',
+      },
+      metadata: {
+        locale: 'ga',
+        direction: 'ltr',
+      },
+    },
+    {
       name: 'mobile-en',
       use: {
         ...devices['iPhone 14'],
@@ -122,6 +133,17 @@ export default defineConfig({
       },
       metadata: {
         locale: 'de',
+        direction: 'ltr',
+      },
+    },
+    {
+      name: 'ga-mobile',
+      use: {
+        ...devices['iPhone 14'],
+        locale: 'ga-IE',
+      },
+      metadata: {
+        locale: 'ga',
         direction: 'ltr',
       },
     },
