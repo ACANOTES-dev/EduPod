@@ -18,6 +18,8 @@ import {
 
 import { useAuth } from '@/providers/auth-provider';
 
+import { LOCALE_REGISTRY } from '../../i18n/registry';
+
 import { LocalePicker } from './locale-picker';
 
 /* -------------------------------------------------------------------------- */
@@ -54,23 +56,28 @@ export function UserMenu() {
   const displayName = `${user.first_name} ${user.last_name}`.trim();
 
   /* ---- Primary role label (localised) ---- */
-  const primaryRoleKey = user.memberships?.[0]?.roles?.[0]?.role_key ?? null;
-  const roleTranslationMap: Record<string, string> = {
-    school_owner: t('roles.schoolOwner'),
-    school_principal: t('roles.schoolPrincipal'),
-    admin: t('roles.adminRole'),
-    teacher: t('roles.teacher'),
-    accounting: t('roles.accounting'),
-    front_office: t('roles.frontOffice'),
-    parent: t('roles.parent'),
-    school_vice_principal: t('roles.schoolVicePrincipal'),
-    student: t('roles.student'),
-  };
-  const primaryRole = primaryRoleKey
-    ? (roleTranslationMap[primaryRoleKey] ??
-      user.memberships?.[0]?.roles?.[0]?.display_name ??
-      null)
-    : null;
+  const primaryRoleRecord = user.memberships?.[0]?.roles?.[0] ?? null;
+  const primaryRoleKey = primaryRoleRecord?.role_key ?? null;
+  const isTier2Locale = LOCALE_REGISTRY.some((entry) => entry.code === locale && entry.tier === 2);
+  let primaryRole: string | null = null;
+  if (primaryRoleKey === 'parent') {
+    primaryRole = t('userMenu.roleLabels.parent');
+  } else if (primaryRoleKey === 'student') {
+    primaryRole = t('userMenu.roleLabels.student');
+  } else if (primaryRoleKey && !isTier2Locale) {
+    const roleTranslationMap: Record<string, string> = {
+      school_owner: t('roles.schoolOwner'),
+      school_principal: t('roles.schoolPrincipal'),
+      admin: t('roles.adminRole'),
+      teacher: t('roles.teacher'),
+      accounting: t('roles.accounting'),
+      front_office: t('roles.frontOffice'),
+      school_vice_principal: t('roles.schoolVicePrincipal'),
+    };
+    primaryRole = roleTranslationMap[primaryRoleKey] ?? primaryRoleRecord?.display_name ?? null;
+  } else if (primaryRoleKey) {
+    primaryRole = primaryRoleRecord?.display_name ?? null;
+  }
 
   /* ---- Handlers ---- */
   function handleNavigate(path: string) {

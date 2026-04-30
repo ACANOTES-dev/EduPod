@@ -303,7 +303,11 @@
     "themeLight": "Chiaro",
     "themeDark": "Scuro",
     "themeSystem": "Sistema",
-    "theme": "Tema"
+    "theme": "Tema",
+    "roleLabels": {
+      "parent": "Genitore",
+      "student": "Studente"
+    }
   },
   "theme": {
     "light": "Chiaro",

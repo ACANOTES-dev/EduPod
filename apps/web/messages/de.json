@@ -4999,7 +4999,11 @@
     "themeLight": "Licht",
     "themeDark": "Dunkel",
     "themeSystem": "System",
-    "theme": "Thema"
+    "theme": "Thema",
+    "roleLabels": {
+      "parent": "Elternteil",
+      "student": "Schüler"
+    }
   },
   "sidebar": {
     "collapse": "Seitenleiste einklappen",

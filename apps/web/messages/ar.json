@@ -4999,7 +4999,11 @@
     "themeLight": "فاتح",
     "themeDark": "داكن",
     "themeSystem": "النظام",
-    "theme": "المظهر"
+    "theme": "المظهر",
+    "roleLabels": {
+      "parent": "ولي الأمر",
+      "student": "طالب"
+    }
   },
   "sidebar": {
     "collapse": "طي الشريط الجانبي",

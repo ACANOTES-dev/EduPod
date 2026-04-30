@@ -4999,7 +4999,11 @@
     "themeLight": "Solas",
     "themeDark": "Dorcha",
     "themeSystem": "Córas",
-    "theme": "Téama"
+    "theme": "Téama",
+    "roleLabels": {
+      "parent": "Tuismitheoir",
+      "student": "Dalta"
+    }
   },
   "sidebar": {
     "collapse": "Laghdaigh an barra taoibh",

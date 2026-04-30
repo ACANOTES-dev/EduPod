@@ -4999,7 +4999,11 @@
     "themeLight": "Lumière",
     "themeDark": "Sombre",
     "themeSystem": "Système",
-    "theme": "Thème"
+    "theme": "Thème",
+    "roleLabels": {
+      "parent": "Parent",
+      "student": "Élève"
+    }
   },
   "sidebar": {
     "collapse": "Réduire la barre latérale",

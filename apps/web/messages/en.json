@@ -4999,7 +4999,11 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",
-    "theme": "Theme"
+    "theme": "Theme",
+    "roleLabels": {
+      "parent": "Parent",
+      "student": "Student"
+    }
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
