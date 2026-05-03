@@ -39,7 +39,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | 🟢 Complete & deployed | Opus 4.7   | High     |
 | 12.5 | 5.5 — PDF Architecture | `implementations/12.5-pdf-template-bundles.md`               | PDF templates: locale bundles              | 🟢 Complete & deployed | GPT-5.5    | Max      |
-| 13   | 5.6 — Cleanup          | `implementations/13-expansion-cleanup.md`                    | Expansion polish/cleanup (no `pl` rollout) | 🟡 In progress         | GPT-5.5    | High     |
+| 13   | 5.6 — Cleanup          | `implementations/13-expansion-cleanup.md`                    | Expansion polish/cleanup (no `pl` rollout) | 🟢 Complete & deployed | GPT-5.5    | High     |
 | —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
 
 **Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 12.5 → 13 → Phase 6 rollout
@@ -903,6 +903,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - CI / deploy:
   - Run `25272024329` succeeded.
   - Deploy completed `2026-05-03T06:40:23Z`.
+  - Follow-up log/deploy run `25272300350` succeeded for `03019e98`; deploy completed `2026-05-03T06:52:09Z`.
 - Local validation:
   - `pnpm --filter @school/api test -- pdf-rendering.service text-profiles index --runInBand`
   - `pnpm --filter @school/api type-check`
@@ -929,10 +930,11 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 13 — Expansion polish/cleanup pass
 
 - **Spec:** `implementations/13-expansion-cleanup.md`
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Complete & deployed
 - **Model:** GPT-5.5 / High effort
 - **Depends on:** 12.5 complete
 - **Began:** 2026-05-03
+- **Completed:** 2026-05-03
 
 **Scope summary:** Final close-out/polish pass. Implementation 13 is not a Polish (`pl`) language pack. It replaces the stale `pl` rollout spec, keeps `pl` registered but inactive, documents that no `pl.json`, `pl` notification/PDF bundles, Playwright projects, or NHQS rollout should be added in this expansion, and verifies the shipped locale set remains `en, ar, fr, es, de, ga, it, ro`.
 
@@ -942,9 +944,40 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - [x] Updated strategy/log/danger-zone language to remove the planned `pl` rollout.
 - [x] Preserved `pl` as registered metadata-only and inactive.
 - [x] Local targeted validation complete.
-- [ ] CI green and production deploy successful.
-- [ ] Production close-out verification complete.
-- [ ] Final log update committed and deployed.
+- [x] CI green and production deploy successful.
+- [x] Production close-out verification complete.
+- [x] Final log update committed and deployed.
+
+### Commits / CI / Deploy / Production verification / Notes
+
+- Commit:
+  - `cde11956` — `docs(i18n): close out language expansion cleanup`
+- CI / deploy:
+  - Run `25272707351` succeeded for `cde11956`.
+  - Deploy completed `2026-05-03T07:20:36Z`.
+- Local validation:
+  - `pnpm exec prettier --check` / `pnpm exec prettier --write` on changed New Languages docs, then re-check passed.
+  - `pnpm --filter @school/web test -- registry tier-scopes translation-parity --runInBand`
+  - `pnpm --filter @school/api test -- pdf-rendering.service index --runInBand`
+  - `pnpm i18n:check` (`12295` static translation keys, `8` active locales)
+  - Guard check confirmed no `apps/web/messages/pl.json`, no `pl-ltr` / `pl-mobile` Playwright projects, and only documentation references to future `pl` artifacts.
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/shared test -- locale-codes --runInBand`
+  - Clean serial integration rerun: `pnpm --filter @school/api test:integration:serial` passed (`74` suites, `1034` passing tests, `1` skipped, `8` todo).
+  - `git diff --check`
+- Production verification:
+  - NHQS public tenant readback returned `supported_locales = [en, ar, fr, es, de, ga, it, ro]`; `pl` was absent.
+  - Authenticated NHQS parent and student `/api/v1/tenants/me` readback returned `default_locale=en` and `supported_locales = [en, ar, fr, es, de, ga, it, ro]`.
+  - Public `/it/login`, `/it/contact`, `/ro/login`, and `/ro/contact` rendered with no `MISSING_MESSAGE`, `MISSING_PDF_TEMPLATE`, placeholder values, or common visible English leak matches.
+  - Inactive `/pl/contact` returned a non-500 response: `404`, final path `/en/pl/contact`, with no missing-message or placeholder text.
+  - Tier 2 redirect verified: `/it/finance/payroll` -> `/en/finance/payroll`.
+  - Authenticated NHQS parent flow verified `/it/dashboard/parent` and `/it/parent/household`; locale picker exposed `en`, `ar`, `fr`, `es`, `de`, `ga`, `it`, `ro` and did not expose `pl` / `Polski`.
+  - Authenticated NHQS student flow verified successful login plus `/ro/dashboard/student` and `/ro/dashboard/student/homework`; locale picker exposed the same shipped locale set and did not expose `pl` / `Polski`.
+  - Sentry project `node-nestjs` had one unrelated existing Prisma issue, but no `MISSING_MESSAGE` or `MISSING_PDF_TEMPLATE` issues/events by direct query.
+- Notes:
+  - No NHQS `supported_locales` SQL update was required for implementation 13.
+  - `pl` remains registered metadata-only (`active: false`) for a possible future dedicated language-pack implementation. This expansion intentionally shipped no `pl` message file, notification catalogue, PDF bundle, Playwright project, or tenant rollout.
+  - The shipped language set for this expansion is closed at `en`, `ar`, `fr`, `es`, `de`, `ga`, `it`, and `ro`.
 
 ---
 
@@ -967,13 +1000,13 @@ Per locale, after NHQS QA passes:
 ## Summary metrics (live)
 
 - **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 13
-- **Implementations in progress:** 1
+- **Implementations complete:** 14
+- **Implementations in progress:** 0
 - **Implementations pending:** 0
 - **Implementations blocked:** 0
 - **Languages live (NHQS):** en, ar, fr, es, de, ga, it, ro
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; Tier 2 it/ro active on parent/student/public allowlist; implementation 13 close-out in progress
+- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; Tier 2 it/ro active on parent/student/public allowlist; expansion close-out complete with `pl` inactive metadata-only
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 
