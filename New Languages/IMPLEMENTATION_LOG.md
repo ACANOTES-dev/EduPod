@@ -38,7 +38,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | 🟢 Complete & deployed | Opus 4.7   | High     |
-| 12.5 | 5.5 — PDF Architecture | `implementations/12.5-pdf-template-bundles.md`               | PDF templates: locale bundles              | 🟡 In progress         | GPT-5.5    | Max      |
+| 12.5 | 5.5 — PDF Architecture | `implementations/12.5-pdf-template-bundles.md`               | PDF templates: locale bundles              | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
 | —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
 
@@ -826,11 +826,13 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - `956d0fe2` — `test(attendance): isolate dashboard exception fixture`
   - `763f39a2` — `fix(i18n): localize parent Romanian portal copy`
   - `52c1586c` — `chore(ops): add NHQS Romanian locale append workflow` (temporary fixed SQL helper, removed by this log/cleanup pass)
+  - `c4ba727c` — `docs(i18n): mark Romanian rollout complete`
 - CI / deploy:
   - Run `25270225391` succeeded for initial Romanian rollout; deploy completed `2026-05-03T05:03:52Z`.
   - Run `25270794295` succeeded for the parent copy fix-forward; deploy completed `2026-05-03T05:33:25Z`.
   - Run `25271142683` succeeded for the temporary fixed ops helper; deploy completed `2026-05-03T05:48:00Z`.
   - Workflow dispatch `25271241488` ran the idempotent NHQS append and completed `2026-05-03T05:48:21Z`.
+  - Cleanup docs/removal run `25271454896` succeeded after deleting the temporary helper workflow.
 - Local validation:
   - `pnpm --filter @school/web test -- translation-parity registry tier-scopes tier-routes --runInBand`
   - `pnpm i18n:check`
@@ -873,10 +875,12 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 12.5 — PDF template bundles
 
 - **Spec:** `implementations/12.5-pdf-template-bundles.md`
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Complete & deployed
 - **Model:** GPT-5.5 / Max effort
 - **Depends on:** 12 complete
 - **Blocks:** 13 and any further PDF locale work
+- **Began:** 2026-05-03
+- **Completed:** 2026-05-03
 
 **Scope summary:** Separate architectural pass to make all 13 existing PDF template types resolve through first-class per-locale template bundles. This is not a language-pack or ordinary translation-catalogue pass. The current LTR compatibility text profiles become explicit locale-bundle implementation details, English and Arabic stay first-class source bundles, and missing PDF locales/templates fail hard instead of drifting through fallback rendering.
 
@@ -889,13 +893,36 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - [x] Missing PDF locale/template combinations fail hard in tests and render paths with a clear `MISSING_PDF_TEMPLATE` error.
 - [x] Receipt, invoice, household statement, report card, report card modern, transcript, payslip, DES inspection, pastoral summary, SST activity, safeguarding compliance, wellbeing programme, and trip leader pack are included in registry coverage.
 - [x] Later PDF locale work can add or replace a locale bundle without editing every shared wrapper.
-- [ ] CI green; production deploy successful.
-- [ ] Production smoke verifies PDF registry behaviour and no `MISSING_PDF_TEMPLATE` regressions.
+- [x] CI green; production deploy successful.
+- [x] Production smoke verifies PDF registry behaviour and no `MISSING_PDF_TEMPLATE` regressions.
+
+### Commits / CI / Deploy / Production verification / Notes
+
+- Commit:
+  - `2b194395` — `feat(pdf): add locale template bundles`
+- CI / deploy:
+  - Run `25272024329` succeeded.
+  - Deploy completed `2026-05-03T06:40:23Z`.
+- Local validation:
+  - `pnpm --filter @school/api test -- pdf-rendering.service text-profiles index --runInBand`
+  - `pnpm --filter @school/api type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @school/api lint:ci`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint:ci`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test` (one transient web Jest worker `SIGSEGV`; isolated `safeguarding/_components/summary.spec.ts` rerun passed, then full root rerun passed)
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm build`
+  - `git diff --check`
+- Production verification:
+  - NHQS owner authenticated PDF smoke exercised invoice PDFs for `en`, `ar`, `fr`, `es`, `de`, `ga`, `it`, and `ro`; every response returned `200`, `application/pdf`, `%PDF` bytes, and non-trivial byte length.
+  - NHQS owner authenticated receipt PDF smoke exercised `ar`, `it`, and `ro`; every response returned `200`, `application/pdf`, `%PDF` bytes, and non-trivial byte length.
+  - No NHQS `supported_locales` update was required for this pass; 12.5 ships PDF template architecture only.
+  - Sentry project `node-nestjs` had no `MISSING_PDF_TEMPLATE` issues after the production smoke.
 
 ### Notes
 
 - This pass intentionally does **not** roll out a new user-facing language. It is an architecture cleanup so 13 and any later PDF work have a proper per-language template-bundle foundation.
 - The LTR compatibility text profiles are retained for behavioral continuity, but the deleted `renderLegacyLocaleTemplate()` path means PDF locale ownership now lives in explicit locale bundles.
+- Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this architecture pass.
 
 ---
 
@@ -934,9 +961,9 @@ Per locale, after NHQS QA passes:
 ## Summary metrics (live)
 
 - **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 12
+- **Implementations complete:** 13
 - **Implementations in progress:** 0
-- **Implementations pending:** 2
+- **Implementations pending:** 1
 - **Implementations blocked:** 0
 - **Languages live (NHQS):** en, ar, fr, es, de, ga, it, ro
 - **Languages live (other tenants):** en, ar
