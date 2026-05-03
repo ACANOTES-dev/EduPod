@@ -37,7 +37,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 09   | 4 — Tier 1             | `implementations/09-german.md`                               | German (`de`) full catalogue + Playwright  | 🟢 Complete & deployed | GPT-5.5    | High     |
 | 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
-| 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | ⚪ Pending             | Opus 4.7   | High     |
+| 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | 🟢 Complete & deployed | Opus 4.7   | High     |
 | 12.5 | 5.5 — PDF Architecture | `(to author) implementations/12.5-pdf-message-catalogues.md` | PDF templates: per-template catalogues     | ⚪ Pending             | GPT-5.5    | Max      |
 | 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
 | —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
@@ -793,15 +793,80 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ### 12 — Romanian (`ro`)
 
 - **Spec:** `implementations/12-romanian.md`
-- **Status:** ⚪ Pending
+- **Status:** 🟢 Complete & deployed
 - **Model:** Opus 4.7 / High effort
 - **Depends on:** 11 complete
+- **Began:** 2026-05-03
+- **Completed:** 2026-05-03
 
 **Scope summary:** Same shape as 11. Use comma-below diacritics (`ș`, `ț`), not cedilla. Use formal "dumneavoastră".
 
 ### Acceptance / Sections
 
-- (populated during execution)
+- [x] Tier 2 route guard infrastructure remains active for Romanian.
+- [x] `ro` routes are public + parent + student only; staff/admin/finance/regulatory/back-office routes redirect to the tenant default locale instead of missing-message 500s.
+- [x] `New Languages/glossary.md` includes Romanian parent/student-facing terminology.
+- [x] `apps/web/messages/ro.json` added with 100% parity for the Tier 2 namespace allowlist only.
+- [x] `ro.json` contains no out-of-scope/back-office namespaces.
+- [x] Romanian parent-relevant notification catalogue added and covered.
+- [x] Romanian parent-relevant PDF interim localizer support added without implementing the 12.5 PDF architecture gate early.
+- [x] `ro` activated in the i18n registry as Tier 2.
+- [x] Romanian Playwright/visual/leak coverage added, including `ro-ltr` and `ro-mobile`, restricted to public/parent/student surfaces.
+- [x] Tier 2 redirect Playwright coverage covers `/ro/<out-of-scope-route>` -> tenant default locale.
+- [x] Local validation battery passed.
+- [x] CI green; production deploy successful.
+- [x] NHQS `supported_locales` includes `ro`.
+- [x] Production public, parent, student, locale picker, API readback, Tier 2 redirect, placeholder/leak, and Sentry checks passed.
+
+### Commits / CI / Deploy / Playwright / NHQS rollout / Notes
+
+- Commits:
+  - `c8fc4ade` — `test(finance): make Stripe expiry test date-relative`
+  - `e6be5825` — `feat(i18n): add Romanian Tier 2 locale`
+  - `956d0fe2` — `test(attendance): isolate dashboard exception fixture`
+  - `763f39a2` — `fix(i18n): localize parent Romanian portal copy`
+  - `52c1586c` — `chore(ops): add NHQS Romanian locale append workflow` (temporary fixed SQL helper, removed by this log/cleanup pass)
+- CI / deploy:
+  - Run `25270225391` succeeded for initial Romanian rollout; deploy completed `2026-05-03T05:03:52Z`.
+  - Run `25270794295` succeeded for the parent copy fix-forward; deploy completed `2026-05-03T05:33:25Z`.
+  - Run `25271142683` succeeded for the temporary fixed ops helper; deploy completed `2026-05-03T05:48:00Z`.
+  - Workflow dispatch `25271241488` ran the idempotent NHQS append and completed `2026-05-03T05:48:21Z`.
+- Local validation:
+  - `pnpm --filter @school/web test -- translation-parity registry tier-scopes tier-routes --runInBand`
+  - `pnpm i18n:check`
+  - `pnpm --filter @school/shared test -- notification-message-catalogue --runInBand`
+  - `pnpm --filter @school/api test -- template-renderer.service locale-template --runInBand`
+  - `pnpm --filter @school/web lint:ci`
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/web build`
+  - Romanian visual smoke / Tier 2 Playwright snapshot update + verify for `ro-ltr` and `ro-mobile`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm type-check`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm lint:ci`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm test`
+  - `NODE_OPTIONS=--max-old-space-size=12288 pnpm build`
+  - Targeted integration reruns for the attendance dashboard fixture fix
+  - `git diff --check`
+  - `pnpm exec prettier --check` on changed implementation files
+- NHQS rollout:
+  - Production append: `UPDATE tenants SET supported_locales = supported_locales || '{ro}'::text[] WHERE slug = 'nhqs' AND NOT 'ro' = ANY(supported_locales);`
+  - Public readback after append: `en,ar,fr,es,de,ga,it,ro`.
+  - Authenticated `/api/v1/tenants/me` readback: `default_locale=en`, `supported_locales=[en, ar, fr, es, de, ga, it, ro]`.
+  - Locale picker exposed `RO Română` for authenticated NHQS parent users.
+- Production verification:
+  - Public routes `/ro/login`, `/ro/contact`, and `/ro/apply/nhqs` returned 200 with no missing-message or application-error text.
+  - Parent routes `/ro/dashboard/parent`, `/ro/parent/household`, `/ro/inquiries`, `/ro/homework/parent`, and `/ro/parent/sen` returned 200 with no missing-message, application-error, or English leak matches.
+  - Student routes `/ro/dashboard/student`, `/ro/dashboard/student/timetable`, `/ro/dashboard/student/homework`, and `/ro/dashboard/student/check-in` returned 200 with no missing-message or application-error matches.
+  - Tier 2 redirect verified: `/ro/payroll` returned `308` to `/en/payroll`.
+  - Sentry project `node-nestjs` had no `MISSING_MESSAGE` issues.
+- Evidence:
+  - `0` material Romanian overflow issues.
+  - No `New Languages/_evidence/ro-overflow-issues.md` file was required or created.
+  - No uncertain Romanian string evidence file was required; glossary terms were applied directly.
+- Notes:
+  - Workstation SSH remained refused after earlier connection attempts, while GitHub Actions SSH continued to work. A temporary fixed workflow (`52c1586c`) was used only to run the idempotent NHQS append, then removed in this log/cleanup pass.
+  - `ro` is active in the runtime registry as Tier 2, with tenant availability still gated by each tenant's `supported_locales`.
+  - Romanian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, Irish, and Italian; implementation 12.5 remains the planned architecture gate for first-class PDF template catalogues.
+  - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
 ---
 
@@ -860,8 +925,8 @@ Per locale, after NHQS QA passes:
 | fr           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | de           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
 | es           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
-| it           | nhqs            | (pending 11 completion)      | —        | Pilot tenant       |
-| ro           | nhqs            | (pending 12 completion)      | —        | Pilot tenant       |
+| it           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
+| ro           | nhqs            | 2026-05-03                   | Codex    | Pilot tenant       |
 | pl           | nhqs            | (pending 13 completion)      | —        | Pilot tenant       |
 | (per locale) | (other tenants) | (pending NHQS QA per locale) | —        | GA rollout post-QA |
 
@@ -870,13 +935,13 @@ Per locale, after NHQS QA passes:
 ## Summary metrics (live)
 
 - **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
-- **Implementations complete:** 10
+- **Implementations complete:** 12
 - **Implementations in progress:** 0
-- **Implementations pending:** 4
+- **Implementations pending:** 2
 - **Implementations blocked:** 0
-- **Languages live (NHQS):** en, ar, fr, es, de, ga
+- **Languages live (NHQS):** en, ar, fr, es, de, ga, it, ro
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; remaining locales pending
+- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; Tier 2 it/ro active on parent/student/public allowlist; remaining work pending
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 
