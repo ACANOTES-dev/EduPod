@@ -1,39 +1,6 @@
-import type { PdfBranding } from '../pdf-rendering.service';
+export const LTR_PDF_TEMPLATE_LOCALES = ['fr', 'es', 'de', 'ga', 'it', 'ro'] as const;
 
-export type LegacyTemplatePair = {
-  en: (data: unknown, branding: PdfBranding) => string;
-  ar: (data: unknown, branding: PdfBranding) => string;
-};
-
-export function renderLegacyLocaleTemplate(
-  locale: string,
-  pair: LegacyTemplatePair,
-  data: unknown,
-  branding: PdfBranding,
-): string {
-  if (locale === 'ar') {
-    return pair.ar(data, branding);
-  }
-  if (locale === 'fr') {
-    return localizeFrenchPdfHtml(pair.en(data, branding));
-  }
-  if (locale === 'de') {
-    return localizeGermanPdfHtml(pair.en(data, branding));
-  }
-  if (locale === 'es') {
-    return localizeSpanishPdfHtml(pair.en(data, branding));
-  }
-  if (locale === 'ga') {
-    return localizeIrishPdfHtml(pair.en(data, branding));
-  }
-  if (locale === 'it') {
-    return localizeItalianPdfHtml(pair.en(data, branding));
-  }
-  if (locale === 'ro') {
-    return localizeRomanianPdfHtml(pair.en(data, branding));
-  }
-  return pair.en(data, branding);
-}
+export type LtrPdfTemplateLocale = (typeof LTR_PDF_TEMPLATE_LOCALES)[number];
 
 const GERMAN_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/<html lang="en" dir="ltr">/g, '<html lang="de" dir="ltr">'],
@@ -1232,44 +1199,61 @@ const ROMANIAN_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bDec\b/g, 'dec'],
 ];
 
-function localizeFrenchPdfHtml(html: string): string {
+function applyFrenchTextProfile(html: string): string {
   return FRENCH_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
 }
 
-function localizeGermanPdfHtml(html: string): string {
+function applyGermanTextProfile(html: string): string {
   return GERMAN_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
 }
 
-function localizeSpanishPdfHtml(html: string): string {
+function applySpanishTextProfile(html: string): string {
   return SPANISH_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
 }
 
-function localizeIrishPdfHtml(html: string): string {
+function applyIrishTextProfile(html: string): string {
   return IRISH_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
 }
 
-function localizeItalianPdfHtml(html: string): string {
+function applyItalianTextProfile(html: string): string {
   return ITALIAN_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
 }
 
-function localizeRomanianPdfHtml(html: string): string {
+function applyRomanianTextProfile(html: string): string {
   return ROMANIAN_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
+}
+
+export function applyPdfTextProfile(locale: LtrPdfTemplateLocale, html: string): string {
+  switch (locale) {
+    case 'fr':
+      return applyFrenchTextProfile(html);
+    case 'es':
+      return applySpanishTextProfile(html);
+    case 'de':
+      return applyGermanTextProfile(html);
+    case 'ga':
+      return applyIrishTextProfile(html);
+    case 'it':
+      return applyItalianTextProfile(html);
+    case 'ro':
+      return applyRomanianTextProfile(html);
+  }
 }

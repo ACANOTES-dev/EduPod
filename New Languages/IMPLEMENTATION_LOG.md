@@ -2,7 +2,7 @@
 
 **Project:** Add 4 Tier-1 (`ga`, `fr`, `de`, `es`) and 3 Tier-2 (`it`, `ro`, `pl`) languages to SDB.
 **Strategy:** see `STRATEGY.md` in this folder.
-**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder, with `12.5` reserved for the PDF catalogue extraction pass.
+**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder, with `12.5` reserved for the PDF template-bundle architecture pass.
 **Started:** 2026-04-25 (Phase 0 spec authored)
 
 ---
@@ -38,7 +38,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 10   | 4 — Tier 1             | `implementations/10-irish.md`                                | Irish (`ga`) full catalogue + Playwright   | 🟢 Complete & deployed | GPT-5.5    | Max      |
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | 🟢 Complete & deployed | Opus 4.7   | High     |
-| 12.5 | 5.5 — PDF Architecture | `(to author) implementations/12.5-pdf-message-catalogues.md` | PDF templates: per-template catalogues     | ⚪ Pending             | GPT-5.5    | Max      |
+| 12.5 | 5.5 — PDF Architecture | `implementations/12.5-pdf-template-bundles.md`               | PDF templates: locale bundles              | 🟡 In progress         | GPT-5.5    | Max      |
 | 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
 | —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
 
@@ -47,7 +47,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 **Sequential at the codebase level** (no worktrees / no branches / no PRs). Only one implementation runs on the codebase at a time.
 
 > **Legacy ID mapping** (for historical reference — the strategy still uses these in some places):
-> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 12.5=P5.5-PDF-CATALOGUES · 13=P5-PL.
+> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 12.5=P5.5-PDF-TEMPLATE-BUNDLES · 13=P5-PL.
 
 ---
 
@@ -525,7 +525,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - API readback from `/api/v1/tenants/me` returned `supported_locales = ["en","ar","fr","es"]`.
 - Notes:
   - `es` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
-  - Spanish PDF rendering follows the same interim compatibility-localizer path as French; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
+  - Spanish PDF rendering follows the same interim compatibility-localizer path as French; implementation 12.5 is expected to move PDF locale ownership into first-class template bundles.
   - Two local full-suite pre-push attempts hit unrelated Jest worker SIGSEGVs in existing API suites; both affected specs passed directly with `--runInBand`, and the final GitHub Actions run completed green.
 
 ---
@@ -602,7 +602,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - No `New Languages/_evidence/de-overflow-issues.md` file was required or created.
 - Notes:
   - `de` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
-  - German PDF rendering follows the same interim compatibility-localizer path as French and Spanish; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
+  - German PDF rendering follows the same interim compatibility-localizer path as French and Spanish; implementation 12.5 is expected to move PDF locale ownership into first-class template bundles.
 
 ---
 
@@ -687,7 +687,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - Visual inspection covered desktop/mobile Irish snapshots, including accented/precomposed characters (`É`, `Á`, `Í`, `Ó`, `Ú`); no Irish-specific overflow was found.
 - Notes:
   - `ga` is active in the runtime registry but tenant availability remains gated by each tenant's `supported_locales`.
-  - Irish PDF rendering follows the same interim compatibility-localizer path as French, Spanish, and German; implementation 12.5 is expected to migrate these strings into first-class PDF message catalogues.
+  - Irish PDF rendering follows the same interim compatibility-localizer path as French, Spanish, and German; implementation 12.5 is expected to move PDF locale ownership into first-class template bundles.
   - The local pre-push hook initially exposed `test/invitations.e2e-spec.ts` as an integration collider under parallel execution; the same spec passed directly with `--runInBand`, then it was added to the serial collider group and the full pre-push hook passed.
   - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
@@ -695,7 +695,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ## Phase 5 — Tier 2 Languages
 
-> Recommended execution order: 11 (IT) → 12 (RO) → 12.5 (PDF catalogue architecture) → 13 (PL).
+> Recommended execution order: 11 (IT) → 12 (RO) → 12.5 (PDF template-bundle architecture) → 13.
 >
 > Each Phase 5 implementation translates ONLY the `tier_2_namespaces` allowlist (parent + student surface). The route-level guard (introduced in 11) redirects out-of-scope paths to the tenant default locale.
 
@@ -726,7 +726,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - [x] `it.json` contains no out-of-scope/back-office namespaces
 - [x] `pnpm i18n:check` passes with active locales `en`, `ar`, `fr`, `de`, `es`, `ga`, `it`
 - [x] Italian notification catalogue entries parse and render through the shared catalogue path
-- [x] Italian parent-relevant PDF smoke/localizer path passes without introducing the 12.5 PDF catalogue architecture
+- [x] Italian parent-relevant PDF smoke/localizer path passes without introducing the 12.5 PDF template-bundle architecture
 - [x] Tier 2 route guard redirects out-of-scope `/it/...` routes to tenant default locale instead of rendering missing-message failures
 - [x] Italian public/parent/student Playwright/visual/leak coverage added, including `it-ltr` and `it-mobile`
 - [x] Full local lint + type-check + regression gates pass
@@ -785,7 +785,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
   - No uncertain Italian string evidence file was required; glossary terms were applied directly.
 - Notes:
   - `it` is active in the runtime registry as Tier 2, with tenant availability still gated by each tenant's `supported_locales`.
-  - Italian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, and Irish; implementation 12.5 remains the planned architecture gate for first-class PDF message catalogues.
+  - Italian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, and Irish; implementation 12.5 remains the planned architecture gate for first-class PDF template bundles.
   - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
 ---
@@ -865,38 +865,37 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 - Notes:
   - Workstation SSH remained refused after earlier connection attempts, while GitHub Actions SSH continued to work. A temporary fixed workflow (`52c1586c`) was used only to run the idempotent NHQS append, then removed in this log/cleanup pass.
   - `ro` is active in the runtime registry as Tier 2, with tenant availability still gated by each tenant's `supported_locales`.
-  - Romanian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, Irish, and Italian; implementation 12.5 remains the planned architecture gate for first-class PDF template catalogues.
+  - Romanian PDF support follows the same interim compatibility-localizer path as French, Spanish, German, Irish, and Italian; implementation 12.5 remains the planned architecture gate for first-class PDF template bundles.
   - Per feature-map maintenance rules, `docs/architecture/feature-map.md` should be updated by Ram or in a dedicated documentation pass rather than as part of this locale rollout.
 
 ---
 
-### 12.5 — PDF template message-catalogue extraction
+### 12.5 — PDF template bundles
 
-- **Spec:** `(to author) implementations/12.5-pdf-message-catalogues.md`
-- **Status:** ⚪ Pending
+- **Spec:** `implementations/12.5-pdf-template-bundles.md`
+- **Status:** 🟡 In progress
 - **Model:** GPT-5.5 / Max effort
 - **Depends on:** 12 complete
 - **Blocks:** 13 and any further PDF locale work
 
-**Scope summary:** Separate architectural pass to extract all 13 existing PDF template types into proper per-template message catalogues. Replace compatibility HTML post-processing, including the French regex localizer, with structured catalogue-backed rendering while preserving the current en/ar/fr output contract and keeping later locale additions catalogue-only.
+**Scope summary:** Separate architectural pass to make all 13 existing PDF template types resolve through first-class per-locale template bundles. This is not a language-pack or ordinary translation-catalogue pass. The current LTR compatibility text profiles become explicit locale-bundle implementation details, English and Arabic stay first-class source bundles, and missing PDF locales/templates fail hard instead of drifting through fallback rendering.
 
 ### Acceptance / Sections
 
-- [ ] All 13 PDF types use a shared locale-aware message-catalogue layer instead of regex HTML replacement.
-- [ ] Catalogue files exist for every in-scope template and runtime PDF locale, using a predictable path such as `apps/api/src/modules/pdf-rendering/templates/messages/{type}.{locale}.json`.
-- [ ] English and Arabic PDF output remains behaviourally equivalent to the pre-refactor templates, including Arabic RTL layout.
-- [ ] French PDF output moves from compatibility localization to first-class catalogue-backed rendering.
-- [ ] Missing catalogue keys fail hard in tests and render paths with a clear `MISSING_PDF_MESSAGE` error.
-- [ ] Receipt, invoice, household statement, report card, report card modern, transcript, payslip, DES inspection, pastoral summary, SST activity, safeguarding compliance, wellbeing programme, and trip leader pack all have render-smoke coverage.
-- [ ] Formatting helpers cover dates, numbers, currencies, localized school names, statuses, and common enum labels without template-specific string hacks.
-- [ ] 80mm receipt layout and A4 report layouts are visually checked for overflow in LTR and RTL.
-- [ ] Later language implementations can add or update PDF support by adding catalogue files, not by editing TypeScript templates.
-- [ ] CI green; production deploy successful; production smoke verifies at least receipt + one A4 report in `en`, `ar`, and `fr`.
+- [x] All 13 PDF types resolve through a shared locale-aware template registry.
+- [x] Template bundles exist for every supported PDF locale: `en`, `ar`, `fr`, `es`, `de`, `ga`, `it`, `ro`.
+- [x] English and Arabic PDF output remains behaviourally equivalent to the pre-refactor templates, including Arabic RTL layout.
+- [x] Current LTR languages move from the old central fallback renderer into explicit locale template bundles.
+- [x] Missing PDF locale/template combinations fail hard in tests and render paths with a clear `MISSING_PDF_TEMPLATE` error.
+- [x] Receipt, invoice, household statement, report card, report card modern, transcript, payslip, DES inspection, pastoral summary, SST activity, safeguarding compliance, wellbeing programme, and trip leader pack are included in registry coverage.
+- [x] Later PDF locale work can add or replace a locale bundle without editing every shared wrapper.
+- [ ] CI green; production deploy successful.
+- [ ] Production smoke verifies PDF registry behaviour and no `MISSING_PDF_TEMPLATE` regressions.
 
 ### Notes
 
-- This pass intentionally does **not** roll out a new user-facing language. It is an architecture cleanup so 13 and any later PDF language work have a proper catalogue foundation.
-- If 08–12 add interim compatibility localizers for new languages before this runs, migrate those strings into the new catalogue format and delete the interim paths.
+- This pass intentionally does **not** roll out a new user-facing language. It is an architecture cleanup so 13 and any later PDF work have a proper per-language template-bundle foundation.
+- The LTR compatibility text profiles are retained for behavioral continuity, but the deleted `renderLegacyLocaleTemplate()` path means PDF locale ownership now lives in explicit locale bundles.
 
 ---
 

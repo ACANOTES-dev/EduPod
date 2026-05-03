@@ -9,6 +9,7 @@ import type { Browser } from 'puppeteer';
 import { renderDesInspection } from './templates/des-inspection.template';
 import { renderHouseholdStatement } from './templates/household-statement.template';
 import { renderInvoice } from './templates/invoice.template';
+import { isSupportedPdfLocale } from './templates/locales';
 import { renderPastoralSummary } from './templates/pastoral-summary.template';
 import { renderPayslip } from './templates/payslip.template';
 import { renderReceipt } from './templates/receipt.template';
@@ -61,7 +62,7 @@ export class PdfRenderingService implements OnModuleDestroy {
    * Render a PDF from a registered template.
    *
    * @param templateKey - Template identifier (e.g., 'report-card', 'transcript')
-   * @param locale - Locale code ('en', 'ar', 'fr', 'es', 'de', 'ga', 'it', or 'ro')
+   * @param locale - Locale code supported by the PDF template registry
    * @param data - Payload data for the template
    * @param branding - School branding info
    * @returns PDF as a Buffer
@@ -174,7 +175,7 @@ export class PdfRenderingService implements OnModuleDestroy {
       });
     }
 
-    if (!['en', 'ar', 'fr', 'es', 'de', 'ga', 'it', 'ro'].includes(locale)) {
+    if (!isSupportedPdfLocale(locale)) {
       throw new InternalServerErrorException({
         code: 'TEMPLATE_NOT_FOUND',
         message: `PDF template "${templateKey}" not available for locale "${locale}"`,

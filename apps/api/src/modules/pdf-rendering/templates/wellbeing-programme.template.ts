@@ -1,18 +1,11 @@
 import type { PdfBranding } from '../pdf-rendering.service';
 
-import { renderLegacyLocaleTemplate } from './locale-template';
-import { renderWellbeingProgrammeAr } from './wellbeing-programme-ar.template';
-import { renderWellbeingProgrammeEn } from './wellbeing-programme-en.template';
+import { renderPdfTemplate } from './locales';
 
 export function renderWellbeingProgramme(
   data: unknown,
   branding: PdfBranding,
   locale: string,
 ): string {
-  return renderLegacyLocaleTemplate(
-    locale,
-    { en: renderWellbeingProgrammeEn, ar: renderWellbeingProgrammeAr },
-    data,
-    branding,
-  );
+  return renderPdfTemplate('wellbeing-programme', locale, data, branding);
 }

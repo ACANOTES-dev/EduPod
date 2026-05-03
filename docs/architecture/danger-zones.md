@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering.
+> **Last verified**: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -17,6 +17,22 @@ The middleware-level Tier 2 guard must execute before the `next-intl` middleware
 **Rule**: Any new parent/student/public route added for a Tier 2 locale must update both route scope (`tier-routes.ts`) and namespace scope (`tier-scopes.ts`) in the same change. Any new staff/admin/back-office route must remain out of Tier 2 scope so it redirects instead of requiring translated back-office messages.
 
 **Regression tests**: `apps/web/src/__tests__/i18n/tier-routes.spec.ts` covers path classification, and the Italian Playwright route-guard coverage verifies `/it/<out-of-scope-route>` redirects to the tenant default locale.
+
+---
+
+## DZ-i18n-2: PDF Locale Bundles Must Stay Complete
+
+**Risk**: PDF templates are rendered server-side, outside the web message-loading path. If a locale is enabled for PDF output without a complete template bundle, user-triggered invoice, receipt, report-card, transcript, or compliance exports can fail at render time.
+**Location**: `apps/api/src/modules/pdf-rendering/templates/locales/`, `apps/api/src/modules/pdf-rendering/pdf-rendering.service.ts`
+**Status**: ACTIVE (New Languages implementation 12.5, 2026-05-03)
+
+All PDF rendering must resolve through the `PDF_TEMPLATE_BUNDLES` registry. Every supported PDF locale must expose every key in `PDF_TEMPLATE_KEYS`: DES inspection, household statement, invoice, pastoral summary, payslip, receipt, report card, report card modern, safeguarding compliance, SST activity, transcript, trip leader pack, and wellbeing programme.
+
+English and Arabic are first-class source template bundles; Arabic remains RTL-specific. Current LTR languages use explicit locale bundle modules backed by compatibility text profiles for continuity. New or replaced locale support should register a complete bundle and should not reintroduce the deleted `renderLegacyLocaleTemplate()` fallback path.
+
+**Rule**: Adding a PDF locale requires updating `SUPPORTED_PDF_LOCALES`, adding a complete bundle module, registering it in `PDF_TEMPLATE_BUNDLES`, and extending registry tests. Missing locales or keys must fail hard with `MISSING_PDF_TEMPLATE`.
+
+**Regression tests**: `apps/api/src/modules/pdf-rendering/templates/locales/index.spec.ts` verifies bundle completeness, English/Arabic routing, LTR locale routing, and hard-failure behavior. `apps/api/src/modules/pdf-rendering/templates/locales/text-profiles.spec.ts` covers the retained LTR compatibility text profiles.
 
 ---
 
