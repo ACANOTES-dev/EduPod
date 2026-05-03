@@ -9,13 +9,14 @@
 
 ## 1. Mission
 
-Expand SDB from **English + Arabic** (the current state) to:
+Expand SDB from **English + Arabic** (the starting state) to:
 
 - **Tier 1 — Full native support (4 new languages):** Irish (`ga`), French (`fr`), German (`de`), Spanish (`es`). Total fully-supported set after rollout: **English, Arabic, Irish, French, German, Spanish (6 languages)**.
-- **Tier 2 — Parent + student surface only (3 starter languages, expandable):** Italian (`it`), Romanian (`ro`), Polish (`pl`). Strict scope: parent portal, student portal, auth flows, public pages, and parent-relevant notifications/emails/SMS/WhatsApp/PDFs. Staff portal, settings, finance back-office, regulatory, payroll, HR are explicitly **not** translated for Tier 2.
+- **Tier 2 — Parent + student surface only (2 starter languages, expandable):** Italian (`it`) and Romanian (`ro`). Strict scope: parent portal, student portal, auth flows, public pages, and parent-relevant notifications/emails/SMS/WhatsApp/PDFs. Staff portal, settings, finance back-office, regulatory, payroll, HR are explicitly **not** translated for Tier 2.
 - **Dual-language household communications:** households opt-in to receive every parent communication in **both** the school's default language **and** their household secondary language. Default-language version always sent and is the canonical source of truth for any discrepancy.
 
 > **Note on Italian:** During brainstorming, the user's confirmed Tier 1 list was Irish, French, German, Spanish (4 languages). Italian was in the original wishlist but not explicitly in the Tier 1 confirmation. It is placed in Tier 2 here. Promotion to Tier 1 is a one-line config change if desired.
+> **Note on Polish:** `pl` remains registered metadata-only from the foundation work, but implementation 13 was re-scoped before execution into a polish/cleanup pass. Polish is not part of the current language rollout.
 
 ---
 
@@ -67,7 +68,7 @@ These constraints come directly from the user and override defaults from `superp
 - Finance back-office (reconciliation, scholarships, refunds workflows for staff)
 - Reports authoring, behaviour incident logging (staff side), scheduler, gradebook authoring
 
-**Languages:** Italian (`it`), Romanian (`ro`), Polish (`pl`). Expandable.
+**Languages:** Italian (`it`) and Romanian (`ro`). Expandable. Polish (`pl`) is registered inactive metadata only and is not shipped in this expansion.
 
 **Translation volume per language:** ~5,000 keys (estimated 25-30% of `en.json`, exact subset to be cataloged in Phase 1 deliverable).
 
@@ -164,10 +165,12 @@ These constraints come directly from the user and override defaults from `superp
 | **2. Template Refactor**      | 2                    | Strict sequential, after Phase 1                                                        | PDF templates locale-driven; NotificationTemplate seeding refactored. EN + AR outputs verified byte/visually identical |
 | **3. Dual-Language Dispatch** | 1                    | Strict sequential, after Phase 2                                                        | Household opt-in UI; dispatcher fanout; integration tests                                                              |
 | **4. Tier 1 Languages**       | 4 (one per language) | **Sequential at codebase level**, but **independent in content** — order is reorderable | Irish, French, German, Spanish: full message catalogue, NHQS-enabled                                                   |
-| **5. Tier 2 Languages**       | 3                    | Sequential at codebase level, independent in content                                    | Italian, Romanian, Polish: in-scope namespaces, NHQS-enabled                                                           |
+| **5. Tier 2 Languages**       | 2                    | Sequential at codebase level, independent in content                                    | Italian and Romanian: in-scope namespaces, NHQS-enabled                                                                |
+| **5.5 PDF Bundles**           | 1                    | After Tier 2 languages                                                                  | Per-locale PDF template bundles for shipped locales                                                                    |
+| **5.6 Cleanup**               | 1                    | Final close-out                                                                         | Documentation, guardrails, and production verification cleanup                                                         |
 | **6. Tenant Rollout**         | rolling, ad-hoc      | After NHQS QA per locale                                                                | Per-tenant `supported_locales` flips                                                                                   |
 
-**Total implementation sessions: 13** (excluding Phase 0 spec and rolling Phase 6 ops work).
+**Total implementation entries: 14** (13 numbered sessions plus the inserted 12.5 PDF template-bundle gate, excluding Phase 0 spec and rolling Phase 6 ops work).
 
 ### 5.1 Phase 0 — Spec & Strategy (current session)
 
@@ -289,7 +292,7 @@ Each session has the **same shape**:
 
 **Order recommendation:** P4-FR → P4-ES → P4-DE → P4-GA (easiest to hardest). User may override.
 
-### 5.6 Phase 5 — Tier 2 Languages (sessions P5-IT, P5-RO, P5-PL)
+### 5.6 Phase 5 — Tier 2 Languages (sessions P5-IT, P5-RO)
 
 Same shape as Phase 4, but:
 
@@ -299,13 +302,12 @@ Same shape as Phase 4, but:
 
 **Per-language model recommendations:**
 
-| Session | Language | Model      | Effort  | Rationale                                                                    |
-| ------- | -------- | ---------- | ------- | ---------------------------------------------------------------------------- |
-| P5-IT   | Italian  | Sonnet 4.6 | Max     | Romance language, well-supported; Sonnet 4.6 sufficient                      |
-| P5-RO   | Romanian | Opus 4.7   | High    | Romance language but Slavic-influenced grammar; mid-difficulty               |
-| P5-PL   | Polish   | Opus 4.7   | **Max** | Complex grammar (7 cases, aspect, gendered verbs). Highest QA risk in Tier 2 |
+| Session | Language | Model      | Effort | Rationale                                                      |
+| ------- | -------- | ---------- | ------ | -------------------------------------------------------------- |
+| P5-IT   | Italian  | Sonnet 4.6 | Max    | Romance language, well-supported; Sonnet 4.6 sufficient        |
+| P5-RO   | Romanian | Opus 4.7   | High   | Romance language but Slavic-influenced grammar; mid-difficulty |
 
-**Order recommendation:** P5-IT → P5-RO → P5-PL.
+**Order recommendation:** P5-IT → P5-RO → 12.5 PDF template bundles → 13 cleanup.
 
 ### 5.7 Phase 6 — Tenant rollout (rolling, operational)
 
@@ -462,7 +464,7 @@ Each session appends a structured entry:
 | P4-ES — Spanish                     | Opus 4.7   | High     | Standard work; choose neutral ES      |
 | P5-IT — Italian                     | Sonnet 4.6 | Max      | Romance; Sonnet sufficient            |
 | P5-RO — Romanian                    | Opus 4.7   | High     | Mid-difficulty grammar                |
-| P5-PL — Polish                      | Opus 4.7   | **Max**  | Complex grammar; QA risk              |
+| 13 — Expansion polish/cleanup pass  | GPT-5.5    | High     | Close-out docs, guardrails, deploy QA |
 
 ---
 
@@ -524,7 +526,7 @@ After user approval of this strategy:
    - `P2B-notification-template-refactor.md`
    - `P3-dual-language-dispatch.md`
    - `P4-GA-irish.md`, `P4-FR-french.md`, `P4-DE-german.md`, `P4-ES-spanish.md`
-   - `P5-IT-italian.md`, `P5-RO-romanian.md`, `P5-PL-polish.md`
+   - `P5-IT-italian.md`, `P5-RO-romanian.md`, `13-expansion-cleanup.md`
 2. Create matching slash command (`/NL <session-id>`) following the existing `/SW`, `/BH`, `/WBR` template at `.claude/commands/NL.md`
 3. Build the glossary scaffold at `New Languages/glossary.md`
 4. Begin P1A execution

@@ -1554,7 +1554,7 @@ Missing keys throw in development and Sentry-then-throw in production, so any un
 
 1. CI parity gate runs the parity test on every push (added in impl 02). Any missing key blocks merge.
 2. `scripts/check-i18n.js` scans active locales for missing/orphan keys and is wired into the same CI workflow.
-3. Tier 2 locales (`it`, `ro`, `pl`) are scoped: parity is enforced only against `apps/web/i18n/tier-scopes.ts → TIER_2_NAMESPACES`. Out-of-scope namespaces fall back to the tenant default locale via the route-level guard (impl 11).
+3. Active Tier 2 locales (`it`, `ro`) are scoped: parity is enforced only against `apps/web/i18n/tier-scopes.ts → TIER_2_NAMESPACES`. Out-of-scope namespaces fall back to the tenant default locale via the route-level guard (impl 11). `pl` remains registered metadata-only and must not be activated without a future dedicated language-pack implementation.
 4. Adding a new locale to active is a **two-file commit**: flip `active: true` in `apps/web/i18n/registry.ts` AND add `apps/web/messages/{code}.json` in the same commit. Splitting the change across commits leaves the runtime referencing a missing file — a 500 on every route under that locale.
 
 **Where to look first when something goes wrong**: if Sentry shows a sudden spike of `MISSING_MESSAGE` exceptions, the offending key is in the exception payload — find the file in `apps/web/messages/en.json` that owns that key and propagate to every other active locale. If the spike is on every route, the root cause is almost certainly a locale that was flipped `active: true` without its message file landing.

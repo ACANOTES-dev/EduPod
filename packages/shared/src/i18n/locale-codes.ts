@@ -6,7 +6,9 @@ import { z } from 'zod';
 // active flag — that the backend doesn't need).
 //
 // When a new locale is added to the registry, add its code here in the same
-// commit so backend Zod validation accepts it.
+// commit so backend Zod validation accepts it. Some registered locales may be
+// inactive at runtime; tenant gating and the web registry decide what users can
+// actually select.
 export const REGISTERED_LOCALES = ['en', 'ar', 'ga', 'fr', 'de', 'es', 'it', 'ro', 'pl'] as const;
 
 export type RegisteredLocale = (typeof REGISTERED_LOCALES)[number];

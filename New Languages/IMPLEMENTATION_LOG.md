@@ -1,8 +1,8 @@
 # Multi-Language Expansion — Implementation Log
 
-**Project:** Add 4 Tier-1 (`ga`, `fr`, `de`, `es`) and 3 Tier-2 (`it`, `ro`, `pl`) languages to SDB.
+**Project:** Add 4 Tier-1 (`ga`, `fr`, `de`, `es`) and 2 Tier-2 (`it`, `ro`) languages to SDB, plus per-locale PDF template bundles and final cleanup.
 **Strategy:** see `STRATEGY.md` in this folder.
-**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder, with `12.5` reserved for the PDF template-bundle architecture pass.
+**Specs:** see `implementations/01-…` through `implementations/13-…` in this folder, with `12.5` reserved for the PDF template-bundle architecture pass and 13 reserved for the polish/cleanup close-out.
 **Started:** 2026-04-25 (Phase 0 spec authored)
 
 ---
@@ -21,8 +21,8 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 ## Implementation index
 
 > Implementations are numbered 1–13 plus 12.5 (sequential at codebase level — only one runs at a time).
-> Within Phase 4 and Phase 5, the _content_ is reorderable (FR ↔ ES ↔ DE ↔ GA, and IT ↔ RO ↔ PL). The numbering below reflects the **recommended execution order** (easiest → hardest within each tier).
-> Implementation 12.5 is a fixed architecture gate before 13, not a language rollout.
+> Within Phase 4 and Phase 5, the _content_ was reorderable (FR ↔ ES ↔ DE ↔ GA, and IT ↔ RO). The numbering below reflects the final executed order.
+> Implementation 12.5 is a fixed architecture gate before 13, and implementation 13 is a cleanup pass, not a language rollout.
 
 | #    | Phase                  | Spec                                                         | Locale / Topic                             | Status                 | Model      | Effort   |
 | ---- | ---------------------- | ------------------------------------------------------------ | ------------------------------------------ | ---------------------- | ---------- | -------- |
@@ -39,7 +39,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 | 11   | 5 — Tier 2             | `implementations/11-italian.md`                              | Italian (`it`) parent+student catalogue    | 🟢 Complete & deployed | Sonnet 4.6 | Max      |
 | 12   | 5 — Tier 2             | `implementations/12-romanian.md`                             | Romanian (`ro`) parent+student catalogue   | 🟢 Complete & deployed | Opus 4.7   | High     |
 | 12.5 | 5.5 — PDF Architecture | `implementations/12.5-pdf-template-bundles.md`               | PDF templates: locale bundles              | 🟢 Complete & deployed | GPT-5.5    | Max      |
-| 13   | 5 — Tier 2             | `implementations/13-polish.md`                               | Polish (`pl`) parent+student catalogue     | ⚪ Pending             | Opus 4.7   | Max      |
+| 13   | 5.6 — Cleanup          | `implementations/13-expansion-cleanup.md`                    | Expansion polish/cleanup (no `pl` rollout) | 🟡 In progress         | GPT-5.5    | High     |
 | —    | 6 — Rollout (rolling)  | (no spec; ops only)                                          | Per-tenant `supported_locales` flips       | ⚪ Pending             | n/a        | n/a      |
 
 **Critical path:** 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 12.5 → 13 → Phase 6 rollout
@@ -47,7 +47,7 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 **Sequential at the codebase level** (no worktrees / no branches / no PRs). Only one implementation runs on the codebase at a time.
 
 > **Legacy ID mapping** (for historical reference — the strategy still uses these in some places):
-> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 12.5=P5.5-PDF-TEMPLATE-BUNDLES · 13=P5-PL.
+> 01=P1A · 02=P1B · 03=P1C · 04=P2A · 05=P2B · 06=P3 · 07=P4-FR · 08=P4-ES · 09=P4-DE · 10=P4-GA · 11=P5-IT · 12=P5-RO · 12.5=P5.5-PDF-TEMPLATE-BUNDLES · 13=P5-CLEANUP (formerly drafted as P5-PL before scope correction).
 
 ---
 
@@ -926,18 +926,25 @@ An implementation is **not 🟢** until: local tests pass + commit on main + CI 
 
 ---
 
-### 13 — Polish (`pl`)
+### 13 — Expansion polish/cleanup pass
 
-- **Spec:** `implementations/13-polish.md`
-- **Status:** ⚪ Pending
-- **Model:** Opus 4.7 / **Max effort**
+- **Spec:** `implementations/13-expansion-cleanup.md`
+- **Status:** 🟡 In progress
+- **Model:** GPT-5.5 / High effort
 - **Depends on:** 12.5 complete
+- **Began:** 2026-05-03
 
-**Scope summary:** Same shape as 11/12, using the first-class PDF message-catalogue architecture from 12.5. Watch 7-case grammar, 3 genders, perfective/imperfective aspect. Maintain `pl-review-queue.md`.
+**Scope summary:** Final close-out/polish pass. Implementation 13 is not a Polish (`pl`) language pack. It replaces the stale `pl` rollout spec, keeps `pl` registered but inactive, documents that no `pl.json`, `pl` notification/PDF bundles, Playwright projects, or NHQS rollout should be added in this expansion, and verifies the shipped locale set remains `en, ar, fr, es, de, ga, it, ro`.
 
 ### Acceptance / Sections
 
-- (populated during execution)
+- [x] Re-scoped implementation 13 spec from Polish language pack to cleanup pass.
+- [x] Updated strategy/log/danger-zone language to remove the planned `pl` rollout.
+- [x] Preserved `pl` as registered metadata-only and inactive.
+- [x] Local targeted validation complete.
+- [ ] CI green and production deploy successful.
+- [ ] Production close-out verification complete.
+- [ ] Final log update committed and deployed.
 
 ---
 
@@ -953,7 +960,6 @@ Per locale, after NHQS QA passes:
 | es           | nhqs            | 2026-04-29                   | Codex    | Pilot tenant       |
 | it           | nhqs            | 2026-04-30                   | Codex    | Pilot tenant       |
 | ro           | nhqs            | 2026-05-03                   | Codex    | Pilot tenant       |
-| pl           | nhqs            | (pending 13 completion)      | —        | Pilot tenant       |
 | (per locale) | (other tenants) | (pending NHQS QA per locale) | —        | GA rollout post-QA |
 
 ---
@@ -962,12 +968,12 @@ Per locale, after NHQS QA passes:
 
 - **Total implementations planned:** 14 (excl. P0 + Phase 6 ops)
 - **Implementations complete:** 13
-- **Implementations in progress:** 0
-- **Implementations pending:** 1
+- **Implementations in progress:** 1
+- **Implementations pending:** 0
 - **Implementations blocked:** 0
 - **Languages live (NHQS):** en, ar, fr, es, de, ga, it, ro
 - **Languages live (other tenants):** en, ar
-- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; Tier 2 it/ro active on parent/student/public allowlist; remaining work pending
+- **Translation parity status:** en ↔ ar ↔ fr ↔ de ↔ es ↔ ga active; Tier 2 it/ro active on parent/student/public allowlist; implementation 13 close-out in progress
 - **Hard-error flag:** on
 - **Visual suite in CI:** smoke + Arabic RTL regulatory coverage; full per-locale visual expansion begins in Phase 4
 

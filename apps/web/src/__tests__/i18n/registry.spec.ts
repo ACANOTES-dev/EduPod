@@ -13,7 +13,7 @@ describe('locale registry', () => {
     expect(isActiveLocale('ar')).toBe(true);
   });
 
-  it('ga, fr, de, es, it, and ro are active while pending Tier 2 expansion locales stay inactive', () => {
+  it('ga, fr, de, es, it, and ro are active while future Tier 2 expansion locales stay inactive', () => {
     expect(isRegisteredLocale('ga')).toBe(true);
     expect(isActiveLocale('ga')).toBe(true);
     expect(isRegisteredLocale('fr')).toBe(true);
@@ -54,5 +54,6 @@ describe('locale registry', () => {
 
   it('ACTIVE_LOCALE_CODES contains shipped runtime locales', () => {
     expect(ACTIVE_LOCALE_CODES).toEqual(['en', 'ar', 'ga', 'fr', 'de', 'es', 'it', 'ro']);
+    expect(ACTIVE_LOCALE_CODES).not.toContain('pl');
   });
 });

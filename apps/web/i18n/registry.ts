@@ -77,7 +77,8 @@ export const LOCALE_REGISTRY: readonly LocaleEntry[] = [
     active: true,
   },
 
-  // Tier 2 — parent + student surface only.
+  // Tier 2 — parent + student surface only. `pl` is registered metadata-only
+  // for a future rollout and must remain inactive until its catalogue ships.
   {
     code: 'it',
     englishName: 'Italian',

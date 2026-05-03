@@ -1,6 +1,7 @@
-// Tier 2 locales (it, ro, pl as of this writing) only translate the parent
-// and student surface. Other namespaces fall back to the tenant default
-// locale at runtime via the route-level guard added in implementation 11.
+// Active Tier 2 locales currently translate only the parent and student
+// surface. Other namespaces fall back to the tenant default locale at runtime
+// via the route-level guard added in implementation 11. `pl` remains
+// registered metadata-only until a future dedicated rollout activates it.
 //
 // This list governs the translation-parity test for Tier 2 locales: the
 // parity gate enforces 100% match against this subset, ignoring out-of-scope
