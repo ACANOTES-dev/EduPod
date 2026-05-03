@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "Inquiries",
+      "parentListDescription": "Your inquiries to the school",
+      "emptyDescription": "Have a question? Send an inquiry to the school.",
+      "missingParentRecord": "Your account is not yet linked to a parent record. Please contact the school to complete your setup before sending inquiries.",
       "newInquiry": "New Inquiry",
       "subjectLabel": "Subject",
       "subjectPlaceholder": "What is your inquiry about?",

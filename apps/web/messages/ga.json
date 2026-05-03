@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "Fiosrúcháin",
+      "parentListDescription": "D’fhiosrúcháin chuig an scoil",
+      "emptyDescription": "An bhfuil ceist agat? Seol fiosrúchán chuig an scoil.",
+      "missingParentRecord": "Níl do chuntas nasctha le taifead tuismitheora fós. Déan teagmháil leis an scoil chun an socrú a chríochnú sula seolann tú fiosrúcháin.",
       "newInquiry": "Fiosrúchán Nua",
       "subjectLabel": "Ábhar",
       "subjectPlaceholder": "Cad atá faoi d'fhiosrúchán?",

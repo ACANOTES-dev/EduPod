@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "Anfragen",
+      "parentListDescription": "Ihre Anfragen an die Schule",
+      "emptyDescription": "Haben Sie eine Frage? Senden Sie eine Anfrage an die Schule.",
+      "missingParentRecord": "Ihr Konto ist noch keinem Elternprofil zugeordnet. Bitte wenden Sie sich an die Schule, um die Einrichtung abzuschließen, bevor Sie Anfragen senden.",
       "newInquiry": "Neue Anfrage",
       "subjectLabel": "Betreff",
       "subjectPlaceholder": "Worum geht es in Ihrer Anfrage?",

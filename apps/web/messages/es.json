@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "Consultas",
+      "parentListDescription": "Sus consultas al centro escolar",
+      "emptyDescription": "¿Tiene una pregunta? Envíe una consulta al centro escolar.",
+      "missingParentRecord": "Su cuenta aún no está vinculada a un perfil de padre, madre o tutor. Póngase en contacto con el centro escolar para completar la configuración antes de enviar consultas.",
       "newInquiry": "Nueva consulta",
       "subjectLabel": "Asunto",
       "subjectPlaceholder": "¿A qué se debe tu consulta?",

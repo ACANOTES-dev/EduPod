@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "Demandes de renseignements",
+      "parentListDescription": "Vos demandes adressées à l’établissement",
+      "emptyDescription": "Vous avez une question ? Envoyez une demande à l’établissement.",
+      "missingParentRecord": "Votre compte n’est pas encore associé à un dossier parent. Veuillez contacter l’établissement pour finaliser votre configuration avant d’envoyer des demandes.",
       "newInquiry": "Nouvelle enquête",
       "subjectLabel": "Sujet",
       "subjectPlaceholder": "Sur quoi porte votre demande ?",

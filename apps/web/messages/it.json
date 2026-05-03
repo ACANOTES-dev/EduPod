@@ -1394,6 +1394,9 @@
     },
     "inquiry": {
       "title": "Richiesta",
+      "parentListDescription": "Le Sue richieste alla scuola",
+      "emptyDescription": "Ha una domanda? Invii una richiesta alla scuola.",
+      "missingParentRecord": "Il Suo account non è ancora collegato a un profilo genitore. Contatti la scuola per completare la configurazione prima di inviare richieste.",
       "newInquiry": "Nuova richiesta",
       "subjectLabel": "Materia",
       "subjectPlaceholder": "Qual è la Sua richiesta?",

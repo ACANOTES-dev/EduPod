@@ -9603,6 +9603,9 @@
     },
     "inquiry": {
       "title": "الاستفسارات",
+      "parentListDescription": "استفساراتك إلى المدرسة",
+      "emptyDescription": "هل لديك سؤال؟ أرسل استفسارًا إلى المدرسة.",
+      "missingParentRecord": "لم يتم ربط حسابك بسجل ولي أمر بعد. يُرجى التواصل مع المدرسة لإكمال الإعداد قبل إرسال الاستفسارات.",
       "newInquiry": "استفسار جديد",
       "subjectLabel": "الموضوع",
       "subjectPlaceholder": "ما موضوع استفسارك؟",

@@ -4457,6 +4457,9 @@
     },
     "inquiry": {
       "title": "Solicitări",
+      "parentListDescription": "Solicitările dumneavoastră către școală",
+      "emptyDescription": "Aveți o întrebare? Trimiteți o solicitare către școală.",
+      "missingParentRecord": "Contul dumneavoastră nu este încă asociat cu un profil de părinte. Vă rugăm să contactați școala pentru a finaliza configurarea înainte de a trimite solicitări.",
       "newInquiry": "Solicitare nouă",
       "subjectLabel": "Subiect",
       "subjectPlaceholder": "Despre ce este întrebarea dumneavoastră?",
@@ -4480,7 +4483,7 @@
       "noLinkedStudents": "Niciun elev nu a fost conectat la contul dumneavoastră",
       "schoolAdmin": "Administrația școlii",
       "status": {
-        "open": "Deschide",
+        "open": "Deschis",
         "in_progress": "În curs",
         "closed": "Închis"
       }

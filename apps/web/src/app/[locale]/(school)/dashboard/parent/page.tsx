@@ -28,6 +28,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
 import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
@@ -212,6 +213,7 @@ export default function ParentDashboardPage() {
   const tStudents = useTranslations('students');
   const tCommon = useTranslations('common');
   const locale = useLocale();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const initialTab = ((): ParentTab => {
     const v = searchParams?.get('tab');
@@ -367,13 +369,21 @@ export default function ParentDashboardPage() {
     })) ?? [];
 
   const hasChildren = children.length > 0;
+  const parentName = user?.first_name ?? data?.greeting.split(',').slice(1).join(',').trim() ?? '';
+  const hour = new Date().getHours();
+  const localizedGreeting =
+    hour >= 17
+      ? t('goodEvening', { name: parentName })
+      : hour >= 12
+        ? t('goodAfternoon', { name: parentName })
+        : t('goodMorning', { name: parentName });
 
   return (
     <div className="space-y-6">
       {/* Greeting header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {loading ? t('welcome') : data ? data.greeting : t('welcome')}
+          {loading ? t('welcome') : data ? localizedGreeting : t('welcome')}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">{t('summaryLine')}</p>
       </div>

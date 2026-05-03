@@ -30,12 +30,6 @@ const STATUS_VARIANT: Record<InquiryStatus, 'success' | 'warning' | 'neutral'> =
   closed: 'neutral',
 };
 
-const STATUS_LABEL: Record<InquiryStatus, string> = {
-  open: 'Open',
-  in_progress: 'In Progress',
-  closed: 'Closed',
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentInquiriesPage() {
@@ -93,7 +87,7 @@ export default function ParentInquiriesPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('inquiry.title')}
-        description="Your inquiries to the school"
+        description={t('inquiry.parentListDescription')}
         actions={
           <Button onClick={() => router.push('/inquiries/new')}>
             <Plus className="me-2 h-4 w-4" />
@@ -107,14 +101,13 @@ export default function ParentInquiriesPage() {
           role="alert"
           className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
         >
-          Your account is not yet linked to a parent record. Please contact the school to complete
-          your setup before sending inquiries.
+          {t('inquiry.missingParentRecord')}
         </div>
       ) : inquiries.length === 0 ? (
         <EmptyState
           icon={MessageCircle}
           title={t('noInquiriesYet')}
-          description="Have a question? Send an inquiry to the school."
+          description={t('inquiry.emptyDescription')}
           action={{ label: t('inquiry.newInquiry'), onClick: () => router.push('/inquiries/new') }}
         />
       ) : (
@@ -132,7 +125,7 @@ export default function ParentInquiriesPage() {
                       {inquiry.subject}
                     </span>
                     <StatusBadge status={STATUS_VARIANT[inquiry.status]} dot>
-                      {STATUS_LABEL[inquiry.status]}
+                      {t(`inquiry.status.${inquiry.status}`)}
                     </StatusBadge>
                   </div>
                   {inquiry.last_message_preview && (
