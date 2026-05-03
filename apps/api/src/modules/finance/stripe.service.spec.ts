@@ -874,7 +874,7 @@ describe('StripeService', () => {
 
   describe('StripeService — createAdmissionsCheckoutSession', () => {
     const APPLICATION_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
-    const PAYMENT_DEADLINE = new Date('2026-05-01T00:00:00Z');
+    const PAYMENT_DEADLINE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const READY_APPLICATION = {
       id: APPLICATION_ID,
