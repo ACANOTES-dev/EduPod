@@ -1,0 +1,44 @@
+{
+  "admissions_application_received": {
+    "email": {
+      "subject": "Cerere primită — {{school_name}}",
+      "body": "<p>Stimate părinte,</p><p>vă mulțumim că ați trimis cererea către <strong>{{school_name}}</strong>. Am primit următoarele informații:</p><ul>{{#each students}}<li><strong>{{this.name}}</strong> — {{this.status}}</li>{{/each}}</ul><p>Puteți urmări progresul cererii autentificându-vă în portalul pentru părinți.</p><p>Vă mulțumim,<br/>{{school_name}}</p>"
+    }
+  },
+  "admissions_application_withdrawn": {
+    "email": {
+      "subject": "Cerere retrasă — {{student_name}}",
+      "body": "<p>Stimate părinte,</p><p>confirmăm că cererea pentru <strong>{{student_name}}</strong> (nr. cerere <strong>{{application_number}}</strong>) la <strong>{{school_name}}</strong> a fost retrasă.</p><p>Dacă nu ați solicitat această retragere sau considerați că a fost făcută din greșeală, vă rugăm să contactați biroul de admitere al școlii.</p><p>Vă mulțumim,<br/>{{school_name}}</p>"
+    }
+  },
+  "announcement_published": {
+    "email": {
+      "subject": "Anunț nou: {{title}}",
+      "body": "Stimate/Stimată {{recipient_name}},\n\nA fost publicat un anunț nou:\n\n**{{title}}**\n\n{{body}}\n\nAcest anunț provine de la {{school_name}}.\n\nCu stimă,\nEchipa {{school_name}}"
+    },
+    "in_app": {
+      "body": "Anunț nou: {{title}}"
+    }
+  },
+  "inbox_message_fallback": {
+    "email": {
+      "subject": "Mesaj nou de la {{sender_name}}",
+      "body": "<p>Aveți un mesaj necitit de la <strong>{{sender_name}}</strong> în inboxul școlii.</p><blockquote>{{snippet}}</blockquote><p>Deschideți inboxul pentru a citi mesajul complet și pentru a răspunde, dacă răspunsurile sunt activate.</p>"
+    },
+    "whatsapp": {
+      "body": "*Mesaj nou de la {{sender_name}}*\n\n{{snippet}}\n\nDeschideți inboxul școlii pentru a citi mesajul complet și pentru a răspunde."
+    },
+    "sms": {
+      "body": "{{sender_name}}: {{snippet}} — deschideți inboxul școlii pentru a citi mesajul complet și pentru a răspunde."
+    }
+  },
+  "inquiry_new_message": {
+    "email": {
+      "subject": "Mesaj nou pentru solicitarea dumneavoastră: {{subject}}",
+      "body": "Stimate/Stimată {{recipient_name}},\n\nAți primit un mesaj nou pentru solicitarea dumneavoastră „{{subject}}”:\n\n{{message}}\n\nAutentificați-vă în portalul pentru părinți pentru a răspunde.\n\nCu stimă,\nEchipa {{school_name}}"
+    },
+    "in_app": {
+      "body": "Mesaj nou pentru solicitare: {{subject}}"
+    }
+  }
+}

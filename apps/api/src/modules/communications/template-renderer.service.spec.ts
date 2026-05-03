@@ -137,6 +137,17 @@ describe('TemplateRendererService', () => {
       expect(result).toContain('NHQS');
     });
 
+    it('should render t-prefixed Romanian parent-facing templates', () => {
+      const result = service.render(
+        't:admissions_application_received.email.body',
+        { school_name: 'NHQS', students: [{ name: 'Ana Popescu', status: 'received' }] },
+        'ro',
+      );
+      expect(result).toContain('Stimate părinte');
+      expect(result).toContain('Ana Popescu');
+      expect(result).toContain('NHQS');
+    });
+
     it('should throw when a t-prefixed message key is missing', () => {
       expect(() => service.render('t:does.not.exist', {}, 'en')).toThrow(
         /MISSING_NOTIFICATION_MESSAGE/,
@@ -144,7 +155,7 @@ describe('TemplateRendererService', () => {
     });
 
     it('should throw when a t-prefixed locale catalogue is missing', () => {
-      expect(() => service.render('t:absence_cancelled.email.body', {}, 'ro')).toThrow(
+      expect(() => service.render('t:absence_cancelled.email.body', {}, 'pl')).toThrow(
         /MISSING_NOTIFICATION_LOCALE/,
       );
     });

@@ -189,8 +189,16 @@ describe('PdfRenderingService', () => {
     expect(result).not.toContain('INVOICE');
   });
 
+  it('should render Romanian through the LTR Romanian localiser', () => {
+    const result = service.renderHtml('invoice', 'ro', { amount: 100 }, BRANDING);
+
+    expect(result).toContain('en-inv');
+    expect(result).toContain('FACTURĂ');
+    expect(result).not.toContain('INVOICE');
+  });
+
   it('should throw InternalServerErrorException for unsupported locale', () => {
-    expect(() => service.renderHtml('invoice', 'ro', {}, BRANDING)).toThrow(
+    expect(() => service.renderHtml('invoice', 'pl', {}, BRANDING)).toThrow(
       InternalServerErrorException,
     );
   });

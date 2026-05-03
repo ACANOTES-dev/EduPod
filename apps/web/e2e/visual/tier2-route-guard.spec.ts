@@ -1,11 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('Italian Tier 2 route guard', () => {
+test.describe('Tier 2 route guard', () => {
   test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.metadata.locale !== 'it', 'Italian Tier 2 coverage only');
+    test.skip(
+      !['it', 'ro'].includes(String(testInfo.project.metadata.locale)),
+      'Tier 2 coverage only',
+    );
   });
 
-  test('redirects out-of-scope routes to the tenant default locale', async ({ page }) => {
+  test('redirects out-of-scope routes to the tenant default locale', async ({ page }, testInfo) => {
+    const locale = String(testInfo.project.metadata.locale);
+
     await page.context().addCookies([
       {
         name: 'tenant_default_locale',
@@ -14,19 +19,21 @@ test.describe('Italian Tier 2 route guard', () => {
       },
     ]);
 
-    await page.goto('/it/finance/payroll');
+    await page.goto(`/${locale}/finance/payroll`);
     await page.waitForURL('**/en/finance/payroll');
 
     expect(new URL(page.url()).pathname).toBe('/en/finance/payroll');
     await expect(page.locator('body')).not.toContainText('MISSING_MESSAGE');
   });
 
-  test('does not redirect in-scope Italian public routes', async ({ page }) => {
-    await page.goto('/it/contact');
+  test('does not redirect in-scope Tier 2 public routes', async ({ page }, testInfo) => {
+    const locale = String(testInfo.project.metadata.locale);
+
+    await page.goto(`/${locale}/contact`);
     await page.waitForLoadState('networkidle');
 
-    expect(new URL(page.url()).pathname).toBe('/it/contact');
-    await expect(page.locator('html')).toHaveAttribute('lang', 'it');
+    expect(new URL(page.url()).pathname).toBe(`/${locale}/contact`);
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
     await expect(page.locator('body')).not.toContainText('MISSING_MESSAGE');
   });
 });

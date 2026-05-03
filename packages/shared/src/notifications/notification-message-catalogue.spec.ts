@@ -5,7 +5,16 @@ import {
 
 describe('notification message catalogue', () => {
   it('lists shipped notification catalogues', () => {
-    expect(listNotificationCatalogueLocales()).toEqual(['ar', 'de', 'en', 'es', 'fr', 'ga', 'it']);
+    expect(listNotificationCatalogueLocales()).toEqual([
+      'ar',
+      'de',
+      'en',
+      'es',
+      'fr',
+      'ga',
+      'it',
+      'ro',
+    ]);
   });
 
   it('returns raw Handlebars templates unchanged', () => {
@@ -54,15 +63,24 @@ describe('notification message catalogue', () => {
     ).toBe('Domanda ricevuta — {{school_name}}');
   });
 
-  it('keeps Italian limited to the parent-relevant catalogue subset', () => {
+  it('resolves t-prefixed Romanian parent-facing keys', () => {
+    expect(
+      resolveNotificationTemplateSource('t:admissions_application_received.email.subject', 'ro'),
+    ).toBe('Cerere primită — {{school_name}}');
+  });
+
+  it('keeps Tier 2 locales limited to the parent-relevant catalogue subset', () => {
     expect(() =>
       resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'it'),
+    ).toThrow(/MISSING_NOTIFICATION_MESSAGE/);
+    expect(() =>
+      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'ro'),
     ).toThrow(/MISSING_NOTIFICATION_MESSAGE/);
   });
 
   it('throws when the locale catalogue is missing', () => {
     expect(() =>
-      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'ro'),
+      resolveNotificationTemplateSource('t:absence_cancelled.email.subject', 'pl'),
     ).toThrow(/MISSING_NOTIFICATION_LOCALE/);
   });
 

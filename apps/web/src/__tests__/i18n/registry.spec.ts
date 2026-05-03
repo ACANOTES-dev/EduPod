@@ -13,7 +13,7 @@ describe('locale registry', () => {
     expect(isActiveLocale('ar')).toBe(true);
   });
 
-  it('ga, fr, de, es, and it are active while pending Tier 2 expansion locales stay inactive', () => {
+  it('ga, fr, de, es, it, and ro are active while pending Tier 2 expansion locales stay inactive', () => {
     expect(isRegisteredLocale('ga')).toBe(true);
     expect(isActiveLocale('ga')).toBe(true);
     expect(isRegisteredLocale('fr')).toBe(true);
@@ -26,10 +26,11 @@ describe('locale registry', () => {
     expect(isRegisteredLocale('it')).toBe(true);
     expect(isActiveLocale('it')).toBe(true);
 
-    for (const code of ['ro', 'pl']) {
-      expect(isRegisteredLocale(code)).toBe(true);
-      expect(isActiveLocale(code)).toBe(false);
-    }
+    expect(isRegisteredLocale('ro')).toBe(true);
+    expect(isActiveLocale('ro')).toBe(true);
+
+    expect(isRegisteredLocale('pl')).toBe(true);
+    expect(isActiveLocale('pl')).toBe(false);
   });
 
   it('only ar is RTL', () => {
@@ -52,6 +53,6 @@ describe('locale registry', () => {
   });
 
   it('ACTIVE_LOCALE_CODES contains shipped runtime locales', () => {
-    expect(ACTIVE_LOCALE_CODES).toEqual(['en', 'ar', 'ga', 'fr', 'de', 'es', 'it']);
+    expect(ACTIVE_LOCALE_CODES).toEqual(['en', 'ar', 'ga', 'fr', 'de', 'es', 'it', 'ro']);
   });
 });

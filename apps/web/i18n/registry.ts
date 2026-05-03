@@ -92,7 +92,7 @@ export const LOCALE_REGISTRY: readonly LocaleEntry[] = [
     nativeName: 'Română',
     direction: 'ltr',
     tier: 2,
-    active: false,
+    active: true,
   },
   {
     code: 'pl',

@@ -29,6 +29,9 @@ export function renderLegacyLocaleTemplate(
   if (locale === 'it') {
     return localizeItalianPdfHtml(pair.en(data, branding));
   }
+  if (locale === 'ro') {
+    return localizeRomanianPdfHtml(pair.en(data, branding));
+  }
   return pair.en(data, branding);
 }
 
@@ -1087,6 +1090,148 @@ const ITALIAN_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bDec\b/g, 'dic'],
 ];
 
+const ROMANIAN_PDF_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/<html lang="en" dir="ltr">/g, '<html lang="ro" dir="ltr">'],
+  [/to save as PDF/g, 'pentru a salva ca PDF'],
+
+  // Parent/student-facing document titles
+  [/\bAcademic Transcript\b/g, 'Foaie matricolă'],
+  [/\bACCOUNT STATEMENT\b/g, 'EXTRAS DE CONT'],
+  [/\bPAYMENT RECEIPT\b/g, 'CHITANȚĂ DE PLATĂ'],
+  [/\bREPORT CARD\b/g, 'CARNET DE NOTE'],
+  [/\bTRANSCRIPT\b/g, 'FOAIE MATRICOLĂ'],
+  [/\bINVOICE\b/g, 'FACTURĂ'],
+  [/\bRECEIPT\b/g, 'CHITANȚĂ'],
+  [/\bReport Card\b/g, 'Carnet de note'],
+
+  // Common metadata
+  [/\bGenerated:/g, 'Generat:'],
+  [/\bIssued:/g, 'Emis:'],
+  [/\bStatement Period:/g, 'Perioada extrasului:'],
+  [/\bPeriod:/g, 'Perioadă:'],
+  [/\bOpening Balance:/g, 'Sold inițial:'],
+  [/\bClosing Balance\b/g, 'Sold final'],
+  [/\bAccount Holder\b/g, 'Titular cont'],
+  [/\bConfidential\b/g, 'Confidențial'],
+  [/\bLogo\b/g, 'Logo'],
+  [
+    /\bThis statement is for informational purposes only\./g,
+    'Acest extras este furnizat doar în scop informativ.',
+  ],
+
+  // People, household, and school fields
+  [/\bStudent Number:/g, 'Nr. elev:'],
+  [/\bStudent Number\b/g, 'Nr. elev'],
+  [/\bStudent Name\b/g, 'Numele elevului'],
+  [/\bStudent:\b/g, 'Elev:'],
+  [/\bStudent\b/g, 'Elev'],
+  [/\bHousehold #:/g, 'Nr. gospodărie:'],
+  [/\bHousehold:\b/g, 'Gospodărie:'],
+  [/\bHousehold\b/g, 'Gospodărie'],
+  [/\bBilling Parent:/g, 'Părinte responsabil de plată:'],
+  [/\bName:/g, 'Nume:'],
+  [/\bName\b/g, 'Nume'],
+  [/\bClass:/g, 'Clasă:'],
+  [/\bClass\b/g, 'Clasă'],
+  [/\bYear Group:/g, 'Clasă:'],
+  [/\bYear Group\b/g, 'Clasă'],
+  [/\bAcademic Year:/g, 'An școlar:'],
+  [/\bAcademic Year\b/g, 'An școlar'],
+  [/\bSchool Principal\b/g, 'Director'],
+
+  // Finance labels
+  [/\bBill To\b/g, 'Facturat către'],
+  [/\bAttn:/g, 'În atenția:'],
+  [/\bInvoice #:/g, 'Factură nr.:'],
+  [/\bReceipt #:/g, 'Chitanță nr.:'],
+  [/\bIssue Date:/g, 'Data emiterii:'],
+  [/\bDue Date:/g, 'Data scadenței:'],
+  [/\bStatus:/g, 'Stare:'],
+  [/\bPayment History\b/g, 'Istoric plăți'],
+  [/\bPayment Ref:/g, 'Ref. plată:'],
+  [/\bPayment\b/g, 'Plată'],
+  [/\bMethod:/g, 'Metodă:'],
+  [/\bOnline \(Stripe\)/g, 'Online (Stripe)'],
+  [/\bCash\b/g, 'Numerar'],
+  [/\bBank Transfer\b/g, 'Transfer bancar'],
+  [/\bCard \(Manual\)/g, 'Card (manual)'],
+  [/\bReference\b/g, 'Referință'],
+  [/\bDescription\b/g, 'Descriere'],
+  [/\bQty\b/g, 'Cant.'],
+  [/\bQuantity\b/g, 'Cantitate'],
+  [/\bUnit Price\b/g, 'Preț unitar'],
+  [/\bSubtotal:/g, 'Subtotal:'],
+  [/\bDiscount:/g, 'Reducere:'],
+  [/\bAmount Paid:/g, 'Sumă plătită:'],
+  [/\bBalance Before:/g, 'Sold anterior:'],
+  [/\bBalance Due:/g, 'Sold datorat:'],
+  [/\bBalance\b/g, 'Sold'],
+  [/\bRemaining After:/g, 'Rămas după plată:'],
+  [/\bApplied To:/g, 'Aplicat la:'],
+  [/\bOutstanding Before:/g, 'Restant înainte:'],
+  [/\bTotal:/g, 'Total:'],
+  [/\bAmount\b/g, 'Sumă'],
+  [/\bDebit\b/g, 'Debit'],
+  [/\bCredit Note\b/g, 'Notă de credit'],
+  [/\bCredit\b/g, 'Credit'],
+  [/\bAllocation\b/g, 'Alocare'],
+  [/\bRefund\b/g, 'Rambursare'],
+  [/\bWrite-off\b/g, 'Anulare contabilă'],
+  [/\bDate\b/g, 'Dată'],
+  [/\bType\b/g, 'Tip'],
+
+  // Academic labels
+  [/\bAttendance Summary\b/g, 'Rezumat prezență'],
+  [/\bTotal Days\b/g, 'Total zile'],
+  [/\bPresent\b/g, 'Prezent'],
+  [/\bAbsent\b/g, 'Absent'],
+  [/\bLate\b/g, 'Întârziat'],
+  [/\bTeacher Comments\b/g, 'Comentariile profesorilor'],
+  [/\bPrincipal Comments\b/g, 'Comentariile directorului'],
+  [/\bSubject\b/g, 'Materie'],
+  [/\bScore \(%\)/g, 'Scor (%)'],
+  [/\bScore\b/g, 'Scor'],
+  [/\bGrade\b/g, 'Notă'],
+  [/\bNo academic records available\./g, 'Nu sunt disponibile rezultate școlare.'],
+
+  // Status values
+  [/\bPending Approval\b/g, 'În așteptarea aprobării'],
+  [/\bPending\b/g, 'În așteptare'],
+  [/\bPartially Paid\b/g, 'Plătit parțial'],
+  [/\bWritten Off\b/g, 'Anulat contabil'],
+  [/\bDraft\b/g, 'Ciornă'],
+  [/\bIssued\b/g, 'Emis'],
+  [/\bPaid\b/g, 'Plătit'],
+  [/\bOverdue\b/g, 'Restant'],
+  [/\bVoid\b/g, 'Nul'],
+  [/\bCancelled\b/g, 'Anulat'],
+
+  // Month names emitted by existing English date formatters.
+  [/\bJanuary\b/g, 'ianuarie'],
+  [/\bFebruary\b/g, 'februarie'],
+  [/\bMarch\b/g, 'martie'],
+  [/\bApril\b/g, 'aprilie'],
+  [/\bMay\b/g, 'mai'],
+  [/\bJune\b/g, 'iunie'],
+  [/\bJuly\b/g, 'iulie'],
+  [/\bAugust\b/g, 'august'],
+  [/\bSeptember\b/g, 'septembrie'],
+  [/\bOctober\b/g, 'octombrie'],
+  [/\bNovember\b/g, 'noiembrie'],
+  [/\bDecember\b/g, 'decembrie'],
+  [/\bJan\b/g, 'ian'],
+  [/\bFeb\b/g, 'feb'],
+  [/\bMar\b/g, 'mar'],
+  [/\bApr\b/g, 'apr'],
+  [/\bJun\b/g, 'iun'],
+  [/\bJul\b/g, 'iul'],
+  [/\bAug\b/g, 'aug'],
+  [/\bSep\b/g, 'sept'],
+  [/\bOct\b/g, 'oct'],
+  [/\bNov\b/g, 'nov'],
+  [/\bDec\b/g, 'dec'],
+];
+
 function localizeFrenchPdfHtml(html: string): string {
   return FRENCH_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
@@ -1117,6 +1262,13 @@ function localizeIrishPdfHtml(html: string): string {
 
 function localizeItalianPdfHtml(html: string): string {
   return ITALIAN_PDF_REPLACEMENTS.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, replacement),
+    html,
+  );
+}
+
+function localizeRomanianPdfHtml(html: string): string {
+  return ROMANIAN_PDF_REPLACEMENTS.reduce(
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     html,
   );
