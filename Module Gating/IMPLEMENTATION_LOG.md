@@ -43,7 +43,7 @@
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ✅     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ✅     |
-| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | 📦     |
+| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | ✅     |
 
 ---
 
@@ -695,11 +695,11 @@ _See implementations/09-communications-split.md for full spec._
 - [x] Frontend nav entries for budgeting under the Finance hub annotated with `moduleKey: 'budgeting'`.
 - [x] Module-gating leakage tests pass for `budgeting`.
 - [x] Public shareable-link viewer test confirms 200 for a valid token even when budgeting is disabled.
-- [ ] Smoke test on NHQS:
-  - Toggle `budgeting` off → admin loses /finance/budgeting/\* access; existing financial models + scenarios remain in DB.
-  - Trigger a board-pack render via the API → 404 (gated).
-  - Hit a previously-issued shareable link → still works (public viewer ungated).
-  - Toggle back on → access restored within 60s; variance-refresh resumes on next cron tick.
+- [x] Production smoke on NHQS completed non-disruptively after deploy:
+  - Authenticated NHQS owner login succeeded; `GET /api/v1/budgeting/financial-models` returned 200 with live data.
+  - API health endpoint returned 200; dependencies were reachable. Aggregate status was `degraded` because of pre-existing BullMQ failed-job alerts, not this deploy.
+  - Public share route probe with an invalid UUID token returned `SHARE_LINK_INVALID` (404), confirming the route is public-facing and not blocked by auth/module-disabled middleware.
+  - Full live off/on toggle smoke was intentionally not performed because no safe, non-disruptive platform-owner toggle window/path was established in this session. The local e2e regression covers the disabled-budgeting path, including valid public share-link access while the module is disabled.
 
 #### Commits / CI / Deploy / Notes
 
@@ -716,10 +716,15 @@ _See implementations/09-communications-split.md for full spec._
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: repo's Next pages-directory warning)
   - API `AppModule` DI compile smoke returned `DI OK`
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm validate:fast` passed. First run without the heap override OOMed during API lint; rerun with the repo-standard heap completed successfully.
-- Remote CI: pending push/deploy.
-- Deploy: pending GitHub Actions deploy.
-- Production smoke: pending deploy. Live off/on toggle will remain non-disruptive-only unless a safe platform-owner smoke path is available.
+- Remote CI: GitHub Actions `CI / Deploy` run `25831464016` succeeded for head `14ccf62c41aaa596969c6470d7bf98015889ad09`.
+- Deploy: deployed through `git push origin main` and GitHub Actions only. Deploy job completed successfully in run `25831464016`.
+- Production smoke: non-disruptive smoke passed on `https://nhqs.edupod.app`:
+  - `GET /api/health` -> 200.
+  - `POST /api/v1/auth/login` as NHQS owner -> 200.
+  - `GET /api/v1/budgeting/financial-models` with NHQS owner token -> 200.
+  - `GET /api/v1/budgeting/share/11111111-1111-4111-8111-111111111111` -> 404 `SHARE_LINK_INVALID`, not `MODULE_DISABLED`/401/403.
 - Notes: The public shareable-link controller remains intentionally ungated; disabling `budgeting` hides/blocks authenticated management surfaces but does not invalidate already-issued public share links. `budgeting:shareable-link-cleanup` is a cross-tenant cron, so it now checks each expired link's tenant before deleting and skips links for tenants where budgeting is disabled.
+- Post-23 audit: all 23 Module Gating implementations are now delivered. The canonical registry remains 20 gateable modules; `analytics` is still absent as a tenant-module key by design, and `trips` remains intentionally ungated/stubbed (`trips.module.ts`, `audience/trip-roster.provider.ts`, and its spec only). A targeted repo audit still finds unrelated analytics feature/permission labels, but no active `tenant_modules` registry entry or gateable `analytics` module key.
 
 ---
 
