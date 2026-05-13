@@ -33,7 +33,11 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
   ],
   early_warning: [{ method: 'GET', path: '/api/v1/early-warning/students' }],
   engagement: [{ method: 'GET', path: '/api/v1/engagement/events' }],
-  finance: [{ method: 'GET', path: '/api/v1/finance/invoices' }],
+  finance: [
+    { method: 'GET', path: '/api/v1/finance/invoices' },
+    { method: 'GET', path: '/api/v1/finance/dashboard' },
+    { method: 'GET', path: '/api/v1/finance/payments' },
+  ],
   gradebook: [
     { method: 'GET', path: '/api/v1/gradebook/assessments' },
     { method: 'GET', path: '/api/v1/report-cards' },
@@ -55,6 +59,7 @@ const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
   'admissions',
   'behaviour',
   'communications_outbound',
+  'finance',
   'gradebook',
   'parent_inquiries',
   'pastoral',

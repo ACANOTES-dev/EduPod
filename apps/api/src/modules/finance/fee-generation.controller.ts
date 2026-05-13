@@ -10,15 +10,18 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { FeeGenerationService } from './fee-generation.service';
 
 @Controller('v1/finance/fee-generation')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('finance')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class FeeGenerationController {
   constructor(private readonly feeGenerationService: FeeGenerationService) {}
 

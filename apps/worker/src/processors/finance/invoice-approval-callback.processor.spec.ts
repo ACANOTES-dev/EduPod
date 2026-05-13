@@ -52,6 +52,12 @@ function buildMockPrisma(tx: ReturnType<typeof buildMockTx>) {
   } as unknown as PrismaClient;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('InvoiceApprovalCallbackProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -59,7 +65,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const tx = buildMockTx();
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('finance:other-job'));
 
@@ -68,7 +77,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
 
   it('should issue pending invoices and mark the approval callback executed', async () => {
     const tx = buildMockTx();
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
 
@@ -97,7 +109,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
       invoice_number: 'INV-001',
       status: 'issued',
     });
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
 
@@ -120,7 +135,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
       invoice_number: 'INV-001',
       status: 'draft',
     });
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
 
@@ -140,7 +158,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
   it('should throw when target entity is not found', async () => {
     const tx = buildMockTx();
     tx.invoice.findFirst.mockResolvedValue(null);
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await expect(processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB))).rejects.toThrow(
       `Invoice ${INVOICE_ID} not found for tenant ${TENANT_ID}`,
@@ -150,7 +171,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
   it('should propagate database errors (not swallow them)', async () => {
     const tx = buildMockTx();
     tx.invoice.update.mockRejectedValue(new Error('DB connection lost'));
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await expect(processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB))).rejects.toThrow(
       'DB connection lost',
@@ -164,7 +188,10 @@ describe('InvoiceApprovalCallbackProcessor', () => {
       invoice_number: 'INV-001',
       status: 'paid',
     });
-    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
 
@@ -177,5 +204,19 @@ describe('InvoiceApprovalCallbackProcessor', () => {
           'Skipped: invoice was in unexpected status "paid", expected "pending_approval"',
       },
     });
+  });
+
+  it('should silently skip approval callbacks when finance is disabled', async () => {
+    const tx = buildMockTx();
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new InvoiceApprovalCallbackProcessor(
+      buildMockPrisma(tx),
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'finance');
+    expect(tx.invoice.findFirst).not.toHaveBeenCalled();
   });
 });

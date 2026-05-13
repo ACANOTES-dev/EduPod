@@ -6,15 +6,18 @@ import { statementPdfQuerySchema, statementQuerySchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { HouseholdStatementsService } from './household-statements.service';
 
 @Controller('v1/finance/household-statements')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('finance')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class HouseholdStatementsController {
   constructor(private readonly statementsService: HouseholdStatementsService) {}
 

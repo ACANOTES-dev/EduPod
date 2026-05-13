@@ -27,6 +27,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -214,6 +215,7 @@ export default function ParentDashboardPage() {
   const tCommon = useTranslations('common');
   const locale = useLocale();
   const { user } = useAuth();
+  const financeEnabled = useModuleEnabled('finance');
   const searchParams = useSearchParams();
   const initialTab = ((): ParentTab => {
     const v = searchParams?.get('tab');
@@ -240,6 +242,12 @@ export default function ParentDashboardPage() {
     actionableEvents: 0,
     outstandingPayments: 0,
   });
+
+  useEffect(() => {
+    if (!financeEnabled && activeTab === 'finances') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, financeEnabled]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -318,16 +326,18 @@ export default function ParentDashboardPage() {
         console.error('[DashboardParentPage]', err);
         return { data: [], meta: { total: 0 } };
       }),
-      Promise.all(
-        studentIds.map((id) =>
-          apiClient<{ data: ParentFinanceSummary }>(`/api/v1/parent/students/${id}/finances`).catch(
-            (err) => {
-              console.error('[DashboardParentPage]', err);
-              return { data: { invoices: [] } as ParentFinanceSummary };
-            },
-          ),
-        ),
-      ),
+      financeEnabled
+        ? Promise.all(
+            studentIds.map((id) =>
+              apiClient<{ data: ParentFinanceSummary }>(
+                `/api/v1/parent/students/${id}/finances`,
+              ).catch((err) => {
+                console.error('[DashboardParentPage]', err);
+                return { data: { invoices: [] } as ParentFinanceSummary };
+              }),
+            ),
+          )
+        : Promise.resolve([]),
     ])
       .then(([forms, eventsResponse, financeResponses]) => {
         const actionableEvents = (eventsResponse.data ?? []).filter((event) =>
@@ -360,7 +370,7 @@ export default function ParentDashboardPage() {
         });
       })
       .catch((err) => console.error('[ParentDashboard] Failed to load action center', err));
-  }, [data]);
+  }, [data, financeEnabled]);
 
   const children =
     data?.students.map((s) => ({
@@ -404,11 +414,15 @@ export default function ParentDashboardPage() {
                 label: t('parentDashboard.timetableTab'),
                 icon: Calendar,
               },
-              {
-                key: 'finances' as const,
-                label: t('parentDashboard.financesTab'),
-                icon: CreditCard,
-              },
+              ...(financeEnabled
+                ? [
+                    {
+                      key: 'finances' as const,
+                      label: t('parentDashboard.financesTab'),
+                      icon: CreditCard,
+                    },
+                  ]
+                : []),
             ] as const
           ).map(({ key, label, icon: Icon }) => (
             <button
@@ -686,7 +700,7 @@ export default function ParentDashboardPage() {
       )}
 
       {/* Finances tab */}
-      {activeTab === 'finances' && (
+      {financeEnabled && activeTab === 'finances' && (
         <section>
           <FinancesTab />
         </section>

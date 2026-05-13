@@ -236,6 +236,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       {
         labelKey: 'nav.finance',
         href: '/finance',
+        moduleKey: 'finance',
         roles: [...ADMIN_ROLES, 'accounting'],
       },
       {

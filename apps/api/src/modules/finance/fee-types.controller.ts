@@ -18,15 +18,18 @@ import { createFeeTypeSchema, feeTypeQuerySchema, updateFeeTypeSchema } from '@s
 import type { CreateFeeTypeDto, TenantContext, UpdateFeeTypeDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { FeeTypesService } from './fee-types.service';
 
 @Controller('v1/finance/fee-types')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('finance')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class FeeTypesController {
   constructor(private readonly feeTypesService: FeeTypesService) {}
 

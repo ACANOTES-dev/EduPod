@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -22,7 +23,10 @@ export const INVOICE_APPROVAL_CALLBACK_JOB = 'finance:on-approval';
 export class InvoiceApprovalCallbackProcessor {
   private readonly logger = new Logger(InvoiceApprovalCallbackProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<InvoiceApprovalCallbackPayload>): Promise<void> {
     if (job.name !== INVOICE_APPROVAL_CALLBACK_JOB) {
@@ -33,6 +37,14 @@ export class InvoiceApprovalCallbackProcessor {
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    const enabled = await this.tenantModuleService.isEnabled(tenant_id, 'finance');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${INVOICE_APPROVAL_CALLBACK_JOB} for tenant ${tenant_id}: finance module disabled`,
+      );
+      return;
     }
 
     this.logger.log(

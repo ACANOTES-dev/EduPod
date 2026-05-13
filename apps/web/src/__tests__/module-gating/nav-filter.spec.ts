@@ -90,4 +90,11 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/report-cards')?.moduleKey).toBe('gradebook');
     expect(allItems.find((item) => item.href === '/report-comments')?.moduleKey).toBe('gradebook');
   });
+
+  it('annotates finance entries in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/finance')?.moduleKey).toBe('finance');
+    expect(allItems.find((item) => item.href === '/payroll')?.moduleKey).toBe('payroll');
+  });
 });

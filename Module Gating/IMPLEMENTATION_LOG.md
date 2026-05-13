@@ -34,7 +34,7 @@
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | 📦     |
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | 📦     |
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | 📦     |
-| 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | ⏳     |
+| 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | 📦     |
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | ⏳     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | ⏳     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | ⏳     |
@@ -428,15 +428,26 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 13 controllers under `apps/api/src/modules/finance/` gain `@ModuleEnabled('finance')` + `ModuleEnabledGuard` at class level.
-- [ ] Stripe webhook controller (`stripe-webhook.controller.ts`) remains ungated; handler internally checks tenant module and silently no-ops if disabled (200 to Stripe, log skip).
-- [ ] Finance cron processors gain tenant module check (overdue-detection, invoice-approval-callback, stripe-refund-reconciliation).
-- [ ] Frontend `/finance/*` hidden via nav filter when disabled.
-- [ ] Module-gating leakage test passes for `finance`.
+- [x] All 12 admin/parent finance controllers under `apps/api/src/modules/finance/` gain `@ModuleEnabled('finance')` + `ModuleEnabledGuard` at class level.
+- [x] Stripe webhook controller (`stripe-webhook.controller.ts`) remains ungated; handler verifies the Stripe signature, checks tenant module state inline, and silently no-ops if disabled (200 to Stripe, log skip).
+- [x] Finance cron processors gain tenant module check (overdue-detection, invoice-approval-callback, stripe-refund-reconciliation).
+- [x] Frontend `/finance` hidden via nav filter when disabled; parent dashboard finances tab and parent finance prefetch are hidden/skipped when disabled.
+- [x] Module-gating leakage test passes for `finance`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce finance module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/finance/stripe-webhook.controller.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/finance/overdue-detection.processor.spec.ts src/processors/finance/invoice-approval-callback.processor.spec.ts src/processors/finance/stripe-refund-reconciliation.processor.spec.ts src/processors/finance/finance-queue.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=finance)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing cross-module imports/max-lines plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `stripe-webhook.controller.ts` intentionally has no `@ModuleEnabled` decorator. `StripeService` now exposes `verifyWebhookEvent` and `processWebhookEvent` so the controller can verify Stripe's signature before the finance-module skip and still return 200 for disabled tenants. The parent-facing finance impact is enforced by hiding the parent dashboard finances tab and skipping parent finance summary prefetch when `finance` is disabled. No code touched `tenant_sequences`; local/prod sequence SELECT verification was not run because this pass avoided disruptive module off/on production toggles.
 
 ---
 

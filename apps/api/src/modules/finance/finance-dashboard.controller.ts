@@ -5,8 +5,10 @@ import type { TenantContext } from '@school/shared';
 import { householdOverviewQuerySchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
@@ -19,7 +21,8 @@ const updateCurrencySchema = z.object({
 });
 
 @Controller('v1/finance/dashboard')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('finance')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class FinanceDashboardController {
   constructor(
     private readonly dashboardService: FinanceDashboardService,

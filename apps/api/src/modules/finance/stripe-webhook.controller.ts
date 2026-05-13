@@ -13,15 +13,19 @@ import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 
 import { apiError } from '../../common/errors/api-error';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 
 import { StripeService } from './stripe.service';
 
 /**
- * Stripe webhook controller. NO auth guards — Stripe webhooks are
- * verified by signature, not by JWT.
+ * Stripe webhook controller. NO auth guards — Stripe webhooks are verified
+ * by signature, not by JWT.
  *
  * The tenant is resolved from the webhook payload metadata.
+ *
+ * EXTERNAL WEBHOOK: intentionally ungated at the decorator level. Module check
+ * happens INLINE (DZ-MG-3). Stripe must always receive 200 for valid webhooks;
+ * disabled tenants result in a silent drop after signature verification.
  */
 @SkipThrottle()
 @Controller('v1/stripe')
@@ -30,7 +34,7 @@ export class StripeWebhookController {
 
   constructor(
     private readonly stripeService: StripeService,
-    private readonly prisma: PrismaService,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   @Post('webhook')
@@ -63,6 +67,15 @@ export class StripeWebhookController {
       );
     }
 
-    return this.stripeService.handleWebhook(tenantId, rawBody, signature ?? '');
+    const event = await this.stripeService.verifyWebhookEvent(tenantId, rawBody, signature ?? '');
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'finance');
+    if (!enabled) {
+      this.logger.log(
+        `Dropping Stripe ${event.type} for tenant ${tenantId}: finance module disabled`,
+      );
+      return { received: true, skipped: 'module_disabled' };
+    }
+
+    return this.stripeService.processWebhookEvent(tenantId, event);
   }
 }

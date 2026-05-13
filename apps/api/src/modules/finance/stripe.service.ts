@@ -155,14 +155,11 @@ export class StripeService {
     };
   }
 
-  /**
-   * Verify signature and process a Stripe webhook event.
-   */
-  async handleWebhook(
+  async verifyWebhookEvent(
     tenantId: string,
     rawBody: Buffer,
     signature: string,
-  ): Promise<{ received: boolean }> {
+  ): Promise<Stripe.Event> {
     // Determine webhook secret: prefer env (global), fall back to per-tenant.
     // Global secret is used when a single webhook endpoint serves all tenants.
     // Per-tenant secret is used when each tenant has its own Stripe account.
@@ -212,6 +209,10 @@ export class StripeService {
       });
     }
 
+    return event;
+  }
+
+  async processWebhookEvent(tenantId: string, event: Stripe.Event): Promise<{ received: boolean }> {
     // Process event (idempotency is checked inside each handler, within the transaction)
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -243,6 +244,18 @@ export class StripeService {
     }
 
     return { received: true };
+  }
+
+  /**
+   * Verify signature and process a Stripe webhook event.
+   */
+  async handleWebhook(
+    tenantId: string,
+    rawBody: Buffer,
+    signature: string,
+  ): Promise<{ received: boolean }> {
+    const event = await this.verifyWebhookEvent(tenantId, rawBody, signature);
+    return this.processWebhookEvent(tenantId, event);
   }
 
   /**

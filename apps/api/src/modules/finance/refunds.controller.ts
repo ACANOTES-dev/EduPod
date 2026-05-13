@@ -22,15 +22,18 @@ import type { CreateRefundDto, JwtPayload, TenantContext } from '@school/shared'
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { RefundsService } from './refunds.service';
 
 @Controller('v1/finance/refunds')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('finance')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class RefundsController {
   constructor(private readonly refundsService: RefundsService) {}
 

@@ -5,6 +5,8 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Stripe from 'stripe';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
 export const FINANCE_RECONCILE_STRIPE_REFUNDS_JOB = 'finance:reconcile-stripe-refunds';
@@ -40,7 +42,10 @@ export class StripeRefundReconciliationProcessor {
   /** Look back window for Stripe.refunds.list and local refund query. */
   private static readonly LOOKBACK_MS = 48 * 60 * 60 * 1000;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== FINANCE_RECONCILE_STRIPE_REFUNDS_JOB) {
@@ -59,6 +64,13 @@ export class StripeRefundReconciliationProcessor {
 
     for (const { id: tenantId } of tenants) {
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenantId, 'finance');
+        if (!enabled) {
+          this.logger.debug(
+            `Skipping ${FINANCE_RECONCILE_STRIPE_REFUNDS_JOB} for tenant ${tenantId}: finance module disabled`,
+          );
+          continue;
+        }
         const result = await this.reconcileTenant(tenantId);
         checkedTenants += result.checked ? 1 : 0;
         driftCount += result.driftCount;

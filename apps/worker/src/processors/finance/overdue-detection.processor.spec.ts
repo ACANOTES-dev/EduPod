@@ -31,6 +31,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { id: 'test-job-id', name, data } as unknown as Job;
 }
@@ -53,7 +59,10 @@ describe('OverdueDetectionProcessor', () => {
   beforeEach(() => {
     mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    processor = new OverdueDetectionProcessor(mockPrisma as never);
+    processor = new OverdueDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -78,7 +87,10 @@ describe('OverdueDetectionProcessor', () => {
             { id: '22222222-2222-2222-2222-222222222222' },
           ]),
       };
-      processor = new OverdueDetectionProcessor(mockPrisma as never);
+      processor = new OverdueDetectionProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
       mockTx.invoice.findMany.mockResolvedValue([]);
 
       const job = buildMockJob(OVERDUE_DETECTION_JOB, {});
@@ -86,6 +98,38 @@ describe('OverdueDetectionProcessor', () => {
 
       // Two tenants → two invoice.findMany calls in the processJob body
       expect(mockTx.invoice.findMany).toHaveBeenCalledTimes(2);
+    });
+
+    it('should skip tenant-scoped jobs when finance is disabled', async () => {
+      const mockPrisma = buildMockPrisma(mockTx);
+      const tenantModuleService = buildTenantModuleService(false);
+      processor = new OverdueDetectionProcessor(mockPrisma as never, tenantModuleService as never);
+
+      const job = buildMockJob(OVERDUE_DETECTION_JOB, { tenant_id: TENANT_ID });
+      await processor.process(job);
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'finance');
+      expect(mockTx.invoice.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should skip disabled tenants during cron-mode runs', async () => {
+      const mockPrisma = buildMockPrisma(mockTx);
+      (mockPrisma as unknown as { tenant: { findMany: jest.Mock } }).tenant = {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: '11111111-1111-1111-1111-111111111111' },
+            { id: '22222222-2222-2222-2222-222222222222' },
+          ]),
+      };
+      const tenantModuleService = {
+        isEnabled: jest.fn().mockImplementation(async (tenantId: string) => tenantId === TENANT_ID),
+      };
+      processor = new OverdueDetectionProcessor(mockPrisma as never, tenantModuleService as never);
+
+      await processor.process(buildMockJob(OVERDUE_DETECTION_JOB, {}));
+
+      expect(mockTx.invoice.findMany).toHaveBeenCalledTimes(1);
     });
   });
 

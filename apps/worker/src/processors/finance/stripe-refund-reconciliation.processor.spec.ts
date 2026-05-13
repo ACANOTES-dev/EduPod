@@ -22,6 +22,12 @@ function buildMockPrisma(tenantFindMany = jest.fn().mockResolvedValue([])) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('StripeRefundReconciliationProcessor', () => {
   let processor: StripeRefundReconciliationProcessor;
 
@@ -30,7 +36,10 @@ describe('StripeRefundReconciliationProcessor', () => {
   describe('process — job routing', () => {
     it('should skip jobs with a different name', async () => {
       const mockPrisma = buildMockPrisma();
-      processor = new StripeRefundReconciliationProcessor(mockPrisma as never);
+      processor = new StripeRefundReconciliationProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await processor.process(buildMockJob('some-other-job'));
 
@@ -40,7 +49,10 @@ describe('StripeRefundReconciliationProcessor', () => {
     it('should iterate active tenants on matching job name', async () => {
       const tenantFindMany = jest.fn().mockResolvedValue([]);
       const mockPrisma = buildMockPrisma(tenantFindMany);
-      processor = new StripeRefundReconciliationProcessor(mockPrisma as never);
+      processor = new StripeRefundReconciliationProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await processor.process(buildMockJob(FINANCE_RECONCILE_STRIPE_REFUNDS_JOB));
 
@@ -55,13 +67,36 @@ describe('StripeRefundReconciliationProcessor', () => {
         .fn()
         .mockResolvedValue([{ id: '11111111-1111-1111-1111-111111111111' }]);
       const mockPrisma = buildMockPrisma(tenantFindMany);
-      processor = new StripeRefundReconciliationProcessor(mockPrisma as never);
+      processor = new StripeRefundReconciliationProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await expect(
         processor.process(buildMockJob(FINANCE_RECONCILE_STRIPE_REFUNDS_JOB)),
       ).resolves.toBeUndefined();
 
       expect(tenantFindMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip disabled tenants before reading Stripe configuration', async () => {
+      const tenantFindMany = jest
+        .fn()
+        .mockResolvedValue([{ id: '11111111-1111-1111-1111-111111111111' }]);
+      const mockPrisma = buildMockPrisma(tenantFindMany);
+      const tenantModuleService = buildTenantModuleService(false);
+      processor = new StripeRefundReconciliationProcessor(
+        mockPrisma as never,
+        tenantModuleService as never,
+      );
+
+      await processor.process(buildMockJob(FINANCE_RECONCILE_STRIPE_REFUNDS_JOB));
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(
+        '11111111-1111-1111-1111-111111111111',
+        'finance',
+      );
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });

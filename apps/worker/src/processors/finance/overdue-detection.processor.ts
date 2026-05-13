@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -31,7 +32,10 @@ export const OVERDUE_DETECTION_JOB = 'finance:overdue-detection';
 export class OverdueDetectionProcessor {
   private readonly logger = new Logger(OverdueDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<OverdueDetectionPayload>): Promise<void> {
     if (job.name !== OVERDUE_DETECTION_JOB) {
@@ -53,6 +57,13 @@ export class OverdueDetectionProcessor {
       const overdueJob = new OverdueDetectionJob(this.prisma);
       for (const { id } of tenants) {
         try {
+          const enabled = await this.tenantModuleService.isEnabled(id, 'finance');
+          if (!enabled) {
+            this.logger.debug(
+              `Skipping ${OVERDUE_DETECTION_JOB} for tenant ${id}: finance module disabled`,
+            );
+            continue;
+          }
           await overdueJob.execute({ tenant_id: id, as_of_date });
         } catch (err) {
           this.logger.error(`${OVERDUE_DETECTION_JOB} failed for tenant ${id}: ${String(err)}`);
@@ -62,6 +73,13 @@ export class OverdueDetectionProcessor {
     }
 
     this.logger.log(`Processing ${OVERDUE_DETECTION_JOB} — tenant ${tenant_id}`);
+    const enabled = await this.tenantModuleService.isEnabled(tenant_id, 'finance');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${OVERDUE_DETECTION_JOB} for tenant ${tenant_id}: finance module disabled`,
+      );
+      return;
+    }
 
     const overdueJob = new OverdueDetectionJob(this.prisma);
     await overdueJob.execute({ tenant_id, as_of_date });
