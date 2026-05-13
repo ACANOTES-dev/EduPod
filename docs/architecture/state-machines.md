@@ -1491,6 +1491,7 @@ If you change an enum's values (`ALTER TYPE ... ADD VALUE` or rename via `@map`)
 - **`VerificationStatus`** — `schema.prisma:25` — 3 values (`pending|verified|failed`). Generic per-row verification flag (custom domain TXT proof, etc).
 - **`SslStatus`** — `schema.prisma:31` — 3 values (`pending|active|failed`). Reflects ACME / Let's Encrypt issuance for tenant custom domains.
 - **`DnsRecordStatus`** — `schema.prisma:460` — 3 values (`pending|verified|failed`). Per-record DNS verification rolling up into `EmailDomainStatus`.
+- **`tenantModule.is_enabled`** — `schema.prisma:953` — boolean, not a Prisma enum. Transitions are `false ↔ true` and must be triggered exclusively through the tenant module toggle flow. Side effects: security audit row, Redis `tenant_modules:{tenantId}` cache invalidation, and `tenant_modules:invalidated` pub/sub publish. Missing rows default-deny at the guard layer; see DZ-MG-1.
 
 ### Households & people
 

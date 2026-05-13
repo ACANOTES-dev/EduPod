@@ -33,6 +33,13 @@
 - [ ] Am I adding the locale to `SUPPORTED_PDF_LOCALES`? -> Add a complete bundle covering every key in `PDF_TEMPLATE_KEYS`, register it in `PDF_TEMPLATE_BUNDLES`, and extend the locale registry tests (DZ-i18n-2)
 - [ ] If activating a Tier 2 locale: ensure the three-file contract (`tier-routes.ts` ↔ `tier-scopes.ts` ↔ `messages/{locale}.json`) is consistent (DZ-i18n-4)
 
+### 2c. Module Gating Check (if adding/renaming a gateable module)
+
+- [ ] Am I adding a key to `packages/shared/src/modules/registry.ts`? -> Add a Prisma migration backfilling `tenant_modules` rows for every tenant × the new key using the chosen `default_enabled` value (DZ-MG-1)
+- [ ] Am I adding `@ModuleEnabled('key')` to a controller? -> `ModuleEnabledGuard` must be in `@UseGuards`; run `apps/api/src/common/guards/module-enabled-coverage.spec.ts`
+- [ ] Am I writing `tenant_modules.is_enabled` anywhere? -> Call `TenantModuleService.invalidateCache` and publish `tenant_modules:invalidated` in the same flow (DZ-MG-2)
+- [ ] Am I adding a provider webhook controller? -> Use an inline `TenantModuleService.isEnabled` check and return 200/no-op when disabled; do not decorate webhook routes with `@ModuleEnabled` (DZ-MG-3)
+
 ### 3. State Machine Check (if touching status/lifecycle)
 
 - [ ] Open `architecture/state-machines.md` and verify the transition I'm adding/modifying is documented
@@ -46,12 +53,15 @@
 - [ ] Am I changing a job payload? -> Update ALL consumers (API enqueuer + Worker processor)
 - [ ] Am I adding a new approval type? -> Must update `MODE_A_CALLBACKS` + create worker processor
 - [ ] Am I touching notification dispatch, the catalogue, or template keys? -> Run `scripts/check-i18n.js` and verify every active locale's `messages/{locale}.json` carries the new keys (DZ-i18n-3)
+- [ ] Am I adding a cron-dispatch processor that fans out per tenant? -> Use module-gating Pattern A (`TenantModuleService.isEnabled` before enqueue). See `docs/runbooks/worker-module-gating-patterns.md`
+- [ ] Am I adding an event-driven processor or webhook-backed job? -> Use module-gating Pattern B (check module state at the top and no-op if disabled). See `docs/runbooks/worker-module-gating-patterns.md`
 
 ### 5. Danger Zone Check
 
 - [ ] Open `architecture/danger-zones.md` and scan for entries related to my change area
 - [ ] If my change area is listed: read the full entry and follow the mitigation
 - [ ] If touching i18n / locales / notifications: scan DZ-i18n-1 (Tier 2 guard order), DZ-i18n-2 (PDF bundles), DZ-i18n-3 (notification catalogue parity), DZ-i18n-4 (tier-routes/tier-scopes contract) — multiple zones almost always apply at once
+- [ ] If touching module toggles, module registry, `@ModuleEnabled`, worker gating, or provider webhooks: scan DZ-MG-1, DZ-MG-2, DZ-MG-3
 
 ### 5a. Hotspot Review Check (if touching a hotspot module)
 
@@ -72,6 +82,8 @@
 - [ ] Did I add/modify a status transition? -> Update `state-machines.md`
 - [ ] Did I discover a non-obvious coupling? -> Add to `danger-zones.md`
 - [ ] Did I add a new module? -> Add to `module-blast-radius.md` with its exports and consumers
+- [ ] Did I add a new gateable module? -> Update `feature-map.md` Gateable annotations/column and verify `architecture-docs.spec.ts` still passes
+- [ ] Did I add a controller decorated with `@ModuleEnabled`? -> Add/extend the module-gating leakage test probes for that controller
 
 ### 6a. ADR Required? (see ADR-005)
 

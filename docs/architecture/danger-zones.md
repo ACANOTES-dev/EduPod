@@ -1562,6 +1562,38 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 ---
 
+## DZ-MG-1: Default-Deny on Missing `tenantModule` Rows
+
+**Risk**: `ModuleEnabledGuard` returns `404 MODULE_DISABLED` when the requested module has no `tenant_modules` row for the current tenant. This is intentional default-deny behavior, but adding a new gateable key without a backfill migration instantly blocks existing tenants from every endpoint decorated with that key.
+**Location**: `packages/shared/src/modules/registry.ts`, `apps/api/src/common/guards/module-enabled.guard.ts`, `apps/api/src/common/services/tenant-module.service.ts`, `packages/prisma/migrations/*module*`
+**Status**: ACTIVE (Module Gating Wave W1, 2026-05-13)
+
+**Rule**: Adding or renaming a key in `MODULE_REGISTRY` requires a Prisma migration that creates one `tenant_modules` row for every existing tenant using the registry's `default_enabled` value. The migration must include a row-count completeness assertion. Shipping the decorator before the rows exist is a production incident.
+
+**Regression coverage**: `apps/api/src/common/guards/module-enabled.guard.spec.ts` covers missing-row default-deny. `apps/api/src/common/guards/module-enabled-coverage.spec.ts` catches controller decorators that lack `ModuleEnabledGuard`.
+
+## DZ-MG-2: Cache Invalidation Must Fire on Every Toggle
+
+**Risk**: `TenantModuleService.getEnabledModules` caches module state in Redis for 5 minutes. Any code path that writes `tenant_modules.is_enabled` must delete `tenant_modules:{tenantId}` and publish `tenant_modules:invalidated`; skipping either step leaves API instances, workers, or open browser sessions with stale module visibility.
+**Location**: `apps/api/src/common/services/tenant-module.service.ts`, `apps/api/src/common/services/tenant-module-cache-bus.service.ts`, `apps/api/src/modules/tenants/tenants.service.ts`, `apps/worker/src/shared/tenant-module-cache-bus.subscriber.ts`, `apps/web/src/lib/realtime/tenant-module-subscriber.ts`
+**Status**: ACTIVE (Module Gating Wave W1, 2026-05-13)
+
+**Rule**: The tenant-module toggle flow is DB write -> audit log -> `TenantModuleService.invalidateCache(tenantId)` -> `TenantModuleCacheBusService.publishInvalidation(...)`. Pub/sub is best-effort and must not block the toggle, but the local delete and publish call must still be attempted on every toggle.
+
+**Regression coverage**: `apps/api/src/modules/tenants/tenants.service.spec.ts` verifies both invalidation calls. `apps/api/src/common/services/tenant-module-cache-bus.service.spec.ts` verifies publish failures are logged without throwing. The web fallback polls `/me` every 60 seconds for authenticated tenant sessions.
+
+## DZ-MG-3: Webhook Handlers Must Ack Even When a Module Is Disabled
+
+**Risk**: External webhooks (Stripe, Resend, Twilio, future providers) retry on non-2xx responses. A tenant may disable `finance` or `communications_outbound` while providers still send delayed webhook events. If the webhook controller uses `@ModuleEnabled` and returns 404, the provider retries repeatedly and creates avoidable incident noise.
+**Location**: `apps/api/src/modules/finance/*webhook*`, `apps/api/src/modules/communications/**/webhook*`, future provider webhook controllers
+**Status**: ACTIVE (Module Gating Wave W1, 2026-05-13)
+
+**Rule**: Webhook controllers must not use `@ModuleEnabled`. They should authenticate/verify the provider payload, identify the tenant, check `TenantModuleService.isEnabled(...)` inside the handler, and return 200 with no downstream work when the relevant module is disabled.
+
+**Regression coverage**: Per-webhook tests should assert "disabled module returns 200 and enqueues nothing" as each module-specific enforcement wave reaches Stripe, Resend, Twilio, or future provider handlers.
+
+---
+
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)
 
 **Location**: `apps/web/i18n/request.ts`, `apps/web/messages/{locale}.json`, `apps/web/src/__tests__/translation-parity.spec.ts`, `scripts/check-i18n.js`

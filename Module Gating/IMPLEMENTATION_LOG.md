@@ -28,7 +28,7 @@
 | 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | 📦     |
 | 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | 📦     |
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | 📦     |
-| 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | ⏳     |
+| 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | 📦     |
 | 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | ⏳     |
 | 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | ⏳     |
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | ⏳     |
@@ -249,14 +249,22 @@
 
 #### Acceptance
 
-- [ ] `docs/architecture/feature-map.md`: every entry's section header gains a "**Gateable:** yes/no (key: \<x\>)" line. Cleanup of any references to deprecated `analytics` key.
-- [ ] `docs/architecture/danger-zones.md`: new entries DZ-MG-1 (default-deny on missing row — every new gateable key MUST have a backfilled tenantModule row before enforcement ships) and DZ-MG-2 (cache invalidation must fire on every toggle — stale cache = users seeing wrong state).
-- [ ] `docs/architecture/pre-flight-checklist.md`: §6 (after-change checklist) gains: "Did I add a new module to the registry? → migration backfill needed; default value chosen consciously; danger zone DZ-MG-1 reviewed." And: "Did I add a controller decorated with `@ModuleEnabled`? → `ModuleEnabledGuard` must be in `@UseGuards`; module-gating leakage test added."
-- [ ] `docs/architecture/state-machines.md`: optional — `tenantModule.is_enabled` is binary so doesn't strictly need a state machine entry, but a paragraph noting "toggling fires audit log + cache invalidation" added to the catalog index.
+- [x] `docs/architecture/feature-map.md`: every entry's section header gains a "**Gateable:** yes/no/partial" line; Quick Reference gains a Gateable column; deprecated `analytics` key is explicitly called out as unused.
+- [x] `docs/architecture/danger-zones.md`: new entries DZ-MG-1 (default-deny on missing row), DZ-MG-2 (cache invalidation must fire on toggle), and DZ-MG-3 (webhooks ack/no-op when disabled).
+- [x] `docs/architecture/pre-flight-checklist.md`: module gating checks added for registry/schema, controllers/guards, toggle cache invalidation, workers, danger zones, and after-change architecture updates.
+- [x] `docs/architecture/state-machines.md`: `tenantModule.is_enabled` catalog entry added with audit log + Redis invalidation + pub/sub side effects.
+- [x] `docs/runbooks/module-gating-operations.md` exists with toggle, verification, access-debugging, and emergency rollback procedures.
+- [x] `2026-04-27` historical reference preserved in docs that already carried the Communications Overhaul baseline.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `docs(module-gating): document gating operations`
+- CI: not run remotely; local checks passed:
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/architecture-docs.spec.ts)`
+  - `pnpm --filter @school/api type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/test/architecture-docs.spec.ts`
+- Deploy: not deployed; server access was not granted for this pass.
+- Notes: `architecture-docs.spec.ts` now checks for Gateable annotations, DZ-MG entries, module-gating pre-flight language, and the `tenantModule.is_enabled` state-machine catalog note. The operations runbook includes emergency direct DB/Redis commands for operator use only when the admin UI is unavailable.
 
 ---
 

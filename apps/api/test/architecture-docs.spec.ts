@@ -95,4 +95,29 @@ describe('Communications Overhaul — architecture docs presence', () => {
     expect(content).toContain('communicationnew/IMPLEMENTATION_LOG.md');
     expect(content).toContain('Appendix A: Historical');
   });
+
+  it('feature-map.md documents module-gating annotations', async () => {
+    const content = await fs.readFile(resolve(ARCH_DIR, 'feature-map.md'), 'utf-8');
+    const gateableMentions = content.match(/Gateable/g) ?? [];
+    expect(gateableMentions.length).toBeGreaterThanOrEqual(20);
+    expect(content).toContain('| Gateable |');
+    expect(content).toContain('module key `gradebook`');
+    expect(content).toContain('deprecated `analytics` module key is not used');
+  });
+
+  it('danger-zones.md documents module-gating danger zones', async () => {
+    const content = await fs.readFile(resolve(ARCH_DIR, 'danger-zones.md'), 'utf-8');
+    expect(content).toContain('DZ-MG-1');
+    expect(content).toContain('DZ-MG-2');
+    expect(content).toContain('DZ-MG-3');
+  });
+
+  it('pre-flight-checklist.md and state-machines.md document module gating checks', async () => {
+    const preflight = await fs.readFile(resolve(ARCH_DIR, 'pre-flight-checklist.md'), 'utf-8');
+    const stateMachines = await fs.readFile(resolve(ARCH_DIR, 'state-machines.md'), 'utf-8');
+    expect(preflight).toContain('Module Gating Check');
+    expect(preflight).toContain('DZ-MG-1');
+    expect(stateMachines).toContain('tenantModule.is_enabled');
+    expect(stateMachines).toContain('tenant_modules:invalidated');
+  });
 });
