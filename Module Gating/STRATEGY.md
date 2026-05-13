@@ -547,7 +547,7 @@ To keep this work shippable, the following are explicitly NOT included:
 - **Admin console UI itself**. That's spec 22's job to hand off cleanly. The actual UI design (tabs, layouts, search, bulk operations) is the platform admin dashboard team's work.
 - **Billing / metering** of toggled features. No "you used Gradebook for 30 days, here's the bill." Out of scope until billing is real.
 - **Feature toggles for newly-shipped non-modular features** (e.g., a single new dashboard widget). Those go through normal release; if they need gating later, add as a module-level toggle then.
-- **GraphQL or new APIs for the admin console**. Existing REST + JWT auth pattern stays. Admin console uses the existing `/v1/admin/tenants/:id/modules/toggle` endpoint with auth via `platform_owner` role.
+- **GraphQL or new APIs for the admin console**. Existing REST + JWT auth pattern stays. Admin console uses the existing `GET /v1/admin/tenants/:id/modules` read endpoint and `PATCH /v1/admin/tenants/:id/modules/:key` toggle endpoint with auth via `platform_owner` role.
 
 ---
 
@@ -563,6 +563,8 @@ See [glossary.md](glossary.md) for terms (module key, gateable, enforcement laye
 - Deep-dive evidence: `_evidence/batch-1` through `_evidence/batch-6` in this folder
 - Related architecture docs: `docs/architecture/feature-map.md`, `docs/architecture/module-blast-radius.md`, `docs/architecture/danger-zones.md`, `docs/architecture/pre-flight-checklist.md`
 - Platform admin dashboard spec (consumes this work): `docs/superpowers/specs/2026-04-01-platform-admin-dashboard-design.md`
+- Admin console closure handoff: `Module Gating/admin-console-handoff.md`
+- Existing-tenant migration runbook: `Module Gating/migration-runbook.md`
 - Existing per-tenant module data model: `packages/prisma/schema.prisma` (`TenantModule` model)
 - Existing guard: `apps/api/src/common/guards/module-enabled.guard.ts`
 - Existing decorator: `apps/api/src/common/decorators/module-enabled.decorator.ts`

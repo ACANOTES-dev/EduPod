@@ -42,7 +42,7 @@
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ✅     |
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | 📦     |
-| 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     |
+| 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | 📦     |
 
 ---
 
@@ -650,13 +650,20 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `Module Gating/admin-console-handoff.md` documents: existing `POST /v1/admin/tenants/:id/modules/toggle` endpoint shape; `/me` payload shape; audit-log schema for module changes; the disabled landing page contract; the cache invalidation pub/sub channel name + payload shape.
-- [ ] References the platform admin dashboard spec (`docs/superpowers/specs/2026-04-01-platform-admin-dashboard-design.md`) and notes which sections it satisfies.
-- [ ] Documents what the dashboard team must build (the UI itself; bulk operations; presets; warnings on dependent modules) and what they get for free (gating works; toggling fires audit + invalidation; frontend reacts to changes).
+- [x] `Module Gating/admin-console-handoff.md` exists and documents the actual existing toggle endpoint shape: `PATCH /api/v1/admin/tenants/:id/modules/:key` with `{ is_enabled: boolean }`.
+- [x] Handoff documents `/me` `enabled_modules`, the `MODULE_DISABLED` envelope, the disabled landing page contract, cache key `tenant_modules:<tenantId>`, and Redis channel `tenant_modules:invalidated`.
+- [x] Handoff documents the actual audit-log schema for module changes: `action = 'module_toggle'`, `entity_type = 'tenant_config'`, and metadata containing `module_key` + `is_enabled`.
+- [x] Linked from STRATEGY.md References as the closure doc.
+- [x] Linked from `docs/superpowers/specs/2026-04-01-platform-admin-dashboard-design.md`; stale dashboard endpoint/action references corrected to match the shipped API.
+- [x] Documents what the dashboard team must build (the production UI, optimistic toggle flow, dependency warnings, compliance warning, defaults preset, health hint) and what they get for free (registry, data rows, API/read endpoints, audit/cache propagation, frontend tenant helpers).
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `docs(module-gating): add admin console handoff`
+- CI: local docs verification passed:
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/architecture-docs.spec.ts)`
+- Deploy: pending.
+- Notes: The implementation spec's sample `POST /v1/admin/tenants/:id/modules/toggle` contract was stale. The handoff intentionally documents the contract currently implemented in `TenantsController` / `TenantsService`: `GET /v1/admin/tenants/:id/modules` and `PATCH /v1/admin/tenants/:id/modules/:key`.
 
 ---
 

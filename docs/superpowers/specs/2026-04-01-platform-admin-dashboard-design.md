@@ -12,7 +12,7 @@ EduPod is a multi-tenant school management SaaS with ~73 backend modules (20 of 
 
 The platform admin dashboard must become a world-class operations centre — the single place from which the platform owner and a small ops team can monitor system health, onboard tenants, diagnose issues, manage alerts, perform support actions, **and toggle per-tenant features** without SSH access.
 
-> **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. Implementation 22 of Module Gating (`Module Gating/implementations/22-admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the new toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
+> **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. The closure handoff (`Module Gating/admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
 
 ## 2. Requirements
 
@@ -336,7 +336,7 @@ Replaces the current Redis-set approach (`platform_owner_user_ids` Redis set) wi
 
 ### 3.11 Tenant Module Toggles
 
-> **Foundation:** Module Gating (`Module Gating/STRATEGY.md`). The dashboard does NOT own the gating system itself; it owns the operator UI that drives it. Implementation 22 of Module Gating (`Module Gating/implementations/22-admin-console-handoff.md`) is the binding interface contract.
+> **Foundation:** Module Gating (`Module Gating/STRATEGY.md`). The dashboard does NOT own the gating system itself; it owns the operator UI that drives it. `Module Gating/admin-console-handoff.md` is the binding interface contract.
 
 The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modules`. Each gateable module from `MODULE_REGISTRY` (20 keys, grouped into 6 categories) renders as a card. Toggling a card flips `tenantModule.is_enabled`, which propagates within seconds to the tenant's API, frontend nav, and worker behaviour.
 
@@ -345,7 +345,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 - `display_name` (heading) + `description` (body) sourced from `MODULE_REGISTRY`
 - Current state toggle (on/off)
 - `default_enabled` hint as a sub-label ("default: ON" / "default: OFF")
-- "Last toggled by Y on Z" — read from the audit log (`action = 'tenant.module.toggle'`)
+- "Last toggled by Y on Z" — read from the audit log (`action = 'module_toggle'`, `metadata_json.module_key = <moduleKey>`)
 - For modules with `depends_on`: when the operator turns OFF a parent module that another enabled module depends on, surface a warning prompt ("Disabling finance will leave budgeting in a broken state — also disable budgeting?"). Operator has the final say; we never auto-cascade.
 - For `compliance_advanced` specifically: enabling surfaces a jurisdiction warning ("DES/TUSLA/PPOD/CBA features are Irish-jurisdiction specific. Confirm this tenant operates in Ireland."). Operator confirms → enable proceeds.
 
@@ -353,7 +353,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 
 **Health hint:** if `TenantModuleService.assertCompleteness(tenantId)` returns `complete: false`, surface a banner at the top of the page: "Tenant has missing module rows: [list]. Run the Module Gating backfill migration." This should never happen in production (per Module Gating DZ-MG-1) but the banner is a safety net.
 
-**Audit log integration:** every toggle is logged via the existing audit-log infrastructure. Action: `'tenant.module.toggle'`, resource_type: `'tenantModule'`, resource_id: `'<tenantId>:<moduleKey>'`, payload includes `module_key`, `previous_state`, `new_state`. The dashboard's audit log viewer can filter on this action to show toggle history per tenant.
+**Audit log integration:** every toggle is logged via the existing audit-log infrastructure. Action: `'module_toggle'`, entity_type: `'tenant_config'`, entity_id: `'<tenantId>'`, metadata includes `module_key` and `is_enabled`. The dashboard's audit log viewer can filter on this action and `metadata_json.module_key` to show toggle history per tenant.
 
 **Real-time:** toggles fire `TenantModuleCacheBusService.publishInvalidation(...)` on Redis pub/sub channel `tenant_modules:invalidated`. Frontend tabs viewing the same tenant's module state refetch within 60s (per Module Gating impl 06 polling fallback; switch to push-based when WebSocket infrastructure from §3.1 is in place).
 
@@ -445,7 +445,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 | PATCH  | `/v1/admin/platform-users/:id`             | Update platform user role/status                                                                                              |
 | DELETE | `/v1/admin/platform-users/:id`             | Remove platform user                                                                                                          |
 | GET    | `/v1/admin/tenants/:id/modules`            | Read all 20 module toggle states for a tenant (Session 3E)                                                                    |
-| POST   | `/v1/admin/tenants/:id/modules/toggle`     | Flip one module toggle; existing endpoint, behaviour upgraded by Module Gating impl 06 (audit + cache invalidation + pub/sub) |
+| PATCH  | `/v1/admin/tenants/:id/modules/:key`       | Flip one module toggle; existing endpoint, behaviour upgraded by Module Gating impl 06 (audit + cache invalidation + pub/sub) |
 
 ## 6. Build Sequence
 
@@ -473,7 +473,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 
 **Total: 13 sessions across 3 layers.**
 
-> **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end (W1–W5). The Module Gating foundation provides the canonical registry, the typed toggle endpoint, the `/me` payload, the cache invalidation pipeline, and the audit-log integration that Session 3E renders as UI. Session 3E should NOT be started until Module Gating Wave 5 is complete.
+> **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end (W1–W5). The Module Gating foundation provides the canonical registry, the typed toggle endpoint, the `/me` payload, the cache invalidation pipeline, and the audit-log integration that Session 3E renders as UI. `Module Gating/admin-console-handoff.md` is the closure contract. Session 3E should NOT be started until Module Gating Wave 5 is complete.
 
 ## 7. Navigation Structure (Final)
 

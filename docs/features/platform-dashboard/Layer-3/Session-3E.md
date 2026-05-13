@@ -13,7 +13,7 @@
 Build the per-tenant module toggle UI that the platform operator uses to enable/disable individual modules for each tenant. After this ships:
 
 - A page at `/admin/tenants/:id/modules` renders 20 module cards (one per gateable key in `MODULE_REGISTRY`) grouped by category.
-- Toggling a card calls the existing `POST /v1/admin/tenants/:id/modules/toggle` endpoint (already wired by Module Gating impl 06) with optimistic UI; revert + toast on failure.
+- Toggling a card calls the existing `PATCH /v1/admin/tenants/:id/modules/:key` endpoint (already wired by Module Gating impl 06) with optimistic UI; revert + toast on failure.
 - Each card shows current state, default hint, and "last toggled by Y on Z" sourced from the audit log.
 - Disabling a parent module surfaces a warning prompt for any enabled dependents (per `depends_on` in the registry); operator confirms either way.
 - Enabling `compliance_advanced` surfaces a one-time jurisdiction warning.
@@ -28,9 +28,9 @@ This is a UI session. No gating logic is added or changed — Module Gating alre
 **No new tables, no new enums, no migrations.** This session reads from:
 
 - `tenant_modules` (existing — Module Gating data layer)
-- `audit_logs` (existing — filter on `action = 'tenant.module.toggle'`)
+- `audit_logs` (existing — filter on `action = 'module_toggle'` and `metadata_json.module_key`)
 
-And writes via the existing `POST /v1/admin/tenants/:id/modules/toggle` handler (Module Gating impl 06).
+And writes via the existing `PATCH /v1/admin/tenants/:id/modules/:key` handler (Module Gating impl 06) with `{ is_enabled: boolean }`.
 
 ---
 
@@ -90,7 +90,7 @@ export class TenantModulesAdminService {
 
   private async fetchLatestToggleEventsByKey(tenantId: string) {
     // For each module key, get the most recent audit_log entry where
-    // action = 'tenant.module.toggle' and resource_id starts with this tenant's id.
+    // action = 'module_toggle', entity_id = tenantId, and metadata_json.module_key is canonical.
     // Implementation: one query selecting all matching rows, then JS-side
     // dedup-by-key using DISTINCT ON or array_agg in Postgres.
     // Acceptable to return an empty Map if audit_log doesn't have entries yet.
@@ -124,7 +124,7 @@ export class TenantModulesAdminController {
 
 ### 3.3 Existing Endpoint Reused
 
-`POST /v1/admin/tenants/:id/modules/toggle` already exists. Module Gating impl 06 added the audit-log + cache invalidation + pub/sub publish. No changes required for this session.
+`PATCH /v1/admin/tenants/:id/modules/:key` already exists. Module Gating impl 06 added the audit-log + cache invalidation + pub/sub publish. No changes required for this session.
 
 ---
 
@@ -289,11 +289,11 @@ A "Apply preset: Standard" dropdown that, on selection, calls the toggle endpoin
 - [ ] `GET /v1/admin/tenants/:id/modules` returns the full module view payload (20 entries + completeness object) for any tenant the operator can access.
 - [ ] Page at `/[locale]/(platform)/admin/tenants/[id]/modules` renders all 20 modules grouped by category (Academic, Finance/Ops, People Care, Communications, Operations, Compliance).
 - [ ] Each card shows display_name, description, default_enabled hint, current state, last toggled by/on.
-- [ ] Toggling a card POSTs to `/v1/admin/tenants/:id/modules/toggle` and visually reflects success (optimistic + persisted) or failure (revert + toast).
+- [ ] Toggling a card PATCHes `/v1/admin/tenants/:id/modules/:key` with `{ is_enabled: boolean }` and visually reflects success (optimistic + persisted) or failure (revert + toast).
 - [ ] Disabling a parent module with currently-enabled dependents triggers `<DependentModulesWarningDialog>` with the three options.
 - [ ] Enabling `compliance_advanced` triggers `<JurisdictionWarningDialog>`; toggle is blocked until checkbox is ticked.
 - [ ] `<ModuleCompletenessBanner>` renders only when `completeness.complete === false`.
-- [ ] Audit log integration verified: a flip creates an `audit_logs` row with `action = 'tenant.module.toggle'`, `resource_id = '<tenantId>:<moduleKey>'`, payload includes `module_key`, `previous_state`, `new_state`. (No new code — verify the existing Module Gating impl 06 handler still does this after registering the new admin route.)
+- [ ] Audit log integration verified: a flip creates an `audit_logs` row with `action = 'module_toggle'`, `entity_type = 'tenant_config'`, `entity_id = '<tenantId>'`, and metadata includes `module_key` and `is_enabled`. (No new code — verify the existing Module Gating impl 06 handler still does this after registering the new admin route.)
 - [ ] Within 60s of a toggle, an open browser tab on the SAME page sees the new state without manual refresh (per the polling subscriber from Module Gating impl 06).
 - [ ] Unit tests + controller tests + frontend page tests all pass.
 - [ ] Smoke test on NHQS in production: navigate, toggle a non-critical module (e.g., `staff_wellbeing`) off, observe the school user's nav update on next /me poll, toggle back on.
@@ -314,5 +314,5 @@ A "Apply preset: Standard" dropdown that, on selection, calls the toggle endpoin
 ## 10. Notes
 
 - The "Modules" tab on the existing `/admin/tenants/[id]/` page is the natural entry point. It complements the existing Locales tab (added in the i18n expansion) and the existing tenant detail surface. Do not move the existing module toggle UI from the tenant detail page in this session — leave it as a fallback, deprecate cleanly in a follow-up after the new page proves itself.
-- Reuse the existing audit-log viewer (Layer 1 § Compliance) for full per-module toggle history filtered by `action = 'tenant.module.toggle'`.
+- Reuse the existing audit-log viewer (Layer 1 § Compliance) for full per-module toggle history filtered by `action = 'module_toggle'` and `metadata_json.module_key`.
 - The page intentionally has no live WebSocket subscription (yet). The polling fallback (60s) is sufficient for V1; switch to push when the WebSocket infrastructure from §3.1 of the master spec ships and the Module Gating cache-bus subscriber is upgraded (Module Gating impl 21 documents the migration path).
