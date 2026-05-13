@@ -40,7 +40,7 @@
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | 📦     |
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | 📦     |
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | 📦     |
-| 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ⏳     |
+| 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | 📦     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     |
 
@@ -592,14 +592,21 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `analytics` key removed from any remaining seed/test reference (registry already excludes it).
-- [ ] `trips` confirmed NOT in registry (it's a stub; deferred).
-- [ ] If trips will not be implemented in the next 6 months, document in feature-map that the trips stub exists for inbox audience-provider only and is not gateable.
-- [ ] No code references `tenantModule.module_key = 'analytics'` anywhere in the codebase.
+- [x] Deprecated `analytics` tenant-module key is absent from registry, seed, migrations, toggle code, and tenant-module query paths.
+- [x] Production assertion returned 0 rows for `SELECT COUNT(*) FROM tenant_modules WHERE module_key = 'analytics';`.
+- [x] `trips` confirmed NOT in registry (it's a stub; deferred).
+- [x] Trips module confirmed stub: `trips.module.ts` plus `audience/trip-roster.provider.ts` and its spec only; no controllers, services, permissions, or real domain logic.
+- [x] Feature map documents that the trips stub exists for inbox audience-provider only and is not gateable.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `docs(module-gating): verify trips analytics cleanup`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/trips/audience/trip-roster.provider.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/architecture-docs.spec.ts)`
+  - `rg -n "module_key.*analytics|analytics.*module_key" packages/prisma packages/shared/src/modules apps/api/src apps/worker/src apps/web/src --glob '!**/_archive/**' --glob '!**/archive/**'` returned zero hits.
+- Deploy: no separate production deploy required by the spec; production read-only DB assertion was run via SSH diagnostics and returned `0`.
+- Notes: A broad `rg -n "'analytics'" apps/api/src apps/worker/src apps/web/src packages` still finds legitimate non-module-key usages: analytics permissions, `/analytics` routes/tabs, and `@SensitiveDataAccess('analytics')` audit categories. Those are not stale tenant-module ghost-key references and were intentionally left in place.
 
 ---
 

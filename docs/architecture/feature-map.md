@@ -1661,7 +1661,7 @@ The following modules exist in the tree but are explicit stubs — they intentio
 | Module                | Why it exists                                                                                                                                  |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `events/`             | Hosts the `event_attendees` audience provider stub for inbox (Wave 2, Impl 03 of `new-inbox/`). Resolver throws `AUDIENCE_PROVIDER_NOT_WIRED`. |
-| `trips/`              | Same pattern — hosts the `trip_roster` audience provider stub for inbox.                                                                       |
+| `trips/`              | Same pattern — hosts only the `trip_roster` audience provider stub for inbox; not gateable until a real trips domain ships.                    |
 | `pastoral-checkins/`  | Empty placeholder. Comment in source: "STUB: Not yet implemented — placeholder for future pastoral check-ins functionality."                   |
 | `pastoral-dsar/`      | Empty placeholder. Comment in source: "STUB: Not yet implemented — placeholder for future pastoral DSAR functionality."                        |
 | `critical-incidents/` | Empty placeholder. Comment in source: "STUB: Not yet implemented — placeholder for future critical incidents functionality."                   |
