@@ -51,7 +51,8 @@ interface TenantMetricsSnapshot {
   api_requests_24h: number;
   errors_24h: number;
   storage_mb: number;
-  modules_enabled: string[];
+  enabled_modules: ModuleKey[]; // typed; canonical 20-key list from Module Gating registry
+  disabled_modules: ModuleKey[]; // complement of enabled_modules within the 20-key registry
   last_login_at: string | null; // ISO timestamp
 }
 ```
@@ -228,12 +229,17 @@ interface TenantMetricsSnapshot {
   api_requests_24h: number;
   errors_24h: number;
   storage_mb: number;
-  modules_enabled: string[];
+  enabled_modules: ModuleKey[]; // typed; canonical 20-key list from Module Gating registry
+  disabled_modules: ModuleKey[]; // complement of enabled_modules within the 20-key registry
   last_login_at: string | null;
 }
 
 @Injectable()
 export class TenantMetricsService {
+  // NOTE: ModuleKey + MODULE_KEYS_ARRAY are imported from `@school/shared/modules/registry`
+  // (see Module Gating impl 01). Use TenantModuleService.getEnabledModules (Module Gating
+  // impl 05) instead of querying tenantModule directly — the service handles the Redis
+  // cache and missing-row defensive filtering.
   private readonly logger = new Logger(TenantMetricsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
@@ -358,7 +364,7 @@ export class TenantMetricsService {
       activeUsers7d,
       invoicesTotal,
       invoicesOverdue,
-      modulesEnabled,
+      enabledModules,
       lastLogin,
       errors24h,
     ] = await Promise.all([
@@ -414,13 +420,9 @@ export class TenantMetricsService {
         },
       }),
 
-      // Modules enabled
-      this.prisma.tenantModule
-        .findMany({
-          where: { tenant_id: tenantId, is_enabled: true },
-          select: { module_key: true },
-        })
-        .then((r) => r.map((m) => m.module_key)),
+      // Enabled modules — via TenantModuleService so we hit the Redis cache + the
+      // canonical-key filter (Module Gating impl 05). Returns ModuleKey[].
+      this.tenantModule.getEnabledModules(tenantId),
 
       // Last login
       this.prisma.auditLog
@@ -454,7 +456,8 @@ export class TenantMetricsService {
       api_requests_24h: 0, // TODO: requires request counting middleware
       errors_24h: errors24h,
       storage_mb: 0, // TODO: requires S3 bucket size query
-      modules_enabled: modulesEnabled,
+      enabled_modules: enabledModules,
+      disabled_modules: MODULE_KEYS_ARRAY.filter((k) => !enabledModules.includes(k)),
       last_login_at: lastLogin,
     };
   }
@@ -722,7 +725,7 @@ The **Analytics tab** shows:
    - Selectable metric: students, active users, errors, etc.
    - Multiple series support (students + staff on same chart)
 
-3. **Modules enabled** list (from latest snapshot)
+3. **Module coverage** (from latest snapshot) — render `enabled_modules.length` / 20 with a progress bar; expandable list grouped by `MODULE_REGISTRY` category (Academic, Finance/Ops, People Care, Communications, Operations, Compliance) showing each module's enabled/disabled state and `display_name`. Links to the per-tenant module toggle UI (Session 3E) for actual toggling.
 
 ### 4.2 Analytics Tab Component
 
@@ -772,7 +775,7 @@ Students            | 340       | 212       | 0         |
 Staff               | 28        | 19        | 0         |
 Active Users (24h)  | 12        | 8         | 0         |
 Errors (24h)        | 0         | 3         | 0         |
-Modules Enabled     | 14        | 12        | 5         |
+Modules Enabled     | 18/20     | 16/20     | 5/20      |
 ```
 
 5. **Comparison chart** -- overlay trend lines for selected metric across tenants
@@ -981,7 +984,7 @@ describe('TenantMetricsController', () => {
 
 - [ ] `platform_tenant_metrics` table created with migration
 - [ ] Daily cron collects metrics for all active tenants at 2 AM
-- [ ] Metrics include: students_count, staff_count, parents_count, active_users_24h, active_users_7d, invoices_total, invoices_overdue, errors_24h, modules_enabled, last_login_at
+- [ ] Metrics include: students_count, staff_count, parents_count, active_users_24h, active_users_7d, invoices_total, invoices_overdue, errors_24h, enabled_modules (typed `ModuleKey[]`), disabled_modules (complement within the canonical 20-key registry), last_login_at
 - [ ] Upsert prevents duplicate snapshots for the same tenant+date
 - [ ] `GET /v1/admin/tenants/:id/metrics` returns latest snapshot + history
 - [ ] `GET /v1/admin/tenants/metrics/compare` returns side-by-side metrics for 2+ tenants

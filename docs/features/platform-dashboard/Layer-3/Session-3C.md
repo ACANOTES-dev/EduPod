@@ -207,7 +207,7 @@ Implementation:
    - `modules`: `tenant_modules:*`
    - `all`: all three patterns above
 2. If `tenant_id` is provided, further filter: for permissions, scan and check the membership's tenant association (this requires parsing the key or using a more specific pattern). For domains/modules, use `tenant_domain:*` where the stored value's tenant_id matches. Pragmatic approach: scan all matching keys, GET each, check if the stored value references the target tenant, delete if match.
-3. Alternative simpler approach for tenant-scoped flush: use known key patterns like `permissions:{membership_id}`. Query all memberships for the tenant, then delete `permissions:{membership_id}` for each. For domains: query `tenant_domains` table, delete `tenant_domain:{domain}` for each. For modules: delete `tenant_modules:{tenant_id}`.
+3. Alternative simpler approach for tenant-scoped flush: use known key patterns like `permissions:{membership_id}`. Query all memberships for the tenant, then delete `permissions:{membership_id}` for each. For domains: query `tenant_domains` table, delete `tenant_domain:{domain}` for each. **For modules:** prefer the typed path: call `TenantModuleService.invalidateCache(tenantId)` AND `TenantModuleCacheBusService.publishInvalidation(...)` (both from Module Gating impl 06). The publish notifies workers + other API instances + the frontend (via the polling subscriber) so a flush propagates within seconds. Raw `redis-cli DEL "tenant_modules:{tenant_id}"` is a fallback that skips the pub/sub notification.
 4. Return count of deleted keys.
 
 #### `getCacheStats(): Promise<CacheStats>`

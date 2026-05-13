@@ -1,9 +1,9 @@
 # Layer 3 Plan -- Polish & Operations
 
 **Layer:** 3 of 3
-**Sessions:** 3A, 3B, 3C, 3D
+**Sessions:** 3A, 3B, 3C, 3D, 3E
 **Status:** Planned
-**Prerequisites:** Layer 1 (Operational Foundation) and Layer 2 (Intelligence & Power Tools) must be complete
+**Prerequisites:** Layer 1 (Operational Foundation) and Layer 2 (Intelligence & Power Tools) must be complete. Session 3E additionally requires the Module Gating initiative (`Module Gating/STRATEGY.md`) to have shipped Wave 5 — it builds the operator UI on top of that foundation.
 
 ---
 
@@ -15,6 +15,7 @@ Layer 3 transforms the platform admin dashboard from a monitoring/intelligence t
 - **Support Toolkit (3B)** -- Six platform support actions (password reset, MFA reset, resend invite, unlock account, transfer ownership, disable/enable user) with a full audit trail.
 - **Session & Cache Management + Maintenance Mode (3C)** -- Active session visibility, force-logout, cache flushing, and per-tenant maintenance mode with scheduled windows.
 - **Platform Users & Navigation Redesign (3D)** -- Replace the Redis-set approach with a `platform_users` table, implement two roles (`platform_owner`, `platform_support`), global search (Cmd+K), and a grouped sidebar navigation.
+- **Tenant Module Toggles UI (3E)** -- Per-tenant operator UI for the Module Gating system. 20 cards grouped by category (Academic, Finance/Ops, People Care, Communications, Operations, Compliance), depends_on warning prompts, jurisdiction warning for `compliance_advanced`, audit-log integration. Builds on the Module Gating foundation (`Module Gating/STRATEGY.md`).
 
 After Layer 3, the platform admin dashboard is feature-complete per the design spec.
 
@@ -42,11 +43,18 @@ After Layer 3, the platform admin dashboard is feature-complete per the design s
 3D: Platform Users & Navigation Redesign
   Depends on: 3B (support actions exist and are accessible from the sidebar)
               3C (sessions/cache page exists and needs a sidebar entry)
-  Reason: Sidebar redesign must include all pages from 3B and 3C
-  Must be: Last
+              3E (modules tab needs a sidebar entry under Tenants)
+  Reason: Sidebar redesign must include all pages from 3B, 3C, and 3E
+  Must be: Last (within Layer 3)
+
+3E: Tenant Module Toggles UI
+  Depends on: Module Gating Wave 5 complete (registry, seed, API, frontend,
+              worker, cache, tests, docs — all 22 implementations)
+  Can start: In parallel with 3A, 3B, 3C
+  Independent of 3A, 3B, 3C; precedes 3D (which adds the sidebar entry)
 ```
 
-**Recommended execution order:** 3A -> 3B -> 3C -> 3D (sequential) or 3A | 3B | 3C (parallel) -> 3D (last).
+**Recommended execution order:** 3A | 3B | 3C | 3E (parallel, all independent of each other) -> 3D (last; the sidebar redesign needs all sibling pages to exist).
 
 ---
 
@@ -123,6 +131,13 @@ All in `packages/prisma/migrations/`:
 | DELETE | `/v1/admin/platform-users/:id` | Remove platform user                              |
 | GET    | `/v1/admin/search`             | Global search across tenants, users, alerts, jobs |
 
+### Session 3E -- Tenant Module Toggles UI
+
+| Method | Endpoint                               | Purpose                                                                                                                   |
+| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/v1/admin/tenants/:id/modules`        | Read all 20 module toggle states + last-toggled audit metadata + completeness check for one tenant                        |
+| POST   | `/v1/admin/tenants/:id/modules/toggle` | (Existing — Module Gating impl 06.) Flip one module toggle; fires audit + cache invalidation + pub/sub. No changes in 3E. |
+
 ---
 
 ## 5. New Frontend Pages/Components Summary
@@ -166,6 +181,17 @@ All in `packages/prisma/migrations/`:
 | Component      | `apps/web/src/app/[locale]/(platform)/admin/_components/global-search.tsx`                | Command palette (Cmd+K) search |
 | Layout rewrite | `apps/web/src/app/[locale]/(platform)/layout.tsx`                                         | Grouped sidebar navigation     |
 
+### Session 3E -- Tenant Module Toggles UI
+
+| Type      | Path                                                                                                               | Description                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Page      | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/page.tsx`                                         | Per-tenant module toggle management page (20 cards)           |
+| Component | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/_components/module-toggle-card.tsx`               | Single module card with toggle + state + last-toggled meta    |
+| Component | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/_components/dependent-modules-warning-dialog.tsx` | Warns when disabling a parent with enabled dependents         |
+| Component | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/_components/jurisdiction-warning-dialog.tsx`      | Confirms Irish jurisdiction when enabling compliance_advanced |
+| Component | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/_components/module-completeness-banner.tsx`       | Safety banner if backfill missed rows                         |
+| Component | `apps/web/src/app/[locale]/(platform)/admin/tenants/[id]/modules/_components/preset-dropdown.tsx`                  | Apply Standard preset (registry defaults) in one click        |
+
 ---
 
 ## 6. Testing Strategy
@@ -205,7 +231,7 @@ All new tables in Layer 3 are platform-level (no RLS). However:
 
 Layer 3 is complete when:
 
-- [ ] All 4 sessions (3A, 3B, 3C, 3D) are implemented and deployed
+- [ ] All 5 sessions (3A, 3B, 3C, 3D, 3E) are implemented and deployed
 - [ ] All new API endpoints respond correctly with proper auth guards
 - [ ] All new database tables exist with correct constraints and no RLS
 - [ ] `tenants` table has `maintenance_mode` and `maintenance_message` columns
@@ -219,6 +245,7 @@ Layer 3 is complete when:
 - [ ] Platform users can be invited, edited, and deactivated
 - [ ] Sidebar uses grouped navigation matching the design spec
 - [ ] Global search (Cmd+K) finds tenants, users, alerts, and jobs
+- [ ] Tenant module toggles UI (3E) renders 20 cards per tenant grouped by category; toggling fires the existing endpoint and reflects state within seconds; depends_on warnings + jurisdiction warning + completeness banner all behave per Session 3E §4
 - [ ] `turbo test` passes with zero regressions
 - [ ] `turbo lint` and `turbo type-check` pass cleanly
 - [ ] All production verification steps pass

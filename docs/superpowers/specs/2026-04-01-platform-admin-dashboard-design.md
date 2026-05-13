@@ -8,9 +8,11 @@
 
 ## 1. Context
 
-EduPod is a multi-tenant school management SaaS with ~40 modules, ~1,048 API endpoints, 56 worker jobs, and two tenants pending onboarding. The existing platform admin dashboard was built early when the product had a fraction of its current scope. It provides basic tenant CRUD, an audit log, security incident tracking, and 4 stat cards. There is no health monitoring frontend (the backend endpoint exists but the nav link is dead), no alerting, no queue visibility, no onboarding workflow, and limited support tooling.
+EduPod is a multi-tenant school management SaaS with ~73 backend modules (20 of which are gateable per-tenant via the Module Gating foundation), ~1,048+ API endpoints, 56+ worker jobs, and 5 tenants in pre-launch (NHQS pilot + 4 stress-test). The existing platform admin dashboard was built early when the product had a fraction of its current scope. It provides basic tenant CRUD, an audit log, security incident tracking, basic per-tenant module toggles, and 4 stat cards. There is no health monitoring frontend (the backend endpoint exists but the nav link is dead), no alerting, no queue visibility, no onboarding workflow, and limited support tooling.
 
-The platform admin dashboard must become a world-class operations centre — the single place from which the platform owner and a small ops team can monitor system health, onboard tenants, diagnose issues, manage alerts, and perform support actions without SSH access.
+The platform admin dashboard must become a world-class operations centre — the single place from which the platform owner and a small ops team can monitor system health, onboard tenants, diagnose issues, manage alerts, perform support actions, **and toggle per-tenant features** without SSH access.
+
+> **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. Implementation 22 of Module Gating (`Module Gating/implementations/22-admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the new toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
 
 ## 2. Requirements
 
@@ -184,29 +186,30 @@ tenant_onboarding_steps
 
 **Default steps (created when tenant is created):**
 
-| Phase          | Step Key                | Label                           | Auto? | Blocked By              |
-| -------------- | ----------------------- | ------------------------------- | ----- | ----------------------- |
-| infrastructure | `domain_configured`     | Custom domain added             | Yes   | —                       |
-| infrastructure | `ssl_verified`          | SSL certificate active          | Yes   | `domain_configured`     |
-| infrastructure | `modules_configured`    | Modules enabled/disabled        | No    | —                       |
-| infrastructure | `billing_status_set`    | Billing status confirmed        | No    | —                       |
-| data           | `owner_account_created` | School owner account created    | Yes   | —                       |
-| data           | `owner_welcomed`        | Welcome email sent to owner     | No    | `owner_account_created` |
-| data           | `staff_imported`        | Staff data imported             | No    | `owner_account_created` |
-| data           | `students_imported`     | Student data imported           | No    | `owner_account_created` |
-| data           | `parents_imported`      | Parent data imported            | No    | `students_imported`     |
-| configuration  | `academic_year_set`     | Academic year configured        | No    | `owner_account_created` |
-| configuration  | `classes_set_up`        | Classes and year groups created | No    | `academic_year_set`     |
-| configuration  | `settings_reviewed`     | Tenant settings reviewed        | No    | `modules_configured`    |
-| configuration  | `roles_reviewed`        | Roles and permissions reviewed  | No    | `owner_account_created` |
-| go_live        | `owner_trained`         | Owner walkthrough completed     | No    | `owner_welcomed`        |
-| go_live        | `go_live_confirmed`     | Tenant marked as live           | No    | All above               |
+| Phase          | Step Key                | Label                           | Auto?               | Blocked By              |
+| -------------- | ----------------------- | ------------------------------- | ------------------- | ----------------------- |
+| infrastructure | `domain_configured`     | Custom domain added             | Yes                 | —                       |
+| infrastructure | `ssl_verified`          | SSL certificate active          | Yes                 | `domain_configured`     |
+| infrastructure | `modules_configured`    | Module toggle rows complete     | Yes (Module Gating) | —                       |
+| infrastructure | `billing_status_set`    | Billing status confirmed        | No                  | —                       |
+| data           | `owner_account_created` | School owner account created    | Yes                 | —                       |
+| data           | `owner_welcomed`        | Welcome email sent to owner     | No                  | `owner_account_created` |
+| data           | `staff_imported`        | Staff data imported             | No                  | `owner_account_created` |
+| data           | `students_imported`     | Student data imported           | No                  | `owner_account_created` |
+| data           | `parents_imported`      | Parent data imported            | No                  | `students_imported`     |
+| configuration  | `academic_year_set`     | Academic year configured        | No                  | `owner_account_created` |
+| configuration  | `classes_set_up`        | Classes and year groups created | No                  | `academic_year_set`     |
+| configuration  | `settings_reviewed`     | Tenant settings reviewed        | No                  | `modules_configured`    |
+| configuration  | `roles_reviewed`        | Roles and permissions reviewed  | No                  | `owner_account_created` |
+| go_live        | `owner_trained`         | Owner walkthrough completed     | No                  | `owner_welcomed`        |
+| go_live        | `go_live_confirmed`     | Tenant marked as live           | No                  | All above               |
 
 **Auto-completion triggers:**
 
 - `domain_configured` → fires when a domain record is created for the tenant
 - `ssl_verified` → fires when domain `ssl_status` = `active`
 - `owner_account_created` → fires when a user with `school_owner` role exists for the tenant
+- `modules_configured` → fires when `TenantModuleService.assertCompleteness(tenantId).complete === true` (i.e., all 20 canonical module-registry keys have a `tenantModule` row for this tenant). Provided by Module Gating impl 05. The Module Gating impl 02 backfill migration ensures this is true for every existing tenant on rollout, so this step typically auto-completes immediately on tenant creation.
 
 ### 3.4 Health Monitoring
 
@@ -236,7 +239,7 @@ Uses existing Redis infrastructure:
 
 - **Sessions:** Enumerate keys matching `session:*`, group by tenant, show count and last activity
 - **Force logout:** Delete session keys for a tenant or specific user, invalidate refresh tokens
-- **Cache flush:** Delete keys matching `permissions:*`, `tenant_modules:*`, `domain:*` for a specific tenant or globally
+- **Cache flush:** Delete keys matching `permissions:*`, `tenant_modules:*`, `domain:*` for a specific tenant or globally. **For `tenant_modules:*`**: prefer the typed path via `TenantModuleService.invalidateCache(tenantId)` + `TenantModuleCacheBusService.publishInvalidation(...)` (Module Gating impl 06) so workers and the frontend pick up the invalidation. Raw `redis-cli DEL` is a fallback for emergencies — see `docs/runbooks/module-gating-operations.md`.
 - **Maintenance mode:** `tenants.maintenance_mode` boolean + `tenants.maintenance_message` text. When enabled, the tenant-facing app shows a maintenance banner and blocks mutations.
 
 ### 3.7 Tenant Aggregate Metrics
@@ -259,7 +262,8 @@ platform_tenant_metrics
 │     "api_requests_24h": number,
 │     "errors_24h": number,
 │     "storage_mb": number,
-│     "modules_enabled": string[],
+│     "enabled_modules": ModuleKey[],  // typed; canonical 20-key list from @school/shared/modules/registry
+│     "disabled_modules": ModuleKey[], // complement; useful for tenant-fleet adoption charts
 │     "last_login_at": timestamp
 │   }
 ├── created_at (TIMESTAMPTZ)
@@ -325,10 +329,43 @@ Replaces the current Redis-set approach (`platform_owner_user_ids` Redis set) wi
 ├──────────────────────────────────────────────────────────┤
 │  RECENT ACTIVITY                            (View All →) │
 │  Ram reset MFA for user@school-a.com       10 min ago    │
-│  Tenant "School A" module SEN enabled      1 hour ago    │
+│  Tenant "School A" sen module enabled      1 hour ago    │
 │  Alert resolved: Queue depth normalised    2 hours ago   │
 └──────────────────────────────────────────────────────────┘
 ```
+
+### 3.11 Tenant Module Toggles
+
+> **Foundation:** Module Gating (`Module Gating/STRATEGY.md`). The dashboard does NOT own the gating system itself; it owns the operator UI that drives it. Implementation 22 of Module Gating (`Module Gating/implementations/22-admin-console-handoff.md`) is the binding interface contract.
+
+The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modules`. Each gateable module from `MODULE_REGISTRY` (20 keys, grouped into 6 categories) renders as a card. Toggling a card flips `tenantModule.is_enabled`, which propagates within seconds to the tenant's API, frontend nav, and worker behaviour.
+
+**Per-card UI:**
+
+- `display_name` (heading) + `description` (body) sourced from `MODULE_REGISTRY`
+- Current state toggle (on/off)
+- `default_enabled` hint as a sub-label ("default: ON" / "default: OFF")
+- "Last toggled by Y on Z" — read from the audit log (`action = 'tenant.module.toggle'`)
+- For modules with `depends_on`: when the operator turns OFF a parent module that another enabled module depends on, surface a warning prompt ("Disabling finance will leave budgeting in a broken state — also disable budgeting?"). Operator has the final say; we never auto-cascade.
+- For `compliance_advanced` specifically: enabling surfaces a jurisdiction warning ("DES/TUSLA/PPOD/CBA features are Irish-jurisdiction specific. Confirm this tenant operates in Ireland."). Operator confirms → enable proceeds.
+
+**Bulk operations (Layer 2 / future):** apply a preset (e.g., "Standard preset" = the registry's `default_enabled` values) to a tenant or a selected list of tenants.
+
+**Health hint:** if `TenantModuleService.assertCompleteness(tenantId)` returns `complete: false`, surface a banner at the top of the page: "Tenant has missing module rows: [list]. Run the Module Gating backfill migration." This should never happen in production (per Module Gating DZ-MG-1) but the banner is a safety net.
+
+**Audit log integration:** every toggle is logged via the existing audit-log infrastructure. Action: `'tenant.module.toggle'`, resource_type: `'tenantModule'`, resource_id: `'<tenantId>:<moduleKey>'`, payload includes `module_key`, `previous_state`, `new_state`. The dashboard's audit log viewer can filter on this action to show toggle history per tenant.
+
+**Real-time:** toggles fire `TenantModuleCacheBusService.publishInvalidation(...)` on Redis pub/sub channel `tenant_modules:invalidated`. Frontend tabs viewing the same tenant's module state refetch within 60s (per Module Gating impl 06 polling fallback; switch to push-based when WebSocket infrastructure from §3.1 is in place).
+
+**Out of scope for the dashboard (per Module Gating §14):**
+
+- Plans / tiers (Standard/Pro/Enterprise) — flat per-tenant only
+- Per-feature granularity finer than module — module-level only; per-AI-surface knobs stay in the existing AI Settings page
+- Time-bounded toggles — toggles are immediate and persistent
+- Auto-disable cascade — `depends_on` warnings are UI hints only
+- Per-user feature flags — tenant-level only
+
+**Build session:** Layer 3 — Session 3E (`docs/features/platform-dashboard/Layer-3/Session-3E.md`).
 
 ## 4. New Database Tables Summary
 
@@ -390,23 +427,25 @@ Replaces the current Redis-set approach (`platform_owner_user_ids` Redis set) wi
 
 ### Layer 3
 
-| Method | Endpoint                                   | Purpose                           |
-| ------ | ------------------------------------------ | --------------------------------- |
-| POST   | `/v1/admin/users/:id/reset-password`       | Trigger password reset email      |
-| POST   | `/v1/admin/users/:id/resend-invite`        | Re-send welcome invitation        |
-| POST   | `/v1/admin/users/:id/unlock`               | Unlock brute-force locked account |
-| POST   | `/v1/admin/users/:id/disable`              | Disable user at platform level    |
-| POST   | `/v1/admin/users/:id/enable`               | Enable user at platform level     |
-| POST   | `/v1/admin/tenants/:id/transfer-ownership` | Transfer tenant owner role        |
-| GET    | `/v1/admin/sessions`                       | List active sessions              |
-| DELETE | `/v1/admin/sessions/tenant/:tenantId`      | Force-logout all users in tenant  |
-| DELETE | `/v1/admin/sessions/user/:userId`          | Force-logout specific user        |
-| POST   | `/v1/admin/cache/flush`                    | Flush caches (scoped or global)   |
-| PATCH  | `/v1/admin/tenants/:id/maintenance`        | Toggle maintenance mode           |
-| GET    | `/v1/admin/platform-users`                 | List platform users               |
-| POST   | `/v1/admin/platform-users`                 | Invite platform user              |
-| PATCH  | `/v1/admin/platform-users/:id`             | Update platform user role/status  |
-| DELETE | `/v1/admin/platform-users/:id`             | Remove platform user              |
+| Method | Endpoint                                   | Purpose                                                                                                                       |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/admin/users/:id/reset-password`       | Trigger password reset email                                                                                                  |
+| POST   | `/v1/admin/users/:id/resend-invite`        | Re-send welcome invitation                                                                                                    |
+| POST   | `/v1/admin/users/:id/unlock`               | Unlock brute-force locked account                                                                                             |
+| POST   | `/v1/admin/users/:id/disable`              | Disable user at platform level                                                                                                |
+| POST   | `/v1/admin/users/:id/enable`               | Enable user at platform level                                                                                                 |
+| POST   | `/v1/admin/tenants/:id/transfer-ownership` | Transfer tenant owner role                                                                                                    |
+| GET    | `/v1/admin/sessions`                       | List active sessions                                                                                                          |
+| DELETE | `/v1/admin/sessions/tenant/:tenantId`      | Force-logout all users in tenant                                                                                              |
+| DELETE | `/v1/admin/sessions/user/:userId`          | Force-logout specific user                                                                                                    |
+| POST   | `/v1/admin/cache/flush`                    | Flush caches (scoped or global)                                                                                               |
+| PATCH  | `/v1/admin/tenants/:id/maintenance`        | Toggle maintenance mode                                                                                                       |
+| GET    | `/v1/admin/platform-users`                 | List platform users                                                                                                           |
+| POST   | `/v1/admin/platform-users`                 | Invite platform user                                                                                                          |
+| PATCH  | `/v1/admin/platform-users/:id`             | Update platform user role/status                                                                                              |
+| DELETE | `/v1/admin/platform-users/:id`             | Remove platform user                                                                                                          |
+| GET    | `/v1/admin/tenants/:id/modules`            | Read all 20 module toggle states for a tenant (Session 3E)                                                                    |
+| POST   | `/v1/admin/tenants/:id/modules/toggle`     | Flip one module toggle; existing endpoint, behaviour upgraded by Module Gating impl 06 (audit + cache invalidation + pub/sub) |
 
 ## 6. Build Sequence
 
@@ -424,14 +463,17 @@ Replaces the current Redis-set approach (`platform_owner_user_ids` Redis set) wi
 2C: Queue management & diagnostics
 2D: Tenant analytics & error diagnostics
 
-### Layer 3 — Polish & Operations (4 sessions)
+### Layer 3 — Polish & Operations (5 sessions)
 
 3A: Dashboard home redesign
 3B: Support toolkit (6 actions + audit trail)
 3C: Session & cache management + maintenance mode
 3D: Platform users & navigation redesign
+3E: Tenant module toggles UI (registry-driven; consumes Module Gating foundation)
 
-**Total: 12 sessions across 3 layers.**
+**Total: 13 sessions across 3 layers.**
+
+> **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end (W1–W5). The Module Gating foundation provides the canonical registry, the typed toggle endpoint, the `/me` payload, the cache invalidation pipeline, and the audit-log integration that Session 3E renders as UI. Session 3E should NOT be started until Module Gating Wave 5 is complete.
 
 ## 7. Navigation Structure (Final)
 
@@ -441,8 +483,9 @@ OVERVIEW
   Health             — real-time component status with history
 
 TENANTS
-  All Tenants        — list with health/onboarding/billing indicators
+  All Tenants        — list with health/onboarding/billing/module-coverage indicators
   Onboarding         — cross-tenant onboarding progress view
+  Module Toggles     — per-tenant module toggle UI (Session 3E; entry point also from each tenant detail page)
 
 OPERATIONS
   Alerts & Rules     — alert history + rules engine + channel config

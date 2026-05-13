@@ -174,9 +174,10 @@ const DEFAULT_ONBOARDING_STEPS: Array<{
   {
     phase: 'infrastructure',
     step_key: 'modules_configured',
-    label: 'Modules enabled/disabled',
-    description: 'The appropriate modules have been enabled or disabled for this tenant.',
-    is_auto: false,
+    label: 'Module toggle rows complete',
+    description:
+      'All 20 gateable modules from the Module Gating canonical registry have explicit toggle rows for this tenant. Auto-completes via TenantModuleService.assertCompleteness() — provided by Module Gating impl 05. The Module Gating impl 02 backfill migration ensures this is true for every existing tenant on rollout.',
+    is_auto: true,
     blocked_by: [],
     sort_order: 3,
   },
@@ -768,7 +769,7 @@ interface OnboardingTrackerProps {
 | INFRASTRUCTURE                                                |
 | [x] Custom domain added              Auto    Completed 3/15  |
 | [x] SSL certificate active           Auto    Completed 3/15  |
-| [x] Modules enabled/disabled         Manual  Completed 3/14  |
+| [x] Module toggle rows complete      Auto    Completed 3/14  |
 | [ ] Billing status confirmed          Manual  Pending         |
 +--------------------------------------------------------------+
 | DATA                                                          |
