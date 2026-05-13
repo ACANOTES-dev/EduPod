@@ -28,12 +28,6 @@ function buildMockPrisma() {
         { id: SECOND_TENANT_ID, timezone: 'UTC' },
       ]),
     },
-    tenantModule: {
-      findFirst: jest
-        .fn()
-        .mockResolvedValueOnce({ id: 'homework-enabled' })
-        .mockResolvedValueOnce(null),
-    },
     tenantSetting: {
       findFirst: jest.fn().mockResolvedValue({
         settings: {
@@ -49,6 +43,16 @@ function buildMockPrisma() {
 function buildQueueMock() {
   return {
     add: jest.fn().mockResolvedValue({ id: 'queued-job-id' }),
+  };
+}
+
+function buildTenantModuleService() {
+  return {
+    isEnabled: jest.fn().mockImplementation(async (tenantId: string, moduleKey: string) => {
+      if (moduleKey === 'behaviour') return true;
+      if (moduleKey === 'homework') return tenantId === FIRST_TENANT_ID;
+      return false;
+    }),
   };
 }
 
@@ -71,6 +75,7 @@ describe('BehaviourCronDispatchProcessor', () => {
       behaviourQueue as never,
       homeworkQueue as never,
       notificationsQueue as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob('behaviour:other-job'));
@@ -89,6 +94,7 @@ describe('BehaviourCronDispatchProcessor', () => {
       behaviourQueue as never,
       homeworkQueue as never,
       notificationsQueue as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob(BEHAVIOUR_CRON_DISPATCH_DAILY_JOB));
@@ -118,6 +124,36 @@ describe('BehaviourCronDispatchProcessor', () => {
       HOMEWORK_DIGEST_JOB,
       { tenant_id: FIRST_TENANT_ID },
       { jobId: `daily:${HOMEWORK_DIGEST_JOB}:${FIRST_TENANT_ID}` },
+    );
+  });
+
+  it('should skip tenants with behaviour disabled before fan-out', async () => {
+    const behaviourQueue = buildQueueMock();
+    const homeworkQueue = buildQueueMock();
+    const notificationsQueue = buildQueueMock();
+    const tenantModuleService = buildTenantModuleService();
+    tenantModuleService.isEnabled.mockImplementation(async (tenantId: string, moduleKey: string) =>
+      moduleKey === 'behaviour' ? tenantId === FIRST_TENANT_ID : false,
+    );
+    const processor = new BehaviourCronDispatchProcessor(
+      buildMockPrisma(),
+      behaviourQueue as never,
+      homeworkQueue as never,
+      notificationsQueue as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob(BEHAVIOUR_CRON_DISPATCH_DAILY_JOB));
+
+    expect(behaviourQueue.add).toHaveBeenCalledWith(
+      BEHAVIOUR_DETECT_PATTERNS_JOB,
+      { tenant_id: FIRST_TENANT_ID },
+      { jobId: `daily:${BEHAVIOUR_DETECT_PATTERNS_JOB}:${FIRST_TENANT_ID}` },
+    );
+    expect(behaviourQueue.add).not.toHaveBeenCalledWith(
+      BEHAVIOUR_DETECT_PATTERNS_JOB,
+      { tenant_id: SECOND_TENANT_ID },
+      expect.anything(),
     );
   });
 });

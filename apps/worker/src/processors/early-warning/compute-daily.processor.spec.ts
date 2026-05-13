@@ -162,6 +162,12 @@ function buildMockPrisma(mockTx: MockTx, options: BuildMockPrismaOptions = {}) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = EARLY_WARNING_COMPUTE_DAILY_JOB,
   data: Partial<ComputeDailyPayload> = {},
@@ -210,7 +216,10 @@ describe('ComputeDailyProcessor', () => {
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new ComputeDailyProcessor(mockPrisma as never);
+    const processor = new ComputeDailyProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('early-warning:other-job'));
 
@@ -224,7 +233,10 @@ describe('ComputeDailyProcessor', () => {
       failingTransactionCalls: [1],
       tenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
     });
-    const processor = new ComputeDailyProcessor(mockPrisma as never);
+    const processor = new ComputeDailyProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(EARLY_WARNING_COMPUTE_DAILY_JOB, { tenant_id: undefined })),
@@ -237,10 +249,31 @@ describe('ComputeDailyProcessor', () => {
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
+  it('should skip disabled tenants in cron mode before executing tenant work', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx, {
+      tenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
+    });
+    const tenantModuleService = buildTenantModuleService();
+    tenantModuleService.isEnabled.mockImplementation(
+      async (tenantId: string) => tenantId === TENANT_A_ID,
+    );
+    const processor = new ComputeDailyProcessor(mockPrisma as never, tenantModuleService as never);
+
+    await processor.process(buildJob(EARLY_WARNING_COMPUTE_DAILY_JOB, { tenant_id: undefined }));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'early_warning');
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_B_ID, 'early_warning');
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('should skip tenant processing when early warning is disabled', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new ComputeDailyProcessor(mockPrisma as never);
+    const processor = new ComputeDailyProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockLoadTenantConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
       isEnabled: false,
@@ -255,7 +288,10 @@ describe('ComputeDailyProcessor', () => {
   it('should skip tenant processing when there is no active academic year', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new ComputeDailyProcessor(mockPrisma as never);
+    const processor = new ComputeDailyProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockGetActiveAcademicYear.mockResolvedValue(null);
 
     await processor.process(buildJob());
@@ -267,7 +303,10 @@ describe('ComputeDailyProcessor', () => {
   it('should process active students and continue after one student fails', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new ComputeDailyProcessor(mockPrisma as never);
+    const processor = new ComputeDailyProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     mockCollectAllSignals.mockImplementation(async (_tx, _tenantId, studentId: string) => {
       if (studentId === STUDENT_B_ID) {

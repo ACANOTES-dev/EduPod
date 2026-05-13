@@ -5,6 +5,7 @@ import { Job, Queue } from 'bullmq';
 
 import { behaviourSettingsSchema } from '@school/shared/behaviour';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../homework/completion-reminder.processor';
 import { HOMEWORK_DIGEST_JOB } from '../homework/digest-homework.processor';
@@ -57,6 +58,7 @@ export class BehaviourCronDispatchProcessor {
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
     @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job): Promise<void> {
@@ -279,22 +281,21 @@ export class BehaviourCronDispatchProcessor {
    */
   private async getActiveBehaviourTenants(): Promise<ActiveBehaviourTenant[]> {
     const tenants = await this.prisma.tenant.findMany({
-      where: {
-        status: 'active',
-        modules: {
-          some: {
-            module_key: 'behaviour',
-            is_enabled: true,
-          },
-        },
-      },
+      where: { status: 'active' },
       select: {
         id: true,
         timezone: true,
       },
     });
 
-    return tenants;
+    const enabledTenants: ActiveBehaviourTenant[] = [];
+    for (const tenant of tenants) {
+      if (await this.tenantModuleService.isEnabled(tenant.id, 'behaviour')) {
+        enabledTenants.push(tenant);
+      }
+    }
+
+    return enabledTenants;
   }
 
   /**
@@ -353,10 +354,6 @@ export class BehaviourCronDispatchProcessor {
    * Cross-tenant read — no RLS context.
    */
   private async isHomeworkEnabled(tenantId: string): Promise<boolean> {
-    const mod = await this.prisma.tenantModule.findFirst({
-      where: { tenant_id: tenantId, module_key: 'homework', is_enabled: true },
-      select: { id: true },
-    });
-    return !!mod;
+    return this.tenantModuleService.isEnabled(tenantId, 'homework');
   }
 }

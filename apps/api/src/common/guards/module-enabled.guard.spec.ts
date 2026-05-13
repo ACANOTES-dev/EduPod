@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 
 import { MODULE_ENABLED_KEY } from '../decorators/module-enabled.decorator';
 import { ModuleDisabledException } from '../exceptions/module-disabled.exception';
+import { TenantModuleService } from '../services/tenant-module.service';
 
 import { ModuleEnabledGuard } from './module-enabled.guard';
 
@@ -28,27 +29,19 @@ describe('ModuleEnabledGuard', () => {
   let guard: ModuleEnabledGuard;
   let reflector: Reflector;
   let getAllAndOverrideSpy: jest.SpyInstance;
-  let mockRedisClient: { get: jest.Mock; setex: jest.Mock };
-  let mockPrisma: { tenantModule: { findMany: jest.Mock } };
+  let mockTenantModuleService: { isEnabled: jest.Mock };
 
   beforeEach(() => {
     reflector = new Reflector();
     getAllAndOverrideSpy = jest.spyOn(reflector, 'getAllAndOverride');
-    mockRedisClient = {
-      get: jest.fn().mockResolvedValue(null),
-      setex: jest.fn().mockResolvedValue('OK'),
-    };
-    mockPrisma = {
-      tenantModule: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
+    mockTenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(false),
     };
 
-    const mockRedis = {
-      getClient: jest.fn(() => mockRedisClient),
-    };
-
-    guard = new ModuleEnabledGuard(reflector, mockPrisma as never, mockRedis as never);
+    guard = new ModuleEnabledGuard(
+      reflector,
+      mockTenantModuleService as unknown as TenantModuleService,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -59,30 +52,26 @@ describe('ModuleEnabledGuard', () => {
     const allowed = await guard.canActivate(createExecutionContext());
 
     expect(allowed).toBe(true);
-    expect(mockPrisma.tenantModule.findMany).not.toHaveBeenCalled();
+    expect(mockTenantModuleService.isEnabled).not.toHaveBeenCalled();
   });
 
   it('allows access when the required module is enabled', async () => {
     getAllAndOverrideSpy.mockImplementation((key: string) =>
       key === MODULE_ENABLED_KEY ? 'pastoral' : undefined,
     );
-    mockPrisma.tenantModule.findMany.mockResolvedValue([{ module_key: 'pastoral' }]);
+    mockTenantModuleService.isEnabled.mockResolvedValue(true);
 
     const allowed = await guard.canActivate(
       createExecutionContext({ tenantContext: { tenant_id: TENANT_ID } }),
     );
 
     expect(allowed).toBe(true);
-    expect(mockRedisClient.setex).toHaveBeenCalledWith(
-      `tenant_modules:${TENANT_ID}`,
-      300,
-      JSON.stringify(['pastoral']),
-    );
+    expect(mockTenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'pastoral');
   });
 
   it('throws MODULE_DISABLED as a 404 when the module row exists disabled', async () => {
     getAllAndOverrideSpy.mockReturnValue('pastoral');
-    mockPrisma.tenantModule.findMany.mockResolvedValue([{ module_key: 'behaviour' }]);
+    mockTenantModuleService.isEnabled.mockResolvedValue(false);
 
     await expect(
       guard.canActivate(createExecutionContext({ tenantContext: { tenant_id: TENANT_ID } })),
@@ -100,7 +89,7 @@ describe('ModuleEnabledGuard', () => {
 
   it('throws MODULE_DISABLED as a 404 when the module row is missing', async () => {
     getAllAndOverrideSpy.mockReturnValue('early_warning');
-    mockPrisma.tenantModule.findMany.mockResolvedValue([]);
+    mockTenantModuleService.isEnabled.mockResolvedValue(false);
 
     await expect(
       guard.canActivate(createExecutionContext({ tenantContext: { tenant_id: TENANT_ID } })),

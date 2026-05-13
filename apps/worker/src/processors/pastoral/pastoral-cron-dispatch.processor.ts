@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 import { OVERDUE_ACTIONS_JOB } from './overdue-actions.processor';
@@ -27,6 +28,7 @@ export class PastoralCronDispatchProcessor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job): Promise<void> {
@@ -57,6 +59,12 @@ export class PastoralCronDispatchProcessor {
 
     for (const tenant of tenants) {
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'pastoral');
+        if (!enabled) {
+          this.logger.log(`Skipping pastoral overdue-actions for tenant ${tenant.id} — disabled`);
+          continue;
+        }
+
         await this.pastoralQueue.add(OVERDUE_ACTIONS_JOB, { tenant_id: tenant.id });
         enqueued++;
       } catch (err: unknown) {

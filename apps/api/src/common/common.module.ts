@@ -1,6 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 
+import { PrismaService } from '../modules/prisma/prisma.service';
+import { RedisService } from '../modules/redis/redis.service';
+
 import { RlsRoleCheckService } from './guards/rls-role-check.service';
 import { CircuitBreakerRegistry } from './services/circuit-breaker-registry';
 import { StructuredLoggerService } from './services/logger.service';
@@ -8,6 +11,11 @@ import { LokiLogShipper } from './services/loki-log-shipper.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 import { RequestContextService } from './services/request-context.service';
 import { TenantCodePoolService } from './services/tenant-code-pool.service';
+import {
+  TENANT_MODULE_PRISMA_CLIENT,
+  TENANT_MODULE_REDIS_CLIENT,
+  TenantModuleService,
+} from './services/tenant-module.service';
 
 /**
  * Global common module.
@@ -24,6 +32,9 @@ import { TenantCodePoolService } from './services/tenant-code-pool.service';
     RequestContextService,
     RlsRoleCheckService,
     TenantCodePoolService,
+    { provide: TENANT_MODULE_PRISMA_CLIENT, useExisting: PrismaService },
+    { provide: TENANT_MODULE_REDIS_CLIENT, useExisting: RedisService },
+    TenantModuleService,
   ],
   exports: [
     CircuitBreakerRegistry,
@@ -31,6 +42,7 @@ import { TenantCodePoolService } from './services/tenant-code-pool.service';
     PermissionCacheService,
     RequestContextService,
     TenantCodePoolService,
+    TenantModuleService,
   ],
 })
 export class CommonModule implements OnModuleInit {

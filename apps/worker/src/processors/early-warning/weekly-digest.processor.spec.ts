@@ -96,6 +96,12 @@ function buildMockPrisma(mockTx: MockTx, options: BuildMockPrismaOptions = {}) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = EARLY_WARNING_WEEKLY_DIGEST_JOB,
   data: Partial<WeeklyDigestPayload> = {},
@@ -127,7 +133,10 @@ describe('WeeklyDigestProcessor', () => {
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('early-warning:other-job'));
 
@@ -141,7 +150,10 @@ describe('WeeklyDigestProcessor', () => {
       failingTransactionCalls: [1],
       tenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
     });
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(EARLY_WARNING_WEEKLY_DIGEST_JOB, { tenant_id: undefined })),
@@ -154,10 +166,31 @@ describe('WeeklyDigestProcessor', () => {
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
+  it('should skip disabled tenants in cron mode before digest generation', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx, {
+      tenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
+    });
+    const tenantModuleService = buildTenantModuleService();
+    tenantModuleService.isEnabled.mockImplementation(
+      async (tenantId: string) => tenantId === TENANT_A_ID,
+    );
+    const processor = new WeeklyDigestProcessor(mockPrisma as never, tenantModuleService as never);
+
+    await processor.process(buildJob(EARLY_WARNING_WEEKLY_DIGEST_JOB, { tenant_id: undefined }));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'early_warning');
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_B_ID, 'early_warning');
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('should skip digest generation when early warning is disabled', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockLoadTenantConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
       isEnabled: false,
@@ -172,7 +205,10 @@ describe('WeeklyDigestProcessor', () => {
   it('should skip digest generation when today is not the configured digest day', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockLoadTenantConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
       digestDay: (DIGEST_DAY + 1) % 7,
@@ -187,7 +223,10 @@ describe('WeeklyDigestProcessor', () => {
   it('should skip digest generation when there is no active academic year', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockGetActiveAcademicYear.mockResolvedValue(null);
 
     await processor.process(buildJob());
@@ -199,7 +238,10 @@ describe('WeeklyDigestProcessor', () => {
   it('should skip digest generation when no recipients are configured', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
     mockLoadTenantConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
       digestRecipients: [],
@@ -214,7 +256,10 @@ describe('WeeklyDigestProcessor', () => {
   it('should skip digest generation when no risk profiles exist', async () => {
     const mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -260,7 +305,10 @@ describe('WeeklyDigestProcessor', () => {
       .mockRejectedValueOnce(new Error('recipient unavailable'))
       .mockResolvedValueOnce({ id: 'notification-ok' });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new WeeklyDigestProcessor(mockPrisma as never);
+    const processor = new WeeklyDigestProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(processor.process(buildJob())).resolves.toBeUndefined();
 

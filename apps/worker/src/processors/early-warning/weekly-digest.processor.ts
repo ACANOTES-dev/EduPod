@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 
 import { type RiskTier, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared/early-warning';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 import { getActiveAcademicYear, loadTenantConfig } from './early-warning-action.utils';
@@ -24,7 +25,10 @@ export interface WeeklyDigestPayload extends TenantJobPayload {
 export class WeeklyDigestProcessor {
   private readonly logger = new Logger(WeeklyDigestProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<WeeklyDigestPayload>): Promise<void> {
     if (job.name !== EARLY_WARNING_WEEKLY_DIGEST_JOB) {
@@ -51,8 +55,14 @@ export class WeeklyDigestProcessor {
 
     let successCount = 0;
     for (const tenant of tenants) {
-      const innerJob = new WeeklyDigestJob(this.prisma);
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'early_warning');
+        if (!enabled) {
+          this.logger.log(`Skipping early-warning weekly digest for tenant ${tenant.id}`);
+          continue;
+        }
+
+        const innerJob = new WeeklyDigestJob(this.prisma);
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {

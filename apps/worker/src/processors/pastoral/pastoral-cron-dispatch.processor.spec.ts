@@ -26,15 +26,23 @@ function buildMockQueue(): Queue {
   return { add: jest.fn().mockResolvedValue(undefined) } as unknown as Queue;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('PastoralCronDispatchProcessor', () => {
   let processor: PastoralCronDispatchProcessor;
   let prisma: PrismaClient;
   let queue: Queue;
+  let tenantModuleService: ReturnType<typeof buildTenantModuleService>;
 
   beforeEach(() => {
     prisma = buildMockPrisma();
     queue = buildMockQueue();
-    processor = new PastoralCronDispatchProcessor(prisma, queue);
+    tenantModuleService = buildTenantModuleService();
+    processor = new PastoralCronDispatchProcessor(prisma, queue, tenantModuleService as never);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -57,7 +65,7 @@ describe('PastoralCronDispatchProcessor', () => {
 
   it('should dispatch to all active tenants', async () => {
     prisma = buildMockPrisma([{ id: TENANT_A }, { id: TENANT_B }]);
-    processor = new PastoralCronDispatchProcessor(prisma, queue);
+    processor = new PastoralCronDispatchProcessor(prisma, queue, tenantModuleService as never);
 
     await processor.process(buildJob(PASTORAL_CRON_DISPATCH_OVERDUE_JOB));
 
@@ -68,7 +76,7 @@ describe('PastoralCronDispatchProcessor', () => {
 
   it('should handle no active tenants gracefully', async () => {
     prisma = buildMockPrisma([]);
-    processor = new PastoralCronDispatchProcessor(prisma, queue);
+    processor = new PastoralCronDispatchProcessor(prisma, queue, tenantModuleService as never);
 
     await processor.process(buildJob(PASTORAL_CRON_DISPATCH_OVERDUE_JOB));
 
@@ -81,10 +89,20 @@ describe('PastoralCronDispatchProcessor', () => {
     (queue.add as jest.Mock)
       .mockRejectedValueOnce(new Error('Redis error'))
       .mockResolvedValueOnce(undefined);
-    processor = new PastoralCronDispatchProcessor(prisma, queue);
+    processor = new PastoralCronDispatchProcessor(prisma, queue, tenantModuleService as never);
 
     await processor.process(buildJob(PASTORAL_CRON_DISPATCH_OVERDUE_JOB));
 
     expect(queue.add).toHaveBeenCalledTimes(2);
+  });
+
+  it('should skip tenants with pastoral disabled', async () => {
+    tenantModuleService = buildTenantModuleService(false);
+    processor = new PastoralCronDispatchProcessor(prisma, queue, tenantModuleService as never);
+
+    await processor.process(buildJob(PASTORAL_CRON_DISPATCH_OVERDUE_JOB));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A, 'pastoral');
+    expect(queue.add).not.toHaveBeenCalled();
   });
 });

@@ -12,10 +12,11 @@ import {
   type ModuleKey,
   type RefreshTokenPayload,
   type SessionMetadata,
-  isModuleKey,
 } from '@school/shared';
+import { isModuleKey } from '@school/shared/modules';
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -51,6 +52,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
     private readonly tenantReadFacade: TenantReadFacade,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   // ─── Token signing / verification (delegates to TokenService) ──────────────
@@ -630,19 +632,6 @@ export class AuthService {
     return { data };
   }
 
-  private async getEnabledModuleKeys(tenantId?: string | null): Promise<ModuleKey[]> {
-    if (!tenantId) {
-      return [];
-    }
-
-    const rows = await this.tenantReadFacade.findModules(tenantId);
-    return rows
-      .filter((row): row is typeof row & { module_key: ModuleKey } => isModuleKey(row.module_key))
-      .filter((row) => row.is_enabled)
-      .map((row) => row.module_key)
-      .sort((a, b) => a.localeCompare(b));
-  }
-
   async getMe(
     userId: string,
     tenantId?: string | null,
@@ -699,7 +688,9 @@ export class AuthService {
           },
         }),
     );
-    const enabledModules = await this.getEnabledModuleKeys(tenantId);
+    const enabledModules = tenantId
+      ? await this.tenantModuleService.getEnabledModules(tenantId)
+      : [];
 
     return {
       user: this.sanitiseUser(user),

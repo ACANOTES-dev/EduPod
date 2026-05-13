@@ -18,6 +18,7 @@ jest.mock('qrcode', () => ({
 }));
 
 import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -154,6 +155,10 @@ const mockTenantReadFacade = {
   findModules: jest.fn().mockResolvedValue([]),
 };
 
+const mockTenantModuleService = {
+  getEnabledModules: jest.fn().mockResolvedValue([]),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let redisClient: {
@@ -169,6 +174,7 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockTenantModuleService.getEnabledModules.mockResolvedValue([]);
 
     mockPrisma.$transaction.mockImplementation(
       async (fn: (tx: typeof mockPrisma & { $executeRawUnsafe: jest.Mock }) => Promise<unknown>) =>
@@ -234,6 +240,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
         { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
 
@@ -1709,11 +1716,7 @@ describe('AuthService', () => {
           ],
         },
       ]);
-      mockTenantReadFacade.findModules.mockResolvedValue([
-        { module_key: 'gradebook', is_enabled: true },
-        { module_key: 'sen', is_enabled: false },
-        { module_key: 'legacy_key', is_enabled: true },
-      ]);
+      mockTenantModuleService.getEnabledModules.mockResolvedValue(['gradebook']);
 
       const result = await service.getMe(USER_ID, TENANT_ID);
 
@@ -1749,7 +1752,7 @@ describe('AuthService', () => {
     it('should filter memberships by tenantId when provided', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
-      mockTenantReadFacade.findModules.mockResolvedValue([]);
+      mockTenantModuleService.getEnabledModules.mockResolvedValue([]);
 
       await service.getMe(USER_ID, TENANT_ID);
 
@@ -1771,7 +1774,7 @@ describe('AuthService', () => {
           where: { user_id: USER_ID },
         }),
       );
-      expect(mockTenantReadFacade.findModules).not.toHaveBeenCalled();
+      expect(mockTenantModuleService.getEnabledModules).not.toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException when user not found', async () => {

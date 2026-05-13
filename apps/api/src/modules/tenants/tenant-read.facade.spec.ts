@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { TenantReadFacade } from './tenant-read.facade';
@@ -24,6 +25,10 @@ const mockPrisma = {
   },
 };
 
+const mockTenantModuleService = {
+  getModuleRows: jest.fn(),
+};
+
 // ─── Test suite ──────────────────────────────────────────────────────────────
 
 describe('TenantReadFacade', () => {
@@ -33,7 +38,11 @@ describe('TenantReadFacade', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TenantReadFacade, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        TenantReadFacade,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
+      ],
     }).compile();
 
     facade = module.get<TenantReadFacade>(TenantReadFacade);
@@ -226,19 +235,16 @@ describe('TenantReadFacade', () => {
         { id: 'm1', tenant_id: TENANT_ID, module_key: 'finance', is_enabled: true },
         { id: 'm2', tenant_id: TENANT_ID, module_key: 'sen', is_enabled: false },
       ];
-      mockPrisma.tenantModule.findMany.mockResolvedValueOnce(modules);
+      mockTenantModuleService.getModuleRows.mockResolvedValueOnce(modules);
 
       const result = await facade.findModules(TENANT_ID);
 
       expect(result).toEqual(modules);
-      expect(mockPrisma.tenantModule.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-        select: { id: true, tenant_id: true, module_key: true, is_enabled: true },
-      });
+      expect(mockTenantModuleService.getModuleRows).toHaveBeenCalledWith(TENANT_ID);
     });
 
     it('should return empty array when tenant has no modules', async () => {
-      mockPrisma.tenantModule.findMany.mockResolvedValueOnce([]);
+      mockTenantModuleService.getModuleRows.mockResolvedValueOnce([]);
 
       const result = await facade.findModules(TENANT_ID);
 

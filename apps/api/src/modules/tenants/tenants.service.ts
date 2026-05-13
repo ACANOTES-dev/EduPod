@@ -21,6 +21,7 @@ import {
   type RoleTier,
 } from '@school/shared';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
@@ -142,6 +143,7 @@ export class TenantsService {
     private readonly securityAuditService: SecurityAuditService,
     private readonly authReadFacade: AuthReadFacade,
     private readonly rbacReadFacade: RbacReadFacade,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   /**
@@ -748,10 +750,7 @@ export class TenantsService {
       });
     }
 
-    return this.prisma.tenantModule.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { module_key: 'asc' },
-    });
+    return this.tenantModuleService.getModuleRows(tenantId);
   }
 
   /**

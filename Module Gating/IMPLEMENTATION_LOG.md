@@ -25,7 +25,7 @@
 | 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | 📦     |
 | 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | 📦     |
 | 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | 📦     |
-| 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | ⏳     |
+| 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | 📦     |
 | 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | ⏳     |
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | ⏳     |
 | 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | ⏳     |
@@ -167,15 +167,24 @@
 
 #### Acceptance
 
-- [ ] New `TenantModuleService` in `apps/api/src/common/services/tenant-module.service.ts` (also re-exported for worker use). Methods: `isEnabled(tenantId, key) → Promise<boolean>`, `getEnabledModules(tenantId) → Promise<ModuleKey[]>`.
-- [ ] Existing guard refactored to use `TenantModuleService` (single source).
-- [ ] Worker has a thin import path for the same service (worker doesn't depend on the full Nest module graph).
-- [ ] Pattern A (cron-dispatch tenant skip) documented with an example: `behaviour:cron-dispatch-daily` already does this; verify it consults `TenantModuleService`.
-- [ ] Pattern B (job-level guard) documented with an example template processor.
+- [x] New `TenantModuleService` in `apps/api/src/common/services/tenant-module.service.ts` (also re-exported for worker use). Methods: `isEnabled(tenantId, key) → Promise<boolean>`, `getEnabledModules(tenantId) → Promise<ModuleKey[]>`.
+- [x] Existing guard refactored to use `TenantModuleService` (single source).
+- [x] Worker has a thin import path for the same service (worker doesn't depend on the full Nest module graph).
+- [x] Pattern A (cron-dispatch tenant skip) documented with examples: `pastoral`, `behaviour`, and `early_warning` cron dispatchers consult `TenantModuleService` before enqueueing tenant work.
+- [x] Pattern B (job-level guard) documented with an example template processor.
+- [ ] Static sweep shows no direct `tenantModule.findMany` outside `TenantModuleService`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): add worker gating service`
+- CI: not run remotely; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/services/tenant-module.service.spec.ts src/common/guards/module-enabled.guard.spec.ts src/modules/auth/auth.service.spec.ts src/modules/auth/auth.controller.spec.ts src/modules/tenants/tenants.service.spec.ts src/modules/tenants/tenant-read.facade.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/pastoral/pastoral-cron-dispatch.processor.spec.ts src/processors/behaviour/cron-dispatch.processor.spec.ts src/processors/early-warning/compute-daily.processor.spec.ts src/processors/early-warning/weekly-digest.processor.spec.ts`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/src/common/services/tenant-module.service.ts apps/api/src/common/services/tenant-module.service.spec.ts apps/api/src/common/common.module.ts apps/api/src/common/guards/module-enabled.guard.ts apps/api/src/common/guards/module-enabled.guard.spec.ts apps/api/src/modules/auth/auth.service.ts apps/api/src/modules/auth/auth.service.spec.ts apps/api/src/modules/tenants/tenant-read.facade.ts apps/api/src/modules/tenants/tenant-read.facade.spec.ts apps/api/src/modules/tenants/tenants.service.ts apps/api/src/modules/tenants/tenants.service.spec.ts apps/worker/src/shared/worker-shared-services.module.ts apps/worker/src/worker.module.ts apps/worker/src/processors/pastoral/pastoral-cron-dispatch.processor.ts apps/worker/src/processors/pastoral/pastoral-cron-dispatch.processor.spec.ts apps/worker/src/processors/behaviour/cron-dispatch.processor.ts apps/worker/src/processors/behaviour/cron-dispatch.processor.spec.ts apps/worker/src/processors/early-warning/compute-daily.processor.ts apps/worker/src/processors/early-warning/compute-daily.processor.spec.ts apps/worker/src/processors/early-warning/weekly-digest.processor.ts apps/worker/src/processors/early-warning/weekly-digest.processor.spec.ts` (warnings only)
+- Deploy: not deployed; server access was not granted for this pass.
+- Notes: `TenantModuleService` now owns cached enabled-module reads for the API guard, `/me`, tenant module list reads, and worker gating examples. The service also exposes `invalidateCache`, which implementation 06 will wire into pub/sub invalidation. `rg ".tenantModule.findMany"` still finds pre-existing `staff_wellbeing` cron readers (`eap-refresh-check`, `workload-metrics`) and their test mocks; those are intentionally left as a W2 follow-up rather than expanding this W1 foundation commit into full staff-wellbeing enforcement.
 
 ---
 

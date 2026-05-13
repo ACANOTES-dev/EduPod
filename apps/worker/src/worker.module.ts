@@ -163,6 +163,7 @@ import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-no
 import { WellbeingQueueDispatcher } from './processors/wellbeing/wellbeing-queue.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 import { ClamavScannerService } from './services/clamav-scanner.service';
+import { WorkerSharedServicesModule } from './shared/worker-shared-services.module';
 
 const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
 
@@ -172,6 +173,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
       isGlobal: true,
       validate: envValidation,
     }),
+    WorkerSharedServicesModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -416,15 +418,6 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
   ],
   controllers: [WorkerHealthController],
   providers: [
-    // Shared PrismaClient instance for all job processors
-    {
-      provide: 'PRISMA_CLIENT',
-      useFactory: async () => {
-        const client = new PrismaClient();
-        await client.$connect();
-        return client;
-      },
-    },
     // Shared services
     ClamavScannerService,
     // Health service

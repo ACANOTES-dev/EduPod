@@ -9,6 +9,7 @@ import {
   EARLY_WARNING_COMPUTE_DAILY_JOB,
 } from '@school/shared/early-warning';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 import {
@@ -37,7 +38,10 @@ export interface ComputeDailyPayload extends TenantJobPayload {
 export class ComputeDailyProcessor {
   private readonly logger = new Logger(ComputeDailyProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<ComputeDailyPayload>): Promise<void> {
     if (job.name !== EARLY_WARNING_COMPUTE_DAILY_JOB) {
@@ -64,8 +68,14 @@ export class ComputeDailyProcessor {
 
     let successCount = 0;
     for (const tenant of tenants) {
-      const innerJob = new ComputeDailyJob(this.prisma);
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'early_warning');
+        if (!enabled) {
+          this.logger.log(`Skipping early-warning daily compute for tenant ${tenant.id}`);
+          continue;
+        }
+
+        const innerJob = new ComputeDailyJob(this.prisma);
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {

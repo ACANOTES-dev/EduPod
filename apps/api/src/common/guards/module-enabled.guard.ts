@@ -3,33 +3,28 @@ import { Reflector } from '@nestjs/core';
 
 import type { ModuleKey, TenantContext } from '@school/shared';
 
-import { PrismaService } from '../../modules/prisma/prisma.service';
-import { RedisService } from '../../modules/redis/redis.service';
 import { MODULE_ENABLED_KEY } from '../decorators/module-enabled.decorator';
 import { ModuleDisabledException } from '../exceptions/module-disabled.exception';
+import { TenantModuleService } from '../services/tenant-module.service';
 
 /**
  * Module-enabled guard.
  *
- * Checks if the current tenant has the required module enabled by querying
- * tenant_modules (Redis-cached with 300s TTL).
+ * Checks if the current tenant has the required module enabled through
+ * TenantModuleService (Redis-cached with 300s TTL).
  *
  * Flow:
  * 1. Read @ModuleEnabled() metadata from the handler/controller
  * 2. If no module required, allow
  * 3. Extract tenantContext from request — requires TenantResolutionMiddleware to run first
- * 4. Check Redis cache for tenant's enabled modules
- * 5. On cache miss, query tenant_modules for this tenant, cache the result
- * 6. Throw ModuleDisabledException if the required module is not enabled
+ * 4. Check TenantModuleService for the tenant's enabled modules
+ * 5. Throw ModuleDisabledException if the required module is not enabled
  */
 @Injectable()
 export class ModuleEnabledGuard implements CanActivate {
-  private readonly MODULE_CACHE_TTL = 300; // 5 minutes
-
   constructor(
     private readonly reflector: Reflector,
-    private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,10 +49,13 @@ export class ModuleEnabledGuard implements CanActivate {
       });
     }
 
-    const enabledModules = await this.getEnabledModules(tenantContext.tenant_id);
+    const enabled = await this.tenantModuleService.isEnabled(
+      tenantContext.tenant_id,
+      requiredModule,
+    );
 
-    if (!enabledModules.includes(requiredModule)) {
-      // SAFETY: `getEnabledModules` excludes a key in BOTH cases:
+    if (!enabled) {
+      // SAFETY: TenantModuleService excludes a key in BOTH cases:
       //   (a) tenant_modules row exists with is_enabled=false
       //   (b) NO tenant_modules row exists for this (tenant, key) pair
       //
@@ -72,27 +70,5 @@ export class ModuleEnabledGuard implements CanActivate {
     }
 
     return true;
-  }
-
-  private async getEnabledModules(tenantId: string): Promise<string[]> {
-    const client = this.redis.getClient();
-    const cacheKey = `tenant_modules:${tenantId}`;
-
-    const cached = await client.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-
-    // Query tenant_modules — runs outside RLS transaction context
-    const modules = await this.prisma.tenantModule.findMany({
-      where: { tenant_id: tenantId, is_enabled: true },
-      select: { module_key: true },
-    });
-
-    const moduleKeys = modules.map((m) => m.module_key);
-
-    await client.setex(cacheKey, this.MODULE_CACHE_TTL, JSON.stringify(moduleKeys));
-
-    return moduleKeys;
   }
 }

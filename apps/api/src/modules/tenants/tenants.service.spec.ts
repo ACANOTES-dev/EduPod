@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MODULE_REGISTRY, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
@@ -47,6 +48,11 @@ const mockSecurityAuditService = {
   logMfaDisable: jest.fn().mockResolvedValue(undefined),
   logTenantStatusChange: jest.fn().mockResolvedValue(undefined),
   logModuleToggle: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockTenantModuleService = {
+  getModuleRows: jest.fn(),
+  invalidateCache: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPrisma = {
@@ -164,6 +170,7 @@ describe('TenantsService', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: TokenService, useValue: mockTokenService },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
 
@@ -1292,15 +1299,12 @@ describe('TenantsService', () => {
         { id: 'm1', tenant_id: TENANT_ID, module_key: 'finance', is_enabled: true },
         { id: 'm2', tenant_id: TENANT_ID, module_key: 'sen', is_enabled: false },
       ];
-      mockPrisma.tenantModule.findMany.mockResolvedValueOnce(modules);
+      mockTenantModuleService.getModuleRows.mockResolvedValueOnce(modules);
 
       const result = await service.listModules(TENANT_ID);
 
       expect(result).toEqual(modules);
-      expect(mockPrisma.tenantModule.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-        orderBy: { module_key: 'asc' },
-      });
+      expect(mockTenantModuleService.getModuleRows).toHaveBeenCalledWith(TENANT_ID);
     });
 
     it('should throw NotFoundException when tenant does not exist', async () => {

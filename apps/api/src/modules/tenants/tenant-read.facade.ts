@@ -17,6 +17,7 @@
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Common select shapes ─────────────────────────────────────────────────────
@@ -101,7 +102,10 @@ export interface TenantModuleRow {
 
 @Injectable()
 export class TenantReadFacade {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   // ─── Tenant ─────────────────────────────────────────────────────────────────
 
@@ -189,10 +193,7 @@ export class TenantReadFacade {
    * Used by configuration and module-enabled guards.
    */
   async findModules(tenantId: string): Promise<TenantModuleRow[]> {
-    return this.prisma.tenantModule.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, tenant_id: true, module_key: true, is_enabled: true },
-    });
+    return this.tenantModuleService.getModuleRows(tenantId);
   }
 
   /**
