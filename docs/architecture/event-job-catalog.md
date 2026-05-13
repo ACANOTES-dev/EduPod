@@ -2,15 +2,15 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; added 4 cron jobs in `notifications` queue, documented inbound webhook flow + Redis pub/sub for tenant credential cache invalidation)
+> **Last verified**: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons)
 
 ---
 
 ## Current Worker Surface
 
-- **Queues**: `22` queue names in [apps/worker/src/base/queue.constants.ts](/Users/ram/Desktop/SDB/apps/worker/src/base/queue.constants.ts)
-- **Processor files**: `95` live `*.processor.ts` files under [apps/worker/src/processors](/Users/ram/Desktop/SDB/apps/worker/src/processors)
-- **Repeatable cron registrations**: `43` repeatable jobs registered in [apps/worker/src/cron/cron-scheduler.service.ts](/Users/ram/Desktop/SDB/apps/worker/src/cron/cron-scheduler.service.ts)
+- **Queues**: `23` queue names in [apps/worker/src/base/queue.constants.ts](/Users/ram/Desktop/SDB/apps/worker/src/base/queue.constants.ts)
+- **Processor files**: `120+` live `*.processor.ts` files under [apps/worker/src/processors](/Users/ram/Desktop/SDB/apps/worker/src/processors)
+- **Repeatable cron registrations**: `~53` repeatable jobs registered in [apps/worker/src/cron/cron-scheduler.service.ts](/Users/ram/Desktop/SDB/apps/worker/src/cron/cron-scheduler.service.ts) (count includes per-tenant variance-refresh entries registered at runtime by `budgeting:variance-refresh-bootstrap`)
 - **Architecture rule**: async communication is BullMQ-driven; there is no `EventEmitter2` event bus
 
 ### Core rules
@@ -83,11 +83,17 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `notifications:parent-daily-digest` -> hourly
 - `monitoring:dlq-scan` -> every `15 min`
 - `monitoring:canary-ping` -> every `5 min`
-- `inbox-fallback-check` -> every `5 min` (new — impl 07)
-- `comms:domain-verification-refresh` -> every `30 min` — cross-tenant; iterates `tenant_email_domains` rows with `status='pending'`, calls Resend's `domains.get`, updates SPF/DKIM/DMARC status, flips to `verified` on all-three-green. Owns: `domain-verification-refresh.processor.ts`. Payload: `{}`. Removes on complete: 10. Removes on fail: 50. (Communications Overhaul Impl 07)
-- `comms:whatsapp-template-sync` -> every `15 min` — cross-tenant; iterates `whatsapp_templates` rows with `status='submitted'`, calls Twilio Content API, updates status + `twilio_template_sid`. Owns: `whatsapp-template-sync.processor.ts`. Payload: `{}`. (Communications Overhaul Impl 08)
-- `comms:suppression-list-cleanup` -> daily `03:00 UTC` — cross-tenant; deletes soft-bounce rows older than 30 days from `notification_suppression_list`. Hard bounces / complaints / manual / unsubscribes are NEVER deleted (`danger-zones.md` DZ-Comms-4). Owns: `suppression-list-cleanup.processor.ts`. Payload: `{}`. (Communications Overhaul Impl 06)
-- `comms:whatsapp-service-window-cleanup` -> daily `04:00 UTC` — cross-tenant; deletes `whatsapp_service_windows` rows where `expires_at < now() - 7 days`. (Communications Overhaul Impl 08)
+- `inbox:fallback-check` -> every `15 min` (impl 07; cross-tenant, fans out `inbox:fallback-scan-tenant` per tenant)
+- `communications:ip-cleanup` -> daily `04:00 UTC` (also listed under cleanup/privacy below)
+- `comms:suppression-list-cleanup` -> daily `03:00 UTC` — cross-tenant; deletes `notification_suppression_list` rows whose `expires_at < now()`. Permanent suppressions (`expires_at IS NULL`) are never deleted. Owns: `suppression-list-cleanup.processor.ts`. Payload: `{}`. (Communications Overhaul Impl 06)
+
+> **Planned (Comms Overhaul Impl 06–08 — NOT YET IMPLEMENTED).** No processor files exist in
+> `apps/worker/src/processors/communications/` for these jobs and they are not registered in
+> `CronSchedulerService`. Do not treat as live infrastructure:
+>
+> - `comms:domain-verification-refresh` (planned every `30 min`) — cross-tenant Resend domain status sync.
+> - `comms:whatsapp-template-sync` (planned every `15 min`) — cross-tenant Twilio Content API sync.
+> - `comms:whatsapp-service-window-cleanup` (planned daily `04:00 UTC`) — prune expired WhatsApp service windows.
 
 ### `wellbeing`
 
@@ -143,6 +149,29 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `reports:scheduled-run` -> every 15 min (Wave 3 / impl 08 — scheduled-reports tick, fans out per due saved-report into `reports:scheduled-deliver`)
 - `reports:alert-evaluate` -> every 30 min (Wave 3 / impl 09 — cross-tenant tick that fans out per active tenant into `reports:alert-evaluate-tenant`)
 
+### `finance`
+
+- `finance:overdue-detection` -> daily `00:05 UTC` (cross-tenant; transitions issued/partially_paid invoices past due_date to `overdue`)
+- `finance:reconcile-stripe-refunds` -> daily `03:00 UTC` (FIN-023; cross-tenant; logs drift between Stripe refunds and local refund rows for tenants with a Stripe config)
+
+### `attendance`
+
+The four attendance processors require `tenant_id`. Each cron is a cross-tenant dispatcher (empty payload) that iterates active tenants and enqueues per-tenant work:
+
+- `attendance:cron-dispatch-generate` -> daily `04:30 UTC` (fans out `attendance:generate-sessions`)
+- `attendance:cron-dispatch-patterns` -> daily `02:30 UTC` (fans out `attendance:detect-patterns`)
+- `attendance:cron-dispatch-pending` -> daily `18:00 UTC` (fans out `attendance:detect-pending`)
+- `attendance:cron-dispatch-lock` -> daily `23:00 UTC` (fans out `attendance:auto-lock`)
+
+### `scheduling`
+
+- `scheduling:reap-stale-runs` -> every minute (SCHED-029; scans `scheduling_runs` rows stuck in `running` past their budget and forces them to a terminal state)
+
+### `budgeting`
+
+- `budgeting:variance-refresh-bootstrap` -> daily `01:50 UTC` (cross-tenant bootstrap; iterates active tenants and registers per-tenant `budgeting:variance-refresh` repeatables at 02:00 in tenant timezone)
+- `budgeting:shareable-link-cleanup` -> daily `03:00 UTC` (cross-tenant; hard-deletes `shareable_links` rows expired >30 days)
+
 ---
 
 ## Queue Inventory
@@ -181,8 +210,9 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `attendance:detect-pending`
 - `attendance:auto-lock`
 - `attendance:detect-patterns`
+- `attendance:cron-dispatch-generate` / `cron-dispatch-patterns` / `cron-dispatch-pending` / `cron-dispatch-lock` (cross-tenant dispatchers — see Repeatable Jobs section above)
 - **Observed fan-out**: `attendance:detect-patterns` can create attendance alerts, notifications, and early-warning recomputes
-- **Current dispatch path**: processors exist, but no active enqueue or repeatable registration was found in the current repo search for these four job names
+- **Current dispatch path**: the four per-tenant jobs are fanned out by the matching `attendance:cron-dispatch-*` cron, which iterates active tenants and enqueues one per-tenant payload each.
 
 ### `audit-log`
 
@@ -341,21 +371,34 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 #### `communications:dispatch-notifications` locale rendering
 
-System notification template rows resolve `t:`-prefixed keys against
-`packages/shared/src/notifications/messages/notifications.{locale}.json`.
+System notification template rows resolve `t:`-prefixed keys against the per-locale
+catalogues at `packages/shared/src/notifications/messages/notifications.{locale}.json`.
+The catalogue currently ships eight locales: `en`, `ar`, `fr`, `es`, `de`, `ga`, `it`, `ro`.
 Tenant override rows with non-null `tenant_id` continue to use raw Handlebars strings.
 
 Locale resolution is stored on the `notifications.locale` row before dispatch. The worker
-passes that locale into the renderer for email, SMS, and WhatsApp. Missing `t:` keys throw
-`MISSING_NOTIFICATION_MESSAGE`; missing catalogues throw `MISSING_NOTIFICATION_LOCALE`.
-There is no silent fallback to English.
+passes that locale into the renderer for email, SMS, and WhatsApp. The template lookup
+chain inside `dispatch-notifications.processor.ts` is: tenant template at the requested
+locale -> platform template at the requested locale -> for non-`en` locales only, platform
+template at `en` (catalogue-backed). Missing `t:` keys throw `MISSING_NOTIFICATION_MESSAGE`;
+missing catalogues throw `MISSING_NOTIFICATION_LOCALE`. There is no silent fallback to English
+when the row's resolved locale catalogue itself is absent.
 
 Dual-language household opt-in is applied when notification rows are emitted
-through `NotificationsService.createBatch`. Parent recipients linked to a household
-with `dual_language_opt_in=true` and a distinct, tenant-supported `secondary_locale`
-receive two rows: the original locale first, then the secondary locale. Idempotency
-keys, when present, are suffixed with `-{locale}` so the unique constraint does not
-collapse the pair.
+through `NotificationsService.createBatch` (no new job — existing fan-out path).
+Parent recipients linked to a household with `dual_language_opt_in=true` and a distinct,
+tenant-supported `secondary_locale` receive two rows: the original locale first, then the
+secondary locale. Idempotency keys, when present, are suffixed with `-{locale}` so the
+unique constraint does not collapse the pair.
+
+`notifications:parent-daily-digest` resolves each parent's locale from `User.preferred_locale`
+(default `en`) and stamps it on every digest row. Student names render as `full_name_ar` when
+locale is `ar` and the field is present; otherwise as `full_name`.
+
+PDF jobs (`pdf:render`) do **not** carry a `locale` field on the queue payload — locale
+selection happens upstream when the calling service builds the render payload (e.g.
+`report-cards:generate` writes one row per `template_locale` and stores the locale on the
+`ReportCard` row + S3 key path).
 
 ### `pastoral`
 
@@ -417,6 +460,16 @@ Job names + Redis status/PDF keys + TTLs are **all** sourced from `packages/shar
   - **Recipient resolution**: alert's `notification_recipients_json` (string-array of emails) is resolved to user IDs via `tenant_memberships` (membership_status = active). Emails with no matching active member are silently skipped.
 - **Routing**: all four jobs land on the shared `REPORTS` queue. The single `@Processor(QUEUE_NAMES.REPORTS)` (`ReportsExportBatchProcessor`) is a thin dispatcher that switches on `job.name` to per-job `@Injectable()` handlers — `ReportsExportBatchHandler`, `ScheduledReportsTickProcessor`, `ScheduledReportsDeliverProcessor`, `ReportAlertsHandler`. This pattern eliminates the DZ-48 race where multiple `@Processor(REPORTS)` classes silently dropped jobs to a competitive-consumer winner.
 
+### `exam-scheduling`
+
+- `scheduling:exam-solve` (constant `EXAM_SOLVE_JOB`)
+- **Source**: `ExamSolverOrchestrationService.startSolve` (POST trigger from `apps/api/src/modules/scheduling/exam-solver-orchestration.service.ts`) enqueues onto the `exam-scheduling` queue.
+- **Payload**: `{ tenant_id: string; solve_job_id: string; exam_session_id: string }` (extends `TenantJobPayload`).
+- **Processor**: `ExamSolverProcessor` (`apps/worker/src/processors/scheduling/exam-solver.processor.ts`) → `ExamSolverRunner extends TenantAwareJob`.
+- **Queue defaults**: `lockDuration=600_000`, `stalledInterval=60_000`, `maxStalledCount=2`; `removeOnComplete=50`, `removeOnFail=100`. Outer transaction timeout raised to 600s to cover the worst-case sidecar budget (450s solver + slack).
+- **Side effects**: claims the `exam_solve_jobs` row (`queued → running`), POSTs a `ExamSolverInput` to the CP-SAT exam sidecar (`SOLVER_PY_URL` default `http://localhost:5557`), heartbeats every 60s by extending the BullMQ lock and bumping `exam_solve_jobs.updated_at`, then in a fresh tx replaces all `exam_slots` for the session and writes `exam_slot_rooms` + `exam_invigilations` per assignment. Always replaces, never merges. On failure marks the run `failed` with `failure_reason`.
+- **Cross-module note**: separate queue from `scheduling` so the long exam solve cannot starve timetable work.
+
 ### `scheduling`
 
 - `scheduling:solve-v2`
@@ -449,7 +502,7 @@ Job names + Redis status/PDF keys + TTLs are **all** sourced from `packages/shar
 - **Idempotency**: keyed on `(conversation_id, message_id, channel)` — re-enqueues are no-ops
 
 - `inbox:fallback-check`
-- **Source**: cron registered in `CronSchedulerService` every 5 minutes (impl 07)
+- **Source**: cron registered in `CronSchedulerService.registerInboxCronJobs` every 15 minutes (impl 07; `repeat: { pattern: '*/15 * * * *' }`)
 - **Payload**: `{}` (cross-tenant scan)
 - **Side effects**: iterates tenants with `tenant_settings_inbox.fallback_enabled = true`, enqueues one `inbox:fallback-scan-tenant` job per tenant
 - **Guard**: skips tenants with `messaging_enabled = false`
@@ -520,11 +573,11 @@ API `POST /behaviour/documents` -> creates `behaviour_documents` row in `generat
 
 ### Behaviour exclusion lifecycle (rebuild Impl 07)
 
-Named endpoints: `/issue-notice` (`initiated → notice_issued`, auto-generates document via `BehaviourDocumentService.autoGenerateDocument`), `/schedule-hearing` (`notice_issued → hearing_scheduled`), `/record-hearing` (`hearing_scheduled → hearing_held`), `/finalise`, `/overturn`. Each fires a post-commit `WellbeingNotificationsService.dispatch` for the active parent users of the student. Two new cron processors feed this: `behaviour:exclusion-deadline-check` (every 6h UTC, per tenant — iterates open exclusion cases, creates `appeal_review` tasks and `sla.breach` in-app notifications when statutory deadlines pass) and `behaviour:ack-reminders` (daily 9am tenant-local — writes `reminder.acknowledgement` in-app for unacknowledged records). Both registered in the existing `CronSchedulerService` fan-out; `jobId: cron:behaviour:exclusion-deadline-check`, `cron:behaviour:ack-reminders`.
+Named endpoints: `/issue-notice` (`initiated → notice_issued`, auto-generates document via `BehaviourDocumentService.autoGenerateDocument`), `/schedule-hearing` (`notice_issued → hearing_scheduled`), `/record-hearing` (`hearing_scheduled → hearing_held`), `/finalise`, `/overturn`. Each fires a post-commit `WellbeingNotificationsService.dispatch` for the active parent users of the student. Two cron-driven processors feed this: `behaviour:exclusion-deadline-check` (iterates open exclusion cases, creates `appeal_review` tasks and `sla.breach` in-app notifications when statutory deadlines pass) and `behaviour:ack-reminders` (writes `reminder.acknowledgement` in-app for unacknowledged records). **Neither job is registered directly in `CronSchedulerService`.** Both are dispatched per-tenant by `BehaviourCronDispatchProcessor` (`apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`) inside the hourly `behaviour:cron-dispatch-daily` fan-out: `behaviour:ack-reminders` enqueues for each tenant when its local time is `09:00`, and `behaviour:exclusion-deadline-check` enqueues for every active behaviour-enabled tenant when the current UTC hour is `0`, `6`, `12`, or `18`. Per-tenant jobIds use the `daily:` / `6h:` prefix patterns in that processor (e.g. `daily:behaviour:ack-reminders:{tenant_id}`, `6h:behaviour:exclusion-deadline-check:{tenant_id}:{utcHour}`).
 
 ### Inbox fan-out chain
 
-`ConversationsService.sendMessage` (interactive RLS tx) writes `messages` + `message_reads` snapshot + `conversation_participants` rows -> commit -> enqueues `safeguarding:scan-message` (always) + `inbox:dispatch-channels` (if extra channels ticked) -> `inbox:dispatch-channels` creates `Notification` rows on `sms`/`email`/`whatsapp` and hands off to `communications:dispatch-notifications` -> every 5 minutes `inbox:fallback-check` fans out to `inbox:fallback-scan-tenant` per tenant -> `inbox:fallback-scan-tenant` escalates unread messages past the window to the configured fallback channels and stamps `messages.fallback_dispatched_at`. Safeguarding flags land via `safeguarding:scan-message` -> `safeguarding:notify-reviewers` -> `Notification` rows for admin-tier users.
+`ConversationsService.sendMessage` (interactive RLS tx) writes `messages` + `message_reads` snapshot + `conversation_participants` rows -> commit -> enqueues `safeguarding:scan-message` (always) + `inbox:dispatch-channels` (if extra channels ticked) -> `inbox:dispatch-channels` creates `Notification` rows on `sms`/`email`/`whatsapp` and hands off to `communications:dispatch-notifications` -> every 15 minutes `inbox:fallback-check` fans out to `inbox:fallback-scan-tenant` per tenant -> `inbox:fallback-scan-tenant` escalates unread messages past the window to the configured fallback channels and stamps `messages.fallback_dispatched_at`. Safeguarding flags land via `safeguarding:scan-message` -> `safeguarding:notify-reviewers` -> `Notification` rows for admin-tier users.
 
 ### Parent delivery chain
 
@@ -540,17 +593,13 @@ domain code writes notification rows -> `notifications:dispatch-queued` or direc
 
 ### Processor-exists vs dispatcher-exists is not the same thing
 
-As of this verification pass, several processors exist without an obvious in-repo enqueue or cron-registration path for their jobs:
+As of the 2026-05-13 audit pass, the following processors exist without an obvious in-repo enqueue or cron-registration path for their jobs:
 
-- `attendance:generate-sessions`
-- `attendance:detect-pending`
-- `attendance:auto-lock`
-- `attendance:detect-patterns`
-- `finance:overdue-detection`
-- `scheduling:reap-stale-runs`
 - `communications:stale-inquiry-detection`
 
-That does not prove the flows are unused operationally, but it does mean the dispatch path is not discoverable from current application or worker code and should not be assumed active without further verification.
+That does not prove the flow is unused operationally, but the dispatch path is not discoverable from current application or worker code and should not be assumed active without further verification.
+
+(Previously this list also contained the four `attendance:*` jobs, `finance:overdue-detection`, and `scheduling:reap-stale-runs` — all of those are now confirmed live cron-driven, see the Repeatable Jobs section above.)
 
 ### Cross-tenant jobs must stay relation-filter free
 

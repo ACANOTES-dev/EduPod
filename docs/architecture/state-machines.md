@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; extended `NotificationStatus` with bounced/complained/delivered terminal states driven by webhook ingestion, added `WhatsAppTemplateStatus` and `EmailDomainStatus` machines)
+> **Last verified**: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.)
 
 ---
 
@@ -188,7 +188,9 @@ expired*
 - **Side effects**: `withdrawn` takes effect synchronously on the next downstream read. WhatsApp notifications fall back to SMS, AI grading/comments/progress summaries reject requests, risk detection skips the student, allergy reports hide consent-gated rows, and cross-school benchmarking excludes the student immediately.
 - **Note**: Active uniqueness is enforced by a partial unique index on `(tenant_id, subject_type, subject_id, consent_type)` where `status = 'granted'`, so withdrawn consent can be re-granted as a new row.
 
-### DPA Acceptance (synthetic lifecycle)
+### DPA Acceptance
+
+> **⚠ Synthetic — state via field/timestamp comparison, not a Prisma enum.** The "states" below are the result of comparing tenant `dpa_acceptances.dpa_version_id` against the current `dpa_versions.version`. There is no `DpaAcceptanceStatus` enum to grep for.
 
 ```
 not_accepted               -> [accepted_current]
@@ -199,7 +201,9 @@ stale_on_new_dpa_version  -> [accepted_current]
 - **Guarded by**: `gdpr/dpa.service.ts` + global `gdpr/dpa-accepted.guard.ts`
 - **Side effects**: Accepting the current DPA appends an immutable acceptance row with content hash, user, timestamp, and IP. A newly published platform `dpa_versions.version` does not mutate old rows; instead it makes previous acceptance stale because the global guard compares tenant acceptance against the current platform version before allowing tenant-scoped API access.
 
-### PrivacyNoticeVersionPublication (synthetic lifecycle)
+### PrivacyNoticeVersionPublication
+
+> **⚠ Synthetic — state via `published_at IS NULL`, not a Prisma enum.** "Draft" = `published_at IS NULL`; "published" = `published_at IS NOT NULL`. There is no `PrivacyNoticeVersionStatus` enum.
 
 ```
 draft      -> [published]
@@ -209,7 +213,9 @@ published*   (read-only; superseded only by a newer published version)
 - **Guarded by**: `gdpr/privacy-notices.service.ts`
 - **Side effects**: Drafts may be edited until `published_at` is set. Publishing fan-outs in-app notifications to all active tenant memberships and makes the new version the current acknowledgement target.
 
-### PrivacyNoticeAcknowledgement (synthetic lifecycle)
+### PrivacyNoticeAcknowledgement
+
+> **⚠ Synthetic — state via row-existence + version comparison, not a Prisma enum.** The "states" below are the result of comparing the latest `privacy_notice_acknowledgements` row for `(tenant_id, user_id)` against the current `privacy_notice_versions` row. There is no `PrivacyNoticeAcknowledgementStatus` enum.
 
 ```
 not_acknowledged             -> [acknowledged_current]
@@ -343,36 +349,49 @@ archived*
 
 - **Side effects**: `published` triggers notification dispatch to all audience members.
 
-### NotificationStatus (extended by Impl 06 of Communications Overhaul)
+### NotificationStatus
+
+**Actual enum** (`packages/prisma/schema.prisma:435`, six values):
 
 ```
-queued    -> [sent, failed]
-sent      -> [delivered, bounced, complained, failed]
+queued, claimed, sent, delivered, failed, read
+```
+
+State diagram (production behaviour — the `claimed` value is reserved/dormant, see note below):
+
+```
+queued    -> [sent, delivered, failed]
+sent      -> [delivered, failed]
 delivered -> [read]
 read*
-bounced*
-complained*
-failed    -> [queued]   // retryable, within max_attempts
+failed    -> [queued]   // retryable, within max_attempts (re-enqueued by retry processor)
 ```
 
 - **Guarded by**: `apps/api/src/modules/communications/notifications.service.ts` + `apps/worker/src/processors/communications/dispatch-notifications.processor.ts` + the webhook handlers in `apps/api/src/modules/communications/webhooks/`.
 - **Side effects**:
-  - `queued -> sent`: provider `messages.create` (or `emails.send`) returns success; `provider_message_id` populated; `last_attempt_at` updated.
+  - `queued -> sent`: provider `messages.create` (or `emails.send`) returns success; `provider_message_id` populated; `last_attempt_at` updated. Email/SMS/WhatsApp path only.
+  - `queued -> delivered` (in-app shortcut): `dispatch-notifications.processor.ts:383` writes `delivered` straight onto in-app rows because there is no external acknowledgement to wait for. `notifications.service.ts:169` also creates in-app rows pre-stamped as `delivered`.
   - `sent -> delivered`: webhook event `email.delivered` (Resend) or `MessageStatus=delivered` (Twilio). Sets `delivered_at`.
-  - `sent -> bounced`: webhook event `email.bounced` with `bounce_type='hard'`. Adds row to `notification_suppression_list` with `reason='hard_bounce'`. Terminal.
-  - `sent -> complained`: webhook event `email.complained`. Adds row to `notification_suppression_list` with `reason='complaint'`. Terminal.
-  - `sent -> failed`: webhook event `MessageStatus=failed` or `MessageStatus=undelivered`. Increments `attempts`; if below `max_attempts`, queues for retry → transitions back to `queued` via the retry processor.
-  - `queued -> failed`: dispatch attempt threw / was skipped (e.g. `channel_not_configured`, `channel_disabled`, `suppressed`, `outside_service_window_no_template`, `sender_domain_unverified`). Sets `failure_reason`.
-  - `delivered -> read`: in-app inbox mark-as-read, or email tracker pixel (out of scope V1).
-  - `failed -> queued`: retry processor (`retry-failed.processor.ts`) re-enqueues with exponential backoff `60_000 × 2^attempts` ms.
+  - `sent -> failed`: Twilio `MessageStatus=failed` or `MessageStatus=undelivered`. Increments `attempts`; if below `max_attempts`, the retry processor re-enqueues (back to `queued`).
+  - `queued -> failed`: dispatch attempt threw or was skipped (e.g. `channel_not_configured`, `channel_disabled`, `suppressed:*`, `outside_service_window_no_template`, `sender_domain_unverified`). Sets `failure_reason`.
+  - `delivered -> read`: in-app inbox mark-as-read via `notifications.service.ts:106-108` (`markAsRead`) or `:115-122` (`markAllAsRead`).
+  - `failed -> queued`: retry processor (`retry-failed.processor.ts`) re-enqueues with exponential backoff `60_000 × 2^attempts` ms. The unread-count and inbox-listing queries treat `failed` as non-unread (see `unread_only` filter at `notifications.service.ts:51` and `:80`: `status: { in: ['queued', 'sent', 'delivered'] }`).
 - **Failure reasons** (set on `failed`):
   - `channel_not_configured` — tenant has no config row for the channel.
   - `channel_disabled` — tenant disabled the channel (`is_enabled=false`); detected mid-flight.
   - `suppressed:hard_bounce`, `suppressed:complaint`, `suppressed:manual`, `suppressed:unsubscribe`, `suppressed:soft_bounce_threshold` — recipient on suppression list.
   - `outside_service_window_no_template` — WhatsApp send outside 24h window with no `template_key`.
   - `sender_domain_unverified` — Resend send from an unverified domain.
+  - `Resend bounce (hard|soft): <message>` / `Resend spam complaint` — see "Bounces & complaints" below.
   - `provider_error:<verbatim>` — provider returned an unhandled error.
-- **Note**: terminal states (`read`, `bounced`, `complained`) cannot transition back. `failed` is non-terminal because retries cycle through `queued`. The `chain_id` UUID is preserved across all retries so the fallback chain can identify them as related. WhatsApp delivery also has a consent gate: missing active `whatsapp_channel` consent immediately transitions the original notification to `failed` and creates an SMS fallback notification.
+- **`claimed` (dormant)**: added to the enum by migration `20260402080000_add_reliability_r13_r18_r19_r23` (R-18, "claim before dispatch") and ordered between `queued` and `sent`. **No production code currently reads or writes this value** — both `dispatch-notifications.processor.ts` and the webhook handlers operate directly on `queued`/`sent`. It is reserved for a future "claim a row before dispatching to prevent two workers picking the same notification" pattern. Treat the value as forward-compatible: keep matching against it in any `status in (...)` filter you add, but do not assume any code path produces it today.
+- **Bounces & complaints — NOT a status transition**: the `bounced` and `complained` states **do not exist in the enum**. Resend's `email.bounced` and `email.complained` webhooks are translated by `resend-webhook-handler.service.ts` into:
+  - `notification.status = 'failed'` with a descriptive `failure_reason` (e.g. `Resend bounce (hard): mailbox full`, `Resend spam complaint`), AND
+  - a row inserted into `notification_suppression_list` with `SuppressionReason` ∈ `hard_bounce | soft_bounce_threshold | complaint | manual | unsubscribe`.
+
+  The suppression-list row — not the notification row — is the canonical record of "permanent failure for this recipient". Future sends to that recipient short-circuit to `failed` with `failure_reason='suppressed:<reason>'`. Soft bounces only insert a suppression row after `SOFT_BOUNCE_THRESHOLD = 3` events in `SOFT_BOUNCE_LOOKBACK_DAYS = 30`.
+
+- **Note**: `read` is the only terminal state. `failed` is non-terminal because retries cycle through `queued`. The `chain_id` UUID is preserved across all retries so the fallback chain can identify them as related. WhatsApp delivery also has a consent gate: missing active `whatsapp_channel` consent immediately transitions the original notification to `failed` and creates an SMS fallback notification.
 
 ### WhatsAppTemplateStatus (Impl 08 of Communications Overhaul)
 
@@ -429,6 +448,8 @@ spam*
 - **Guarded by**: `contact-form.service.ts` line 10 (explicit transition map)
 
 ### ConversationLifecycle (inbox, 2026-04-11)
+
+> **⚠ Synthetic — state via `conversations.state` text/varchar field, not a Prisma enum.** There is no `ConversationLifecycleStatus` enum to grep for; the values below are produced by service-layer string writes against the `conversations.state` column.
 
 ```
 active    -> [frozen, archived]
@@ -1236,8 +1257,22 @@ ci_monitoring -> [ci_active, ci_closed]
 ci_closed     -> [ci_monitoring]
 ```
 
-- **Guarded by**: `VALID_TRANSITIONS` in `apps/api/src/modules/pastoral/services/critical-incident.service.ts`
-- **Prisma enum mapping**: `active` → DB `"ci_active"`, `monitoring` → DB `"ci_monitoring"`, `closed` → DB `"ci_closed"` (prefixed to avoid enum collisions with PastoralCaseStatus and SafeguardingStatus)
+- **Guarded by**: `VALID_TRANSITIONS` in `apps/api/src/modules/pastoral/services/critical-incident.service.ts:166`.
+- **Prisma enum (`packages/prisma/schema.prisma:7596`)**: each Prisma value uses `@map` to a shorter DB literal — the Prisma names are namespaced to avoid collisions with `PastoralCaseStatus` and `SafeguardingStatus`, but the DB enum literals are bare `active|monitoring|closed`:
+  ```
+  enum CriticalIncidentStatus {
+    ci_active     @map("active")
+    ci_monitoring @map("monitoring")
+    ci_closed     @map("closed")
+  }
+  ```
+- **API ↔ Prisma translation**: API/DTO callers send the bare `active|monitoring|closed` strings. The service's `STATUS_TO_PRISMA` map (`critical-incident.service.ts:173`) translates them into the Prisma enum literals before any DB write or filter:
+  ```
+  active     -> ci_active
+  monitoring -> ci_monitoring
+  closed     -> ci_closed
+  ```
+- **Danger — `@map` editing trap**: if you rename a Prisma enum value here you MUST update both the `VALID_TRANSITIONS` keys AND the `STATUS_TO_PRISMA` map. The `@map` value is the DB-side literal and changing it is a destructive enum-value migration. Touch one without the other and either the validation map or the DB writes silently break.
 - **Note**: No true terminal state — closed incidents can return to monitoring. This allows multi-phase critical incidents (e.g., a lockdown followed by ongoing monitoring of the affected community).
 
 ### PastoralInterventionStatus
@@ -1313,3 +1348,228 @@ cancelled → (terminal)
     first, then re-cancel manually if desired.
   - `cancel` (completed → ): rejected — cannot cancel a completed event.
 - **Terminal states**: `completed`, `cancelled`
+
+---
+
+## High-traffic Lifecycles (promoted 2026-05-13)
+
+These were on the catalog index until this pass — they appear in enough hot paths that a full section is warranted.
+
+### EmploymentStatus
+
+```
+active   -> [inactive]
+inactive -> [active]
+```
+
+- **Schema**: `packages/prisma/schema.prisma:197` — `enum EmploymentStatus { active, inactive }`.
+- **Field**: `staff_profiles.employment_status`.
+- **Guarded by**: There is **no** explicit `VALID_TRANSITIONS` map; the value is set directly by staff CRUD endpoints and the leave/hire workflows. Cycling between `active` and `inactive` is permitted unconditionally.
+- **Side effects**: `inactive` removes a staff member from class-cover candidate lists, dashboards, and the active staff directory but preserves all historical attendance, payroll, and behaviour-actor links. The corresponding `User`/`Membership` row is updated separately — `EmploymentStatus` does not gate auth.
+- **Note**: this is a soft-delete proxy for staff — there is no `archived` value. If you need to permanently retire a profile, use `inactive` and rely on the membership-level `disabled`/`archived` states (see MembershipStatus).
+
+### AttendanceRecordStatus
+
+```
+present | absent_unexcused | absent_excused | late | left_early
+```
+
+- **Schema**: `packages/prisma/schema.prisma:253`.
+- **Field**: `attendance_records.status` — one row per (student, session) on submission of an attendance session.
+- **Guarded by**: `apps/api/src/modules/attendance/attendance-session.service.ts` (no explicit transition map — values are written on submit and edited in place via `attendance-exceptions.service.ts` until the session locks).
+- **Lifecycle**: there is **no `from -> to` transition machine** here — the status is the snapshot value for that one session. Edits replace the value; the rolling history sits on `attendance_record_history`. The hard write-cutoff is the parent session's `AttendanceSessionStatus = locked` (see above): once the session is locked, no record-level edits are allowed.
+- **Side effects**: the daily summary worker recomputes `DailyAttendanceStatus` from this row plus its siblings (see below). Late thresholds (`late`) and excused-absence ratios feed `AttendanceAlertStatus` rules.
+- **Note**: `absent_excused` requires a linked `student_absence_excuse` row in the same RLS transaction. Editing a record from `absent_unexcused` to `absent_excused` is the single most common parent-portal workflow.
+
+### DailyAttendanceStatus (derived)
+
+```
+present | partially_absent | absent | late | excused
+```
+
+- **Schema**: `packages/prisma/schema.prisma:261`.
+- **Field**: `daily_attendance_summaries.derived_status` — one row per (student, day).
+- **Guarded by**: `apps/api/src/modules/attendance/daily-summary.service.ts:104-121` is the **single derivation site**. It is computed from the day's `AttendanceRecordStatus` rows by counting `sessionsPresent / sessionsAbsent / sessionsLate / sessionsExcused`:
+  ```
+  no absences and no lates                                 -> present
+  no presents/lates and every absence is excused           -> excused
+  no presents/lates (and not all-excused)                  -> absent
+  some lates, zero absences                                -> late
+  otherwise (mixed presence + absences)                    -> partially_absent
+  ```
+- **Lifecycle**: there is no transition graph — every recompute upserts the new derived value. Recomputes fire on every record edit and as part of the nightly summary cron.
+- **Side effects**: feeds `AttendanceAlertStatus` thresholds, the regulatory POD/Tusla dashboard, and the early-warning risk tiering.
+- **Danger**: do not write `derived_status` from any other path — it must remain the output of the derivation function above. Manual writes will desynchronise the underlying records and the summary view.
+
+### LeaveRequestStatus
+
+```
+pending  -> [approved, rejected, withdrawn]
+approved -> [cancelled]
+rejected*    cancelled*    withdrawn*
+```
+
+- **Schema**: `packages/prisma/schema.prisma:4163`.
+- **Guarded by**: `apps/api/src/modules/leave/leave-requests.service.ts:24` — explicit `VALID_TRANSITIONS` map enforced before every status update.
+- **Side effects**:
+  - `pending -> approved`: enqueues `substitution:cover-search` for the affected periods if the leave overlaps a teaching schedule. Sets `approved_at` and `approver_user_id`.
+  - `pending -> rejected | withdrawn`: terminal — author may submit a new request.
+  - `approved -> cancelled`: only valid before the leave start date. Releases any auto-created substitution offers.
+- **Note**: `withdrawn` is author-driven (the requester pulls the request before review); `rejected` is approver-driven; `cancelled` is the post-approval escape hatch.
+
+### AlertStatus + AlertRecipientStatus (behaviour alerts)
+
+Two coupled enums — the parent alert lifecycle (`AlertStatus`) and the per-recipient acknowledgement lifecycle (`AlertRecipientStatus`).
+
+**AlertStatus** (`packages/prisma/schema.prisma:7324`):
+
+```
+active_alert    @map("active")    -> [resolved_alert]
+resolved_alert  @map("resolved")*
+```
+
+**AlertRecipientStatus** (`packages/prisma/schema.prisma:7329`):
+
+```
+unseen        -> [seen]
+seen          -> [acknowledged, snoozed, dismissed, resolved_recipient]
+acknowledged  -> [snoozed, dismissed]
+snoozed       -> [seen, acknowledged, dismissed]
+resolved_recipient @map("resolved")*    dismissed*
+```
+
+- **Guarded by**: `apps/api/src/modules/behaviour/behaviour-alerts.service.ts` — no `VALID_TRANSITIONS` map, transitions are enforced inline by the dedicated endpoints (`acknowledge`, `snooze`, `dismiss`, `resolve`).
+- **Prisma `@map` translations** (both enums use prefixed Prisma names to avoid collisions across the behaviour domain):
+  - `AlertStatus.active_alert` -> DB `"active"`, `AlertStatus.resolved_alert` -> DB `"resolved"`.
+  - `AlertRecipientStatus.resolved_recipient` -> DB `"resolved"`.
+- **Side effects**:
+  - Alert creation: parent row is `active_alert`; one `AlertRecipient` row per resolved recipient (initial state `unseen`).
+  - First open of the alert by a recipient: `unseen -> seen` (auto, on read).
+  - When the parent alert flips to `resolved_alert` (admin closes it), all non-terminal recipient rows are bulk-updated to `resolved_recipient` in the same transaction.
+- **Danger**: the `@map` collision-prefixing means filter literals must use the Prisma name (`active_alert`, `resolved_alert`, `resolved_recipient`) when written against the Prisma client, but the DB rows store the bare `active|resolved` literal. Filtering raw SQL against `'active_alert'` returns zero rows.
+
+### ApprovalStepStatus (report-card approval workflow)
+
+```
+pending -> [approved, rejected]
+approved*   rejected*
+```
+
+- **Schema**: `packages/prisma/schema.prisma:4549`.
+- **Field**: `report_card_approval_steps.status` — one row per (report card, configured approval step).
+- **Guarded by**: `apps/api/src/modules/gradebook/report-cards/report-card-approval.service.ts` — no explicit `VALID_TRANSITIONS` map; transitions are produced by the dedicated `approveStep` and `rejectStep` flows which use conditional `updateMany(... status: 'pending' ...)` writes for concurrency safety.
+- **Side effects**:
+  - `pending -> approved`: stamps `approved_at`/`approved_by_user_id`. If this is the **last** pending step on the chain, the parent report-card row transitions `draft -> published` in the same transaction (`report-card-approval.service.ts:294`).
+  - `pending -> rejected`: stamps `rejected_at`/`rejection_reason`. Cascades to all later pending steps in the chain — they are bulk-updated to `rejected` with `rejection_reason = 'Cancelled due to earlier rejection'` so the chain cannot resume mid-stream.
+- **Note**: this is the **per-step** state machine. The parent `ApprovalRequest` machine (see Platform & Infrastructure) is the cross-cutting equivalent for non-report-card approvals.
+
+### BatchJobStatus (underlying enum for ReportCardBatchJob)
+
+```
+queued     -> [processing, failed]
+processing -> [completed, failed]
+completed*    failed*
+```
+
+- **Schema**: `packages/prisma/schema.prisma:4568` — physical four-value enum shared across batch-style worker jobs.
+- **Used by**: `report_card_batch_jobs.status` is the only current consumer. The logical "partial success" state is layered on top by reading `students_blocked_count > 0` on a `completed` row (see ReportCardBatchJob above for the full mapping).
+- **Guarded by**: each consumer's batch service. There is no shared transition map.
+- **Side effects** (per consumer): see ReportCardBatchJob.
+- **Note**: `failed` is set with an `error_message`; per-row failures during `processing` accumulate on the consumer's `errors_json` column without flipping the status (allowing the "completed-but-with-errors" partial-success pattern).
+
+---
+
+## Catalog Index — undocumented state machines
+
+These enums exist in `packages/prisma/schema.prisma` but do not yet have a full transition spec in this document. Each entry lists the schema line, value count, and a one-line note on what it tracks. Promote any of these to a full section as you touch the underlying code path.
+
+If you change an enum's values (`ALTER TYPE ... ADD VALUE` or rename via `@map`), update or promote the matching entry in the same change.
+
+### Identity, access, & approvals
+
+- **`UserGlobalStatus`** — `schema.prisma:37` — 3 values (`active|suspended|disabled`). Platform-level user account state, set on the `users` table (the only non-tenant-scoped table). Transitions are admin-driven; not yet wired through a service-level transition map.
+- **`VerificationStatus`** — `schema.prisma:25` — 3 values (`pending|verified|failed`). Generic per-row verification flag (custom domain TXT proof, etc).
+- **`SslStatus`** — `schema.prisma:31` — 3 values (`pending|active|failed`). Reflects ACME / Let's Encrypt issuance for tenant custom domains.
+- **`DnsRecordStatus`** — `schema.prisma:460` — 3 values (`pending|verified|failed`). Per-record DNS verification rolling up into `EmailDomainStatus`.
+
+### Households & people
+
+- **`HouseholdStatus`** — `schema.prisma:131` — 3 values (`active|inactive|archived`). Household lifecycle; soft-delete via `archived`.
+- **`ParentStatus`** — `schema.prisma:137` — 2 values (`active|inactive`). Per-parent active flag (a household may have an inactive parent without archiving the household).
+- **`ParentConsentStatus`** — `schema.prisma:7301` — 4 values (`not_requested|pending_consent @map("pending")|granted|denied`). Per-parent consent flag distinct from the broader `ConsentRecordStatus`.
+
+### Class operations
+
+- **`ClassStatus`** — `schema.prisma:184` — 3 values (`active|inactive|archived`). Per-class lifecycle; `inactive` hides from default lists, `archived` retires for the year.
+- **`ClassDeliveryStatus`** — `schema.prisma:108` — 4 values (`delivered|absent_covered|absent_uncovered|cancelled`). Per-class-instance delivery outcome tracked alongside attendance.
+
+### Staff, payroll, leave
+
+- **`StaffAttendanceStatus`** — `schema.prisma:99` — 6 values (`present|absent|half_day|unpaid_leave|paid_leave|sick_leave`). Daily staff attendance value used by the payroll calculator.
+- **`SubstitutionOfferStatus`** — `schema.prisma:4171` — 5 values (`pending|accepted|declined|expired|revoked`). Per-candidate substitution offer fan-out — feeds `SubstitutionStatus`.
+- **`SnaAssignmentStatus`** — `schema.prisma:1076` — 2 values (`active|ended`). SNA-to-student assignment lifecycle.
+- **`StaffVettingStatus`** — `schema.prisma:9064` — 5 values (`active|expiring_soon|expired|pending_renewal|revoked`). Garda vetting state per staff member; expiry-based transitions are derived by a daily cron.
+
+### Admissions & finance
+
+- **`AdmissionPaymentStatus`** — `schema.prisma:402` — 5 values (`pending|paid_online|paid_cash|payment_plan|waived`). Per-application payment outcome distinct from `ApplicationStatus`.
+- **`AdmissionsPaymentEventStatus`** — `schema.prisma:396` — 3 values (`succeeded|failed|received_out_of_band`). Stripe-webhook event ledger row outcome.
+- **`InstallmentStatus`** — `schema.prisma:3742` — 3 values (`pending|paid|overdue`). Per-installment state for finance payment plans.
+
+### Communications & website
+
+- **`ProgressReportStatus`** — `schema.prisma:4132` — 2 values (`draft|sent`). Light-weight progress-update lifecycle (distinct from the full report-card flow).
+- **`WebsitePageStatus`** — `schema.prisma:499` — 3 values (`draft|published|unpublished`). CMS page lifecycle for the public school site.
+- **`DeliveryStatus`** — `schema.prisma:4561` — 4 values (`pending_delivery|sent|failed|viewed`). Generic delivery tracker used by older notification fan-outs (predates `NotificationStatus`).
+- **`ParentNotifStatus`** — `schema.prisma:7004` — 6 values (`not_required|pending|sent|delivered|failed|acknowledged`). Behaviour-incident parent-notification ledger; mirrors the dispatch outcome.
+
+### Gradebook, scheduling, exams
+
+- **`AiGradingInstructionStatus`** — `schema.prisma:4103` — 4 values (`draft|pending_approval|active|rejected`). Teacher-authored AI grading instruction approval lifecycle.
+
+### Compliance, regulatory, child protection
+
+- **`SearchIndexStatusEnum`** — `schema.prisma:6224` — 3 values (`pending|indexed|search_failed`). Per-row Meilisearch index sync state.
+- **`CronExecutionStatus`** — `schema.prisma:6350` — 4 values (`running|success|failed|timeout`). Cron-execution audit log row outcome.
+- **`ScheduledReportRunStatus`** — `schema.prisma:6795` — 4 values (`pending|running|succeeded|failed`). Per-run state for the scheduled-reports module.
+- **`IncidentApprovalStatus`** — `schema.prisma:6997` — 4 values (`not_required|pending|approved|rejected`). Per-incident-approval-request state on the behaviour module.
+- **`RegulatorySubmissionStatus`** — `schema.prisma:7656` — 7 values (all `@map`'d to bare names: `not_started|in_progress|ready_for_review|submitted|accepted|rejected|overdue`). Regulatory submission packet lifecycle.
+- **`PodSyncStatus`** — `schema.prisma:7696` — 5 values (`@map` to `pending|synced|changed|error|not_applicable`). Per-record POD (Tusla) sync state.
+- **`PodSyncLogStatus`** — `schema.prisma:7710` — 4 values (`@map` to `in_progress|completed|completed_with_errors|failed`). Per-batch POD sync run outcome.
+- **`CbaSyncStatus`** — `schema.prisma:7730` — 3 values (`@map` to `pending|synced|error`). CBA exam sync state per cohort.
+- **`ChildProtectionReviewStatus`** — `schema.prisma:9072` — 4 values (`scheduled|in_progress|completed|overdue`). Periodic CP-record review cycle state.
+- **`AdminRepairRunStatus`** — `schema.prisma:9018` — 4 values (`preview|executed|failed|rolled_back`). Platform admin "data repair" tool run lifecycle.
+
+### Behaviour & safeguarding (auxiliary)
+
+- **`RestrictionStatus`** — `schema.prisma:7345` — 4 values (`@map` to `active|expired|revoked|superseded`). Per-student behaviour restriction lifecycle.
+- **`ScanStatus`** — `schema.prisma:7441` — 4 values (`@map` to `pending|clean|infected|scan_failed`). Antivirus scan outcome on uploaded attachments.
+- **`PolicyActionExecutionStatus`** — `schema.prisma:7482` — 4 values (`success|failed|skipped_duplicate|skipped_condition`). Per-execution outcome on automated behaviour policy actions.
+- **`ReporterAckStatus`** — `schema.prisma:7495` — 3 values (`@map` to `received|assigned|under_review`). Reporter acknowledgement state on safeguarding/CP intake.
+
+### Pastoral (auxiliary)
+
+- **`PastoralActionStatus`** — `schema.prisma:7527` — 5 values (`@map` to `pending|in_progress|completed|overdue|cancelled`). Per-action state on pastoral case action plans.
+
+### Engagement (auxiliary)
+
+- **`ParticipantStatus`** — `schema.prisma:7829` — 10 values (`invited|registered|consent_pending|consent_granted|consent_declined|payment_pending|confirmed|attended|absent|withdrawn`). Per-participant engagement-event lifecycle.
+- **`ParticipantConsentStatus`** — `schema.prisma:7842` — 3 values (`pending|granted|declined`). Per-participant consent state.
+- **`ParticipantPaymentStatus`** — `schema.prisma:7848` — 5 values (`not_required|pending|paid|waived|refunded`). Per-participant payment state for paid engagement events.
+- **`TimeSlotStatus`** — `schema.prisma:7862` — 5 values (`available|booked|blocked|completed|cancelled`). Underlying enum for `ConferenceSlotStatus` (already documented as a transition section above).
+- **`EngagementFormStatus`** — `schema.prisma:7780` — 3 values (`draft|published|archived`). Documented above as `EngagementFormTemplateStatus` (the API-level name); same enum.
+- **`FormSubmissionStatus`** — `schema.prisma:7786` — 5 values (`pending|submitted|acknowledged|expired|revoked`). Documented above as `EngagementSubmissionStatus` (the API-level name); same enum.
+
+### Homework
+
+- **`CompletionStatus`** — `schema.prisma:7753` — 3 values (`not_started|in_progress|completed`). Per-student-per-assignment completion mirror, kept in sync with `HomeworkSubmissionStatus`.
+
+### Scheduling auxiliary
+
+- **`ExamSolveJobStatus`** — `schema.prisma:4191` — 5 values (`queued|running|completed|failed|cancelled`). Exam-timetable solver run lifecycle (parallel to `SchedulingRunStatus` for the academic timetable solver).
+
+### Notes on collisions
+
+Several enums use Prisma `@map` to avoid duplicate value names across the schema (PostgreSQL global enum-value namespace would otherwise collide). Common patterns: `ci_*` (`CriticalIncidentStatus`), `pc_*` (`PastoralInterventionStatus`, `PastoralActionStatus`), `sg_*` (`SafeguardingStatus`), `sst_*` (`SstMeetingStatus`), `mr_*` (`MandatedReportStatus`), `pod_*` / `cba_*` (regulatory sync), `transfer_*` (`TransferStatus`), `reg_*` (`RegulatorySubmissionStatus`), `rec_*` (`PastoralReferralRecommendationStatus`), `sync_*` (`PodSyncLogStatus`), `*_alert` / `*_recipient` / `*_restriction` (behaviour alerts/restrictions), `_doc` / `_hold` (documents / legal holds), `withdrawn_appeal` / `hearing_scheduled_exc` (`AppealStatus`, `ExclusionStatus`).
+
+When you add a new enum value, check this list first — if your new value would collide with an existing PostgreSQL enum value anywhere in the schema, you must use `@map` and pick a prefixed Prisma-side name. Forgetting this surfaces as a confusing migration error rather than a clean lint failure.

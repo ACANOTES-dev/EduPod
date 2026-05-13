@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off; new edges added: communications consumes configuration credential services, auth/trips/closures/leave/health/sen/finance now consume communications.NotificationsService, new CommsCacheBusModule cycle-breaker between configuration and communications)
+> **Last verified**: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code)
 
 ---
 
@@ -125,7 +125,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: cross-domain analytics aggregation, KPI dashboard, custom report builder, scheduled reports + alerts, AI features (narration, ask-AI, predictions), board + compliance aggregation, share-to-inbox.
 - **Primary consumers**: dashboard, board reporting, workload/leadership reporting, compliance-style exports
-- **Imports**: AdmissionsModule, SchedulesModule, AiFlagsModule (impl 10 — gates the three reports AI features `reports_narration`, `reports_ask_ai`, `reports_predictions` via `@RequiresAiFlag(...)`), InboxModule (impl 13 — builder share dialog uses `/v1/inbox/people-search` and posts an inbox message with the snapshot attachment), MailerModule (impl 08/09 — scheduled-reports + alerts deliver via email).
+- **Imports**: AiModule, AiFlagsModule (impl 10 — gates the three reports AI features `reports_narration`, `reports_ask_ai`, `reports_predictions` via `@RequiresAiFlag(...)`), ConfigurationModule, GdprModule, InboxModule (impl 13 — builder share dialog uses `/v1/inbox/people-search` and posts an inbox message with the snapshot attachment), S3Module, plus forwardRef imports for AcademicsModule, AdmissionsModule, ApprovalsModule, AttendanceModule, AuditLogModule, ClassesModule, CommunicationsModule, FinanceModule, GradebookModule, HouseholdsModule, PayrollModule, SchedulesModule, StaffProfilesModule, StudentsModule.
 - **Exports**: `ReportsDataAccessService` (used by `regulatory` aggregations), `QueryEngineService` (impl 02 — used by the scheduled-reports worker in `apps/worker/src/processors/reports-scheduled.processor.ts`).
 - **Blast radius**: HIGH — table-shape changes surface here after features seem to work elsewhere; AI flag changes here propagate to billing visibility on `Settings → Reports`; saved-report shape changes break the scheduled-report cron and the share dialog simultaneously.
 - **Notes**:
@@ -176,8 +176,8 @@ If a module is not listed individually, it is either:
 ### AttendanceModule
 
 - **Contract**: attendance tables, attendance read facade, alert semantics, parent-notification rules
-- **Primary consumers**: dashboards, reports, regulatory, early warning, gradebook risk context, parent digests
-- **Imports**: SchoolClosuresModule
+- **Primary consumers**: dashboards, reports, regulatory, early warning, gradebook risk context, parent digests, compliance (forwardRef)
+- **Imports**: AiModule, AuthModule, CommunicationsModule, ConfigurationModule, GdprModule, ParentsModule, SchoolClosuresModule, StaffProfilesModule, BullMQ queue `notifications`
 - **Blast radius**: HIGH
 - **Notes**: worker processors and regulatory scans read the same attendance artifacts on separate codepaths
 
@@ -226,7 +226,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: `NotificationsService.dispatch(tenantId, payload)`, `NotificationDispatchService` (internal), `Email/Sms/WhatsAppConfigService.getDecryptedConfig` (internal-only — never expose), `SuppressionListService.isSuppressed`, `EmailDomainService.getVerified`, `WhatsAppTemplateService.getApproved`, `WhatsAppServiceWindowService.isInWindow`, `CommsCacheBusService` (Redis pub/sub on `comms:config-changed`), `comms-metrics.service.ts` Prometheus emitters, `notification` table, `notification_template` table, `notification_suppression_list` table, `notification_webhook_events` table, `tenant_email_configs` / `tenant_sms_configs` / `tenant_whatsapp_configs` (read by `getDecryptedConfig` only), `tenant_email_domains` table, `whatsapp_templates` table, `whatsapp_service_windows` table.
 - **Primary consumers**:
-  - **API consumers of `NotificationsService.dispatch`**: attendance, behaviour, gradebook, homework, pastoral, safeguarding, engagement, parent-inquiries, finance (post Impl 12 migration), admissions, rbac (invitations), approvals, communications (announcements), inbox, auth (password reset/changed, post Impl 12 follow-up), trips (post Impl 12 follow-up), school-closures (post Impl 12 follow-up), staff-leave (post Impl 12), health (post Impl 12 follow-up), sen (post Impl 12 follow-up).
+  - **API modules that import `CommunicationsModule` (verified 2026-05-13 by grepping `*.module.ts`)**: attendance, compliance (forwardRef), early-warning, gradebook, homework, leave, pastoral (via `pastoral-core.module.ts`), reports (forwardRef), scheduling, wellbeing-notifications. Plus the gradebook sub-module `report-card.module.ts`. **The previous list claimed auth, trips, school-closures, health, sen, finance, behaviour, safeguarding, engagement, parent-inquiries, admissions, rbac, approvals, inbox as direct importers — none of those modules import `CommunicationsModule`.** Many of those modules dispatch notifications indirectly via `WellbeingNotificationsService` (which DOES import CommunicationsModule), or the dispatcher's inbox/worker fan-out — but they are not direct Nest-graph consumers.
   - **Worker consumers**: `dispatch-notifications.processor.ts`, `dispatch-queued.processor.ts`, `parent-daily-digest.processor.ts`, `behaviour/parent-notification.processor.ts`, `pastoral/escalation-timeout.processor.ts`, `safeguarding/critical-escalation.processor.ts`, `safeguarding/notify-reviewers.processor.ts`, `engagement/engagement-conference-reminders.processor.ts`, `homework/overdue-detection.processor.ts`, `behaviour/ack-reminders.processor.ts`.
   - **Cron consumers**: `comms:domain-verification-refresh` (Impl 07), `comms:whatsapp-template-sync` (Impl 08), `comms:suppression-list-cleanup` (Impl 06), `comms:whatsapp-service-window-cleanup` (Impl 08).
 - **Direct dependencies (consumed by communications)**:
@@ -305,6 +305,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: student risk profiles, risk signals, config-driven tiering, trigger semantics
 - **Primary consumers**: attendance/behaviour/pastoral worker triggers, dashboards, routing/assignment flows, `WellbeingAggregateModule` (via new `EarlyWarningReadFacade` exposing amber/red counts)
+- **Imports**: AcademicsModule, AuthModule, BehaviourModule (forwardRef), ClassesModule, CommunicationsModule, GradebookModule (forwardRef), ParentInquiriesModule, ParentsModule, PastoralModule (forwardRef), PrismaModule, RbacModule, StaffProfilesModule, StudentsModule, BullMQ queue `early-warning`
 - **Dependencies added (wellbeing rebuild)**: `EarlyWarningReadFacade` registered in `ReadFacadesModule` for aggregate KPI composition.
 - **Blast radius**: HIGH
 - **Notes**: no other API module imports its services directly, but many processors feed it indirectly through queue jobs and shared signal tables. The flagship `/early-warnings` sub-hub (impl 16) is a top consumer of `GET /early-warnings?pageSize=100&tier=amber|red`, `GET /summary`, and the intervene-multiselect probe of `GET /pastoral/interventions?status=active&pageSize=1`.
@@ -313,6 +314,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: homework assignments/completions, diary notes, student submissions, parent homework visibility, teacher class-authority gating for assignment writes, in-app notifications on publish/submit/return/grade
 - **Primary consumers**: parent digests, behaviour daily dispatch, class/student read paths, analytics, student self-submission surface
+- **Imports**: AcademicsModule, ClassesModule, CommunicationsModule, InboxModule, ParentsModule, PrismaModule, S3Module, SchedulesModule, StaffProfilesModule, StudentsModule, TenantsModule, BullMQ queue `homework`
 - **Dependencies added (Wave 1, 2026-04-18)**: `SchedulesReadFacade` (teacher-class authority via Schedule table) + `PermissionCacheService` (owner/principal/VP bypass) + `ClassesReadFacade.findById` (subject cross-check) + `AcademicReadFacade.findCurrentYearId` (resolve current year). `HomeworkAuthorityService.assertCanAssignHomework` gates `POST /v1/homework`, `PATCH /v1/homework/:id` (class/subject changes), `POST /v1/homework/:id/copy`, and `POST /v1/homework/bulk-create`.
 - **Dependencies added (Wave 2, 2026-04-18)**: `CommunicationsModule` (for `NotificationsService.createBatch`) + `InboxModule` (for `AudienceResolutionService` — resolves `class_parents` leaf). `HomeworkNotificationService.notifyOnPublish` writes in-app Notification rows for every parent of every enrolled student on every `draft → published` transition. No email / SMS / WhatsApp — paid third-party channels were intentionally removed from the module's scope for per-message cost discipline. Also wires `POST /v1/homework/:id/notify` (teacher-triggered re-notify) and `GET /v1/homework/:id/notification-preview` (parent count for confirmation dialogs).
 - **Dependencies added (Wave 3, 2026-04-19)**: `StudentReadFacade.findByUserId` (NEW, replaces broken `findByUserName` — requires `Student.user_id` FK added in the same migration). `HomeworkStudentController` (`v1/student/homework`) is the student-facing surface for listing + submitting work; gated by new `homework.submit.own` permission. `HomeworkCompletionsController` gains `GET /v1/homework/:id/submissions` and `POST /v1/homework/:id/submissions/:submissionId/{grade,return}` for the teacher grading grid. `HomeworkNotificationService` gains `notifyOnSubmit` (→ teacher), `notifyOnReturn` (→ student + parents), `notifyOnGrade` (→ student + parents) — all in-app.
@@ -336,9 +338,10 @@ If a module is not listed individually, it is either:
 
 ### SchedulingModule
 
-- **Contract**: solver inputs/outputs, generated timetable application
-- **Primary consumers**: classes, staff availability/preferences, rooms, closures, staff wellbeing metrics, personal timetables
-- **Imports**: RoomsModule, StaffProfilesModule
+- **Contract**: solver inputs/outputs, generated timetable application, exam scheduling, substitutions, cover notifications, personal timetables, teacher / substitute competencies
+- **Primary consumers**: scheduling-runs, gradebook (TeachingAllocationsService derivation), report-cards (teacher-class scoping via SchedulingReadFacade), leave (cover planning), homework (Wave 1 — schedules-driven authority via `SchedulesReadFacade`)
+- **Imports**: AcademicsModule, AiModule, AuthModule, ClassesModule, CommunicationsModule, ConfigurationModule, GdprModule, ParentsModule, RoomsModule, StaffAvailabilityModule, StaffPreferencesModule, StaffProfilesModule, StudentsModule, TenantsModule, BullMQ queues `scheduling` + `exam-scheduling`. Also references `FeasibilityService` from SchedulingRunsModule via direct provider import (not a module-level import — circular avoidance).
+- **Exports**: SchedulerOrchestrationService, CurriculumRequirementsService, TeacherCompetenciesService, SubstituteCompetenciesService, BreakGroupsService, PersonalTimetableService, SchedulingReadFacade, SubstitutionCascadeService, CoverNotificationsService, ExamPublishService, FeasibilityService
 - **Blast radius**: HIGH
 - **Notes**: solver result shape and run-status semantics matter to multiple user surfaces and workers
 
@@ -346,9 +349,37 @@ If a module is not listed individually, it is either:
 
 - **Contract**: run status, solver execution lifecycle
 - **Primary consumers**: scheduling UI, staff wellbeing metrics
-- **Imports**: SchedulesModule
+- **Imports**: AcademicsModule, AuthModule, ClassesModule, GradebookModule, PeriodGridModule, RoomsModule, SchedulesModule, SchedulingModule, StaffAvailabilityModule, StaffProfilesModule, BullMQ queue `scheduling`
+- **Exports**: SchedulingRunsService, SchedulingRunsReadFacade
 - **Blast radius**: HIGH
-- **Notes**: run-status semantics and solver execution state matter to scheduling surfaces and worker processors
+- **Notes**: run-status semantics and solver execution state matter to scheduling surfaces and worker processors. Also exports `FeasibilityService` indirectly via SchedulingModule re-export.
+
+### SchedulesModule
+
+- **Contract**: timetable rows, schedule conflict detection, `SchedulesReadFacade` (teacher → classes-taught lookup, exposed through ReadFacadesModule)
+- **Primary consumers**: classes (timetable wiring), homework (Wave 1 — `assertCanAssignHomework` reads teaching authority), gradebook (TeachingAllocationsService), payroll (period bracketing for compensation), school-closures, scheduling-runs, regulatory, reports (forwardRef), behaviour-discipline
+- **Imports**: AuthModule, RoomsModule, StaffProfilesModule
+- **Exports**: SchedulesService, SchedulesReadFacade
+- **Blast radius**: HIGH
+- **Notes**: SchedulesModule is the read surface for who-teaches-what. The `SchedulesReadFacade` is the canonical avoid-cross-module-Prisma path; bypassing it for ad-hoc Schedule reads is a lint-rule violation. Distinct from `SchedulingModule` (the solver / orchestration layer).
+
+### TenantsModule
+
+- **Contract**: tenant CRUD + lifecycle, public tenant lookup, custom domains, tenant-self management, `TenantReadFacade` (currency_code, tenant settings, branding metadata)
+- **Primary consumers**: admissions, auth, budgeting, classes, communications, engagement, finance, gdpr, gradebook, homework, households, payroll, preferences, scheduling, staff-profiles, students
+- **Imports**: S3Module, SequenceModule
+- **Exports**: TenantsService, SequenceModule (re-export), TenantReadFacade
+- **Blast radius**: VERY HIGH — the tenant settings surface is queried by nearly every domain on hot paths (currency display, module flags, admissions caps, payroll formula configs). Schema changes ripple platform-wide.
+- **Notes**: TenantsModule re-exports SequenceModule, so any module that imports TenantsModule transitively gains the sequence allocator. The `TokenService` provider lives here too (shared with AuthModule via cross-import) — historical artefact of the platform/auth split.
+
+### AuthModule
+
+- **Contract**: login / logout / refresh, MFA (TOTP), password reset flow, session management, rate limiting, `AuthReadFacade` (user lookup), `TokenService` (JWT issue/verify, also re-provided in TenantsModule)
+- **Primary consumers**: virtually every controller via `AuthGuard` + `@CurrentUser()` decorator. Direct module-level importers: academics, attendance, behaviour (5 sub-modules), child-protection, class-requirements, class-subject-requirements, classes, communications, compliance (forwardRef), dashboard, early-warning, gdpr, gradebook, households, inbox, parents, pastoral (6 sub-modules), period-grid, preferences, rbac, registration, regulatory, rooms, safeguarding, schedules, scheduling, scheduling-runs, school-closures, search, security-incidents, sen, staff-availability, staff-preferences, staff-profiles, students.
+- **Imports**: ConfigurationModule, TenantsModule (forwardRef)
+- **Exports**: AuthService, TokenService, AuthReadFacade
+- **Blast radius**: CRITICAL — JWT shape changes, session lifecycle changes, or guard-mounted decorator contract changes break every authenticated route in the API at once.
+- **Notes**: This is a domain module (login surface) AND a global dependency (every request resolves a session through here). Its forwardRef on TenantsModule breaks a circular: tenants needs TokenService for tenant-self, auth needs TenantsService for tenant resolution.
 
 ### SenModule
 
@@ -410,7 +441,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: compliance audits, data exports, cross-domain compliance aggregation, open-DSAR read surface (via `ComplianceReadFacade`)
 - **Primary consumers**: regulatory, GDPR/DPA, leadership dashboards
-- **Imports**: AdmissionsModule, AttendanceModule, BehaviourModule, ClassesModule, CommunicationsModule, FinanceModule, GdprModule, GradebookModule, HouseholdsModule, ParentInquiriesModule, ParentsModule, PayrollModule, SearchModule, StaffProfilesModule, StudentsModule, WebsiteModule
+- **Imports**: AdmissionsModule (forwardRef), AttendanceModule (forwardRef), AuditLogModule (forwardRef), AuthModule (forwardRef), BehaviourModule, ClassesModule (forwardRef), CommunicationsModule (forwardRef), FinanceModule, GdprModule, GradebookModule, HouseholdsModule (forwardRef), ParentInquiriesModule (forwardRef), ParentsModule (forwardRef), PastoralCoreModule, PayrollModule (forwardRef), RbacModule (forwardRef), S3Module, SearchModule, StaffProfilesModule (forwardRef), StudentsModule (forwardRef), WebsiteModule (forwardRef)
 - **Exports (read)**: `ComplianceReadFacade` — registered in the global `ReadFacadesModule`; exposes `countOpenDsarRequests(tenantId)`, `countOverdueDsarRequests(tenantId)` (30-day GDPR window), and `findRecentDsarRequests(tenantId, limit)` for the regulatory GDPR sub-hub. Owns the `complianceRequest` Prisma model.
 - **Exports (service)**: `RetentionPoliciesService` — `countItemsPastRetention(tenantId)` (Phase 10) sums the affected-records preview across all retention categories; consumed by `RegulatoryGdprService`.
 - **New consumer**: `RegulatoryModule` now imports `ComplianceModule` directly (Phase 10) to wire `RetentionPoliciesService` into the GDPR sub-hub dashboard.
@@ -482,6 +513,17 @@ Other low-dependency modules:
 - `ImportsModule`
 - `SecurityIncidentsModule`
 - `DashboardModule` (mostly a reader/aggregator over other module contracts)
+- `PeopleDashboardModule` (controller + service only; no cross-module imports)
+- `PublicHouseholdsModule` (public-facing household lookup; imports RedisModule for rate limiting)
+- `QueueAdminModule` (queue inspection / management UI; registers `gradebook` and `notifications` BullMQ queues)
+
+### Infrastructure / utility providers
+
+These modules expose a single service used cross-cutting; treat signature changes as cross-cutting refactors:
+
+- `AiModule` — exports `AnthropicClientService`. Consumers: attendance, behaviour-analytics, gradebook, reports, scheduling.
+- `S3Module` — exports `S3Service`. Consumers: behaviour-discipline, budgeting, compliance, configuration, homework, imports, inbox, regulatory, reports, tenants.
+- `ConfigModule` — global `@nestjs/config` wrapper with env validation. No exports beyond what `ConfigService` provides via `forRoot({ isGlobal: true })`.
 
 These still need regression testing if their tables, shared DTOs, or queue payloads change, but they do not currently sit at the center of the platform's dependency graph.
 
@@ -510,11 +552,22 @@ The worker is where blast radius often hides after API refactors appear safe.
 
 These modules are still present in `AppModule`, but the live functionality sits elsewhere:
 
+### Pure stubs (empty `@Module({})`)
+
 - [apps/api/src/modules/pastoral-checkins/pastoral-checkins.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral-checkins/pastoral-checkins.module.ts)
 - [apps/api/src/modules/pastoral-dsar/pastoral-dsar.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral-dsar/pastoral-dsar.module.ts)
 - [apps/api/src/modules/critical-incidents/critical-incidents.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/critical-incidents/critical-incidents.module.ts)
 
-Do not document these as live functional surfaces. The implemented pastoral and critical-incident behavior is under [apps/api/src/modules/pastoral](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral).
+The implemented pastoral and critical-incident behavior is under [apps/api/src/modules/pastoral](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral).
+
+### Provider-only placeholder modules (live but not yet a domain)
+
+These exist solely to register inbox audience providers as `wired: false` entries until a real domain module ships. They have no controllers, no services beyond the audience provider, and no consumers beyond the inbox `AudienceProviderRegistry`:
+
+- [apps/api/src/modules/events/events.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/events/events.module.ts) — registers `EventAttendeesProvider`. Imports `InboxModule`. The resolver throws `AUDIENCE_PROVIDER_NOT_WIRED` until a real events domain replaces the provider.
+- [apps/api/src/modules/trips/trips.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/trips/trips.module.ts) — registers `TripRosterProvider`. Same pattern as `events`.
+
+Do not promote either to first-class entries until the underlying domain ships.
 
 ---
 
@@ -545,7 +598,8 @@ Owner of per-class/per-subject scheduling requirements (Stage 6 of the solver).
 Staff leave request lifecycle (apply → approve → coverage planning) plus
 tenant-configurable leave-type catalogue and per-staff balance aggregator.
 
-- **Imports**: StaffProfilesModule (staff identity + facade-backed reads), SchedulingModule (generates substitution coverage when leave is approved), AcademicsModule (AcademicReadFacade.findCurrentYear drives the balance window)
+- **Imports**: PrismaModule, StaffProfilesModule (staff identity + facade-backed reads), AcademicsModule (AcademicReadFacade.findCurrentYear drives the balance window), SchedulingModule (forwardRef — generates substitution coverage when leave is approved), CommunicationsModule (notifications on approve / reject / cover-confirmed)
+- **Exports**: LeaveRequestsService, LeaveTypesService, PayrollAttendanceService
 - **Consumed by**: HR/payroll workflows (payroll reads approved leave days via `GET /v1/payroll/absence-periods`; month-end UI at `/payroll/absences` consumes it directly)
 
 ### BudgetingModule

@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -33,6 +33,34 @@ English and Arabic are first-class source template bundles; Arabic remains RTL-s
 **Rule**: Adding a PDF locale requires updating `SUPPORTED_PDF_LOCALES`, adding a complete bundle module, registering it in `PDF_TEMPLATE_BUNDLES`, and extending registry tests. Missing locales or keys must fail hard with `MISSING_PDF_TEMPLATE`.
 
 **Regression tests**: `apps/api/src/modules/pdf-rendering/templates/locales/index.spec.ts` verifies bundle completeness, English/Arabic routing, LTR locale routing, and hard-failure behavior. `apps/api/src/modules/pdf-rendering/templates/locales/text-profiles.spec.ts` covers the retained LTR compatibility text profiles.
+
+---
+
+## DZ-i18n-3: Notification Catalogue Must Match Tenant Supported Locales
+
+**Risk**: When a tenant's `supported_locales` is expanded (via the new `/admin/tenants/:id/locales` admin route or directly), the notification catalogue must already contain entries for that locale across BOTH the web messages JSON (`apps/web/messages/{locale}.json`) AND every `notification_templates` row referenced by code paths. If a parent on the new locale receives a notification before that parity is in place, dispatch throws `MISSING_NOTIFICATION_LOCALE` at render time — silently failing the dispatch from that parent's perspective. The dual-language household fanout amplifies this: it reads `tenant.supported_locales` and emits a per-locale notification per parent, so a single missing catalogue entry blocks the secondary-language copy for every household.
+**Location**: `apps/api/src/modules/communications/template-renderer.service.ts`, `apps/api/src/modules/communications/notifications.service.ts:195-217` (`expandDualLanguageParentNotifications`), `apps/api/src/modules/communications/notification-dispatch.service.ts:203-318` (per-channel template lookup), `apps/web/messages/{locale}.json`, `notification_templates` table
+**Status**: ACTIVE (dual-language household fanout, 2026-04-29; tenant-gated locale controls, 2026-04-29)
+
+A tenant can be on three independent locale surfaces at once: the web UI surface (`apps/web/messages/{locale}.json`), the platform notification template surface (system-seeded `notification_templates` rows per locale per `template_key`), and the PDF surface (DZ-i18n-2). Adding a locale to `tenant.supported_locales` only takes effect on dispatch — there is no startup-time validation that the catalogue is complete, so the failure surface is the first parent notification on the new locale.
+
+**Rule**: Before adding a locale to `tenant.supported_locales` (or activating one in `apps/web/i18n/registry.ts`), verify (a) `apps/web/messages/{locale}.json` exists and passes `scripts/check-i18n.js` parity against `en.json`; (b) every `template_key` in `notification_templates` has a row for the new locale (or a documented English fallback path); (c) the locale is also covered by DZ-i18n-2 (PDF bundles) if PDF dispatch is in scope. Adding a locale to `supported_locales` without (a)+(b) is a runtime failure, not a build failure.
+
+**Regression tests**: `apps/api/src/modules/communications/template-renderer.service.spec.ts:159` covers the `MISSING_NOTIFICATION_LOCALE` hard-error path. `apps/api/src/modules/communications/notifications.service.spec.ts:624` covers the fanout shrinking to a single locale when `supported_locales` only contains `en`. There is currently NO regression test that validates `notification_templates` row coverage for an arbitrary locale — that gap is acceptable today because seeding is centralized, but a future migration that adds new `template_key` values must extend the seed before the new code path can dispatch.
+
+---
+
+## DZ-i18n-4: Tier 2 Locale Route/Scope Three-File Contract
+
+**Risk**: DZ-i18n-1 covers the _order_ of the route guard relative to next-intl. This entry covers the orthogonal _parity_ hazard: even with the guard order correct, a Tier 2 locale route added to `tier-routes.ts` without a matching message namespace in `tier-scopes.ts` (or without the keys in `apps/web/messages/{locale}.json`) will pass the guard, reach the render path, and fail with a missing-message 500. The failure mode is identical to DZ-i18n-1 from the user's perspective but the root cause and fix location are different.
+**Location**: `apps/web/src/middleware.ts`, `apps/web/i18n/tier-routes.ts`, `apps/web/i18n/tier-scopes.ts`, `apps/web/messages/{locale}.json`
+**Status**: ACTIVE (Italian Tier 2 launch 2026-04-30; Romanian Tier 2 + parent portal copy 2026-05-03)
+
+Adding a parent/student/public route to a Tier 2 locale is a three-file contract: `tier-routes.ts` decides whether the guard allows the path through, `tier-scopes.ts` decides which message namespaces next-intl loads for that path, and the locale messages JSON must contain those namespaces with all required keys. Drift between any two of these three files manifests as either a redirect loop (route allowed but namespace missing) or a missing-message 500 (route allowed, namespace claimed, keys absent).
+
+**Rule**: Adding a parent/student/public route for a Tier 2 locale requires a single change that touches BOTH `tier-routes.ts` (path classification) AND `tier-scopes.ts` (namespace allowlist), AND extends every active Tier 2 locale's `messages/{locale}.json` with the keys the new namespace requires. Removing a route requires the same three-file sweep in reverse.
+
+**Regression tests**: `apps/web/src/__tests__/i18n/tier-routes.spec.ts` validates `tier-routes.ts` path classification but does NOT cross-check that every classified path's namespaces are listed in `tier-scopes.ts`. `scripts/check-i18n.js` covers messages JSON parity across locales. The gap is the cross-file parity between `tier-routes.ts` and `tier-scopes.ts` — currently caught only by Playwright route-guard coverage on the latest Tier 2 launch, not by a unit test.
 
 ---
 

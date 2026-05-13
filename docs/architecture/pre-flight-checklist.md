@@ -26,6 +26,13 @@
 - [ ] Am I adding a new settings field to `tenant_settings`? -> Must have `.default()` value (DZ-05)
 - [ ] Am I changing an enum? -> Check state-machines.md for transition rules that reference it
 
+### 2b. Locale Activation Check (if expanding `supported_locales` or adding a locale to the registry)
+
+- [ ] Am I adding a locale to `apps/web/i18n/registry.ts` or to a tenant's `supported_locales`? -> Verify `apps/web/messages/{locale}.json` exists and passes `scripts/check-i18n.js` parity (DZ-i18n-3)
+- [ ] Does every `template_key` in `notification_templates` have a row for the new locale? -> Else dual-language fanout fails with `MISSING_NOTIFICATION_LOCALE` at first dispatch (DZ-i18n-3)
+- [ ] Am I adding the locale to `SUPPORTED_PDF_LOCALES`? -> Add a complete bundle covering every key in `PDF_TEMPLATE_KEYS`, register it in `PDF_TEMPLATE_BUNDLES`, and extend the locale registry tests (DZ-i18n-2)
+- [ ] If activating a Tier 2 locale: ensure the three-file contract (`tier-routes.ts` ↔ `tier-scopes.ts` ↔ `messages/{locale}.json`) is consistent (DZ-i18n-4)
+
 ### 3. State Machine Check (if touching status/lifecycle)
 
 - [ ] Open `architecture/state-machines.md` and verify the transition I'm adding/modifying is documented
@@ -38,11 +45,13 @@
 - [ ] Does this job trigger downstream jobs? Trace the full chain.
 - [ ] Am I changing a job payload? -> Update ALL consumers (API enqueuer + Worker processor)
 - [ ] Am I adding a new approval type? -> Must update `MODE_A_CALLBACKS` + create worker processor
+- [ ] Am I touching notification dispatch, the catalogue, or template keys? -> Run `scripts/check-i18n.js` and verify every active locale's `messages/{locale}.json` carries the new keys (DZ-i18n-3)
 
 ### 5. Danger Zone Check
 
 - [ ] Open `architecture/danger-zones.md` and scan for entries related to my change area
 - [ ] If my change area is listed: read the full entry and follow the mitigation
+- [ ] If touching i18n / locales / notifications: scan DZ-i18n-1 (Tier 2 guard order), DZ-i18n-2 (PDF bundles), DZ-i18n-3 (notification catalogue parity), DZ-i18n-4 (tier-routes/tier-scopes contract) — multiple zones almost always apply at once
 
 ### 5a. Hotspot Review Check (if touching a hotspot module)
 
