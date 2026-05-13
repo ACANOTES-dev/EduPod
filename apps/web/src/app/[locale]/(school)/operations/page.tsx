@@ -108,6 +108,7 @@ const CARDS: OperationsCardConfig[] = [
     accent: 'from-orange-400 via-orange-500 to-orange-600',
     iconBg: 'bg-orange-100 text-orange-700',
     glow: 'from-orange-50/80',
+    moduleKey: 'leave',
     roles: STAFF_ROLES,
   },
 ];
@@ -129,15 +130,17 @@ export default function OperationsDashboardPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const autoSchedulingEnabled = useModuleEnabled('auto_scheduling');
+  const leaveEnabled = useModuleEnabled('leave');
 
   const visibleCards = React.useMemo(
     () =>
       CARDS.filter(
         (card) =>
           hasAnyRole(...card.roles) &&
-          (card.moduleKey !== 'auto_scheduling' || autoSchedulingEnabled),
+          (card.moduleKey !== 'auto_scheduling' || autoSchedulingEnabled) &&
+          (card.moduleKey !== 'leave' || leaveEnabled),
       ),
-    [autoSchedulingEnabled, hasAnyRole],
+    [autoSchedulingEnabled, hasAnyRole, leaveEnabled],
   );
 
   const admissionsVisible = React.useMemo(

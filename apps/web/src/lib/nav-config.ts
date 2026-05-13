@@ -205,6 +205,12 @@ export const navSectionConfigs: NavSectionConfig[] = [
     items: [
       { labelKey: 'nav.rooms', href: '/rooms', roles: ADMIN_ROLES },
       {
+        labelKey: 'nav.leave',
+        href: '/leave',
+        moduleKey: 'leave',
+        roles: STAFF_ROLES,
+      },
+      {
         labelKey: 'nav.scheduling',
         href: '/scheduling',
         moduleKey: 'auto_scheduling',
@@ -428,6 +434,8 @@ export const hubConfigs: HubConfig[] = [
       '/rooms',
       '/engagement',
       '/leave',
+      '/dashboard/teacher/leave',
+      '/scheduling/leave-requests',
     ],
     roles: STAFF_ROLES,
   },
@@ -475,7 +483,7 @@ export const hubConfigs: HubConfig[] = [
   {
     key: 'settings',
     labelKey: 'nav.settings',
-    basePaths: ['/settings', '/closures', '/website'],
+    basePaths: ['/settings', '/closures', '/website', '/settings/leave-types'],
     roles: ADMIN_ROLES,
   },
 ];

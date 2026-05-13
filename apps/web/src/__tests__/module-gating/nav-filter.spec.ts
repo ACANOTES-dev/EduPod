@@ -111,6 +111,12 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/rooms')?.moduleKey).toBeUndefined();
   });
 
+  it('annotates leave entries in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/leave')?.moduleKey).toBe('leave');
+  });
+
   it('annotates advanced regulatory entries while keeping core regulatory routes visible', () => {
     const allItems = navSectionConfigs.flatMap((section) => section.items);
 

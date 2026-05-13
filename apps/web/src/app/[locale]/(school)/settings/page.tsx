@@ -324,6 +324,7 @@ const CATEGORIES: SettingsCategoryConfig[] = [
         descKey: 'hub.leaveTypesDesc',
         href: '/settings/leave-types',
         icon: CalendarClock,
+        moduleKey: 'leave',
       },
     ],
   },

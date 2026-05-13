@@ -38,7 +38,7 @@
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | 📦     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | 📦     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | 📦     |
-| 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ⏳     |
+| 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | 📦     |
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ⏳     |
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ⏳     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     |
@@ -543,14 +543,23 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `leave` added to registry with default_enabled=true, category='operations'.
-- [ ] `apps/api/src/modules/leave/leave-requests.controller.ts` and `payroll-attendance.controller.ts` gain `@ModuleEnabled('leave')` + `ModuleEnabledGuard`.
-- [ ] Frontend `/leave`, `/settings/leave-types`, `/scheduling/leave-requests` hidden via nav filter when disabled.
-- [ ] Module-gating leakage test passes for `leave`.
+- [x] `leave` verified in registry with default_enabled=true, category='operations', and depends_on hints for `payroll` + `auto_scheduling`.
+- [x] `apps/api/src/modules/leave/leave-requests.controller.ts` and `payroll-attendance.controller.ts` gain `@ModuleEnabled('leave')` + `ModuleEnabledGuard`.
+- [x] Frontend `/leave`, `/settings/leave-types`, `/dashboard/teacher/leave`, and `/scheduling/leave-requests` surfaces are hidden from nav/cards/actions when disabled.
+- [x] Module-gating leakage test passes for `leave`, including `GET /api/v1/leave/requests`, `POST /api/v1/leave/requests`, and `GET /api/v1/payroll/absence-periods?period=YYYY-MM`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce leave module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts src/__tests__/translation-parity.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=leave)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/web/test files (warnings only: pre-existing leave controller cross-module import warnings plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: No leave worker processors exist, so no worker gating was required. The payroll-attendance route lives under `/v1/payroll` but is owned by the leave module and is now gated by `leave`, as specified. The spec's disruptive NHQS off/on toggle and leave-on + auto_scheduling-off cover-cascade smoke were not run in this local pass; the dependency behavior is documented in the registry `depends_on` hint and remains a production-smoke item after deploy.
 
 ---
 

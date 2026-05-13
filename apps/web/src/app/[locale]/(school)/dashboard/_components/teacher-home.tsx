@@ -14,6 +14,7 @@ import * as React from 'react';
 
 import { SelfReportAbsenceDialog } from '@/components/self-report-absence-dialog';
 import { TodayScheduleWidget, type TodayScheduleItem } from '@/components/today-schedule-widget';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { apiClient } from '@/lib/api-client';
 
 import { GreetingRow } from './greeting-row';
@@ -35,6 +36,7 @@ interface MyTimetableEntry {
 export function TeacherHome({ schoolName }: { schoolName: string }) {
   const t = useTranslations('dashboard.todaySchedule');
   const tActions = useTranslations('dashboard.teacherActions');
+  const leaveEnabled = useModuleEnabled('leave');
   const [todayItems, setTodayItems] = React.useState<TodayScheduleItem[]>([]);
   const [timetableLoading, setTimetableLoading] = React.useState(true);
   const [absenceDialogOpen, setAbsenceDialogOpen] = React.useState(false);
@@ -107,6 +109,10 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
     },
   ];
 
+  const visibleTeacherActions = leaveEnabled
+    ? teacherActions
+    : teacherActions.filter((action) => action.href !== '/dashboard/teacher/leave');
+
   const teacherPriority = [
     {
       id: 1,
@@ -126,7 +132,7 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
         <GreetingRow schoolName={schoolName} />
 
         <div className="lg:hidden space-y-6">
-          <QuickActions variant="horizontal" customActions={teacherActions} />
+          <QuickActions variant="horizontal" customActions={visibleTeacherActions} />
           <SchoolSnapshot variant="compact" customStats={teacherStats} />
         </div>
 
@@ -144,7 +150,7 @@ export function TeacherHome({ schoolName }: { schoolName: string }) {
 
       <div className="hidden lg:block w-[360px] shrink-0 space-y-6 lg:pt-[56px] xl:pt-0">
         <SchoolSnapshot variant="default" customStats={teacherStats} />
-        <QuickActions variant="grid" customActions={teacherActions} />
+        <QuickActions variant="grid" customActions={visibleTeacherActions} />
       </div>
 
       <SelfReportAbsenceDialog open={absenceDialogOpen} onOpenChange={setAbsenceDialogOpen} />
