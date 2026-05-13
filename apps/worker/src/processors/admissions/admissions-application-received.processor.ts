@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
 export interface AdmissionsApplicationReceivedStudent {
@@ -57,7 +59,10 @@ function humanizeStatus(status: string): string {
 export class AdmissionsApplicationReceivedProcessor {
   private readonly logger = new Logger(AdmissionsApplicationReceivedProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<AdmissionsApplicationReceivedPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_APPLICATION_RECEIVED_JOB) {
@@ -68,6 +73,13 @@ export class AdmissionsApplicationReceivedProcessor {
 
     if (!tenant_id) {
       throw new Error(`Job rejected: missing tenant_id for ${ADMISSIONS_APPLICATION_RECEIVED_JOB}`);
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'admissions'))) {
+      this.logger.debug(
+        `Skipping ${ADMISSIONS_APPLICATION_RECEIVED_JOB} for tenant ${tenant_id}: admissions disabled`,
+      );
+      return;
     }
 
     if (!students || students.length === 0) {

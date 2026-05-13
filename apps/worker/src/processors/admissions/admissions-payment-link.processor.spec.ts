@@ -69,6 +69,12 @@ function buildMockPrisma(): {
   return { mock, fns };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 const READY_APPLICATION = {
   id: APPLICATION_ID,
   tenant_id: TENANT_ID,
@@ -97,7 +103,7 @@ describe('AdmissionsPaymentLinkProcessor', () => {
     prisma = built.mock;
     fns = built.fns;
 
-    processor = new AdmissionsPaymentLinkProcessor(prisma);
+    processor = new AdmissionsPaymentLinkProcessor(prisma, buildTenantModuleService() as never);
 
     // Stub the decrypt helper — we are not exercising AES here, only the
     // orchestration around it. The real crypto path is covered in the
@@ -187,6 +193,20 @@ describe('AdmissionsPaymentLinkProcessor', () => {
 
     expect(mockStripeCheckoutCreate).not.toHaveBeenCalled();
     expect(fns.notificationCreate).not.toHaveBeenCalled();
+  });
+
+  it('skips silently when admissions is disabled for the tenant', async () => {
+    const disabledProcessor = new AdmissionsPaymentLinkProcessor(
+      prisma,
+      buildTenantModuleService(false) as never,
+    );
+    const bag = disabledProcessor as unknown as Record<'decrypt', DecryptFn>;
+    bag.decrypt = jest.fn().mockReturnValue('sk_test_fake');
+
+    await disabledProcessor.process(buildJob(ADMISSIONS_PAYMENT_LINK_JOB));
+
+    expect(fns.applicationFindFirst).not.toHaveBeenCalled();
+    expect(mockStripeCheckoutCreate).not.toHaveBeenCalled();
   });
 
   it('skips when tenant has no Stripe config', async () => {

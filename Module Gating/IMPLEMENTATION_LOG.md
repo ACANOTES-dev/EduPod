@@ -32,7 +32,7 @@
 | 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | 📦     |
 | 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | 📦     |
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | 📦     |
-| 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | ⏳     |
+| 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | 📦     |
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | ⏳     |
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | ⏳     |
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | ⏳     |
@@ -365,15 +365,31 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 6 controllers under `apps/api/src/modules/admissions/` gain `@ModuleEnabled('admissions')` + `ModuleEnabledGuard` at class level.
-- [ ] Admissions cron processors gain tenant module check (skip on disabled).
-- [ ] Frontend `/admissions` routes hidden via nav filter.
-- [ ] Public admissions form (`public-admissions.controller.ts`) remains ungated; documented as intentional.
-- [ ] Module-gating leakage test passes for `admissions`.
+- [x] All 6 controllers under `apps/api/src/modules/admissions/` gain `@ModuleEnabled('admissions')` + `ModuleEnabledGuard` at class level.
+- [x] Admissions cron processors gain tenant module check (skip on disabled).
+- [x] Frontend `/admissions` routes hidden via nav filter.
+- [x] Public admissions form (`public-admissions.controller.ts`) remains ungated; documented as intentional.
+- [x] Module-gating leakage test passes for `admissions`.
+- [ ] Smoke test on NHQS: admissions admin/parent views toggle off and back on; public admissions intake still accepts submissions while disabled.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce admissions module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/admissions/admission-forms.controller.spec.ts src/modules/admissions/applications.controller.spec.ts src/modules/admissions/parent-applications.controller.spec.ts src/modules/admissions/public-admissions.controller.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/admissions/admissions-application-received.processor.spec.ts src/processors/admissions/admissions-application-withdrawn.processor.spec.ts src/processors/admissions/admissions-payment-link.processor.spec.ts src/processors/admissions/admissions-payment-expiry.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)` (now active for `admissions`, plus prior W2/W3 modules)
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/public-admissions.e2e-spec.ts)`
+  - API DI compile check with fake env (`DI OK`)
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm --filter @school/api lint` (warnings only: pre-existing cross-module imports/max-lines)
+  - `pnpm --filter @school/worker lint` (warnings only: pre-existing max-lines)
+  - `pnpm --filter @school/web lint` (warnings only: pre-existing i18n/hooks/max-lines)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `public-admissions.controller.ts` stays intentionally ungated so prospective applicants can submit before they have any tenant relationship. `admissions-payment-expiry` is a cross-tenant cron with no tenant payload, so it skips disabled tenants inside the per-tenant loop rather than using a top-level payload check. The admissions leakage probe was corrected to the actual `/api/v1/admissions/dashboard-summary` route and paired with `/api/v1/applications`; the public admissions e2e suite now verifies intake remains open while the module is disabled.
 
 ---
 

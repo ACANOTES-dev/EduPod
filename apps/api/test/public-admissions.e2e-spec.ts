@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 
 import { buildPublicApplicationSeed, ensureAdmissionsTargets } from './admissions-test-helpers';
+import { disableModuleForTenant, enableModuleForTenant } from './_helpers/module-gating-fixtures';
 import { cleanupRedisKeys, closeTestApp, createTestApp, getAuthToken } from './helpers';
 import { createTenantFixture, deleteTenantFixture, TenantFixture } from './tenant-fixture.builder';
 
@@ -77,6 +78,35 @@ describe('Public Admissions (e2e)', () => {
     expect(firstApp?.id).toBeDefined();
     expect(firstApp?.application_number).toBeDefined();
     expect(['ready_to_admit', 'waiting_list']).toContain(firstApp?.status);
+  });
+
+  it('keeps public application intake open when admissions is disabled', async () => {
+    const targets = await ensureAdmissionsTargets(app, ownerToken, fixture.domainName);
+    const seed = buildPublicApplicationSeed(targets);
+    ipCounter += 1;
+
+    await disableModuleForTenant(prisma, fixture.tenantId, 'admissions');
+
+    try {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/public/admissions/applications')
+        .set('Host', fixture.domainName)
+        .set('X-Forwarded-For', `10.0.0.${ipCounter}`)
+        .send(seed)
+        .expect(201);
+
+      const body = res.body.data ?? res.body;
+      const firstApp = body.applications?.[0];
+      expect(firstApp?.id).toBeDefined();
+
+      const created = await prisma.application.findFirst({
+        where: { tenant_id: fixture.tenantId, id: firstApp.id },
+        select: { id: true },
+      });
+      expect(created?.id).toBe(firstApp.id);
+    } finally {
+      await enableModuleForTenant(prisma, fixture.tenantId, 'admissions');
+    }
   });
 
   it('rejects the 4th submission from the same IP within the rate-limit window', async () => {

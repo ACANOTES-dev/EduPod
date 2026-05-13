@@ -12,13 +12,16 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsService } from './applications.service';
 
 @Controller('v1/parent/applications')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard)
+@ModuleEnabled('admissions')
 export class ParentApplicationsController {
   constructor(
     private readonly applicationsService: ApplicationsService,

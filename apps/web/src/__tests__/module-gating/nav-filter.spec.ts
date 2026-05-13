@@ -75,4 +75,11 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/payroll')?.moduleKey).toBe('payroll');
     expect(allItems.find((item) => item.href === '/website')?.moduleKey).toBe('website');
   });
+
+  it('annotates admissions entries in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/admissions')?.moduleKey).toBe('admissions');
+    expect(allItems.find((item) => item.href === '/applications')?.moduleKey).toBe('admissions');
+  });
 });

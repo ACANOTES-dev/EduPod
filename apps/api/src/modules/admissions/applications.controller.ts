@@ -40,9 +40,11 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { StripeService } from '../finance/stripe.service';
@@ -51,7 +53,8 @@ import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsService } from './applications.service';
 
 @Controller('v1/applications')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('admissions')
 export class ApplicationsController {
   constructor(
     private readonly applicationsService: ApplicationsService,

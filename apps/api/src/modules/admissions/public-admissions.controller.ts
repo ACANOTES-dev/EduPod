@@ -10,6 +10,10 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AdmissionFormsService } from './admission-forms.service';
 import { ApplicationsService } from './applications.service';
 
+// PUBLIC: intentionally ungated. Prospective applicants submit before any
+// tenant relationship exists. The receiving tenant's `admissions` toggle does
+// not gate this endpoint; data still lands in the Application table but admin
+// UI is hidden when disabled.
 @Controller('v1/public/admissions')
 export class PublicAdmissionsController {
   constructor(

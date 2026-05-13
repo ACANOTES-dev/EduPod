@@ -3,6 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job names ───────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
+    private readonly tenantModuleService: TenantModuleService,
   ) {
     super();
   }
@@ -127,6 +129,13 @@ export class AdmissionsPaymentExpiryProcessor extends WorkerHost {
       let totalFailed = 0;
 
       for (const [tenantId, applications] of expiredByTenant) {
+        if (!(await this.tenantModuleService.isEnabled(tenantId, 'admissions'))) {
+          this.logger.debug(
+            `[${ADMISSIONS_PAYMENT_EXPIRY_JOB}] skipping tenant ${tenantId}: admissions disabled`,
+          );
+          continue;
+        }
+
         const result = await this.processTenantBatch(tenantId, applications);
         totalExpired += result.expired;
         totalPromoted += result.promoted;

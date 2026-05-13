@@ -58,6 +58,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       {
         labelKey: 'nav.applications',
         href: '/applications',
+        moduleKey: 'admissions',
         roles: ['parent'],
       },
       {
@@ -206,6 +207,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       {
         labelKey: 'nav.admissions',
         href: '/admissions',
+        moduleKey: 'admissions',
         roles: [...ADMIN_ROLES, 'front_office'],
       },
       {

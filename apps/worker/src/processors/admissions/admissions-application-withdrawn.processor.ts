@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
 export interface AdmissionsApplicationWithdrawnPayload {
@@ -35,7 +37,10 @@ export const ADMISSIONS_APPLICATION_WITHDRAWN_JOB =
 export class AdmissionsApplicationWithdrawnProcessor {
   private readonly logger = new Logger(AdmissionsApplicationWithdrawnProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<AdmissionsApplicationWithdrawnPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_APPLICATION_WITHDRAWN_JOB) {
@@ -55,6 +60,13 @@ export class AdmissionsApplicationWithdrawnProcessor {
       throw new Error(
         `Job rejected: missing tenant_id or application_id for ${ADMISSIONS_APPLICATION_WITHDRAWN_JOB}`,
       );
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'admissions'))) {
+      this.logger.debug(
+        `Skipping ${ADMISSIONS_APPLICATION_WITHDRAWN_JOB} for tenant ${tenant_id}: admissions disabled`,
+      );
+      return;
     }
 
     this.logger.log(

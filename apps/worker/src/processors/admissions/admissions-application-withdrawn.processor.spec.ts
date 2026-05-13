@@ -55,6 +55,12 @@ function buildMockPrisma(): {
   return { mock, fns };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('AdmissionsApplicationWithdrawnProcessor', () => {
@@ -64,7 +70,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
 
   it('skips jobs with a different name', async () => {
     const { mock, fns } = buildMockPrisma();
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
     await processor.process(buildJob('some-other-job'));
     expect(fns.notificationCreate).not.toHaveBeenCalled();
   });
@@ -74,7 +83,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
     fns.parentFindFirst.mockResolvedValue({ user_id: PARENT_USER_ID });
     fns.tenantFindUnique.mockResolvedValue({ name: 'Al-Noor Academy' });
 
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
     await processor.process(buildJob(ADMISSIONS_APPLICATION_WITHDRAWN_JOB));
 
     expect(fns.notificationCreate).toHaveBeenCalledWith({
@@ -100,7 +112,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
   it('skips notification when there is no submitted_by_parent_id', async () => {
     const { mock, fns } = buildMockPrisma();
 
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
     await processor.process(
       buildJob(ADMISSIONS_APPLICATION_WITHDRAWN_JOB, {
         submitted_by_parent_id: null,
@@ -114,7 +129,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
     const { mock, fns } = buildMockPrisma();
     fns.parentFindFirst.mockResolvedValue(null);
 
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
     await processor.process(buildJob(ADMISSIONS_APPLICATION_WITHDRAWN_JOB));
 
     expect(fns.notificationCreate).not.toHaveBeenCalled();
@@ -125,7 +143,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
     fns.parentFindFirst.mockResolvedValue({ user_id: PARENT_USER_ID });
     fns.tenantFindUnique.mockResolvedValue(null);
 
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
     await processor.process(buildJob(ADMISSIONS_APPLICATION_WITHDRAWN_JOB));
 
     expect(fns.notificationCreate).toHaveBeenCalledWith({
@@ -139,7 +160,10 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
 
   it('throws when tenant_id is missing', async () => {
     const { mock } = buildMockPrisma();
-    const processor = new AdmissionsApplicationWithdrawnProcessor(mock);
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(
@@ -148,5 +172,18 @@ describe('AdmissionsApplicationWithdrawnProcessor', () => {
         } as unknown as Partial<AdmissionsApplicationWithdrawnPayload>),
       ),
     ).rejects.toThrow('Job rejected');
+  });
+
+  it('skips silently when admissions is disabled for the tenant', async () => {
+    const { mock, fns } = buildMockPrisma();
+    const processor = new AdmissionsApplicationWithdrawnProcessor(
+      mock,
+      buildTenantModuleService(false) as never,
+    );
+
+    await processor.process(buildJob(ADMISSIONS_APPLICATION_WITHDRAWN_JOB));
+
+    expect(fns.parentFindFirst).not.toHaveBeenCalled();
+    expect(fns.notificationCreate).not.toHaveBeenCalled();
   });
 });

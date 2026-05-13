@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { SENSITIVE_DATA_ACCESS_KEY } from '../../common/decorators/sensitive-data-access.decorator';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { StripeService } from '../finance/stripe.service';
 
 import { ApplicationNotesService } from './application-notes.service';
@@ -59,6 +60,10 @@ const mockConfigService = {
   get: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('ApplicationsController', () => {
   let controller: ApplicationsController;
 
@@ -70,6 +75,7 @@ describe('ApplicationsController', () => {
         { provide: ApplicationNotesService, useValue: mockApplicationNotesService },
         { provide: StripeService, useValue: mockStripeService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -85,10 +91,10 @@ describe('ApplicationsController', () => {
 
   // ─── Guard verification ─────────────────────────────────────────────────────
 
-  it('should have AuthGuard and PermissionGuard applied at class level', () => {
+  it('should have AuthGuard, ModuleEnabledGuard, and PermissionGuard applied at class level', () => {
     const guards = Reflect.getMetadata('__guards__', ApplicationsController);
     expect(guards).toBeDefined();
-    expect(guards.length).toBeGreaterThanOrEqual(2);
+    expect(guards.length).toBeGreaterThanOrEqual(3);
   });
 
   // ─── GET /v1/applications ───────────────────────────────────────────────────

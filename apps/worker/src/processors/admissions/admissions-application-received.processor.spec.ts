@@ -56,6 +56,12 @@ function buildMockPrisma(): {
   return { mock, fns };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('AdmissionsApplicationReceivedProcessor', () => {
   let processor: AdmissionsApplicationReceivedProcessor;
   let fns: ReturnType<typeof buildMockPrisma>['fns'];
@@ -63,7 +69,10 @@ describe('AdmissionsApplicationReceivedProcessor', () => {
   beforeEach(() => {
     const built = buildMockPrisma();
     fns = built.fns;
-    processor = new AdmissionsApplicationReceivedProcessor(built.mock);
+    processor = new AdmissionsApplicationReceivedProcessor(
+      built.mock,
+      buildTenantModuleService() as never,
+    );
 
     fns.parentFindFirst.mockResolvedValue({ user_id: PARENT_USER_ID });
     fns.tenantFindUnique.mockResolvedValue({ name: 'Test School' });
@@ -167,6 +176,19 @@ describe('AdmissionsApplicationReceivedProcessor', () => {
 
     expect(fns.parentFindFirst).not.toHaveBeenCalled();
     expect(fns.notificationCreate).not.toHaveBeenCalled();
+  });
+
+  it('skips silently when admissions is disabled for the tenant', async () => {
+    const built = buildMockPrisma();
+    const disabledProcessor = new AdmissionsApplicationReceivedProcessor(
+      built.mock,
+      buildTenantModuleService(false) as never,
+    );
+
+    await disabledProcessor.process(buildJob(ADMISSIONS_APPLICATION_RECEIVED_JOB));
+
+    expect(built.fns.parentFindFirst).not.toHaveBeenCalled();
+    expect(built.fns.notificationCreate).not.toHaveBeenCalled();
   });
 
   it('skips when parent has no user account', async () => {

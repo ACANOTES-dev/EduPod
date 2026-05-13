@@ -19,7 +19,10 @@ interface ModuleGatingProbe {
 }
 
 const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> = {
-  admissions: [{ method: 'GET', path: '/api/v1/admissions/dashboard' }],
+  admissions: [
+    { method: 'GET', path: '/api/v1/admissions/dashboard-summary' },
+    { method: 'GET', path: '/api/v1/applications' },
+  ],
   ai_functions: [{ method: 'POST', path: '/api/v1/attendance/scan/confirm', body: {} }],
   auto_scheduling: [{ method: 'GET', path: '/api/v1/scheduling/dashboard' }],
   behaviour: [{ method: 'GET', path: '/api/v1/behaviour/incidents' }],
@@ -45,6 +48,7 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
 
 const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
   'ai_functions',
+  'admissions',
   'behaviour',
   'communications_outbound',
   'parent_inquiries',

@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+
 import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
 
@@ -37,13 +39,20 @@ const mockAdmissionFormsService = {
   getSystemFormDefinitionId: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('AdmissionFormsController', () => {
   let controller: AdmissionFormsController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdmissionFormsController],
-      providers: [{ provide: AdmissionFormsService, useValue: mockAdmissionFormsService }],
+      providers: [
+        { provide: AdmissionFormsService, useValue: mockAdmissionFormsService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
+      ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
@@ -58,10 +67,10 @@ describe('AdmissionFormsController', () => {
 
   // ─── Guard verification ─────────────────────────────────────────────────────
 
-  it('should have AuthGuard and PermissionGuard applied at class level', () => {
+  it('should have AuthGuard, ModuleEnabledGuard, and PermissionGuard applied at class level', () => {
     const guards = Reflect.getMetadata('__guards__', AdmissionFormsController);
     expect(guards).toBeDefined();
-    expect(guards.length).toBeGreaterThanOrEqual(2);
+    expect(guards.length).toBeGreaterThanOrEqual(3);
   });
 
   // ─── GET /v1/admission-forms/system ────────────────────────────────────────

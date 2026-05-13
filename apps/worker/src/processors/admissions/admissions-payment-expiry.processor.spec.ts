@@ -90,8 +90,30 @@ function buildQueue(): { queue: Queue; add: jest.Mock } {
   return { queue: { add } as unknown as Queue, add };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildProcessor(prisma: MockPrisma, queue: Queue): AdmissionsPaymentExpiryProcessor {
-  return new AdmissionsPaymentExpiryProcessor(prisma as unknown as PrismaClient, queue);
+  return new AdmissionsPaymentExpiryProcessor(
+    prisma as unknown as PrismaClient,
+    queue,
+    buildTenantModuleService() as never,
+  );
+}
+
+function buildProcessorWithModuleState(
+  prisma: MockPrisma,
+  queue: Queue,
+  enabled: boolean,
+): AdmissionsPaymentExpiryProcessor {
+  return new AdmissionsPaymentExpiryProcessor(
+    prisma as unknown as PrismaClient,
+    queue,
+    buildTenantModuleService(enabled) as never,
+  );
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -127,6 +149,25 @@ describe('AdmissionsPaymentExpiryProcessor', () => {
 
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('skips expired applications for tenants with admissions disabled', async () => {
+    const prisma = buildPrisma();
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        id: APP_A1,
+        tenant_id: TENANT_A,
+        target_academic_year_id: ACADEMIC_YEAR_ID,
+        target_year_group_id: YEAR_GROUP_ID,
+      },
+    ]);
+    const { queue, add } = buildQueue();
+    const processor = buildProcessorWithModuleState(prisma, queue, false);
+
+    await processor.process(buildJob(ADMISSIONS_PAYMENT_EXPIRY_JOB));
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
   });
 
   it('reverts an expired application and fires the notification', async () => {

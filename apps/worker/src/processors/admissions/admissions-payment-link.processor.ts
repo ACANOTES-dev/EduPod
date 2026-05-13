@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 import Stripe from 'stripe';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Payload & job name ──────────────────────────────────────────────────────
 
 export interface AdmissionsPaymentLinkPayload {
@@ -40,7 +42,10 @@ export const ADMISSIONS_PAYMENT_LINK_JOB = 'notifications:admissions-payment-lin
 export class AdmissionsPaymentLinkProcessor {
   private readonly logger = new Logger(AdmissionsPaymentLinkProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<AdmissionsPaymentLinkPayload>): Promise<void> {
     if (job.name !== ADMISSIONS_PAYMENT_LINK_JOB) {
@@ -53,6 +58,13 @@ export class AdmissionsPaymentLinkProcessor {
       throw new Error(
         `Job rejected: missing tenant_id or application_id for ${ADMISSIONS_PAYMENT_LINK_JOB}`,
       );
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'admissions'))) {
+      this.logger.debug(
+        `Skipping ${ADMISSIONS_PAYMENT_LINK_JOB} for tenant ${tenant_id}: admissions disabled`,
+      );
+      return;
     }
 
     this.logger.log(

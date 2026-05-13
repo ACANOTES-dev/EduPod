@@ -4,6 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsService } from './applications.service';
 import { ParentApplicationsController } from './parent-applications.controller';
@@ -42,6 +44,10 @@ const mockApplicationNotesService = {
   findByApplication: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('ParentApplicationsController', () => {
   let controller: ParentApplicationsController;
 
@@ -51,6 +57,7 @@ describe('ParentApplicationsController', () => {
       providers: [
         { provide: ApplicationsService, useValue: mockApplicationsService },
         { provide: ApplicationNotesService, useValue: mockApplicationNotesService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -64,10 +71,10 @@ describe('ParentApplicationsController', () => {
 
   // ─── Guard verification ─────────────────────────────────────────────────────
 
-  it('should have AuthGuard applied at class level (no PermissionGuard)', () => {
+  it('should have AuthGuard and ModuleEnabledGuard applied at class level (no PermissionGuard)', () => {
     const guards = Reflect.getMetadata('__guards__', ParentApplicationsController);
     expect(guards).toBeDefined();
-    expect(guards).toHaveLength(1);
+    expect(guards).toHaveLength(2);
   });
 
   // ─── GET /v1/parent/applications ────────────────────────────────────────────
