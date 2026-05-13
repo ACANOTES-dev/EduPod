@@ -18,8 +18,10 @@ import type { CreateDiaryNoteDto, CreateParentNoteDto, JwtPayload } from '@schoo
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -39,7 +41,8 @@ const updateDiaryNoteSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Controller('v1/diary')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('homework')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class HomeworkDiaryController {
   constructor(private readonly homeworkDiaryService: HomeworkDiaryService) {}
 

@@ -4,6 +4,7 @@ import type { JwtPayload } from '@school/shared';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { HomeworkCompletionsController } from './homework-completions.controller';
@@ -54,6 +55,8 @@ describe('HomeworkCompletionsController', () => {
       providers: [{ provide: HomeworkCompletionsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })

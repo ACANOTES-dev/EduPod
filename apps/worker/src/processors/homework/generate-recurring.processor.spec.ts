@@ -84,11 +84,14 @@ function buildMockPrisma() {
 
 type MockPrisma = ReturnType<typeof buildMockPrisma>;
 
-function buildMockJob(
-  name: string,
-  data: Record<string, unknown> = {},
-): Job {
+function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { name, data } as unknown as Job;
+}
+
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
 }
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
@@ -101,17 +104,18 @@ describe('HomeworkGenerateRecurringProcessor', () => {
     mockPrisma = buildMockPrisma();
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
-    mockPrisma.$transaction.mockImplementation(
-      async (fn: (tx: MockPrisma) => Promise<unknown>) => {
-        const txProxy: MockPrisma = {
-          ...mockPrisma,
-          $executeRaw: jest.fn().mockResolvedValue(undefined),
-        };
-        return fn(txProxy);
-      },
-    );
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+      const txProxy: MockPrisma = {
+        ...mockPrisma,
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+      };
+      return fn(txProxy);
+    });
 
-    processor = new HomeworkGenerateRecurringProcessor(mockPrisma as never);
+    processor = new HomeworkGenerateRecurringProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -157,6 +161,21 @@ describe('HomeworkGenerateRecurringProcessor', () => {
       expect(mockPrisma.homeworkRecurrenceRule.findMany).toHaveBeenCalledTimes(2);
     });
 
+    it('should skip disabled tenants before reading homework recurrence rules', async () => {
+      const tenantModuleService = buildTenantModuleService(false);
+      processor = new HomeworkGenerateRecurringProcessor(
+        mockPrisma as never,
+        tenantModuleService as never,
+      );
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
+
+      await processor.process(buildMockJob(HOMEWORK_GENERATE_RECURRING_JOB));
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID_1, 'homework');
+      expect(mockPrisma.homeworkRecurrenceRule.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.homeworkAssignment.create).not.toHaveBeenCalled();
+    });
+
     it('should continue processing if one tenant fails', async () => {
       mockPrisma.tenant.findMany.mockResolvedValue([
         { id: TENANT_ID_1, name: 'School A' },
@@ -185,9 +204,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
 
   describe('process — school closures', () => {
     it('should skip tenants with school closures for today', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       // School closure exists for today
       mockPrisma.schoolClosure.findFirst.mockResolvedValue({
@@ -206,9 +223,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
     });
 
     it('should process tenants without school closures', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       // No closure for today
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
@@ -225,34 +240,28 @@ describe('HomeworkGenerateRecurringProcessor', () => {
 
   describe('process — recurrence rule processing', () => {
     it('should create draft assignment from recurrence rule template', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
       // Active rule matching today's day of week
-      mockPrisma.homeworkRecurrenceRule.findMany.mockResolvedValue([
-        buildRecurrenceRule(),
-      ]);
+      mockPrisma.homeworkRecurrenceRule.findMany.mockResolvedValue([buildRecurrenceRule()]);
 
       // No existing assignment for today (not a duplicate) — first call
       // Template lookup — second call
-      mockPrisma.homeworkAssignment.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: TEMPLATE_ASSIGNMENT_ID,
-          class_id: CLASS_ID,
-          subject_id: null,
-          academic_year_id: ACADEMIC_YEAR_ID,
-          academic_period_id: null,
-          assigned_by_user_id: USER_ID,
-          title: 'Weekly Reading',
-          description: 'Read chapter 5',
-          homework_type: 'reading',
-          due_time: null,
-          max_points: null,
-        });
+      mockPrisma.homeworkAssignment.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: TEMPLATE_ASSIGNMENT_ID,
+        class_id: CLASS_ID,
+        subject_id: null,
+        academic_year_id: ACADEMIC_YEAR_ID,
+        academic_period_id: null,
+        assigned_by_user_id: USER_ID,
+        title: 'Weekly Reading',
+        description: 'Read chapter 5',
+        homework_type: 'reading',
+        due_time: null,
+        max_points: null,
+      });
 
       const job = buildMockJob(HOMEWORK_GENERATE_RECURRING_JOB);
       await processor.process(job);
@@ -273,9 +282,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
     });
 
     it('should skip rules where today is not in days_of_week', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
@@ -297,15 +304,11 @@ describe('HomeworkGenerateRecurringProcessor', () => {
 
   describe('process — idempotency', () => {
     it('should skip if assignment already exists for today (idempotent)', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
-      mockPrisma.homeworkRecurrenceRule.findMany.mockResolvedValue([
-        buildRecurrenceRule(),
-      ]);
+      mockPrisma.homeworkRecurrenceRule.findMany.mockResolvedValue([buildRecurrenceRule()]);
 
       // Assignment already exists for today — duplicate
       mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
@@ -327,9 +330,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
 
   describe('process — inactive and expired rules', () => {
     it('should not process inactive rules', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
@@ -345,9 +346,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
     });
 
     it('should not process rules past their end_date', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
@@ -370,9 +369,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
 
   describe('process — logging', () => {
     it('should log completion summary', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
       mockPrisma.homeworkRecurrenceRule.findMany.mockResolvedValue([]);
@@ -382,9 +379,7 @@ describe('HomeworkGenerateRecurringProcessor', () => {
       const job = buildMockJob(HOMEWORK_GENERATE_RECURRING_JOB);
       await processor.process(job);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('recurring'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('recurring'));
     });
   });
 });

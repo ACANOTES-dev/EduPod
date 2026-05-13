@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 import { HOMEWORK_DIGEST_JOB, HomeworkDigestProcessor } from './digest-homework.processor';
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
@@ -78,9 +80,13 @@ function buildPublishedAssignment(id: string, overrides: Record<string, unknown>
 describe('HomeworkDigestProcessor', () => {
   let processor: HomeworkDigestProcessor;
   let mockPrisma: MockPrisma;
+  let tenantModuleService: { isEnabled: jest.Mock<Promise<boolean>, [string, string]> };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    tenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    };
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
     mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
@@ -92,7 +98,11 @@ describe('HomeworkDigestProcessor', () => {
     });
 
     const module = await Test.createTestingModule({
-      providers: [HomeworkDigestProcessor, { provide: 'PRISMA_CLIENT', useValue: mockPrisma }],
+      providers: [
+        HomeworkDigestProcessor,
+        { provide: 'PRISMA_CLIENT', useValue: mockPrisma },
+        { provide: TenantModuleService, useValue: tenantModuleService },
+      ],
     }).compile();
 
     processor = module.get<HomeworkDigestProcessor>(HomeworkDigestProcessor);
@@ -115,6 +125,16 @@ describe('HomeworkDigestProcessor', () => {
       await processor.process(job);
 
       expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalled();
+    });
+
+    it('should skip tenant jobs when homework is disabled', async () => {
+      tenantModuleService.isEnabled.mockResolvedValue(false);
+      const job = buildMockJob(HOMEWORK_DIGEST_JOB, { tenant_id: TENANT_ID });
+
+      await processor.process(job);
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'homework');
+      expect(mockPrisma.tenantSetting.findFirst).not.toHaveBeenCalled();
     });
   });
 

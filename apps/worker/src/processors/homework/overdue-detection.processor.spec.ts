@@ -55,11 +55,14 @@ function buildMockPrisma() {
 
 type MockPrisma = ReturnType<typeof buildMockPrisma>;
 
-function buildMockJob(
-  name: string,
-  data: Record<string, unknown> = {},
-): Job {
+function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
   return { name, data } as unknown as Job;
+}
+
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
 }
 
 function buildAssignment(overrides: Record<string, unknown> = {}) {
@@ -92,17 +95,18 @@ describe('HomeworkOverdueDetectionProcessor', () => {
     mockPrisma = buildMockPrisma();
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
-    mockPrisma.$transaction.mockImplementation(
-      async (fn: (tx: MockPrisma) => Promise<unknown>) => {
-        const txProxy: MockPrisma = {
-          ...mockPrisma,
-          $executeRaw: jest.fn().mockResolvedValue(undefined),
-        };
-        return fn(txProxy);
-      },
-    );
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+      const txProxy: MockPrisma = {
+        ...mockPrisma,
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+      };
+      return fn(txProxy);
+    });
 
-    processor = new HomeworkOverdueDetectionProcessor(mockPrisma as never);
+    processor = new HomeworkOverdueDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -149,6 +153,20 @@ describe('HomeworkOverdueDetectionProcessor', () => {
       expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledTimes(2);
     });
 
+    it('should skip disabled tenants before querying overdue assignments', async () => {
+      const tenantModuleService = buildTenantModuleService(false);
+      processor = new HomeworkOverdueDetectionProcessor(
+        mockPrisma as never,
+        tenantModuleService as never,
+      );
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
+
+      await processor.process(buildMockJob(HOMEWORK_OVERDUE_DETECTION_JOB));
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID_1, 'homework');
+      expect(mockPrisma.homeworkAssignment.findMany).not.toHaveBeenCalled();
+    });
+
     it('should continue processing if one tenant fails', async () => {
       mockPrisma.tenant.findMany.mockResolvedValue([
         { id: TENANT_ID_1, name: 'School A' },
@@ -178,13 +196,9 @@ describe('HomeworkOverdueDetectionProcessor', () => {
 
   describe('process — overdue detection', () => {
     it('should detect assignments past due date with incomplete students', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       // Incomplete completions with nested student and student_parents
       mockPrisma.homeworkCompletion.findMany.mockResolvedValue([
@@ -217,9 +231,7 @@ describe('HomeworkOverdueDetectionProcessor', () => {
     });
 
     it('should not flag assignments that are not yet past due date', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -251,9 +263,7 @@ describe('HomeworkOverdueDetectionProcessor', () => {
       const job = buildMockJob(HOMEWORK_OVERDUE_DETECTION_JOB);
       await processor.process(job);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('cron complete'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('cron complete'));
     });
   });
 
@@ -261,13 +271,9 @@ describe('HomeworkOverdueDetectionProcessor', () => {
 
   describe('process — deduplication', () => {
     it('should not send duplicate notification for same assignment and parent', async () => {
-      mockPrisma.tenant.findMany.mockResolvedValue([
-        { id: TENANT_ID_1, name: 'School A' },
-      ]);
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_ID_1, name: 'School A' }]);
 
-      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
-        buildAssignment(),
-      ]);
+      mockPrisma.homeworkAssignment.findMany.mockResolvedValue([buildAssignment()]);
 
       // Incomplete completions with nested student and student_parents
       mockPrisma.homeworkCompletion.findMany.mockResolvedValue([

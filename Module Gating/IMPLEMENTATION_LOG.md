@@ -35,7 +35,7 @@
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | 📦     |
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | 📦     |
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | 📦     |
-| 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | ⏳     |
+| 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | 📦     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | ⏳     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | ⏳     |
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ⏳     |
@@ -455,14 +455,25 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 6 controllers under `apps/api/src/modules/homework/` gain `@ModuleEnabled('homework')` + `ModuleEnabledGuard` at class level.
-- [ ] Homework cron processors gain tenant module check (completion-reminder, digest-homework, generate-recurring, homework-queue, overdue-detection).
-- [ ] Frontend `/homework`, `/learning/homework` hidden via nav filter when disabled.
-- [ ] Module-gating leakage test passes for `homework`.
+- [x] All 6 controllers under `apps/api/src/modules/homework/` gain `@ModuleEnabled('homework')` + `ModuleEnabledGuard` at class level.
+- [x] Homework cron processors gain tenant module check (completion-reminder, digest-homework, generate-recurring, homework-queue, overdue-detection).
+- [x] Frontend `/homework` nav, `/learning/homework` hub card, and parent homework dashboard tile/summary fetch are hidden/skipped when disabled.
+- [x] Module-gating leakage test passes for `homework`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce homework module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts src/modules/homework/homework.controller.spec.ts src/modules/homework/homework-analytics.controller.spec.ts src/modules/homework/homework-completions.controller.spec.ts src/modules/homework/homework-diary.controller.spec.ts src/modules/homework/homework-parent.controller.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/homework/completion-reminder.processor.spec.ts src/processors/homework/digest-homework.processor.spec.ts src/processors/homework/generate-recurring.processor.spec.ts src/processors/homework/homework-queue.processor.spec.ts src/processors/homework/overdue-detection.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=homework)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing max-lines plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: The spec's homework probe paths were corrected to the actual routes: `/api/v1/homework`, `/api/v1/student/homework`, and `/api/v1/homework/analytics/completion-rates`. Re-enabling missed-recurring-generation behavior was not production-smoked because this pass avoided disruptive module off/on toggles.
 
 ---
 

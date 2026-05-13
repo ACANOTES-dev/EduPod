@@ -1,16 +1,11 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -35,11 +30,10 @@ type LoadQuery = z.infer<typeof loadQuerySchema>;
 // ─── Controller ──────────────────────────────────────────────────────────────
 
 @Controller('v1/homework/analytics')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('homework')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class HomeworkAnalyticsController {
-  constructor(
-    private readonly analyticsService: HomeworkAnalyticsService,
-  ) {}
+  constructor(private readonly analyticsService: HomeworkAnalyticsService) {}
 
   // GET /v1/homework/analytics/completion-rates
   @Get('completion-rates')
@@ -48,10 +42,7 @@ export class HomeworkAnalyticsController {
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.completionRates(
-      tenantContext.tenant_id,
-      query,
-    );
+    return this.analyticsService.completionRates(tenantContext.tenant_id, query);
   }
 
   // GET /v1/homework/analytics/load
@@ -71,10 +62,7 @@ export class HomeworkAnalyticsController {
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.dailyLoadHeatmap(
-      tenantContext.tenant_id,
-      query,
-    );
+    return this.analyticsService.dailyLoadHeatmap(tenantContext.tenant_id, query);
   }
 
   // GET /v1/homework/analytics/non-completers
@@ -84,10 +72,7 @@ export class HomeworkAnalyticsController {
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.nonCompleters(
-      tenantContext.tenant_id,
-      query,
-    );
+    return this.analyticsService.nonCompleters(tenantContext.tenant_id, query);
   }
 
   // GET /v1/homework/analytics/correlation
@@ -97,10 +82,7 @@ export class HomeworkAnalyticsController {
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.correlationAnalysis(
-      tenantContext.tenant_id,
-      query,
-    );
+    return this.analyticsService.correlationAnalysis(tenantContext.tenant_id, query);
   }
 
   // GET /v1/homework/analytics/student/:studentId
@@ -111,11 +93,7 @@ export class HomeworkAnalyticsController {
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.studentTrends(
-      tenantContext.tenant_id,
-      studentId,
-      query,
-    );
+    return this.analyticsService.studentTrends(tenantContext.tenant_id, studentId, query);
   }
 
   // GET /v1/homework/analytics/class/:classId
@@ -126,11 +104,7 @@ export class HomeworkAnalyticsController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.classPatterns(
-      tenantContext.tenant_id,
-      classId,
-      query,
-    );
+    return this.analyticsService.classPatterns(tenantContext.tenant_id, classId, query);
   }
 
   // GET /v1/homework/analytics/subject/:subjectId
@@ -141,11 +115,7 @@ export class HomeworkAnalyticsController {
     @Param('subjectId', ParseUUIDPipe) subjectId: string,
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.subjectTrends(
-      tenantContext.tenant_id,
-      subjectId,
-      query,
-    );
+    return this.analyticsService.subjectTrends(tenantContext.tenant_id, subjectId, query);
   }
 
   // GET /v1/homework/analytics/teacher/:staffId
@@ -156,11 +126,7 @@ export class HomeworkAnalyticsController {
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.teacherPatterns(
-      tenantContext.tenant_id,
-      staffId,
-      query,
-    );
+    return this.analyticsService.teacherPatterns(tenantContext.tenant_id, staffId, query);
   }
 
   // GET /v1/homework/analytics/year-group/:ygId
@@ -171,10 +137,6 @@ export class HomeworkAnalyticsController {
     @Param('ygId', ParseUUIDPipe) ygId: string,
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
   ) {
-    return this.analyticsService.yearGroupOverview(
-      tenantContext.tenant_id,
-      ygId,
-      query,
-    );
+    return this.analyticsService.yearGroupOverview(tenantContext.tenant_id, ygId, query);
   }
 }

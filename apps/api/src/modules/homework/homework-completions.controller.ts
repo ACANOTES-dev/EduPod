@@ -17,8 +17,10 @@ import type { BulkMarkCompletionDto, JwtPayload, MarkCompletionDto } from '@scho
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -36,7 +38,8 @@ const returnSubmissionSchema = z.object({
 });
 
 @Controller('v1/homework')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('homework')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class HomeworkCompletionsController {
   constructor(private readonly completionsService: HomeworkCompletionsService) {}
 

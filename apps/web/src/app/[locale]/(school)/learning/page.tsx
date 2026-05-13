@@ -14,7 +14,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared/modules';
+
 import { PageHeader } from '@/components/page-header';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import type { RoleKey } from '@/lib/route-roles';
 import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
@@ -28,6 +31,7 @@ interface LearningCardConfig {
   accent: string;
   iconBg: string;
   glow: string;
+  moduleKey?: ModuleKey;
   roles: RoleKey[];
 }
 
@@ -66,6 +70,7 @@ const CARDS: LearningCardConfig[] = [
     accent: 'from-rose-400 via-rose-500 to-rose-600',
     iconBg: 'bg-rose-100 text-rose-700',
     glow: 'from-rose-50/80',
+    moduleKey: 'homework',
     roles: [...STAFF_ROLES, 'parent'],
   },
   {
@@ -95,11 +100,17 @@ export default function LearningHubPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const homeworkEnabled = useModuleEnabled('homework');
   const { hasAnyRole } = useRoleCheck();
 
   const visibleCards = React.useMemo(
-    () => CARDS.filter((card) => hasAnyRole(...card.roles)),
-    [hasAnyRole],
+    () =>
+      CARDS.filter(
+        (card) =>
+          hasAnyRole(...card.roles) &&
+          (!card.moduleKey || card.moduleKey !== 'homework' || homeworkEnabled),
+      ),
+    [hasAnyRole, homeworkEnabled],
   );
 
   return (

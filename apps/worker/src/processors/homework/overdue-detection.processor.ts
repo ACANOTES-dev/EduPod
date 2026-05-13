@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 
 import { homeworkSettingsSchema } from '@school/shared';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
@@ -16,7 +17,10 @@ export const HOMEWORK_OVERDUE_DETECTION_JOB = 'homework:overdue-detection';
 export class HomeworkOverdueDetectionProcessor {
   private readonly logger = new Logger(HomeworkOverdueDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== HOMEWORK_OVERDUE_DETECTION_JOB) return;
@@ -33,6 +37,13 @@ export class HomeworkOverdueDetectionProcessor {
     let successCount = 0;
     for (const tenant of tenants) {
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'homework');
+        if (!enabled) {
+          this.logger.debug(
+            `Skipping ${HOMEWORK_OVERDUE_DETECTION_JOB} for tenant ${tenant.id}: homework module disabled`,
+          );
+          continue;
+        }
         const innerJob = new HomeworkOverdueDetectionJob(this.prisma);
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;

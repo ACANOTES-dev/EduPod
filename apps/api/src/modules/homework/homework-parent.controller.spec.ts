@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { HomeworkParentController } from './homework-parent.controller';
@@ -46,6 +47,8 @@ describe('HomeworkParentController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -66,18 +69,10 @@ describe('HomeworkParentController', () => {
       const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockService.listAll.mockResolvedValue(expected);
 
-      const result = await controller.listAll(
-        tenantContext as never,
-        userPayload as never,
-        query,
-      );
+      const result = await controller.listAll(tenantContext as never, userPayload as never, query);
 
       expect(result).toEqual(expected);
-      expect(mockService.listAll).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        query,
-      );
+      expect(mockService.listAll).toHaveBeenCalledWith(TENANT_ID, USER_ID, query);
     });
   });
 
@@ -88,10 +83,7 @@ describe('HomeworkParentController', () => {
       const expected = { data: [] };
       mockService.listToday.mockResolvedValue(expected);
 
-      const result = await controller.listToday(
-        tenantContext as never,
-        userPayload as never,
-      );
+      const result = await controller.listToday(tenantContext as never, userPayload as never);
 
       expect(result).toEqual(expected);
       expect(mockService.listToday).toHaveBeenCalledWith(TENANT_ID, USER_ID);
@@ -105,10 +97,7 @@ describe('HomeworkParentController', () => {
       const expected = { data: [] };
       mockService.listOverdue.mockResolvedValue(expected);
 
-      const result = await controller.listOverdue(
-        tenantContext as never,
-        userPayload as never,
-      );
+      const result = await controller.listOverdue(tenantContext as never, userPayload as never);
 
       expect(result).toEqual(expected);
       expect(mockService.listOverdue).toHaveBeenCalledWith(TENANT_ID, USER_ID);
@@ -122,10 +111,7 @@ describe('HomeworkParentController', () => {
       const expected = { data: [] };
       mockService.listWeek.mockResolvedValue(expected);
 
-      const result = await controller.listWeek(
-        tenantContext as never,
-        userPayload as never,
-      );
+      const result = await controller.listWeek(tenantContext as never, userPayload as never);
 
       expect(result).toEqual(expected);
       expect(mockService.listWeek).toHaveBeenCalledWith(TENANT_ID, USER_ID);
@@ -155,11 +141,7 @@ describe('HomeworkParentController', () => {
       );
 
       expect(result).toEqual(expected);
-      expect(mockService.studentSummary).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-      );
+      expect(mockService.studentSummary).toHaveBeenCalledWith(TENANT_ID, USER_ID, STUDENT_ID);
     });
   });
 
@@ -179,12 +161,7 @@ describe('HomeworkParentController', () => {
       );
 
       expect(result).toEqual(expected);
-      expect(mockService.studentDiary).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        query,
-      );
+      expect(mockService.studentDiary).toHaveBeenCalledWith(TENANT_ID, USER_ID, STUDENT_ID, query);
     });
   });
 
@@ -192,10 +169,7 @@ describe('HomeworkParentController', () => {
 
   describe('Permission guards', () => {
     it('should have AuthGuard and PermissionGuard applied at class level', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        HomeworkParentController,
-      );
+      const guards = Reflect.getMetadata('__guards__', HomeworkParentController);
       expect(guards).toBeDefined();
       expect(guards.length).toBeGreaterThanOrEqual(2);
     });

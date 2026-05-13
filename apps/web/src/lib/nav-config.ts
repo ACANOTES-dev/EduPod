@@ -104,7 +104,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
     items: [
       { labelKey: 'nav.attendance', href: '/attendance' },
       { labelKey: 'nav.gradebook', href: '/gradebook', moduleKey: 'gradebook' },
-      { labelKey: 'nav.homework', href: '/homework' },
+      { labelKey: 'nav.homework', href: '/homework', moduleKey: 'homework' },
       {
         labelKey: 'nav.reportCards',
         href: '/report-cards',

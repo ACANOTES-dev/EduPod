@@ -34,12 +34,16 @@ describe('HomeworkQueueDispatcher', () => {
     const homeworkOverdueDetection = {
       process: jest.fn().mockResolvedValue(undefined),
     } as unknown as HomeworkOverdueDetectionProcessor;
+    const tenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    };
 
     const dispatcher = new HomeworkQueueDispatcher(
       homeworkCompletionReminder,
       homeworkDigest,
       homeworkGenerateRecurring,
       homeworkOverdueDetection,
+      tenantModuleService as never,
     );
 
     return {
@@ -48,6 +52,7 @@ describe('HomeworkQueueDispatcher', () => {
       homeworkDigest,
       homeworkGenerateRecurring,
       homeworkOverdueDetection,
+      tenantModuleService,
     };
   }
 
@@ -86,5 +91,23 @@ describe('HomeworkQueueDispatcher', () => {
     const job = { id: 'job-weird', name: 'something:totally-unknown', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('skips tenant-scoped jobs when homework is disabled', async () => {
+    const harness = buildDispatcher();
+    harness.tenantModuleService.isEnabled.mockResolvedValue(false);
+    const job = {
+      id: 'job-disabled',
+      name: HOMEWORK_COMPLETION_REMINDER_JOB,
+      data: { tenant_id: '11111111-1111-1111-1111-111111111111' },
+    } as Job;
+
+    await harness.dispatcher.process(job);
+
+    expect(harness.tenantModuleService.isEnabled).toHaveBeenCalledWith(
+      '11111111-1111-1111-1111-111111111111',
+      'homework',
+    );
+    expect(harness.homeworkCompletionReminder.process).not.toHaveBeenCalled();
   });
 });

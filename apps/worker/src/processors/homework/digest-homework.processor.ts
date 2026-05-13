@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 
 import { homeworkSettingsSchema } from '@school/shared';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -22,13 +23,23 @@ export const HOMEWORK_DIGEST_JOB = 'homework:digest-homework';
 export class HomeworkDigestProcessor {
   private readonly logger = new Logger(HomeworkDigestProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<HomeworkDigestPayload>): Promise<void> {
     if (job.name !== HOMEWORK_DIGEST_JOB) return;
 
     const directTenantId = job.data?.tenant_id;
     if (directTenantId) {
+      const enabled = await this.tenantModuleService.isEnabled(directTenantId, 'homework');
+      if (!enabled) {
+        this.logger.debug(
+          `Skipping ${HOMEWORK_DIGEST_JOB} for tenant ${directTenantId}: homework module disabled`,
+        );
+        return;
+      }
       this.logger.log(`Processing ${HOMEWORK_DIGEST_JOB} for tenant ${directTenantId}`);
       const digestJob = new HomeworkDigestJob(this.prisma);
       await digestJob.execute({ tenant_id: directTenantId });
@@ -47,6 +58,13 @@ export class HomeworkDigestProcessor {
     let successCount = 0;
     for (const tenant of tenants) {
       try {
+        const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'homework');
+        if (!enabled) {
+          this.logger.debug(
+            `Skipping ${HOMEWORK_DIGEST_JOB} for tenant ${tenant.id}: homework module disabled`,
+          );
+          continue;
+        }
         const digestJob = new HomeworkDigestJob(this.prisma);
         await digestJob.execute({ tenant_id: tenant.id });
         successCount++;

@@ -25,6 +25,7 @@ import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
+import type { ModuleKey } from '@school/shared/modules';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { useModuleEnabled } from '@/hooks/use-module-enabled';
@@ -54,6 +55,7 @@ interface ParentNavTile {
   icon: LucideIcon;
   iconBg: string;
   accent: string;
+  moduleKey?: ModuleKey;
 }
 
 const PARENT_NAV_TILES: ParentNavTile[] = [
@@ -112,6 +114,7 @@ const PARENT_NAV_TILES: ParentNavTile[] = [
     icon: BookOpen,
     iconBg: 'bg-emerald-100 text-emerald-700',
     accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
+    moduleKey: 'homework',
   },
   {
     key: 'events',
@@ -216,6 +219,7 @@ export default function ParentDashboardPage() {
   const locale = useLocale();
   const { user } = useAuth();
   const financeEnabled = useModuleEnabled('finance');
+  const homeworkEnabled = useModuleEnabled('homework');
   const searchParams = useSearchParams();
   const initialTab = ((): ParentTab => {
     const v = searchParams?.get('tab');
@@ -266,6 +270,11 @@ export default function ParentDashboardPage() {
 
   // Fetch homework summary for dashboard card
   useEffect(() => {
+    if (!homeworkEnabled) {
+      setHwToday([]);
+      setHwOverdue([]);
+      return;
+    }
     Promise.all([
       apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch((err) => {
         console.error('[DashboardParentPage]', err);
@@ -285,7 +294,7 @@ export default function ParentDashboardPage() {
         setHwOverdue(overdueRes.data ?? []);
       })
       .catch((err) => console.error('[ParentDashboard] Failed to load homework summary', err));
-  }, []);
+  }, [homeworkEnabled]);
 
   // Fetch unacknowledged notes count across all children
   useEffect(() => {
@@ -379,6 +388,9 @@ export default function ParentDashboardPage() {
     })) ?? [];
 
   const hasChildren = children.length > 0;
+  const visibleParentTiles = PARENT_NAV_TILES.filter(
+    (tile) => !tile.moduleKey || tile.moduleKey !== 'homework' || homeworkEnabled,
+  );
   const parentName = user?.first_name ?? data?.greeting.split(',').slice(1).join(',').trim() ?? '';
   const hour = new Date().getHours();
   const localizedGreeting =
@@ -512,7 +524,7 @@ export default function ParentDashboardPage() {
                 {t('parentDashboard.navTiles.title')}
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {PARENT_NAV_TILES.map((tile) => (
+                {visibleParentTiles.map((tile) => (
                   <ParentNavTileCard key={tile.key} tile={tile} locale={locale} />
                 ))}
               </div>

@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 import {
@@ -36,11 +37,21 @@ export class HomeworkQueueDispatcher extends WorkerHost {
     private readonly homeworkDigest: HomeworkDigestProcessor,
     private readonly homeworkGenerateRecurring: HomeworkGenerateRecurringProcessor,
     private readonly homeworkOverdueDetection: HomeworkOverdueDetectionProcessor,
+    private readonly tenantModuleService: TenantModuleService,
   ) {
     super();
   }
 
   async process(job: Job): Promise<void> {
+    const tenantId = this.getTenantId(job);
+    if (tenantId) {
+      const enabled = await this.tenantModuleService.isEnabled(tenantId, 'homework');
+      if (!enabled) {
+        this.logger.debug(`Skipping ${job.name} for tenant ${tenantId}: homework module disabled`);
+        return;
+      }
+    }
+
     switch (job.name) {
       case HOMEWORK_COMPLETION_REMINDER_JOB:
         await this.homeworkCompletionReminder.process(job);
@@ -62,5 +73,10 @@ export class HomeworkQueueDispatcher extends WorkerHost {
         }
         return;
     }
+  }
+
+  private getTenantId(job: Job): string | null {
+    const data = job.data as { tenant_id?: unknown } | undefined;
+    return typeof data?.tenant_id === 'string' ? data.tenant_id : null;
   }
 }

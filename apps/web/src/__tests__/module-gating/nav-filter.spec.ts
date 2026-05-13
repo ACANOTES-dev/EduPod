@@ -97,4 +97,10 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/finance')?.moduleKey).toBe('finance');
     expect(allItems.find((item) => item.href === '/payroll')?.moduleKey).toBe('payroll');
   });
+
+  it('annotates homework entries in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/homework')?.moduleKey).toBe('homework');
+  });
 });

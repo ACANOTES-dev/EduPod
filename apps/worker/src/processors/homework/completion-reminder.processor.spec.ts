@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 import {
   HOMEWORK_COMPLETION_REMINDER_JOB,
   HomeworkCompletionReminderProcessor,
@@ -92,9 +94,13 @@ function buildMockJob(name: string, data: Record<string, unknown> = {}): Job {
 describe('HomeworkCompletionReminderProcessor', () => {
   let processor: HomeworkCompletionReminderProcessor;
   let mockPrisma: MockPrisma;
+  let tenantModuleService: { isEnabled: jest.Mock<Promise<boolean>, [string, string]> };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    tenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    };
 
     // Default $transaction: execute the callback, passing mockPrisma as tx
     mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
@@ -109,6 +115,7 @@ describe('HomeworkCompletionReminderProcessor', () => {
       providers: [
         HomeworkCompletionReminderProcessor,
         { provide: 'PRISMA_CLIENT', useValue: mockPrisma },
+        { provide: TenantModuleService, useValue: tenantModuleService },
       ],
     }).compile();
 
@@ -136,6 +143,16 @@ describe('HomeworkCompletionReminderProcessor', () => {
       await processor.process(job);
 
       expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalled();
+    });
+
+    it('should skip tenant jobs when homework is disabled', async () => {
+      tenantModuleService.isEnabled.mockResolvedValue(false);
+      const job = buildMockJob(HOMEWORK_COMPLETION_REMINDER_JOB, { tenant_id: TENANT_ID });
+
+      await processor.process(job);
+
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'homework');
+      expect(mockPrisma.tenantSetting.findFirst).not.toHaveBeenCalled();
     });
   });
 
