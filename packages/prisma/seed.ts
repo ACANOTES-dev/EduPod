@@ -3,8 +3,6 @@ import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 
-import { MODULE_REGISTRY } from '@school/shared/modules';
-
 import { COMMS_GAP_TEMPLATE_SEEDS } from './seed/comms-gap-templates';
 import { COVER_NOTIFICATION_TEMPLATE_SEEDS } from './seed/cover-notification-templates';
 import {
@@ -21,6 +19,8 @@ import { SYSTEM_ROLES } from './seed/system-roles';
 import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
 import { seedReportsDefaultsForTenant } from './src/reports-defaults';
 import { seedWellbeingDefaultsForTenant } from './src/wellbeing-defaults';
+
+type ModuleRegistry = ReadonlyArray<{ default_enabled: boolean; key: string }>;
 
 /**
  * Seed script for the School Operating System.
@@ -133,6 +133,7 @@ async function main() {
     throw new Error('Seed script must not run in production. Set NODE_ENV != production.');
   }
 
+  const moduleRegistry = await loadModuleRegistry();
   const connectionString = getDirectDatabaseUrl();
 
   // Step 1-2: Extensions and trigger function via raw pg
@@ -407,7 +408,7 @@ async function main() {
       });
 
       // Create module rows for every supported gateable module from the canonical registry.
-      for (const moduleDefinition of MODULE_REGISTRY) {
+      for (const moduleDefinition of moduleRegistry) {
         const existing = await prisma.tenantModule.findFirst({
           where: { tenant_id: tenant.id, module_key: moduleDefinition.key },
         });
@@ -1687,6 +1688,13 @@ async function main() {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+async function loadModuleRegistry(): Promise<ModuleRegistry> {
+  const registryModulePath = new URL('../shared/src/modules/index.ts', import.meta.url).href;
+  const registryModule = (await import(registryModulePath)) as { MODULE_REGISTRY: ModuleRegistry };
+
+  return registryModule.MODULE_REGISTRY;
 }
 
 main().catch((err) => {

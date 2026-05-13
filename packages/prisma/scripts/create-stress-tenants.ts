@@ -25,10 +25,10 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
-import { MODULE_REGISTRY } from '@school/shared/modules';
-
 import { seedInboxDefaultsForTenant } from '../src/inbox-defaults';
 import { SYSTEM_ROLES } from '../seed/system-roles';
+
+type ModuleRegistry = ReadonlyArray<{ default_enabled: boolean; key: string }>;
 
 // Use the migrate URL (edupod_admin role with BYPASSRLS) because we are
 // provisioning cross-tenant rows that the regular edupod_app role can't
@@ -154,6 +154,7 @@ async function provisionTenant(
   def: StressTenantDef,
   permissionMap: Map<string, string>,
   passwordHash: string,
+  moduleRegistry: ModuleRegistry,
 ): Promise<void> {
   console.log(`\n=== ${def.slug} ===`);
 
@@ -203,7 +204,7 @@ async function provisionTenant(
   });
 
   // 5. Modules
-  for (const moduleDefinition of MODULE_REGISTRY) {
+  for (const moduleDefinition of moduleRegistry) {
     const existing = await prisma.tenantModule.findFirst({
       where: { tenant_id: tenant.id, module_key: moduleDefinition.key },
     });
@@ -372,6 +373,7 @@ async function provisionTenant(
 }
 
 async function main() {
+  const moduleRegistry = await loadModuleRegistry();
   const permissions = await prisma.permission.findMany();
   const permissionMap = new Map(permissions.map((p) => [p.permission_key, p.id]));
   console.log(`Loaded ${permissionMap.size} permissions from DB`);
@@ -379,7 +381,7 @@ async function main() {
   const passwordHash = await hash(PASSWORD, BCRYPT_ROUNDS);
 
   for (const def of STRESS_TENANTS) {
-    await provisionTenant(def, permissionMap, passwordHash);
+    await provisionTenant(def, permissionMap, passwordHash, moduleRegistry);
   }
 
   console.log('\n=============== STRESS TEST CREDENTIALS ===============');
@@ -394,6 +396,13 @@ async function main() {
     console.log('');
   }
   console.log('========================================================');
+}
+
+async function loadModuleRegistry(): Promise<ModuleRegistry> {
+  const registryModulePath = new URL('../../shared/src/modules/index.ts', import.meta.url).href;
+  const registryModule = (await import(registryModulePath)) as { MODULE_REGISTRY: ModuleRegistry };
+
+  return registryModule.MODULE_REGISTRY;
 }
 
 main()
