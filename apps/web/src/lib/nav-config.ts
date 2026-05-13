@@ -8,6 +8,8 @@
  * This file must have NO React, Next.js, lucide-react, or browser dependencies.
  */
 
+import type { ModuleKey } from '@school/shared';
+
 import type { RoleKey } from '@/lib/route-roles';
 import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
 
@@ -17,6 +19,7 @@ import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
 export interface NavItemConfig {
   labelKey: string;
   href: string;
+  moduleKey?: ModuleKey;
   /** If set, item is only visible to users with one of these role_keys. If omitted, visible to all. */
   roles?: RoleKey[];
 }
@@ -24,6 +27,7 @@ export interface NavItemConfig {
 export interface NavSectionConfig {
   labelKey: string;
   items: NavItemConfig[];
+  moduleKey?: ModuleKey;
   /** If set, entire section is only visible to users with one of these role_keys. */
   roles?: RoleKey[];
 }
@@ -253,12 +257,28 @@ export function filterNavForRoles(
     .filter((section) => section.items.length > 0);
 }
 
+export function filterNavByModules(
+  sections: NavSectionConfig[],
+  enabledModules: readonly ModuleKey[],
+): NavSectionConfig[] {
+  return sections
+    .filter((section) => !section.moduleKey || enabledModules.includes(section.moduleKey))
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.moduleKey || enabledModules.includes(item.moduleKey),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
 // ─── Hub configurations (Morph Bar) ──────────────────────────────────────────
 
 export interface HubConfig {
   key: string;
   labelKey: string;
   basePaths: string[];
+  moduleKey?: ModuleKey;
   roles?: RoleKey[];
 }
 
@@ -392,6 +412,7 @@ export const hubConfigs: HubConfig[] = [
 export interface SubStripTabConfig {
   labelKey: string;
   href: string;
+  moduleKey?: ModuleKey;
   overflow?: boolean;
   roles?: RoleKey[];
 }
@@ -407,6 +428,8 @@ export interface SubStripGroupConfig {
   children?: SubStripTabConfig[];
   /** Role-gate for the entire group */
   roles?: RoleKey[];
+  /** Module-gate for the entire group */
+  moduleKey?: ModuleKey;
 }
 
 /**

@@ -9,8 +9,10 @@ import {
   ACCOUNT_LOCKOUT_DURATION_MINUTES,
   ACCOUNT_LOCKOUT_THRESHOLD,
   type JwtPayload,
+  type ModuleKey,
   type RefreshTokenPayload,
   type SessionMetadata,
+  isModuleKey,
 } from '@school/shared';
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
@@ -621,10 +623,24 @@ export class AuthService {
 
     const rows = await this.tenantReadFacade.findModules(tenantId);
     const data = rows
+      .filter((r) => isModuleKey(r.module_key))
       .map((r) => ({ module_key: r.module_key, is_enabled: r.is_enabled }))
       .sort((a, b) => a.module_key.localeCompare(b.module_key));
 
     return { data };
+  }
+
+  private async getEnabledModuleKeys(tenantId?: string | null): Promise<ModuleKey[]> {
+    if (!tenantId) {
+      return [];
+    }
+
+    const rows = await this.tenantReadFacade.findModules(tenantId);
+    return rows
+      .filter((row): row is typeof row & { module_key: ModuleKey } => isModuleKey(row.module_key))
+      .filter((row) => row.is_enabled)
+      .map((row) => row.module_key)
+      .sort((a, b) => a.localeCompare(b));
   }
 
   async getMe(
@@ -632,6 +648,7 @@ export class AuthService {
     tenantId?: string | null,
   ): Promise<{
     user: SanitisedUser;
+    enabled_modules: ModuleKey[];
     memberships: Array<{
       id: string;
       tenant_id: string;
@@ -682,9 +699,11 @@ export class AuthService {
           },
         }),
     );
+    const enabledModules = await this.getEnabledModuleKeys(tenantId);
 
     return {
       user: this.sanitiseUser(user),
+      enabled_modules: enabledModules,
       memberships: memberships.map((m) => ({
         id: m.id,
         tenant_id: m.tenant_id,

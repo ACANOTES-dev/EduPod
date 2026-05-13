@@ -20374,5 +20374,10 @@
         "saveError": "Impossible d'enregistrer les langues de communication."
       }
     }
+  },
+  "disabled": {
+    "title": "Fonction indisponible",
+    "body": "La fonction à laquelle vous essayez d'accéder ({module}) a été désactivée par l'administrateur de votre école. Contactez-le si vous pensez qu'il s'agit d'une erreur.",
+    "return_home": "Retour à l'accueil"
   }
 }

@@ -1,8 +1,9 @@
-import { apiClient } from './api-client';
+import { apiClient, setApiErrorHandler } from './api-client';
 
 describe('apiClient — autoUnwrap behaviour', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setApiErrorHandler(null);
   });
 
   it('unwraps { data: T } envelope for singleton responses', async () => {
@@ -228,5 +229,41 @@ describe('apiClient — autoUnwrap behaviour', () => {
 
     const result = await apiClient<{ data: string }>('/test');
     expect(result.data).toBe('inner-payload');
+  });
+
+  it('redirects module-disabled responses to the disabled landing page', async () => {
+    const errorHandler = jest.fn();
+    setApiErrorHandler(errorHandler);
+    const location = { pathname: '/en/gradebook', href: '/en/gradebook' };
+    Object.defineProperty(global, 'window', {
+      configurable: true,
+      value: { location },
+    });
+    global.fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'MODULE_DISABLED',
+              module: 'gradebook',
+              message: 'This feature is disabled by your administrator.',
+            },
+          }),
+          {
+            status: 404,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      ),
+    );
+
+    void apiClient('/api/v1/gradebook');
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(errorHandler).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'MODULE_DISABLED', module: 'gradebook' }),
+    );
+    expect(location.href).toBe('/en/disabled?module=gradebook');
   });
 });

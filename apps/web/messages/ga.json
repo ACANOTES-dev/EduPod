@@ -20374,5 +20374,10 @@
         "saveError": "Níorbh fhéidir teangacha cumarsáide a shábháil."
       }
     }
+  },
+  "disabled": {
+    "title": "Feature unavailable",
+    "body": "The feature you're trying to access ({module}) has been disabled by your school administrator. Please contact them if you believe this is a mistake.",
+    "return_home": "Return to home"
   }
 }

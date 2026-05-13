@@ -24,7 +24,7 @@
 | 01  | [Canonical module registry](implementations/01-canonical-module-registry.md)                     | W1   | 📦     |
 | 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | 📦     |
 | 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | 📦     |
-| 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | ⏳     |
+| 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | 📦     |
 | 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | ⏳     |
 | 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | ⏳     |
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | ⏳     |
@@ -138,17 +138,28 @@
 
 #### Acceptance
 
-- [ ] `apps/web/src/hooks/use-module-enabled.ts` exports `useModuleEnabled(key: ModuleKey): boolean`.
-- [ ] `apps/web/src/components/if-module-enabled.tsx` exports `<IfModuleEnabled module={key}>{children}</IfModuleEnabled>`.
-- [ ] `/me` endpoint extended: response includes `enabled_modules: ModuleKey[]`. New field is populated server-side from `TenantModuleService.getEnabledModules(tenantId)`.
-- [ ] Frontend boot context (the existing tenant context provider) populates `enabledModules` from `/me`.
-- [ ] Morph-shell nav config supports a `moduleKey?: ModuleKey` field on each entry; render-time filter hides entries whose key is not in `enabledModules`.
-- [ ] New route `/[locale]/disabled` exists; reads `?module=<key>` query param; shows "this feature is disabled by your admin" with a Return to home link.
-- [ ] Axios client has an interceptor that catches `MODULE_DISABLED` 404s, fires a toast, and redirects to `/disabled?module=<key>`.
+- [x] `apps/web/src/hooks/use-module-enabled.ts` exports `useModuleEnabled(key: ModuleKey): boolean`.
+- [x] `apps/web/src/components/if-module-enabled.tsx` exports `<IfModuleEnabled module={key}>{children}</IfModuleEnabled>`.
+- [x] `/me` endpoint extended: response includes `enabled_modules: ModuleKey[]`. New field is populated server-side from canonical tenant module rows.
+- [x] Frontend boot context (the existing auth provider) populates `enabledModules` from `/me`.
+- [x] Morph-shell nav config supports a `moduleKey?: ModuleKey` field on each entry; render-time filter hides entries whose key is not in `enabledModules`.
+- [x] New route `/[locale]/disabled` exists; reads `?module=<key>` query param; shows "this feature is disabled by your admin" with a Return to home link.
+- [x] API client has an interceptor path that catches `MODULE_DISABLED` 404s, fires a toast, and redirects to `/disabled?module=<key>`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): add frontend gating foundation`
+- CI: not run remotely; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/auth/auth.service.spec.ts src/modules/auth/auth.controller.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/hooks/use-module-enabled.spec.ts src/components/if-module-enabled.spec.ts src/lib/api-client.spec.ts 'src/app/[locale]/(school)/layout.spec.ts'`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/shared type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/src/modules/auth/auth.service.ts apps/api/src/modules/auth/auth.service.spec.ts apps/api/src/modules/auth/auth.controller.spec.ts packages/shared/src/schemas/auth.schema.ts apps/web/src/providers/auth-provider.tsx apps/web/src/hooks/use-module-enabled.ts apps/web/src/hooks/use-module-enabled.spec.ts apps/web/src/components/if-module-enabled.tsx apps/web/src/components/if-module-enabled.spec.ts apps/web/src/components/hub-tile.tsx apps/web/src/lib/nav-config.ts 'apps/web/src/app/[locale]/(school)/layout.tsx' 'apps/web/src/app/[locale]/(school)/layout.spec.ts' apps/web/src/lib/api-client.ts apps/web/src/lib/api-client.spec.ts apps/web/src/lib/handle-api-error.ts 'apps/web/src/app/[locale]/disabled/page.tsx' 'apps/web/src/app/[locale]/disabled/_components/disabled-content.tsx'` (warnings only)
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/translation-parity.spec.ts src/__tests__/i18n/tier-scopes.spec.ts`
+  - `pnpm turbo test`
+- Deploy: not deployed.
+- Notes: The repo uses a fetch-based `apiClient`, not Axios, so the module-disabled handling was wired into that client instead of adding an Axios-only adapter. Existing `/me/modules` support remains in place for backward compatibility; `/me` now returns `enabled_modules` for boot-time context. The nav filtering system is active but no nav entries set `moduleKey` in this implementation, matching the spec's "no nav changes yet" constraint. Manual DB toggle walkthrough and production verification were not run because no local DB / server access was available in this session.
 
 ---
 

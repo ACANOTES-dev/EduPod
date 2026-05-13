@@ -802,6 +802,7 @@ describe('AuthController', () => {
     it('should call getMe with user sub and tenant_id from JWT', async () => {
       const expected = {
         user: { id: USER_ID, email: 'user@school.test' },
+        enabled_modules: ['gradebook'],
         memberships: [],
       };
       service.getMe.mockResolvedValue(expected);
@@ -819,6 +820,7 @@ describe('AuthController', () => {
       };
       service.getMe.mockResolvedValue({
         user: { id: USER_ID },
+        enabled_modules: [],
         memberships: [],
       });
 

@@ -20374,5 +20374,10 @@
         "saveError": "No se pudieron guardar los idiomas de comunicación."
       }
     }
+  },
+  "disabled": {
+    "title": "Función no disponible",
+    "body": "La función a la que intentas acceder ({module}) ha sido desactivada por la administración de tu escuela. Ponte en contacto con ellos si crees que se trata de un error.",
+    "return_home": "Volver al inicio"
   }
 }

@@ -2,6 +2,7 @@ export interface ApiErrorPayload {
   code: string;
   message: string;
   redirect?: string;
+  module?: string;
   status: number;
   details?: unknown;
 }
@@ -46,6 +47,7 @@ export function handleApiError(
   const code = getString(nestedError?.code) ?? getString(error.code) ?? defaultCode;
   const message = getString(nestedError?.message) ?? getString(error.message) ?? fallbackMessage;
   const redirect = getString(nestedError?.redirect) ?? getString(error.redirect);
+  const moduleKey = getString(nestedError?.module) ?? getString(error.module);
   const status = getNumber(error.status) ?? fallbackStatus ?? 500;
   const details =
     nestedError && 'details' in nestedError
@@ -58,6 +60,7 @@ export function handleApiError(
     code,
     message,
     redirect,
+    module: moduleKey,
     status,
     details,
   };

@@ -20374,5 +20374,10 @@
         "saveError": "Kommunikationssprachen konnten nicht gespeichert werden."
       }
     }
+  },
+  "disabled": {
+    "title": "Funktion nicht verfügbar",
+    "body": "Die Funktion, auf die Sie zugreifen möchten ({module}), wurde von Ihrer Schulverwaltung deaktiviert. Bitte wenden Sie sich an sie, wenn Sie glauben, dass dies ein Fehler ist.",
+    "return_home": "Zur Startseite zurückkehren"
   }
 }

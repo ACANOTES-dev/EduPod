@@ -6196,5 +6196,10 @@
         "saveError": "Nu s-au putut salva limbile de comunicare."
       }
     }
+  },
+  "disabled": {
+    "title": "Funcție indisponibilă",
+    "body": "Funcția pe care încerci să o accesezi ({module}) a fost dezactivată de administratorul școlii. Contactează-l dacă crezi că este o greșeală.",
+    "return_home": "Înapoi la pagina principală"
   }
 }

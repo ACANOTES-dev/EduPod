@@ -151,6 +151,7 @@ const mockPasswordResetService = {
 
 const mockTenantReadFacade = {
   findById: jest.fn().mockResolvedValue(null),
+  findModules: jest.fn().mockResolvedValue([]),
 };
 
 describe('AuthService', () => {
@@ -1708,6 +1709,11 @@ describe('AuthService', () => {
           ],
         },
       ]);
+      mockTenantReadFacade.findModules.mockResolvedValue([
+        { module_key: 'gradebook', is_enabled: true },
+        { module_key: 'sen', is_enabled: false },
+        { module_key: 'legacy_key', is_enabled: true },
+      ]);
 
       const result = await service.getMe(USER_ID, TENANT_ID);
 
@@ -1720,6 +1726,7 @@ describe('AuthService', () => {
         }),
       );
       expect(result.user).not.toHaveProperty('password_hash');
+      expect(result.enabled_modules).toEqual(['gradebook']);
       expect(result.memberships).toHaveLength(1);
       expect(result.memberships[0]).toEqual(
         expect.objectContaining({
@@ -1742,6 +1749,7 @@ describe('AuthService', () => {
     it('should filter memberships by tenantId when provided', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockTenantReadFacade.findModules.mockResolvedValue([]);
 
       await service.getMe(USER_ID, TENANT_ID);
 
@@ -1763,6 +1771,7 @@ describe('AuthService', () => {
           where: { user_id: USER_ID },
         }),
       );
+      expect(mockTenantReadFacade.findModules).not.toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException when user not found', async () => {

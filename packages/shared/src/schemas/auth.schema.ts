@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isModuleKey, type ModuleKey } from '../modules';
+
 export const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(1).max(128),
@@ -54,3 +56,28 @@ export const switchTenantSchema = z.object({
 });
 
 export type SwitchTenantDto = z.infer<typeof switchTenantSchema>;
+
+export const meResponseSchema = z.object({
+  user: z.record(z.unknown()),
+  enabled_modules: z.array(
+    z.custom<ModuleKey>((value) => typeof value === 'string' && isModuleKey(value)),
+  ),
+  memberships: z.array(
+    z.object({
+      id: z.string().uuid(),
+      tenant_id: z.string().uuid(),
+      tenant_name: z.string(),
+      tenant_slug: z.string(),
+      membership_status: z.string(),
+      roles: z.array(
+        z.object({
+          role_id: z.string().uuid(),
+          role_key: z.string(),
+          display_name: z.string(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export type MeResponseDto = z.infer<typeof meResponseSchema>;

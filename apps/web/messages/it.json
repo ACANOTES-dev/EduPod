@@ -6196,5 +6196,10 @@
       "genericReason": "La scansione di sicurezza ha rilevato una potenziale minaccia.",
       "contactDlp": "Contatta la Sua Persona di Collegamento Designata prima di scaricare."
     }
+  },
+  "disabled": {
+    "title": "Funzione non disponibile",
+    "body": "La funzione a cui stai tentando di accedere ({module}) è stata disattivata dall'amministratore della scuola. Contattalo se ritieni che sia un errore.",
+    "return_home": "Torna alla home"
   }
 }

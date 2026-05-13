@@ -48,12 +48,9 @@ export function HubTile({
   moduleKey,
 }: HubTileProps) {
   const locale = useLocale();
-  const moduleState = useModuleEnabled(moduleKey);
+  const isModuleEnabled = useModuleEnabled(moduleKey);
 
-  // Only hide when we have a definitive 'disabled' answer. 'unknown' (in
-  // flight or fetch failed) stays optimistic — the backend ModuleEnabledGuard
-  // is authoritative if the user clicks through.
-  if (moduleState === 'disabled') return null;
+  if (!isModuleEnabled) return null;
 
   const delayStyle =
     typeof animationIndex === 'number'

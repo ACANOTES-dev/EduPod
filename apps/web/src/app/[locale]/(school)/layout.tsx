@@ -57,7 +57,7 @@ function StripLink({
 export default function SchoolLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
   const router = useRouter();
-  const { user } = useAuth();
+  const { enabledModules, user } = useAuth();
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
@@ -112,6 +112,11 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         if (!pathWithoutLocale.startsWith('/settings/legal/dpa')) {
           router.replace(`/${locale}${error.redirect}`);
         }
+        return;
+      }
+
+      if (error.code === 'MODULE_DISABLED') {
+        toast.error(error.message);
         return;
       }
 
@@ -185,6 +190,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const filteredGroupedTabs = React.useMemo(() => {
     if (!groupedConfigs) return [];
     return groupedConfigs
+      .filter((g) => !g.moduleKey || enabledModules.includes(g.moduleKey))
       .filter((g) => !g.roles || g.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
       .map((g) => ({
         label: t(g.labelKey),
@@ -192,34 +198,37 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         ...(g.children
           ? {
               children: g.children
+                .filter((c) => !c.moduleKey || enabledModules.includes(c.moduleKey))
                 .filter((c) => !c.roles || c.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
                 .map((c) => ({ label: t(c.labelKey), href: `/${locale}${c.href}` })),
             }
           : {}),
       }));
-  }, [groupedConfigs, userRoleKeys, t, locale]);
+  }, [groupedConfigs, enabledModules, userRoleKeys, t, locale]);
 
   // ─── Flat sub-strip (single-level nav for other hubs) ─────────────────────
   const subStripConfigs = activeHub ? hubSubStripConfigs[activeHub] : null;
   const filteredSubStripTabs = React.useMemo(() => {
     if (!subStripConfigs || groupedConfigs) return [];
     return subStripConfigs
+      .filter((tab) => !tab.moduleKey || enabledModules.includes(tab.moduleKey))
       .filter((tab) => !tab.roles || tab.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
       .map((tab) => ({
         label: t(tab.labelKey),
         href: `/${locale}${tab.href}`,
         overflow: tab.overflow,
       }));
-  }, [subStripConfigs, groupedConfigs, userRoleKeys, t, locale]);
+  }, [subStripConfigs, groupedConfigs, enabledModules, userRoleKeys, t, locale]);
 
   const derivedHubs = React.useMemo(() => {
     return hubConfigs
+      .filter((hub) => !hub.moduleKey || enabledModules.includes(hub.moduleKey))
       .filter((hub) => !hub.roles || hub.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
       .map((hub) => ({
         key: hub.key,
         label: t(hub.labelKey),
       }));
-  }, [t, userRoleKeys]);
+  }, [t, enabledModules, userRoleKeys]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || t('common.appName');
   const handleSearchClick = isTier2Locale ? undefined : () => setCommandPaletteOpen(true);

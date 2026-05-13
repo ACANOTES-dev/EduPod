@@ -41,6 +41,7 @@ export const TIER_2_NAMESPACES: readonly string[] = [
   'cookieConsent',
   'privacyConsent',
   'search',
+  'disabled',
 
   // Dashboards (parent + student)
   'dashboard',

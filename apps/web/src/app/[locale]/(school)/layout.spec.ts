@@ -5,7 +5,7 @@
  * @/lib/nav-config so there are no mirrored copies that can drift.
  */
 
-import { filterNavForRoles, navSectionConfigs } from '@/lib/nav-config';
+import { filterNavByModules, filterNavForRoles, navSectionConfigs } from '@/lib/nav-config';
 import type { NavItemConfig } from '@/lib/nav-config';
 
 export {}; // Module boundary — prevents global scope collisions with other spec files
@@ -277,5 +277,40 @@ describe('SchoolLayout — filterNavForRoles', () => {
         expect(section.items.length).toBeGreaterThan(0);
       }
     });
+  });
+});
+
+describe('SchoolLayout — filterNavByModules', () => {
+  it('filters items whose module key is disabled', () => {
+    const sections = filterNavByModules(
+      [
+        {
+          labelKey: 'nav.learning',
+          items: [
+            { labelKey: 'nav.gradebook', href: '/gradebook', moduleKey: 'gradebook' },
+            { labelKey: 'nav.homework', href: '/homework', moduleKey: 'homework' },
+            { labelKey: 'nav.core', href: '/students' },
+          ],
+        },
+      ],
+      ['gradebook'],
+    );
+
+    expect(getHrefs(sections)).toEqual(['/gradebook', '/students']);
+  });
+
+  it('removes sections when their own module key is disabled', () => {
+    const sections = filterNavByModules(
+      [
+        {
+          labelKey: 'nav.sen',
+          moduleKey: 'sen',
+          items: [{ labelKey: 'nav.senDashboard', href: '/sen' }],
+        },
+      ],
+      ['gradebook'],
+    );
+
+    expect(sections).toEqual([]);
   });
 });

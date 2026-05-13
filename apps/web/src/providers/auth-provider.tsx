@@ -3,6 +3,8 @@
 import { useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared';
+
 import { apiClient, setAccessToken } from '@/lib/api-client';
 
 /* -------------------------------------------------------------------------- */
@@ -34,6 +36,7 @@ export interface LoginResult {
 
 export interface AuthContextType {
   user: AuthUser | null;
+  enabledModules: ModuleKey[];
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, mfaCode?: string) => Promise<LoginResult>;
@@ -48,22 +51,29 @@ export interface AuthContextType {
 
 const AuthContext = React.createContext<AuthContextType | null>(null);
 
+interface AuthSnapshot {
+  user: AuthUser;
+  enabledModules: ModuleKey[];
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Provider                                                                  */
 /* -------------------------------------------------------------------------- */
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
+  const [enabledModules, setEnabledModules] = React.useState<ModuleKey[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const isAuthenticated = user !== null;
 
   /* ---- Fetch full user profile with memberships ---- */
-  const fetchMe = React.useCallback(async (): Promise<AuthUser | null> => {
+  const fetchMe = React.useCallback(async (): Promise<AuthSnapshot | null> => {
     try {
       const me = await apiClient<{
         data: {
           user: AuthUser;
+          enabled_modules?: ModuleKey[];
           memberships: Array<{
             id: string;
             tenant_id: string;
@@ -89,7 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             })),
           })),
         };
-        return fullUser;
+        return {
+          user: fullUser,
+          enabledModules: me.data.enabled_modules ?? [],
+        };
       }
       return null;
     } catch (err) {
@@ -109,11 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         if (!cancelled && data?.data?.access_token) {
           setAccessToken(data.data.access_token);
-          const fullUser = await fetchMe();
-          if (!cancelled && fullUser) {
+          const snapshot = await fetchMe();
+          if (!cancelled && snapshot) {
             // Auto-switch tenant if the refreshed token is unscoped (tenant_id absent)
             // and the user has exactly one active membership
-            const activeMemberships = (fullUser.memberships ?? []).filter(
+            const activeMemberships = (snapshot.user.memberships ?? []).filter(
               (m) => m.membership_status === 'active',
             );
             const tokenPayload = data.data.access_token.split('.')[1];
@@ -129,15 +142,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 );
                 if (!cancelled && switchData?.data?.access_token) {
                   setAccessToken(switchData.data.access_token);
-                  const scopedUser = await fetchMe();
-                  if (!cancelled) setUser(scopedUser);
+                  const scopedSnapshot = await fetchMe();
+                  if (!cancelled) {
+                    setUser(scopedSnapshot?.user ?? null);
+                    setEnabledModules(scopedSnapshot?.enabledModules ?? []);
+                  }
                   return;
                 }
               } catch (switchErr) {
                 console.error('[AuthProvider] auto-switch tenant failed', switchErr);
               }
             }
-            setUser(fullUser);
+            setUser(snapshot.user);
+            setEnabledModules(snapshot.enabledModules);
           }
         }
       } catch (err) {
@@ -145,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // No valid refresh token — user is not logged in
         setAccessToken(null);
         setUser(null);
+        setEnabledModules([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -185,8 +203,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data?.data?.access_token) {
           setAccessToken(data.data.access_token);
           // Fetch full user profile with memberships
-          const fullUser = await fetchMe();
-          setUser(fullUser);
+          const snapshot = await fetchMe();
+          setUser(snapshot?.user ?? null);
+          setEnabledModules(snapshot?.enabledModules ?? []);
           return { success: true };
         }
 
@@ -210,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setAccessToken(null);
       setUser(null);
+      setEnabledModules([]);
     }
   }, []);
 
@@ -226,8 +246,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         if (data?.data?.access_token) {
           setAccessToken(data.data.access_token);
-          const fullUser = await fetchMe();
-          setUser(fullUser);
+          const snapshot = await fetchMe();
+          setUser(snapshot?.user ?? null);
+          setEnabledModules(snapshot?.enabledModules ?? []);
         }
       } catch (err: unknown) {
         console.error('Failed to switch tenant:', err);
@@ -239,9 +260,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* ---- Refresh user ---- */
   const refreshUser = React.useCallback(async () => {
     try {
-      const data = await apiClient<{ data: AuthUser }>('/api/v1/auth/me');
+      const data = await apiClient<{
+        data: { user: AuthUser; enabled_modules?: ModuleKey[] };
+      }>('/api/v1/auth/me');
       if (data?.data) {
-        setUser(data.data);
+        setUser(data.data.user);
+        setEnabledModules(data.data.enabled_modules ?? []);
       }
     } catch (err) {
       console.error('Failed to refresh user:', err);
@@ -252,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo<AuthContextType>(
     () => ({
       user,
+      enabledModules,
       isAuthenticated,
       isLoading,
       login,
@@ -259,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       switchTenant,
       refreshUser,
     }),
-    [user, isAuthenticated, isLoading, login, logout, switchTenant, refreshUser],
+    [user, enabledModules, isAuthenticated, isLoading, login, logout, switchTenant, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

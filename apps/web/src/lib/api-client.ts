@@ -68,34 +68,63 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
         credentials: 'include',
       });
       if (!retryResponse.ok) {
-        const error = await retryResponse.json().catch(() => null);
-        throw (
-          error ??
-          handleApiError(null, {
-            fallbackMessage: 'Request failed after token refresh',
-            status: retryResponse.status,
-          })
-        );
+        return handleErrorResponse<T>(retryResponse, {
+          fallbackMessage: 'Request failed after token refresh',
+          silent,
+        });
       }
       return parseResponse<T>(retryResponse);
     }
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => null);
-    const normalizedError = handleApiError(error, {
+    return handleErrorResponse<T>(response, {
       fallbackMessage: `Request failed (${response.status})`,
-      status: response.status,
+      silent,
     });
-
-    if (!silent && onApiError && response.status !== 401) {
-      onApiError(normalizedError);
-    }
-
-    throw error ?? normalizedError;
   }
 
   return parseResponse<T>(response);
+}
+
+async function handleErrorResponse<T>(
+  response: Response,
+  options: { fallbackMessage: string; silent: boolean },
+): Promise<T> {
+  const error = await response.json().catch(() => null);
+  const normalizedError = handleApiError(error, {
+    fallbackMessage: options.fallbackMessage,
+    status: response.status,
+  });
+
+  if (response.status === 404 && normalizedError.code === 'MODULE_DISABLED') {
+    if (!options.silent && onApiError) {
+      onApiError(normalizedError);
+    }
+    redirectToDisabledModule(normalizedError.module);
+    return new Promise<T>(() => {});
+  }
+
+  if (!options.silent && onApiError && response.status !== 401) {
+    onApiError(normalizedError);
+  }
+
+  throw error ?? normalizedError;
+}
+
+function redirectToDisabledModule(moduleKey: string | undefined): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  const locale = segments[0] ?? 'en';
+  const pathWithoutLocale = '/' + segments.slice(1).join('/');
+  if (pathWithoutLocale === '/disabled') {
+    return;
+  }
+
+  window.location.href = `/${locale}/disabled?module=${encodeURIComponent(moduleKey ?? 'unknown')}`;
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
