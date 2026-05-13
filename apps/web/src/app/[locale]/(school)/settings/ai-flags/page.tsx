@@ -27,6 +27,7 @@ import {
   toast,
 } from '@school/ui';
 
+import { IfModuleEnabled } from '@/components/if-module-enabled';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient, unwrap } from '@/lib/api-client';
@@ -193,47 +194,55 @@ export default function AiFlagsAdminPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title={t('title')} description={t('description')} />
-        <div className="flex items-center justify-center py-16">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700" />
+      <IfModuleEnabled module="ai_functions">
+        <div className="flex flex-col gap-6">
+          <PageHeader title={t('title')} description={t('description')} />
+          <div className="flex items-center justify-center py-16">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700" />
+          </div>
         </div>
-      </div>
+      </IfModuleEnabled>
     );
   }
 
   if (loadError === 'permission_denied') {
     return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title={t('title')} description={t('description')} />
-        <div className="rounded-xl border border-border bg-surface p-8 text-center">
-          <Shield className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
-          <p className="text-base font-semibold text-text-primary">{t('permissionDeniedTitle')}</p>
-          <p className="mt-1 text-sm text-text-secondary">{t('permissionDeniedDesc')}</p>
+      <IfModuleEnabled module="ai_functions">
+        <div className="flex flex-col gap-6">
+          <PageHeader title={t('title')} description={t('description')} />
+          <div className="rounded-xl border border-border bg-surface p-8 text-center">
+            <Shield className="mx-auto mb-3 h-10 w-10 text-text-tertiary" />
+            <p className="text-base font-semibold text-text-primary">
+              {t('permissionDeniedTitle')}
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">{t('permissionDeniedDesc')}</p>
+          </div>
         </div>
-      </div>
+      </IfModuleEnabled>
     );
   }
 
   if (loadError || !flags) {
     return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title={t('title')} description={t('description')} />
-        <div className="rounded-xl border border-warning-200 bg-warning-50 p-6 text-center">
-          <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-warning-600" />
-          <p className="text-sm font-medium text-warning-800">{t('loadFailedTitle')}</p>
-          <Button
-            variant="secondary"
-            className="mt-4"
-            onClick={() => {
-              setLoadError(null);
-              void loadFlags();
-            }}
-          >
-            {t('retry')}
-          </Button>
+      <IfModuleEnabled module="ai_functions">
+        <div className="flex flex-col gap-6">
+          <PageHeader title={t('title')} description={t('description')} />
+          <div className="rounded-xl border border-warning-200 bg-warning-50 p-6 text-center">
+            <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-warning-600" />
+            <p className="text-sm font-medium text-warning-800">{t('loadFailedTitle')}</p>
+            <Button
+              variant="secondary"
+              className="mt-4"
+              onClick={() => {
+                setLoadError(null);
+                void loadFlags();
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
         </div>
-      </div>
+      </IfModuleEnabled>
     );
   }
 
@@ -241,129 +250,134 @@ export default function AiFlagsAdminPage() {
   const allDisabled = flags.every((f) => !f.enabled);
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t('title')} description={t('description')} />
+    <IfModuleEnabled module="ai_functions">
+      <div className="flex flex-col gap-6">
+        <PageHeader title={t('title')} description={t('description')} />
 
-      {/* Bulk action bar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-700">
-            <BrainCircuit className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary">{t('bulkTitle')}</p>
-            <p className="mt-0.5 text-xs text-text-tertiary">{t('bulkDesc')}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            disabled={bulkBusy || allEnabled}
-            onClick={() => setBulkDialog('enable')}
-          >
-            {t('enableAll')}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={bulkBusy || allDisabled}
-            onClick={() => setBulkDialog('disable')}
-          >
-            {t('disableAll')}
-          </Button>
-        </div>
-      </div>
-
-      {/* Module cards */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {MODULE_META.map((meta) => {
-          const flag = flags.find((f) => f.module_key === meta.key);
-          if (!flag) return null;
-          return (
-            <ModuleCard
-              key={meta.key}
-              meta={meta}
-              flag={flag}
-              onToggle={(next) => void handleToggle(meta.key, next)}
-            />
-          );
-        })}
-      </div>
-
-      {/* Cost note */}
-      <p className="text-xs text-text-tertiary">{t('costNote')}</p>
-
-      {/* Bulk enable dialog */}
-      <Dialog open={bulkDialog === 'enable'} onOpenChange={(open) => !open && setBulkDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulkEnableTitle')}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">{t('bulkEnableDesc')}</p>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>
-              {t('cancel')}
-            </Button>
-            <Button onClick={() => void handleBulk(true)} disabled={bulkBusy}>
-              {bulkBusy ? t('applying') : t('confirmEnableAll')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk disable dialog with typed confirmation */}
-      <Dialog
-        open={bulkDialog === 'disable'}
-        onOpenChange={(open) => {
-          if (!open) {
-            setBulkDialog(null);
-            setDisableConfirmText('');
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulkDisableTitle')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-text-secondary">{t('bulkDisableDesc')}</p>
-            <div className="rounded-lg border border-warning-200 bg-warning-50 p-3">
-              <p className="text-xs text-warning-800">{t('bulkDisableWarning')}</p>
+        {/* Bulk action bar */}
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-700">
+              <BrainCircuit className="h-5 w-5" />
             </div>
-            <div>
-              <Label htmlFor="confirm-disable">
-                {t('bulkDisableConfirmLabel', { phrase: t('disablePhrase') })}
-              </Label>
-              <Input
-                id="confirm-disable"
-                value={disableConfirmText}
-                onChange={(e) => setDisableConfirmText(e.target.value)}
-                placeholder={t('disablePhrase')}
-                autoComplete="off"
-              />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary">{t('bulkTitle')}</p>
+              <p className="mt-0.5 text-xs text-text-tertiary">{t('bulkDesc')}</p>
             </div>
           </div>
-          <DialogFooter>
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              onClick={() => {
-                setBulkDialog(null);
-                setDisableConfirmText('');
-              }}
-              disabled={bulkBusy}
+              disabled={bulkBusy || allEnabled}
+              onClick={() => setBulkDialog('enable')}
             >
-              {t('cancel')}
+              {t('enableAll')}
             </Button>
             <Button
-              variant="destructive"
-              onClick={() => void handleBulk(false)}
-              disabled={bulkBusy || disableConfirmText.trim() !== t('disablePhrase')}
+              variant="outline"
+              disabled={bulkBusy || allDisabled}
+              onClick={() => setBulkDialog('disable')}
             >
-              {bulkBusy ? t('applying') : t('confirmDisableAll')}
+              {t('disableAll')}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </div>
+        </div>
+
+        {/* Module cards */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {MODULE_META.map((meta) => {
+            const flag = flags.find((f) => f.module_key === meta.key);
+            if (!flag) return null;
+            return (
+              <ModuleCard
+                key={meta.key}
+                meta={meta}
+                flag={flag}
+                onToggle={(next) => void handleToggle(meta.key, next)}
+              />
+            );
+          })}
+        </div>
+
+        {/* Cost note */}
+        <p className="text-xs text-text-tertiary">{t('costNote')}</p>
+
+        {/* Bulk enable dialog */}
+        <Dialog
+          open={bulkDialog === 'enable'}
+          onOpenChange={(open) => !open && setBulkDialog(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('bulkEnableTitle')}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-text-secondary">{t('bulkEnableDesc')}</p>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setBulkDialog(null)} disabled={bulkBusy}>
+                {t('cancel')}
+              </Button>
+              <Button onClick={() => void handleBulk(true)} disabled={bulkBusy}>
+                {bulkBusy ? t('applying') : t('confirmEnableAll')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk disable dialog with typed confirmation */}
+        <Dialog
+          open={bulkDialog === 'disable'}
+          onOpenChange={(open) => {
+            if (!open) {
+              setBulkDialog(null);
+              setDisableConfirmText('');
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('bulkDisableTitle')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-text-secondary">{t('bulkDisableDesc')}</p>
+              <div className="rounded-lg border border-warning-200 bg-warning-50 p-3">
+                <p className="text-xs text-warning-800">{t('bulkDisableWarning')}</p>
+              </div>
+              <div>
+                <Label htmlFor="confirm-disable">
+                  {t('bulkDisableConfirmLabel', { phrase: t('disablePhrase') })}
+                </Label>
+                <Input
+                  id="confirm-disable"
+                  value={disableConfirmText}
+                  onChange={(e) => setDisableConfirmText(e.target.value)}
+                  placeholder={t('disablePhrase')}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setBulkDialog(null);
+                  setDisableConfirmText('');
+                }}
+                disabled={bulkBusy}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void handleBulk(false)}
+                disabled={bulkBusy || disableConfirmText.trim() !== t('disablePhrase')}
+              >
+                {bulkBusy ? t('applying') : t('confirmDisableAll')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </IfModuleEnabled>
   );
 }
 

@@ -143,7 +143,7 @@ export class NlQueryService {
 
     // 1. Ask Claude to generate a structured query
     const aiStartTime = Date.now();
-    const structuredQuery = await this.generateStructuredQuery(question);
+    const structuredQuery = await this.generateStructuredQuery(tenantId, question);
     const aiElapsed = Date.now() - aiStartTime;
 
     await this.aiAuditService.log({
@@ -204,7 +204,10 @@ export class NlQueryService {
 
   // ─── Generate Structured Query via Claude ─────────────────────────────────
 
-  private async generateStructuredQuery(question: string): Promise<NlStructuredQuery> {
+  private async generateStructuredQuery(
+    tenantId: string,
+    question: string,
+  ): Promise<NlStructuredQuery> {
     if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: { code: 'AI_SERVICE_UNAVAILABLE', message: 'AI not available' },
@@ -236,11 +239,14 @@ Rules:
 - limit defaults to 50, max 200
 - Return ONLY the JSON, no explanation, no markdown.`;
 
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { tenantId },
+    );
 
     const textBlock = response.content.find((b) => b.type === 'text');
     const responseText = textBlock?.type === 'text' ? textBlock.text : '';

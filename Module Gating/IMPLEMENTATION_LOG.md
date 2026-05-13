@@ -31,7 +31,7 @@
 | 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | 📦     |
 | 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | 📦     |
 | 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | 📦     |
-| 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | ⏳     |
+| 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | 📦     |
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | ⏳     |
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | ⏳     |
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | ⏳     |
@@ -331,15 +331,31 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `payroll`: `payroll-entries.controller.ts` gains `@ModuleEnabled('payroll')` + `ModuleEnabledGuard`.
-- [ ] `parent_inquiries`: cron processors (stale-inquiry-detection, inquiry-notification) gain tenant module check.
-- [ ] `ai_functions`: ungated AI surfaces gain `@ModuleEnabled('ai_functions')` (gradebook AI, scheduling ai-substitution, attendance scan, GDPR AI audit). Service-layer fallback in `AnthropicClientService.beforeRequest()`.
-- [ ] `website`: contact-submissions.controller adds `@ModuleEnabled('website')` for consistency. public-website + public-contact remain ungated (documented).
-- [ ] Module-gating leakage tests pass for `payroll`, `parent_inquiries`, `ai_functions`, `website`.
+- [x] `payroll`: `payroll-entries.controller.ts` gains `@ModuleEnabled('payroll')` + `ModuleEnabledGuard`.
+- [x] `parent_inquiries`: cron processors (stale-inquiry-detection, inquiry-notification) gain tenant module check.
+- [x] `ai_functions`: ungated AI surfaces gain `@ModuleEnabled('ai_functions')` (gradebook AI, scheduling ai-substitution, attendance scan, GDPR AI audit). Service-layer fallback in `AnthropicClientService.beforeRequest()`.
+- [x] `website`: contact-submissions.controller adds `@ModuleEnabled('website')` for consistency. public-website + public-contact remain ungated (documented).
+- [x] Module-gating leakage tests pass for `payroll`, `parent_inquiries`, `ai_functions`, `website`.
+- [ ] Smoke test on NHQS: toggles verified for payroll, parent inquiries, AI functions, and website; public website still loads while admin website management is disabled.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `fix(module-gating): complete partial enforcement gates`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/ai/anthropic-client.service.spec.ts src/modules/scheduling/ai-substitution.service.spec.ts src/modules/attendance/attendance-scan.service.spec.ts src/modules/gdpr/__tests__/ai-audit.service.spec.ts src/modules/gradebook/ai/ai-comments.service.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/gradebook/ai/nl-query.service.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/communications/inquiry-notification.processor.spec.ts src/processors/communications/stale-inquiry-detection.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)` (now active for `payroll`, `parent_inquiries`, `ai_functions`, `website`, plus prior W2 modules)
+  - API DI compile check with fake env (`DI OK`)
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm --filter @school/api exec eslint ...` on touched API/test files (warnings only: pre-existing cross-module imports/max-lines in AI/gradebook/reporting services and specs)
+  - `pnpm --filter @school/worker exec eslint ...` on touched worker files
+  - `pnpm --filter @school/web exec eslint ...` on touched web files
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `contact-submissions.controller.ts` was already gated before this pass; this implementation verified it and documented the public/admin website split on the public controllers. The parent-inquiries leakage probe was corrected from the stale `/api/v1/parent-inquiries` path to the actual `/api/v1/inquiries` controller route. `AnthropicClientService.createMessage` now requires a tenant id and checks `ai_functions` before creating provider requests; all current API call sites were updated to pass the tenant context so missed route-level gates fail closed.
 
 ---
 

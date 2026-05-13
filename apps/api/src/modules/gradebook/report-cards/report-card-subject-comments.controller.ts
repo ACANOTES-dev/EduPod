@@ -20,8 +20,10 @@ import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
@@ -176,7 +178,9 @@ export class ReportCardSubjectCommentsController {
 
   // POST /v1/report-card-subject-comments/ai-draft — single-student AI draft
   @Post('ai-draft')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('report_cards.comment')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async aiDraft(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -209,7 +213,9 @@ export class ReportCardSubjectCommentsController {
   // `ai-comment-draft` queue with a worker processor. Until then, the
   // in-process path still yields a non-blocking HTTP response.
   @Post('ai-draft-async')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('report_cards.comment')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   async aiDraftAsync(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -283,7 +289,9 @@ export class ReportCardSubjectCommentsController {
 
   // GET /v1/report-card-subject-comments/ai-draft-jobs/:jobId
   @Get('ai-draft-jobs/:jobId')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('report_cards.comment')
+  @UseGuards(ModuleEnabledGuard)
   async aiDraftJobStatus(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,

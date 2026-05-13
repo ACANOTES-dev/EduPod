@@ -8,6 +8,9 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { ContactFormService } from './contact-form.service';
 
+// PUBLIC: intentionally ungated. Live website contact remains accessible to
+// visitors regardless of admin module state. Tenant resolution comes from the
+// Host header rather than a signed-in user session.
 @Controller('v1/public')
 export class PublicContactController {
   constructor(private readonly service: ContactFormService) {}

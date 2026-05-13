@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
 export const STALE_INQUIRY_DETECTION_JOB = 'communications:stale-inquiry-detection';
@@ -21,7 +23,10 @@ const DEFAULT_STALE_HOURS = 48;
 export class StaleInquiryDetectionProcessor {
   private readonly logger = new Logger(StaleInquiryDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== STALE_INQUIRY_DETECTION_JOB) {
@@ -39,6 +44,13 @@ export class StaleInquiryDetectionProcessor {
     let totalStale = 0;
 
     for (const tenant of tenants) {
+      if (!(await this.tenantModuleService.isEnabled(tenant.id, 'parent_inquiries'))) {
+        this.logger.debug(
+          `Skipping stale inquiry detection for tenant ${tenant.id}: parent_inquiries disabled`,
+        );
+        continue;
+      }
+
       const staleCount = await this.detectStaleForTenant(tenant.id);
       totalStale += staleCount;
     }

@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
@@ -24,6 +25,10 @@ const mockRedisClient = {
 
 const mockSettingsService = {
   getSettings: jest.fn().mockResolvedValue({ ai: { attendanceScanEnabled: true } }),
+};
+
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
 };
 
 describe('AttendanceScanService — parseScanResponse', () => {
@@ -52,6 +57,7 @@ describe('AttendanceScanService — parseScanResponse', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: false, createMessage: jest.fn() },
@@ -245,6 +251,7 @@ describe('AttendanceScanService — resolveStudentNames', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: false, createMessage: jest.fn() },
@@ -329,6 +336,48 @@ describe('AttendanceScanService — resolveStudentNames', () => {
 // ─── scanImage — rate limit & unavailability ────────────────────────────────
 
 describe('AttendanceScanService — scanImage guards', () => {
+  it('should return an empty scan when ai_functions is disabled', async () => {
+    const createMessage = jest.fn();
+    mockTenantModuleService.isEnabled.mockResolvedValueOnce(false);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceScanService,
+        { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
+        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn(),
+            processInbound: jest.fn(),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn() } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage },
+        },
+      ],
+    }).compile();
+
+    const svc = module.get<AttendanceScanService>(AttendanceScanService);
+
+    const result = await svc.scanImage(
+      TENANT_ID,
+      USER_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+      '2026-03-10',
+    );
+
+    expect(result.entries).toEqual([]);
+    expect(result.scan_id).toEqual(expect.any(String));
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
   it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
@@ -354,6 +403,7 @@ describe('AttendanceScanService — scanImage guards', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: false, createMessage: jest.fn() },
@@ -388,6 +438,7 @@ describe('AttendanceScanService — scanImage guards', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn() } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: jest.fn() },
@@ -430,6 +481,7 @@ describe('AttendanceScanService — scanImage guards', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: jest.fn() },
@@ -491,6 +543,7 @@ describe('AttendanceScanService — AI audit trail', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
@@ -554,6 +607,7 @@ describe('AttendanceScanService — scanImage full flow', () => {
           useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
@@ -616,6 +670,7 @@ describe('AttendanceScanService — scanImage full flow', () => {
           useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
@@ -657,6 +712,7 @@ describe('AttendanceScanService — scanImage full flow', () => {
           useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AnthropicClientService,
           useValue: { isConfigured: true, createMessage: mockAnthropicCreate },

@@ -148,26 +148,29 @@ export class AiGradingService {
     );
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mimeType as AllowedMediaType,
-                data: base64Image,
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mimeType as AllowedMediaType,
+                  data: base64Image,
+                },
               },
-            },
-            { type: 'text', text: prompt },
-          ],
-        },
-      ],
-    });
+              { type: 'text', text: prompt },
+            ],
+          },
+        ],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');
@@ -282,26 +285,29 @@ export class AiGradingService {
         const base64Image = img.image_buffer.toString('base64');
 
         const batchStartTime = Date.now();
-        const response = await this.anthropicClient.createMessage({
-          model: 'claude-sonnet-4-6-20250514',
-          max_tokens: 2048,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: img.mime_type as AllowedMediaType,
-                    data: base64Image,
+        const response = await this.anthropicClient.createMessage(
+          {
+            model: 'claude-sonnet-4-6-20250514',
+            max_tokens: 2048,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: img.mime_type as AllowedMediaType,
+                      data: base64Image,
+                    },
                   },
-                },
-                { type: 'text', text: prompt },
-              ],
-            },
-          ],
-        });
+                  { type: 'text', text: prompt },
+                ],
+              },
+            ],
+          },
+          { tenantId },
+        );
         const batchElapsed = Date.now() - batchStartTime;
 
         const textBlock = response.content.find((b) => b.type === 'text');

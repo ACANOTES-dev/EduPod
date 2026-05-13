@@ -201,6 +201,7 @@ describe('AiCommentsService — generateComment', () => {
         model: expect.any(String),
         messages: expect.arrayContaining([expect.objectContaining({ role: 'user' })]),
       }),
+      { tenantId: TENANT_ID },
     );
   });
 

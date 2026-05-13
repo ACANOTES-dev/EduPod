@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
@@ -52,11 +53,15 @@ describe('AiSubstitutionService', () => {
   };
 
   let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
+  let mockTenantModuleService: { isEnabled: jest.Mock };
 
   beforeEach(async () => {
     mockAnthropicClientService = {
       isConfigured: true,
       createMessage: mockMessagesCreate,
+    };
+    mockTenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
     };
 
     mockPrisma = {
@@ -140,6 +145,7 @@ describe('AiSubstitutionService', () => {
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
         { provide: AnthropicClientService, useValue: mockAnthropicClientService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
 
@@ -365,6 +371,15 @@ describe('AiSubstitutionService', () => {
   // ─── graceful degradation when SDK unavailable ────────────────────────────
 
   describe('graceful degradation', () => {
+    it('should return empty data when ai_functions is disabled', async () => {
+      mockTenantModuleService.isEnabled.mockResolvedValue(false);
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result).toEqual({ data: [] });
+      expect(mockMessagesCreate).not.toHaveBeenCalled();
+    });
+
     it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
       mockAnthropicClientService.isConfigured = false;
 

@@ -131,12 +131,7 @@ export class AiReportNarratorService {
 
     const promptVersion = REPORT_NARRATION_PROMPT_VERSION;
     const prompt = buildReportPrompt(reportKey, data);
-    const cacheKey = this.cacheKey(
-      tenantId,
-      `report:${reportKey}`,
-      prompt,
-      promptVersion,
-    );
+    const cacheKey = this.cacheKey(tenantId, `report:${reportKey}`, prompt, promptVersion);
 
     const cached = await this.readCache(cacheKey);
     if (cached) {
@@ -187,12 +182,7 @@ export class AiReportNarratorService {
       rowCount: execution.meta.row_count,
       sampleRows: execution.rows,
     });
-    const cacheKey = this.cacheKey(
-      tenantId,
-      `saved:${savedReportId}`,
-      prompt,
-      promptVersion,
-    );
+    const cacheKey = this.cacheKey(tenantId, `saved:${savedReportId}`, prompt, promptVersion);
 
     const cached = await this.readCache(cacheKey);
     if (cached) {
@@ -257,9 +247,7 @@ export class AiReportNarratorService {
 
   private async writeCache(key: string, payload: NarrativeResponse): Promise<void> {
     try {
-      await this.redis
-        .getClient()
-        .setex(key, NARRATION_CACHE_TTL_SECONDS, JSON.stringify(payload));
+      await this.redis.getClient().setex(key, NARRATION_CACHE_TTL_SECONDS, JSON.stringify(payload));
     } catch (err) {
       this.logger.warn(`[ai-narration] cache write failed for "${key}": ${(err as Error).message}`);
     }
@@ -282,11 +270,14 @@ export class AiReportNarratorService {
     let response: Anthropic.Message;
     const startedAt = Date.now();
     try {
-      response = await this.anthropic.createMessage({
-        model: NARRATION_MODEL,
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content: prompt }],
-      });
+      response = await this.anthropic.createMessage(
+        {
+          model: NARRATION_MODEL,
+          max_tokens: maxTokens,
+          messages: [{ role: 'user', content: prompt }],
+        },
+        { tenantId },
+      );
     } catch (err) {
       this.logger.error(
         `[ai-narration] Anthropic call failed for tenant=${tenantId} subject=${subjectType}: ${(err as Error).message}`,

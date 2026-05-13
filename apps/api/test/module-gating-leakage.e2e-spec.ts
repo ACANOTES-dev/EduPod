@@ -34,7 +34,7 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
   gradebook: [{ method: 'GET', path: '/api/v1/gradebook/grades' }],
   homework: [{ method: 'GET', path: '/api/v1/homework/assignments' }],
   leave: [{ method: 'GET', path: '/api/v1/leave/requests' }],
-  parent_inquiries: [{ method: 'GET', path: '/api/v1/parent-inquiries' }],
+  parent_inquiries: [{ method: 'GET', path: '/api/v1/inquiries' }],
   pastoral: [{ method: 'GET', path: '/api/v1/pastoral/cases' }],
   payroll: [{ method: 'GET', path: '/api/v1/payroll/runs' }],
   school_closures: [{ method: 'GET', path: '/api/v1/school-closures' }],
@@ -44,11 +44,15 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
 };
 
 const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
+  'ai_functions',
   'behaviour',
   'communications_outbound',
+  'parent_inquiries',
   'pastoral',
+  'payroll',
   'sen',
   'staff_wellbeing',
+  'website',
 ]);
 
 const PROBES: ReadonlyArray<ModuleGatingProbe> = MODULE_REGISTRY.filter(

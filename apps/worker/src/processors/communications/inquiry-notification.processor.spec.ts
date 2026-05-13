@@ -70,6 +70,12 @@ function buildJob(
   } as Job<InquiryNotificationPayload>;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('InquiryNotificationProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -77,7 +83,10 @@ describe('InquiryNotificationProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new InquiryNotificationProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('communications:other-job'));
 
@@ -86,7 +95,10 @@ describe('InquiryNotificationProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new InquiryNotificationProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(INQUIRY_NOTIFICATION_JOB, { tenant_id: '' })),
@@ -95,7 +107,10 @@ describe('InquiryNotificationProcessor', () => {
 
   it('should create admin notifications for users with inquiries.view permission', async () => {
     const mockTx = buildMockTx();
-    const processor = new InquiryNotificationProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -121,7 +136,10 @@ describe('InquiryNotificationProcessor', () => {
 
   it('should create parent notifications for each preferred channel', async () => {
     const mockTx = buildMockTx();
-    const processor = new InquiryNotificationProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INQUIRY_NOTIFICATION_JOB, { notify_type: 'parent_notify' }));
 
@@ -154,10 +172,26 @@ describe('InquiryNotificationProcessor', () => {
         user_id: null,
       },
     });
-    const processor = new InquiryNotificationProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(INQUIRY_NOTIFICATION_JOB, { notify_type: 'parent_notify' }));
 
     expect(mockTx.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('should skip notifications when parent_inquiries is disabled', async () => {
+    const mockTx = buildMockTx();
+    const processor = new InquiryNotificationProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService(false) as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockTx.parentInquiry.findFirst).not.toHaveBeenCalled();
+    expect(mockTx.notification.createMany).not.toHaveBeenCalled();
   });
 });

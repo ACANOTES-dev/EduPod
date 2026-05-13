@@ -2,11 +2,17 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { ModuleDisabledException } from '../../common/exceptions/module-disabled.exception';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type NonStreamingParams = Anthropic.MessageCreateParamsNonStreaming;
+interface CreateMessageOptions {
+  tenantId: string;
+  timeoutMs?: number;
+}
 
 // ─── Service ────────────────────────────────────────────────────────────────
 
@@ -25,6 +31,7 @@ export class AnthropicClientService {
   constructor(
     private readonly configService: ConfigService,
     private readonly circuitBreaker: CircuitBreakerRegistry,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   // ─── Client Accessor ────────────────────────────────────────────────────
@@ -50,10 +57,18 @@ export class AnthropicClientService {
    */
   async createMessage(
     params: NonStreamingParams,
-    options?: { timeoutMs?: number },
+    options: CreateMessageOptions,
   ): Promise<Anthropic.Message> {
+    const enabled = await this.tenantModuleService.isEnabled(options.tenantId, 'ai_functions');
+    if (!enabled) {
+      this.logger.warn(
+        `Blocked Anthropic request for tenant ${options.tenantId}: ai_functions disabled`,
+      );
+      throw new ModuleDisabledException('ai_functions');
+    }
+
     const client = this.getClient();
-    const timeoutMs = options?.timeoutMs ?? 30_000;
+    const timeoutMs = options.timeoutMs ?? 30_000;
 
     return this.circuitBreaker.exec('anthropic', async () => {
       const controller = new AbortController();

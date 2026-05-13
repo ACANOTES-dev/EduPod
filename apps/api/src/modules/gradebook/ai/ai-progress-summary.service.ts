@@ -157,11 +157,14 @@ export class AiProgressSummaryService {
     this.logger.log(`Generating AI progress summary for student ${studentId}, period ${periodId}`);
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');

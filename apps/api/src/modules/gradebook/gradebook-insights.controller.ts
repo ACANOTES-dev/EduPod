@@ -31,8 +31,10 @@ import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import {
   createFileInterceptor,
@@ -238,7 +240,9 @@ export class GradebookInsightsController {
   // ─── B1: AI Comments ────────────────────────────────────────────────────────
 
   @Post('gradebook/ai/generate-comment/:reportCardId')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.enter_grades')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async generateComment(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -248,7 +252,9 @@ export class GradebookInsightsController {
   }
 
   @Post('gradebook/ai/generate-comments')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.enter_grades')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async generateBatchComments(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -261,7 +267,9 @@ export class GradebookInsightsController {
   // ─── B2: AI Grading ─────────────────────────────────────────────────────────
 
   @Post('gradebook/ai/grade-inline')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.enter_grades')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.IMAGE }))
   async gradeInline(
@@ -297,7 +305,9 @@ export class GradebookInsightsController {
   // ─── B2: AI Grading Instructions ───────────────────────────────────────────
 
   @Post('gradebook/ai/grading-instructions')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.manage_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.CREATED)
   async upsertGradingInstruction(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -309,7 +319,9 @@ export class GradebookInsightsController {
   }
 
   @Get('gradebook/ai/grading-instructions')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view')
+  @UseGuards(ModuleEnabledGuard)
   async listGradingInstructions(
     @CurrentTenant() tenant: { tenant_id: string },
     @Query(new ZodValidationPipe(listInstructionsQuerySchema))
@@ -319,7 +331,9 @@ export class GradebookInsightsController {
   }
 
   @Get('gradebook/ai/grading-instructions/:id')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view')
+  @UseGuards(ModuleEnabledGuard)
   async getGradingInstruction(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
@@ -328,7 +342,9 @@ export class GradebookInsightsController {
   }
 
   @Post('gradebook/ai/grading-instructions/:id/approve')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.approve_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async reviewGradingInstruction(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -341,7 +357,9 @@ export class GradebookInsightsController {
   }
 
   @Delete('gradebook/ai/grading-instructions/:id')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.manage_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteGradingInstruction(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -354,7 +372,9 @@ export class GradebookInsightsController {
   // ─── B2: AI Grading References ─────────────────────────────────────────────
 
   @Post('gradebook/ai/grading-references')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.manage_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.CREATED)
   async createGradingReference(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -366,7 +386,9 @@ export class GradebookInsightsController {
   }
 
   @Get('gradebook/ai/grading-references/:assessmentId')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view')
+  @UseGuards(ModuleEnabledGuard)
   async listGradingReferences(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
@@ -375,7 +397,9 @@ export class GradebookInsightsController {
   }
 
   @Post('gradebook/ai/grading-references/:id/approve')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.approve_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async reviewGradingReference(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -388,7 +412,9 @@ export class GradebookInsightsController {
   }
 
   @Delete('gradebook/ai/grading-references/:id')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.manage_ai_grading')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteGradingReference(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -400,7 +426,9 @@ export class GradebookInsightsController {
   // ─── B5: Natural Language Query ────────────────────────────────────────────
 
   @Post('gradebook/ai/query')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view_analytics')
+  @UseGuards(ModuleEnabledGuard)
   @HttpCode(HttpStatus.OK)
   async nlQuery(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -412,7 +440,9 @@ export class GradebookInsightsController {
   }
 
   @Get('gradebook/ai/query/history')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view_analytics')
+  @UseGuards(ModuleEnabledGuard)
   async getNlQueryHistory(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
@@ -430,7 +460,9 @@ export class GradebookInsightsController {
   // ─── B6: AI Progress Summary ──────────────────────────────────────────────
 
   @Get('gradebook/ai/progress-summary')
+  @ModuleEnabled('ai_functions')
   @RequiresPermission('gradebook.view')
+  @UseGuards(ModuleEnabledGuard)
   async getProgressSummary(
     @CurrentTenant() tenant: { tenant_id: string },
     @Query(new ZodValidationPipe(progressSummaryQuerySchema))

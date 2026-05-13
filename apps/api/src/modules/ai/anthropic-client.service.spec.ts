@@ -19,12 +19,15 @@ jest.mock('@anthropic-ai/sdk', () => {
 const MockAnthropic = require('@anthropic-ai/sdk').default as jest.Mock;
 
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+import { ModuleDisabledException } from '../../common/exceptions/module-disabled.exception';
 
 import { AnthropicClientService } from './anthropic-client.service';
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
 const API_KEY = 'sk-ant-test-key-1234567890';
+const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 
 function buildMockMessage(): Anthropic.Message {
   return {
@@ -62,16 +65,26 @@ function buildMockCircuitBreakerRegistry() {
   };
 }
 
+function buildMockTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 /** Create a fresh TestingModule with the given config and breaker mocks. */
 async function buildTestModule(
   mockConfig: ReturnType<typeof buildMockConfigService>,
   mockBreaker: ReturnType<typeof buildMockCircuitBreakerRegistry>,
+  mockTenantModuleService: ReturnType<
+    typeof buildMockTenantModuleService
+  > = buildMockTenantModuleService(),
 ): Promise<TestingModule> {
   return Test.createTestingModule({
     providers: [
       AnthropicClientService,
       { provide: ConfigService, useValue: mockConfig },
       { provide: CircuitBreakerRegistry, useValue: mockBreaker },
+      { provide: TenantModuleService, useValue: mockTenantModuleService },
     ],
   }).compile();
 }
@@ -140,7 +153,7 @@ describe('AnthropicClientService — createMessage', () => {
     const expectedMessage = buildMockMessage();
     mockMessagesCreate.mockResolvedValue(expectedMessage);
 
-    const result = await service.createMessage(baseParams);
+    const result = await service.createMessage(baseParams, { tenantId: TENANT_ID });
 
     expect(result).toEqual(expectedMessage);
     expect(mockBreaker.exec).toHaveBeenCalledWith('anthropic', expect.any(Function));
@@ -158,12 +171,29 @@ describe('AnthropicClientService — createMessage', () => {
       temperature: 0.5,
     };
 
-    await service.createMessage(customParams);
+    await service.createMessage(customParams, { tenantId: TENANT_ID });
 
     expect(mockMessagesCreate).toHaveBeenCalledWith(
       customParams,
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+
+  it('should throw when ai_functions is disabled for the tenant', async () => {
+    const mockConfig = buildMockConfigService({ apiKey: API_KEY });
+    const mockTenantModuleService = buildMockTenantModuleService(false);
+    const module = await buildTestModule(
+      mockConfig,
+      buildMockCircuitBreakerRegistry(),
+      mockTenantModuleService,
+    );
+    const disabledService = module.get<AnthropicClientService>(AnthropicClientService);
+
+    await expect(
+      disabledService.createMessage(baseParams, { tenantId: TENANT_ID }),
+    ).rejects.toBeInstanceOf(ModuleDisabledException);
+    expect(mockTenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'ai_functions');
+    expect(mockMessagesCreate).not.toHaveBeenCalled();
   });
 
   it('should use default 30s timeout when no timeoutMs provided', async () => {
@@ -178,7 +208,8 @@ describe('AnthropicClientService — createMessage', () => {
         }),
     );
 
-    const promise = service.createMessage(baseParams);
+    const promise = service.createMessage(baseParams, { tenantId: TENANT_ID });
+    await Promise.resolve();
 
     jest.advanceTimersByTime(30_000);
 
@@ -197,7 +228,8 @@ describe('AnthropicClientService — createMessage', () => {
         }),
     );
 
-    const promise = service.createMessage(baseParams, { timeoutMs: 5_000 });
+    const promise = service.createMessage(baseParams, { tenantId: TENANT_ID, timeoutMs: 5_000 });
+    await Promise.resolve();
 
     jest.advanceTimersByTime(5_000);
 
@@ -215,7 +247,8 @@ describe('AnthropicClientService — createMessage', () => {
         }),
     );
 
-    const promise = service.createMessage(baseParams, { timeoutMs: 10_000 });
+    const promise = service.createMessage(baseParams, { tenantId: TENANT_ID, timeoutMs: 10_000 });
+    await Promise.resolve();
 
     jest.advanceTimersByTime(2_000);
 
@@ -228,13 +261,15 @@ describe('AnthropicClientService — createMessage', () => {
     breakerError.name = 'BrokenCircuitError';
     mockBreaker.exec.mockRejectedValue(breakerError);
 
-    await expect(service.createMessage(baseParams)).rejects.toThrow('Breaker is open');
+    await expect(service.createMessage(baseParams, { tenantId: TENANT_ID })).rejects.toThrow(
+      'Breaker is open',
+    );
   });
 
   it('should propagate SDK errors from messages.create', async () => {
     mockMessagesCreate.mockRejectedValue(new Error('Anthropic API rate limit exceeded'));
 
-    await expect(service.createMessage(baseParams)).rejects.toThrow(
+    await expect(service.createMessage(baseParams, { tenantId: TENANT_ID })).rejects.toThrow(
       'Anthropic API rate limit exceeded',
     );
   });
@@ -242,7 +277,7 @@ describe('AnthropicClientService — createMessage', () => {
   it('should clear timeout after successful response', async () => {
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
 
-    await service.createMessage(baseParams);
+    await service.createMessage(baseParams, { tenantId: TENANT_ID });
 
     expect(clearTimeoutSpy).toHaveBeenCalled();
   });
@@ -251,7 +286,9 @@ describe('AnthropicClientService — createMessage', () => {
     const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
     mockMessagesCreate.mockRejectedValue(new Error('API failure'));
 
-    await expect(service.createMessage(baseParams)).rejects.toThrow('API failure');
+    await expect(service.createMessage(baseParams, { tenantId: TENANT_ID })).rejects.toThrow(
+      'API failure',
+    );
 
     expect(clearTimeoutSpy).toHaveBeenCalled();
   });
@@ -280,7 +317,7 @@ describe('AnthropicClientService — getClient', () => {
     const module = await buildTestModule(mockConfig, mockBreaker);
     const service = module.get<AnthropicClientService>(AnthropicClientService);
 
-    await expect(service.createMessage(baseParams)).rejects.toThrow(
+    await expect(service.createMessage(baseParams, { tenantId: TENANT_ID })).rejects.toThrow(
       'ANTHROPIC_API_KEY is not configured',
     );
   });
@@ -291,8 +328,8 @@ describe('AnthropicClientService — getClient', () => {
     const module = await buildTestModule(mockConfig, mockBreaker);
     const service = module.get<AnthropicClientService>(AnthropicClientService);
 
-    await service.createMessage(baseParams);
-    await service.createMessage(baseParams);
+    await service.createMessage(baseParams, { tenantId: TENANT_ID });
+    await service.createMessage(baseParams, { tenantId: TENANT_ID });
 
     // Anthropic constructor should only have been called once (lazy init + cache)
     expect(MockAnthropic).toHaveBeenCalledTimes(1);

@@ -3,6 +3,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared/gdpr';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
@@ -45,6 +46,7 @@ export class AiSubstitutionService {
     private readonly anthropicClient: AnthropicClientService,
     private readonly schedulesReadFacade: SchedulesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   // ─── Rank Substitutes ────────────────────────────────────────────────────
@@ -54,6 +56,13 @@ export class AiSubstitutionService {
     scheduleId: string,
     date: string,
   ): Promise<{ data: AiSubstituteRanking[] }> {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(
+        `Skipping AI substitution ranking for tenant ${tenantId}: ai_functions disabled`,
+      );
+      return { data: [] };
+    }
+
     if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
@@ -206,11 +215,14 @@ Return ONLY the JSON array. No markdown, no explanation.`;
 
     try {
       const startTime = Date.now();
-      const response = await this.anthropicClient.createMessage({
-        model: 'claude-3-5-haiku-20241022',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      });
+      const response = await this.anthropicClient.createMessage(
+        {
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }],
+        },
+        { tenantId },
+      );
       const elapsed = Date.now() - startTime;
 
       const content = response.content[0];

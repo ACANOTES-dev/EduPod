@@ -6,6 +6,9 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 
 import { PublicWebsiteService } from './public-website.service';
 
+// PUBLIC: intentionally ungated. Live website remains accessible to visitors
+// regardless of admin module state. Disabling 'website' only hides the admin UI
+// for editing pages.
 @Controller('v1/public')
 export class PublicWebsiteController {
   constructor(private readonly service: PublicWebsiteService) {}

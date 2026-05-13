@@ -41,13 +41,12 @@ describe('Nav filter module gating contract', () => {
   it('gates the communications admin entry without removing core inbox routes', () => {
     const operations = navSectionConfigs.find((section) => section.labelKey === 'nav.operations');
 
+    expect(operations?.items.find((item) => item.href === '/communications')?.moduleKey).toBe(
+      'communications_outbound',
+    );
     expect(
-      operations?.items.find((item) => item.href === '/communications')?.moduleKey,
-    ).toBe('communications_outbound');
-    expect(
-      navSectionConfigs
-        .flatMap((section) => section.items)
-        .find((item) => item.href === '/inbox')?.moduleKey,
+      navSectionConfigs.flatMap((section) => section.items).find((item) => item.href === '/inbox')
+        ?.moduleKey,
     ).toBeUndefined();
   });
 
@@ -64,5 +63,16 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/wellbeing/my-workload')?.moduleKey).toBe(
       'staff_wellbeing',
     );
+  });
+
+  it('annotates partial-enforcement completion modules in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => [
+      { href: `__section:${section.labelKey}`, moduleKey: section.moduleKey },
+      ...section.items,
+    ]);
+
+    expect(allItems.find((item) => item.href === '/inquiries')?.moduleKey).toBe('parent_inquiries');
+    expect(allItems.find((item) => item.href === '/payroll')?.moduleKey).toBe('payroll');
+    expect(allItems.find((item) => item.href === '/website')?.moduleKey).toBe('website');
   });
 });

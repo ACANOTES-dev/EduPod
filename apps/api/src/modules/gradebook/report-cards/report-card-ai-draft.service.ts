@@ -199,11 +199,14 @@ export class ReportCardAiDraftService {
 
     // 11. Call AI.
     const startedAt = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: DEFAULT_MODEL,
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: DEFAULT_MODEL,
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startedAt;
 
     const textBlock = response.content.find((b) => b.type === 'text');

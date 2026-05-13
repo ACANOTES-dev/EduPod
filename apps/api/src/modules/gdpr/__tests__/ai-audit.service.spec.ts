@@ -7,6 +7,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
 }));
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { TenantModuleService } from '../../../common/services/tenant-module.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { AiDecisionDto, CreateAiLogDto } from '../ai-audit.service';
@@ -33,9 +34,7 @@ function buildMockPrisma() {
   };
 }
 
-function buildCreateLogDto(
-  overrides: Partial<CreateAiLogDto> = {},
-): CreateAiLogDto {
+function buildCreateLogDto(overrides: Partial<CreateAiLogDto> = {}): CreateAiLogDto {
   return {
     tenantId: TENANT_ID,
     aiService: 'ai-comments',
@@ -57,22 +56,27 @@ function buildCreateLogDto(
 describe('AiAuditService', () => {
   let service: AiAuditService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockTenantModuleService: { isEnabled: jest.Mock };
   const mockCreateRlsClient = createRlsClient as jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockTenantModuleService = { isEnabled: jest.fn().mockResolvedValue(true) };
 
     mockCreateRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(
-        async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
-          fn(mockPrisma),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
+            fn(mockPrisma),
+        ),
     });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiAuditService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
 
@@ -80,6 +84,29 @@ describe('AiAuditService', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  it('should return empty reads when ai_functions is disabled', async () => {
+    mockTenantModuleService.isEnabled.mockResolvedValue(false);
+
+    await expect(service.getLogById(TENANT_ID, LOG_ID)).resolves.toBeNull();
+    await expect(
+      service.getLogsForSubject(TENANT_ID, 'student', STUDENT_ID, 1, 20),
+    ).resolves.toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+    await expect(service.getLogsByService(TENANT_ID, 'ai-comments', 2, 10)).resolves.toEqual({
+      data: [],
+      meta: { page: 2, pageSize: 10, total: 0 },
+    });
+    await expect(service.getStats(TENANT_ID)).resolves.toEqual({
+      totalLogs: 0,
+      byService: {},
+      acceptanceRate: null,
+      avgProcessingTimeMs: null,
+      tokenisationRate: 0,
+    });
+    expect(mockPrisma.aiProcessingLog.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.aiProcessingLog.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.aiProcessingLog.count).not.toHaveBeenCalled();
+  });
 
   // ─── log() ──────────────────────────────────────────────────────────────────
 
@@ -214,9 +241,9 @@ describe('AiAuditService', () => {
 
       const decision: AiDecisionDto = { outputUsed: true };
 
-      await expect(
-        service.recordDecision(TENANT_ID, LOG_ID, decision),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.recordDecision(TENANT_ID, LOG_ID, decision)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -248,19 +275,11 @@ describe('AiAuditService', () => {
 
   describe('getLogsForSubject', () => {
     it('should return paginated logs filtered by subject', async () => {
-      const mockLogs = [
-        { id: LOG_ID, ai_service: 'ai-comments', created_at: new Date() },
-      ];
+      const mockLogs = [{ id: LOG_ID, ai_service: 'ai-comments', created_at: new Date() }];
       mockPrisma.aiProcessingLog.findMany.mockResolvedValue(mockLogs);
       mockPrisma.aiProcessingLog.count.mockResolvedValue(1);
 
-      const result = await service.getLogsForSubject(
-        TENANT_ID,
-        'student',
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await service.getLogsForSubject(TENANT_ID, 'student', STUDENT_ID, 1, 20);
 
       expect(result).toEqual({
         data: mockLogs,
@@ -294,18 +313,11 @@ describe('AiAuditService', () => {
 
   describe('getLogsByService', () => {
     it('should return paginated logs filtered by service', async () => {
-      const mockLogs = [
-        { id: LOG_ID, ai_service: 'ai-grading', created_at: new Date() },
-      ];
+      const mockLogs = [{ id: LOG_ID, ai_service: 'ai-grading', created_at: new Date() }];
       mockPrisma.aiProcessingLog.findMany.mockResolvedValue(mockLogs);
       mockPrisma.aiProcessingLog.count.mockResolvedValue(15);
 
-      const result = await service.getLogsByService(
-        TENANT_ID,
-        'ai-grading',
-        2,
-        5,
-      );
+      const result = await service.getLogsByService(TENANT_ID, 'ai-grading', 2, 5);
 
       expect(result).toEqual({
         data: mockLogs,
@@ -370,8 +382,7 @@ describe('AiAuditService', () => {
     });
 
     it('should apply date filters when provided', async () => {
-      mockPrisma.aiProcessingLog.count
-        .mockResolvedValue(0);
+      mockPrisma.aiProcessingLog.count.mockResolvedValue(0);
       mockPrisma.aiProcessingLog.findMany.mockResolvedValue([]);
 
       await service.getStats(TENANT_ID, '2026-01-01', '2026-03-31');
@@ -492,22 +503,27 @@ describe('AiAuditService — RLS isolation', () => {
 
   let service: AiAuditService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockTenantModuleService: { isEnabled: jest.Mock };
   const mockCreateRlsClient = createRlsClient as jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockTenantModuleService = { isEnabled: jest.fn().mockResolvedValue(true) };
 
     mockCreateRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(
-        async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
-          fn(mockPrisma),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
+            fn(mockPrisma),
+        ),
     });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiAuditService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
 

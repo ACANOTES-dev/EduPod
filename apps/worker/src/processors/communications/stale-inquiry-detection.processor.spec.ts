@@ -26,6 +26,12 @@ function buildJob(name: string = STALE_INQUIRY_DETECTION_JOB): Job {
   return { data: {}, name } as unknown as Job;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('StaleInquiryDetectionProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -33,7 +39,10 @@ describe('StaleInquiryDetectionProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockPrisma = buildMockPrisma();
-    const processor = new StaleInquiryDetectionProcessor(mockPrisma as never);
+    const processor = new StaleInquiryDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('communications:other-job'));
 
@@ -49,7 +58,10 @@ describe('StaleInquiryDetectionProcessor', () => {
         settings: { inquiryStaleHours: 24 },
       });
       mockPrisma.parentInquiry.findMany.mockResolvedValue([{ id: 'stale-1' }]);
-      const processor = new StaleInquiryDetectionProcessor(mockPrisma as never);
+      const processor = new StaleInquiryDetectionProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await processor.process(buildJob());
 
@@ -73,10 +85,26 @@ describe('StaleInquiryDetectionProcessor', () => {
   it('should iterate all active tenants', async () => {
     const mockPrisma = buildMockPrisma();
     mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }, { id: TENANT_B_ID }]);
-    const processor = new StaleInquiryDetectionProcessor(mockPrisma as never);
+    const processor = new StaleInquiryDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
     expect(mockPrisma.parentInquiry.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('should skip tenants when parent_inquiries is disabled', async () => {
+    const mockPrisma = buildMockPrisma();
+    const processor = new StaleInquiryDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService(false) as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockPrisma.tenantSetting.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.parentInquiry.findMany).not.toHaveBeenCalled();
   });
 });

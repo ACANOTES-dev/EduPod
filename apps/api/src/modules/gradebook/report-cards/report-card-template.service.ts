@@ -653,29 +653,32 @@ Return ONLY the JSON array, no explanation.`;
     this.logger.log(`Converting report card template from image for tenant ${tenantId}`);
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64Image,
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType,
+                  data: base64Image,
+                },
               },
-            },
-            {
-              type: 'text',
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+              {
+                type: 'text',
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');

@@ -181,7 +181,7 @@ export class AiPredictionsService {
 
     const promptInput = JSON.stringify(data);
     const start = Date.now();
-    const raw = await this.callAnthropic(prompt);
+    const raw = await this.callAnthropic(tenantId, prompt);
     const elapsed = Date.now() - start;
 
     const parsed = this.parseJsonResponse(raw);
@@ -279,7 +279,7 @@ export class AiPredictionsService {
     const prompt = buildAttendanceForecastPrompt(history, yearGroup.name, safeWeeks);
     const promptInput = JSON.stringify({ history, weeksAhead: safeWeeks });
     const start = Date.now();
-    const raw = await this.callAnthropic(prompt);
+    const raw = await this.callAnthropic(tenantId, prompt);
     const elapsed = Date.now() - start;
 
     const parsed = this.parseJsonResponse(raw);
@@ -289,7 +289,9 @@ export class AiPredictionsService {
     }).safeParse(parsed);
 
     if (!validated.success) {
-      this.logger.warn(`[attendance-forecast] schema validation failed: ${validated.error.message}`);
+      this.logger.warn(
+        `[attendance-forecast] schema validation failed: ${validated.error.message}`,
+      );
       await this.audit(
         tenantId,
         'reports_predictions',
@@ -343,16 +345,7 @@ export class AiPredictionsService {
     if (!refresh) {
       const cached = await this.readCache<CashFlowForecast>(cacheKey, CashFlowForecastSchema);
       if (cached) {
-        await this.audit(
-          tenantId,
-          'reports_predictions',
-          'cashflow',
-          null,
-          '',
-          '',
-          0,
-          true,
-        );
+        await this.audit(tenantId, 'reports_predictions', 'cashflow', null, '', '', 0, true);
         return { ...cached, cache_hit: true };
       }
     }
@@ -368,7 +361,7 @@ export class AiPredictionsService {
     const prompt = buildCashFlowForecastPrompt(cashData);
     const promptInput = JSON.stringify(cashData);
     const start = Date.now();
-    const raw = await this.callAnthropic(prompt);
+    const raw = await this.callAnthropic(tenantId, prompt);
     const elapsed = Date.now() - start;
 
     const parsed = this.parseJsonResponse(raw);
@@ -537,11 +530,14 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
 }`;
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: MODEL,
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: MODEL,
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const content = response.content.find((c) => c.type === 'text');
@@ -623,13 +619,16 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
     }
   }
 
-  private async callAnthropic(prompt: string): Promise<string> {
+  private async callAnthropic(tenantId: string, prompt: string): Promise<string> {
     try {
-      const response = (await this.anthropicClient.createMessage({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        messages: [{ role: 'user', content: prompt }],
-      })) as AnthropicTextResponse;
+      const response = (await this.anthropicClient.createMessage(
+        {
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          messages: [{ role: 'user', content: prompt }],
+        },
+        { tenantId },
+      )) as AnthropicTextResponse;
 
       const block = response.content.find((c) => c.type === 'text');
       return block?.text ?? '';
@@ -675,9 +674,7 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
 
   private async writeCache<T>(key: string, value: T): Promise<void> {
     try {
-      await this.redis
-        .getClient()
-        .setex(key, CACHE_TTL_SECONDS, JSON.stringify(value));
+      await this.redis.getClient().setex(key, CACHE_TTL_SECONDS, JSON.stringify(value));
     } catch (err) {
       this.logger.warn(`[cache] write failed for ${key}: ${(err as Error).message}`);
     }
@@ -700,12 +697,8 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
       subjectId,
       modelUsed: MODEL,
       promptHash: AiAuditService.hashPrompt(promptInput),
-      promptSummary: cacheHit
-        ? '(cache hit)'
-        : AiAuditService.truncate(promptInput, 500),
-      responseSummary: cacheHit
-        ? '(cache hit)'
-        : AiAuditService.truncate(rawResponse, 500),
+      promptSummary: cacheHit ? '(cache hit)' : AiAuditService.truncate(promptInput, 500),
+      responseSummary: cacheHit ? '(cache hit)' : AiAuditService.truncate(rawResponse, 500),
       inputDataCategories: ['student_data', 'finance_data'],
       tokenised: true,
       confidenceScore: null,
@@ -963,10 +956,7 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const pendingTotal = pending.reduce(
-      (sum, inv) => sum + this.toNumber(inv.balance_amount),
-      0,
-    );
+    const pendingTotal = pending.reduce((sum, inv) => sum + this.toNumber(inv.balance_amount), 0);
 
     return {
       historical,

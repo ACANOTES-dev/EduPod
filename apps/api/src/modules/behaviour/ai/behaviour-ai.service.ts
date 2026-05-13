@@ -138,7 +138,7 @@ export class BehaviourAIService {
     let aiResponse: string;
     const aiStartTime = Date.now();
     try {
-      aiResponse = await this.callAI(prompt, AI_TIMEOUT_MS);
+      aiResponse = await this.callAI(tenantId, prompt, AI_TIMEOUT_MS);
     } catch (error) {
       this.logger.warn(`AI call failed: ${error instanceof Error ? error.message : String(error)}`);
       throw new ServiceUnavailableException({
@@ -201,7 +201,7 @@ export class BehaviourAIService {
   /**
    * Call AI provider with Claude primary and timeout fallback.
    */
-  private async callAI(prompt: string, timeout: number): Promise<string> {
+  private async callAI(tenantId: string, prompt: string, timeout: number): Promise<string> {
     const response = await this.anthropicClient.createMessage(
       {
         model: 'claude-sonnet-4-5-20250514',
@@ -209,7 +209,7 @@ export class BehaviourAIService {
         system: AI_BEHAVIOUR_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
       },
-      { timeoutMs: timeout },
+      { tenantId, timeoutMs: timeout },
     );
 
     const textBlock = response.content.find((b) => b.type === 'text');

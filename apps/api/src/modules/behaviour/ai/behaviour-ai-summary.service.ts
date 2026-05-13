@@ -93,7 +93,7 @@ export class BehaviourAiSummaryService {
     const aiStartTime = Date.now();
     let parsed: SummaryLlmResponse;
     try {
-      parsed = await this.callLlm(userMessage);
+      parsed = await this.callLlm(tenantId, userMessage);
     } catch (err) {
       this.logger.warn(
         `[getSummary] LLM call failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -218,7 +218,7 @@ export class BehaviourAiSummaryService {
     return `${tenantId}:${studentId}:${from}:${to}`;
   }
 
-  private async callLlm(userMessage: string): Promise<SummaryLlmResponse> {
+  private async callLlm(tenantId: string, userMessage: string): Promise<SummaryLlmResponse> {
     const response = await this.anthropic.createMessage(
       {
         model: 'claude-sonnet-4-5-20250514',
@@ -226,7 +226,7 @@ export class BehaviourAiSummaryService {
         system: AI_SUMMARY_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       },
-      { timeoutMs: AI_SUMMARY_TIMEOUT_MS },
+      { tenantId, timeoutMs: AI_SUMMARY_TIMEOUT_MS },
     );
     const textBlock = response.content.find((b) => b.type === 'text');
     if (!textBlock || textBlock.type !== 'text') {

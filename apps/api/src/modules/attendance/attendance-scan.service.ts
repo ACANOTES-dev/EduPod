@@ -10,6 +10,7 @@ import {
 import type { ScanResultEntry } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared/gdpr';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
@@ -79,6 +80,7 @@ export class AttendanceScanService {
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
     private readonly studentReadFacade: StudentReadFacade,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   // ─── Scan Image ──────────────────────────────────────────────────────────
@@ -90,6 +92,13 @@ export class AttendanceScanService {
     mimeType: string,
     sessionDate: string,
   ): Promise<{ scan_id: string; entries: ScanResultEntry[] }> {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(
+        `Skipping attendance image scan for tenant ${tenantId}: ai_functions disabled`,
+      );
+      return { scan_id: randomUUID(), entries: [] };
+    }
+
     // 1. Verify Anthropic client is available
     if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
@@ -129,29 +138,32 @@ export class AttendanceScanService {
     this.logger.log(`Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`);
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 2048,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64Image,
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType,
+                  data: base64Image,
+                },
               },
-            },
-            {
-              type: 'text',
-              text: SCAN_PROMPT,
-            },
-          ],
-        },
-      ],
-    });
+              {
+                type: 'text',
+                text: SCAN_PROMPT,
+              },
+            ],
+          },
+        ],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');

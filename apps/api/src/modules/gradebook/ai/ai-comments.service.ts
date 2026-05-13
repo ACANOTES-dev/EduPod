@@ -147,11 +147,14 @@ export class AiCommentsService {
     this.logger.log(`Generating AI comment for report card ${reportCardId}, tenant ${tenantId}`);
 
     const startTime = Date.now();
-    const response = await this.anthropicClient.createMessage({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await this.anthropicClient.createMessage(
+      {
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { tenantId },
+    );
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');

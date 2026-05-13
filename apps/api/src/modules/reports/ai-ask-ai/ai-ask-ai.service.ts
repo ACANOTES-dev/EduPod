@@ -115,18 +115,19 @@ export class AiAskAiService {
     let rawResponse = '';
     let costEstimate: number | undefined;
     try {
-      const response = (await this.anthropic.createMessage({
-        model: ANTHROPIC_MODEL,
-        max_tokens: ANTHROPIC_MAX_TOKENS,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      })) as AnthropicMessage;
+      const response = (await this.anthropic.createMessage(
+        {
+          model: ANTHROPIC_MODEL,
+          max_tokens: ANTHROPIC_MAX_TOKENS,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        },
+        { tenantId },
+      )) as AnthropicMessage;
       rawResponse = this.extractText(response);
       costEstimate = this.estimateCost(response);
     } catch (err) {
-      this.logger.warn(
-        `ask-ai upstream failure: ${(err as Error).message ?? 'unknown'}`,
-      );
+      this.logger.warn(`ask-ai upstream failure: ${(err as Error).message ?? 'unknown'}`);
       const failure: AskAiTranslationResult = {
         query: null,
         rationale: '',
@@ -150,11 +151,7 @@ export class AiAskAiService {
     return result;
   }
 
-  async getHistory(
-    tenantId: string,
-    userId: string,
-    limit = 20,
-  ): Promise<AskAiHistoryEntry[]> {
+  async getHistory(tenantId: string, userId: string, limit = 20): Promise<AskAiHistoryEntry[]> {
     const rls = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
     const rows = await rls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaClient;
@@ -186,11 +183,7 @@ export class AiAskAiService {
    * `true` if the row was updated, `false` if no row existed for the
    * (tenant, user) pair.
    */
-  async markHistoryAsSaved(
-    tenantId: string,
-    userId: string,
-    historyId: string,
-  ): Promise<boolean> {
+  async markHistoryAsSaved(tenantId: string, userId: string, historyId: string): Promise<boolean> {
     const rls = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
     return rls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaClient;

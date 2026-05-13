@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -22,7 +23,10 @@ export const INQUIRY_NOTIFICATION_JOB = 'communications:inquiry-notification';
 export class InquiryNotificationProcessor {
   private readonly logger = new Logger(InquiryNotificationProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<InquiryNotificationPayload>): Promise<void> {
     if (job.name !== INQUIRY_NOTIFICATION_JOB) {
@@ -33,6 +37,13 @@ export class InquiryNotificationProcessor {
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'parent_inquiries'))) {
+      this.logger.debug(
+        `Skipping ${INQUIRY_NOTIFICATION_JOB} for tenant ${tenant_id}: parent_inquiries disabled`,
+      );
+      return;
     }
 
     this.logger.log(

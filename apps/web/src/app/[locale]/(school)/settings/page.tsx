@@ -22,6 +22,9 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared';
+
+import { IfModuleEnabled } from '@/components/if-module-enabled';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import type { RoleKey } from '@/lib/route-roles';
@@ -33,6 +36,7 @@ interface SettingsTileConfig {
   descKey: string;
   href: string;
   icon: LucideIcon;
+  moduleKey?: ModuleKey;
 }
 
 interface SettingsCategoryConfig {
@@ -291,6 +295,7 @@ const CATEGORIES: SettingsCategoryConfig[] = [
         descKey: 'hub.aiFlagsDesc',
         href: '/settings/ai-flags',
         icon: BrainCircuit,
+        moduleKey: 'ai_functions',
       },
       {
         labelKey: 'hub.reportsSettings',
@@ -335,7 +340,7 @@ function SettingsTile({
   locale: string;
   t: (key: string) => string;
 }) {
-  return (
+  const tile = (
     <Link
       href={`/${locale}${item.href}`}
       className="group flex items-start gap-3.5 rounded-xl border border-border bg-surface p-4 transition-all hover:border-border-strong hover:shadow-sm"
@@ -350,6 +355,8 @@ function SettingsTile({
       <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
     </Link>
   );
+
+  return item.moduleKey ? <IfModuleEnabled module={item.moduleKey}>{tile}</IfModuleEnabled> : tile;
 }
 
 // ─── Category Section Component ─────────────────────────────────────────────

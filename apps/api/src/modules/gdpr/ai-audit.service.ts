@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
@@ -55,7 +56,10 @@ interface AiLogStatRow {
 export class AiAuditService {
   private readonly logger = new Logger(AiAuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   /**
    * Log an AI processing event. Returns the log ID.
@@ -105,11 +109,7 @@ export class AiAuditService {
    * Update a log with the human review decision (accept/reject).
    * Used when a teacher accepts or rejects an AI suggestion.
    */
-  async recordDecision(
-    tenantId: string,
-    logId: string,
-    decision: AiDecisionDto,
-  ): Promise<void> {
+  async recordDecision(tenantId: string, logId: string, decision: AiDecisionDto): Promise<void> {
     const existing = await this.prisma.aiProcessingLog.findFirst({
       where: { id: logId, tenant_id: tenantId },
       select: { id: true },
@@ -142,6 +142,11 @@ export class AiAuditService {
    * Used by the Article 22 right-to-explanation endpoint.
    */
   async getLogById(tenantId: string, logId: string) {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(`Skipping AI audit read for tenant ${tenantId}: ai_functions disabled`);
+      return null;
+    }
+
     return this.prisma.aiProcessingLog.findFirst({
       where: { id: logId, tenant_id: tenantId },
     });
@@ -157,6 +162,13 @@ export class AiAuditService {
     page: number,
     pageSize: number,
   ) {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(
+        `Skipping AI audit subject read for tenant ${tenantId}: ai_functions disabled`,
+      );
+      return { data: [], meta: { page, pageSize, total: 0 } };
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.aiProcessingLog.findMany({
         where: {
@@ -183,12 +195,14 @@ export class AiAuditService {
   /**
    * Get logs filtered by AI service type.
    */
-  async getLogsByService(
-    tenantId: string,
-    service: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getLogsByService(tenantId: string, service: string, page: number, pageSize: number) {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(
+        `Skipping AI audit service read for tenant ${tenantId}: ai_functions disabled`,
+      );
+      return { data: [], meta: { page, pageSize, total: 0 } };
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.aiProcessingLog.findMany({
         where: {
@@ -214,11 +228,20 @@ export class AiAuditService {
    * Aggregate statistics for AI usage.
    * Used for DPIA evidence (Article 35) and transparency dashboards.
    */
-  async getStats(
-    tenantId: string,
-    dateFrom?: string,
-    dateTo?: string,
-  ): Promise<AiUsageStats> {
+  async getStats(tenantId: string, dateFrom?: string, dateTo?: string): Promise<AiUsageStats> {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
+      this.logger.debug(
+        `Skipping AI audit stats read for tenant ${tenantId}: ai_functions disabled`,
+      );
+      return {
+        totalLogs: 0,
+        byService: {},
+        acceptanceRate: null,
+        avgProcessingTimeMs: null,
+        tokenisationRate: 0,
+      };
+    }
+
     const dateFilter: { created_at?: { gte?: Date; lte?: Date } } = {};
     if (dateFrom || dateTo) {
       dateFilter.created_at = {};
@@ -235,33 +258,33 @@ export class AiAuditService {
       number,
       number,
     ] = await Promise.all([
-        // Total count
-        this.prisma.aiProcessingLog.count({ where: baseWhere }),
+      // Total count
+      this.prisma.aiProcessingLog.count({ where: baseWhere }),
 
-        // All logs for per-service aggregation and average processing time
-        this.prisma.aiProcessingLog.findMany({
-          where: baseWhere,
-          select: {
-            ai_service: true,
-            processing_time_ms: true,
-          },
-        }),
+      // All logs for per-service aggregation and average processing time
+      this.prisma.aiProcessingLog.findMany({
+        where: baseWhere,
+        select: {
+          ai_service: true,
+          processing_time_ms: true,
+        },
+      }),
 
-        // Count of logs where output_used is not null (a decision was made)
-        this.prisma.aiProcessingLog.count({
-          where: { ...baseWhere, output_used: { not: null } },
-        }),
+      // Count of logs where output_used is not null (a decision was made)
+      this.prisma.aiProcessingLog.count({
+        where: { ...baseWhere, output_used: { not: null } },
+      }),
 
-        // Count of accepted (output_used = true)
-        this.prisma.aiProcessingLog.count({
-          where: { ...baseWhere, output_used: true },
-        }),
+      // Count of accepted (output_used = true)
+      this.prisma.aiProcessingLog.count({
+        where: { ...baseWhere, output_used: true },
+      }),
 
-        // Count of tokenised logs
-        this.prisma.aiProcessingLog.count({
-          where: { ...baseWhere, tokenised: true },
-        }),
-      ]);
+      // Count of tokenised logs
+      this.prisma.aiProcessingLog.count({
+        where: { ...baseWhere, tokenised: true },
+      }),
+    ]);
 
     // Build per-service counts
     const byService: Record<string, number> = {};
@@ -270,13 +293,9 @@ export class AiAuditService {
     }
 
     // Average processing time
-    const timings = allLogs
-      .map((l) => l.processing_time_ms)
-      .filter((t): t is number => t !== null);
+    const timings = allLogs.map((l) => l.processing_time_ms).filter((t): t is number => t !== null);
     const avgProcessingTimeMs =
-      timings.length > 0
-        ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length)
-        : null;
+      timings.length > 0 ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length) : null;
 
     // Acceptance rate: accepted / decisioned
     const acceptanceRate = decisioned > 0 ? accepted / decisioned : null;

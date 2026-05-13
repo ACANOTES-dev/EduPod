@@ -44,7 +44,12 @@ export const navSectionConfigs: NavSectionConfig[] = [
     roles: ['parent'],
     items: [
       { labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
-      { labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
+      {
+        labelKey: 'nav.inquiries',
+        href: '/inquiries',
+        moduleKey: 'parent_inquiries',
+        roles: ['parent'],
+      },
       {
         labelKey: 'nav.privacyConsent',
         href: '/privacy-consent',
@@ -228,6 +233,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       {
         labelKey: 'nav.payroll',
         href: '/payroll',
+        moduleKey: 'payroll',
         roles: ['school_owner', 'school_principal'],
       },
     ],
@@ -264,7 +270,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
     labelKey: 'nav.school',
     roles: ADMIN_ROLES,
     items: [
-      { labelKey: 'nav.website', href: '/website' },
+      { labelKey: 'nav.website', href: '/website', moduleKey: 'website' },
       { labelKey: 'nav.settings', href: '/settings' },
       { labelKey: 'nav.closures', href: '/settings/closures' },
     ],

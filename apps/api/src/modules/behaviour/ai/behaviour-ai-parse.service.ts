@@ -74,7 +74,7 @@ export class BehaviourAiParseService {
 
     let parsed: ParseLlmResponse;
     try {
-      parsed = await this.callParser(description);
+      parsed = await this.callParser(tenantId, description);
     } catch (err) {
       this.logger.warn(
         `[parse] LLM call failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -128,7 +128,7 @@ export class BehaviourAiParseService {
     };
   }
 
-  private async callParser(description: string): Promise<ParseLlmResponse> {
+  private async callParser(tenantId: string, description: string): Promise<ParseLlmResponse> {
     const response = await this.anthropic.createMessage(
       {
         model: 'claude-sonnet-4-5-20250514',
@@ -136,7 +136,7 @@ export class BehaviourAiParseService {
         system: AI_PARSE_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: description }],
       },
-      { timeoutMs: AI_PARSE_TIMEOUT_MS },
+      { tenantId, timeoutMs: AI_PARSE_TIMEOUT_MS },
     );
     const textBlock = response.content.find((b) => b.type === 'text');
     if (!textBlock || textBlock.type !== 'text') {

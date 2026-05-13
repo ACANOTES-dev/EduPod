@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import { TenantModuleService } from '../../../common/services/tenant-module.service';
 import {
   MOCK_FACADE_PROVIDERS,
   SchedulesReadFacade,
@@ -276,6 +277,7 @@ describe('AI Substitution GDPR Integration', () => {
   };
   let mockAiAuditService: { log: jest.Mock };
   let mockSettingsService: { getSettings: jest.Mock };
+  let mockTenantModuleService: { isEnabled: jest.Mock };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockPrisma: any;
 
@@ -293,6 +295,10 @@ describe('AI Substitution GDPR Integration', () => {
       log: jest.fn().mockResolvedValue('ai-log-id'),
     };
 
+    mockTenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    };
+
     mockPrisma = {
       schedule: { findFirst: jest.fn(), findMany: jest.fn() },
       staffProfile: { findMany: jest.fn() },
@@ -308,6 +314,7 @@ describe('AI Substitution GDPR Integration', () => {
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: mockAiAuditService },
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: SchedulesReadFacade,
           useValue: {
