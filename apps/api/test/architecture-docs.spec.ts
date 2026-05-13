@@ -100,7 +100,7 @@ describe('Communications Overhaul — architecture docs presence', () => {
     const content = await fs.readFile(resolve(ARCH_DIR, 'feature-map.md'), 'utf-8');
     const gateableMentions = content.match(/Gateable/g) ?? [];
     expect(gateableMentions.length).toBeGreaterThanOrEqual(20);
-    expect(content).toContain('| Gateable |');
+    expect(content).toMatch(/\|\s*Gateable\s*\|/);
     expect(content).toContain('module key `gradebook`');
     expect(content).toContain('deprecated `analytics` module key is not used');
   });

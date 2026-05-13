@@ -1,6 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+import { MODULE_KEYS_ARRAY } from '@school/shared';
+
 import {
   PLATFORM_ADMIN_EMAIL,
   authGet,
@@ -255,7 +257,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
   // ─── Test 11: List tenant modules ───────────────────────────────────────────
 
-  it('should list tenant modules and return all 17 modules', async () => {
+  it('should list tenant modules and return all canonical modules', async () => {
     const listRes = await authGet(
       app,
       '/api/v1/admin/tenants?pageSize=100&order=asc',
@@ -272,32 +274,10 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data).toHaveLength(17);
+    expect(res.body.data).toHaveLength(MODULE_KEYS_ARRAY.length);
 
     const moduleKeys = res.body.data.map((m: { module_key: string }) => m.module_key);
-    expect(moduleKeys).toEqual(
-      expect.arrayContaining([
-        'admissions',
-        'attendance',
-        'gradebook',
-        'finance',
-        'payroll',
-        'communications',
-        'website',
-        'analytics',
-        'compliance',
-        'parent_inquiries',
-        'auto_scheduling',
-        'staff_wellbeing',
-        'sen',
-        'behaviour',
-        'pastoral',
-        'ai_functions',
-        // Added by the modeling rebuild (impl 01) — Budgeting & Analysis
-        // sub-module under Finance.
-        'budgeting',
-      ]),
-    );
+    expect(moduleKeys).toEqual([...MODULE_KEYS_ARRAY].sort());
   });
 
   // ─── Test 12: Toggle module ──────────────────────────────────────────────────
@@ -311,7 +291,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
     const alNoor = listRes.body.data.find((t: { slug: string }) => t.slug === 'al-noor');
     expect(alNoor).toBeDefined();
 
-    const moduleKey = 'analytics';
+    const moduleKey = 'website';
 
     // Disable the module
     const disableRes = await authPatch(
