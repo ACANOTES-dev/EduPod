@@ -313,7 +313,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
     items: [
       { labelKey: 'nav.website', href: '/website', moduleKey: 'website' },
       { labelKey: 'nav.settings', href: '/settings' },
-      { labelKey: 'nav.closures', href: '/settings/closures' },
+      { labelKey: 'nav.closures', href: '/settings/closures', moduleKey: 'school_closures' },
     ],
   },
 ];

@@ -117,6 +117,15 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/leave')?.moduleKey).toBe('leave');
   });
 
+  it('annotates school-closure management without gating core settings', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/settings')?.moduleKey).toBeUndefined();
+    expect(allItems.find((item) => item.href === '/settings/closures')?.moduleKey).toBe(
+      'school_closures',
+    );
+  });
+
   it('annotates advanced regulatory entries while keeping core regulatory routes visible', () => {
     const allItems = navSectionConfigs.flatMap((section) => section.items);
 

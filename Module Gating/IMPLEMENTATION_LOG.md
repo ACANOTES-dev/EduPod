@@ -39,7 +39,7 @@
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | 📦     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | 📦     |
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | 📦     |
-| 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ⏳     |
+| 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | 📦     |
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ⏳     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     |
@@ -567,15 +567,24 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `school_closures` added to registry with default_enabled=true, category='operations'.
-- [ ] `apps/api/src/modules/school-closures/school-closures.controller.ts` gains `@ModuleEnabled('school_closures')` + `ModuleEnabledGuard`.
-- [ ] Frontend `/settings/school-closures` hidden via nav filter when disabled.
-- [ ] Documented: scheduling/attendance/finance services that READ closures are unaffected by the toggle (closures continue to be honoured if previously set; only the management UI is hidden).
-- [ ] Module-gating leakage test passes for `school_closures`.
+- [x] `school_closures` verified in registry with default_enabled=true, category='operations'.
+- [x] `apps/api/src/modules/school-closures/school-closures.controller.ts` gains `@ModuleEnabled('school_closures')` + `ModuleEnabledGuard`.
+- [x] Frontend `/settings/closures` hidden via nav filter when disabled. The spec says `/settings/school-closures`, but the repo's actual route is `/settings/closures`.
+- [x] Documented: scheduling/attendance/finance services that READ closures are unaffected by the toggle (closures continue to be honoured if previously set; only the management API/UI is hidden).
+- [x] Module-gating leakage test passes for `school_closures`.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce school closures gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/school-closures/school-closures.controller.spec.ts src/modules/school-closures/school-closures-read.facade.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=school_closures)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/web/test files (warnings only: repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: No school-closures worker processors exist. The toggle gates only `SchoolClosuresController`; downstream consumers keep using `SchoolClosuresService` / `SchoolClosuresReadFacade`, so previously configured closures remain honoured by attendance, scheduling, and finance/payroll read flows when management is disabled. A first controller-spec run failed because the newly added `ModuleEnabledGuard` needed to be overridden in the unit test harness; the spec was patched and then passed.
 
 ---
 

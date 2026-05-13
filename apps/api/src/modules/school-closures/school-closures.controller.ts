@@ -18,8 +18,10 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -35,7 +37,8 @@ const listClosuresQuerySchema = z.object({
 });
 
 @Controller('v1/school-closures')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('school_closures')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class SchoolClosuresController {
   constructor(private readonly closuresService: SchoolClosuresService) {}
 
