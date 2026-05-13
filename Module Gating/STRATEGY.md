@@ -517,6 +517,11 @@ Status legend (mirrors `New Languages/IMPLEMENTATION_LOG.md`):
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ⏳     | W1         |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     | W1–W4      |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     | W1–W4      |
+| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | ⏳     | W1         |
+
+> **Index note (added 2026-05-13 post-final-audit)**: impl 23 closes a gap missed in the original W3 spec set. `budgeting` is in the canonical registry per impl 01 and seeded per impl 02, but no per-module enforcement spec was written for it — the 10 admin budgeting controllers carry only `AuthGuard` + `PermissionGuard`. The static-analysis test (impl 07) only flags "decorated but no guard," not "in registry but no enforcement," so the gap slipped past CI. Impl 23 follows the impl 12 admissions template; estimated 2-3 hours.
+>
+> **Future safeguard worth considering** (out of scope for impl 23 itself): a CI-time check that every key in `MODULE_REGISTRY` is referenced by at least one `@ModuleEnabled('<key>')` somewhere in the codebase. Would catch this class of gap permanently.
 
 ---
 

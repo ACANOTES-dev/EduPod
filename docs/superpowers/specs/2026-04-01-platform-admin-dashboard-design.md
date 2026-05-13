@@ -14,6 +14,8 @@ The platform admin dashboard must become a world-class operations centre — the
 
 > **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. The closure handoff (`Module Gating/admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
 
+> **Hosting decision (2026-05-13):** The platform admin console is moving from `edupod.app/[locale]/admin/*` (publicly discoverable login form) to a stealth subdomain **`dua.edupod.app`**. All Layer 1/2/3 work runs under that origin. Unauthenticated requests to any path other than `/login` return a plain 404 indistinguishable from a non-existent host. JWT cookies are domain-locked to `dua.edupod.app` so platform sessions don't bleed into tenant tabs. The DNS name + access pattern stay out of marketing copy, sitemaps, robots.txt, and the public README — operations runbook only. Full design: `docs/features/platform-dashboard/Layer-1/Session-0-stealth-subdomain.md`. This is **Session 0** — a hard prerequisite for every Layer 1/2/3 session.
+
 ## 2. Requirements
 
 ### 2.1 Audience
@@ -449,8 +451,9 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 
 ## 6. Build Sequence
 
-### Layer 1 — Operational Foundation (4 sessions)
+### Layer 1 — Operational Foundation (5 sessions; Session 0 is a hard prerequisite)
 
+0: Stealth subdomain (`dua.edupod.app`) — DNS, host-routing middleware, JWT cookie scoping, 404-by-default. Runs before everything else.
 1A: WebSocket infrastructure + Redis pub/sub
 1B: Health dashboard with real-time updates
 1C: Alert framework (rules, evaluation, email, history UI)
@@ -471,7 +474,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 3D: Platform users & navigation redesign
 3E: Tenant module toggles UI (registry-driven; consumes Module Gating foundation)
 
-**Total: 13 sessions across 3 layers.**
+**Total: 14 sessions across 3 layers** (Session 0 + Layer 1 4 + Layer 2 4 + Layer 3 5).
 
 > **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end (W1–W5). The Module Gating foundation provides the canonical registry, the typed toggle endpoint, the `/me` payload, the cache invalidation pipeline, and the audit-log integration that Session 3E renders as UI. `Module Gating/admin-console-handoff.md` is the closure contract. Session 3E should NOT be started until Module Gating Wave 5 is complete.
 

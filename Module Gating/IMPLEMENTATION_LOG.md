@@ -43,6 +43,7 @@
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ✅     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ✅     |
+| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | ⏳     |
 
 ---
 
@@ -677,6 +678,32 @@ _See implementations/09-communications-split.md for full spec._
 - Trips audit: `apps/api/src/modules/trips/` remains intentionally stubbed (`trips.module.ts`, `audience/trip-roster.provider.ts`, and its spec only). Trip-pack and trip-fee behaviour remains under `engagement` / `budgeting`, not a `trips` module gate.
 - Deliberate limitations: live production module off/on toggles were not performed because they are disruptive. The disabled/re-enabled contract is covered by module-gating leakage tests and verified in CI; production smoke used read-only SQL, readiness checks, deployed-head verification, and NHQS signed-in access to a default-on gated endpoint.
 - Deliberate architectural deviation: two `staff_wellbeing` worker cron processors still perform direct `tenantModule.findMany` fan-out reads to discover enabled tenants before entering tenant-scoped RLS work. This is behaviourally correct and documented here; a future cleanup could add a dedicated `TenantModuleService.getTenantIdsWithModuleEnabled()` helper if we want a stricter no-direct-read rule.
+
+> **Audit correction (2026-05-13, post-publication)**: the "20 modules with full API enforcement" claim above was off by one. The `budgeting` module is in the registry and seeded per impl 02 but its 10 admin controllers carry only `@UseGuards(AuthGuard, PermissionGuard)` — no `@ModuleEnabled('budgeting')`. Confirmed via grep: zero hits across `apps/` and `packages/`. The original W3 spec set (impls 12–17) did not include a budgeting enforcement spec; the gap slipped past the static-analysis test in impl 07 because that test only flags "decorated but no guard," not "in registry but no enforcement." Tracked as **impl 23** (see entry below); fix is mechanical, follows the impl 12 admissions template.
+
+---
+
+## Phase 3 — Wave W3 follow-up
+
+### 23 — Budgeting full enforcement
+
+#### Acceptance
+
+- [ ] All 10 admin/staff budgeting controllers under `apps/api/src/modules/budgeting/` gated with `@ModuleEnabled('budgeting')` + `ModuleEnabledGuard` at class level. Static-analysis test (impl 07) still passes.
+- [ ] `shareable-links.public.controller.ts` remains ungated with explicit doc comment (matches the public endpoint pattern from impls 12, 14, 19).
+- [ ] All 4 budgeting worker processors have Pattern B check (`budgeting-queue`, `shareable-link-cleanup`, `board-pack-render`, `variance-refresh`).
+- [ ] Frontend nav entries for budgeting under the Finance hub annotated with `moduleKey: 'budgeting'`.
+- [ ] Module-gating leakage tests pass for `budgeting`.
+- [ ] Public shareable-link viewer test confirms 200 for a valid token even when budgeting is disabled.
+- [ ] Smoke test on NHQS:
+  - Toggle `budgeting` off → admin loses /finance/budgeting/\* access; existing financial models + scenarios remain in DB.
+  - Trigger a board-pack render via the API → 404 (gated).
+  - Hit a previously-issued shareable link → still works (public viewer ungated).
+  - Toggle back on → access restored within 60s; variance-refresh resumes on next cron tick.
+
+#### Commits / CI / Deploy / Notes
+
+_(populate when implementing)_
 
 ---
 

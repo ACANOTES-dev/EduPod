@@ -1,8 +1,8 @@
 # Platform Admin Dashboard -- Layer 1: Operational Foundation
 
-**Date:** 2026-04-01
+**Date:** 2026-04-01 (revised 2026-05-13: Session 0 stealth subdomain prerequisite added)
 **Status:** Plan
-**Sessions:** 4 (1A, 1B, 1C, 1D)
+**Sessions:** 5 (Session 0, 1A, 1B, 1C, 1D)
 **Design Spec:** `docs/superpowers/specs/2026-04-01-platform-admin-dashboard-design.md`
 
 ---
@@ -38,18 +38,20 @@ Before starting any Layer 1 session:
 ## 3. Session Dependency Graph
 
 ```
-Session 1A: WebSocket Infrastructure + Redis Pub/Sub
+Session 0: Stealth Subdomain (dua.edupod.app)        [PREREQUISITE — runs first]
     |
-    +---> Session 1B: Health Dashboard (depends on 1A for real-time updates)
-    |         |
-    |         +---> Session 1C: Alert Framework (depends on 1B for health state change events)
-    |
-    +---> Session 1D: Onboarding Tracker (depends on 1A for real-time onboarding step updates)
+    +---> Session 1A: WebSocket Infrastructure + Redis Pub/Sub
+              |
+              +---> Session 1B: Health Dashboard (depends on 1A for real-time updates)
+              |         |
+              |         +---> Session 1C: Alert Framework (depends on 1B for health state change events)
+              |
+              +---> Session 1D: Onboarding Tracker (depends on 1A for real-time onboarding step updates)
 ```
 
-**Execution order:** 1A must complete first. Then 1B and 1D can run in parallel. 1C must follow 1B (it evaluates health metrics).
+**Execution order:** Session 0 (stealth subdomain) lands first — every subsequent dashboard URL lives at `dua.edupod.app` and depends on that routing/cookie infrastructure. Then 1A. Then 1B and 1D can run in parallel. 1C follows 1B.
 
-**Recommended sequential order:** 1A -> 1B -> 1C -> 1D
+**Recommended sequential order:** 0 -> 1A -> 1B -> 1C -> 1D
 
 ---
 
@@ -90,9 +92,13 @@ All tables and enums will be created in a single migration: `YYYYMMDDHHMMSS_add_
 
 ## 5. New API Endpoints Summary
 
+### Session 0 -- Stealth Subdomain
+
+No new REST endpoints. Modifies the existing `POST /v1/auth/login` to honour the `Host` header for platform-credential / tenant-credential isolation. See `Session-0-stealth-subdomain.md` for full details (DNS, nginx, Next.js host-routing middleware, JWT cookie domain scoping, 404-by-default behaviour).
+
 ### Session 1A -- WebSocket
 
-No REST endpoints. WebSocket gateway at `ws://host/platform` (Socket.IO namespace).
+No REST endpoints. WebSocket gateway at `ws://dua.edupod.app/platform` (Socket.IO namespace; bound to the stealth subdomain per Session 0).
 
 ### Session 1B -- Health Dashboard
 
