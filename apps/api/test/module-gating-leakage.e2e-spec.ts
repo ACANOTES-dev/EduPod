@@ -24,7 +24,10 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
   auto_scheduling: [{ method: 'GET', path: '/api/v1/scheduling/dashboard' }],
   behaviour: [{ method: 'GET', path: '/api/v1/behaviour/incidents' }],
   budgeting: [{ method: 'GET', path: '/api/v1/budgeting/financial-models' }],
-  communications_outbound: [{ method: 'GET', path: '/api/v1/announcements' }],
+  communications_outbound: [
+    { method: 'GET', path: '/api/v1/announcements' },
+    { method: 'GET', path: '/api/v1/notification-templates' },
+  ],
   early_warning: [{ method: 'GET', path: '/api/v1/early-warning/students' }],
   engagement: [{ method: 'GET', path: '/api/v1/engagement/events' }],
   finance: [{ method: 'GET', path: '/api/v1/finance/invoices' }],
@@ -38,6 +41,8 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
   staff_wellbeing: [{ method: 'GET', path: '/api/v1/wellbeing/surveys' }],
   website: [{ method: 'GET', path: '/api/v1/website/pages' }],
 };
+
+const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>(['communications_outbound']);
 
 const PROBES: ReadonlyArray<ModuleGatingProbe> = MODULE_REGISTRY.filter(
   (definition) => definition.default_enabled,
@@ -72,7 +77,9 @@ describe('Module gating leakage', () => {
   });
 
   describe.each(PROBES)('module: $key', ({ key, probes }) => {
-    it.skip('returns 404 MODULE_DISABLED when the module is disabled', async () => {
+    const itForModule = ACTIVE_MODULE_GATING_CASES.has(key) ? it : it.skip;
+
+    itForModule('returns 404 MODULE_DISABLED when the module is disabled', async () => {
       await disableModuleForTenant(prisma, fixture.tenantId, key);
       for (const probe of probes) {
         const req =
@@ -91,7 +98,7 @@ describe('Module gating leakage', () => {
       }
     });
 
-    it.skip('does not return MODULE_DISABLED when the module is enabled', async () => {
+    itForModule('does not return MODULE_DISABLED when the module is enabled', async () => {
       await enableModuleForTenant(prisma, fixture.tenantId, key);
       for (const probe of probes) {
         const req =
@@ -106,6 +113,20 @@ describe('Module gating leakage', () => {
 
         expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
       }
+    });
+
+    const itInboxStaysCore = key === 'communications_outbound' ? it : it.skip;
+
+    itInboxStaysCore('keeps the in-app notification inbox available when disabled', async () => {
+      await disableModuleForTenant(prisma, fixture.tenantId, key);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/notifications')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Host', fixture.domainName);
+
+      expect(res.status).not.toBe(404);
+      expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
     });
   });
 });

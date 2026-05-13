@@ -35,6 +35,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = ANNOUNCEMENT_APPROVAL_CALLBACK_JOB,
   data: Partial<AnnouncementApprovalCallbackPayload> = {},
@@ -56,9 +62,16 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
     jest.clearAllMocks();
   });
 
+  function buildProcessor(mockTx: MockTx) {
+    return new AnnouncementApprovalCallbackProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
+  }
+
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await processor.process(buildJob('communications:other-job'));
 
@@ -67,7 +80,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await expect(
       processor.process(buildJob(ANNOUNCEMENT_APPROVAL_CALLBACK_JOB, { tenant_id: '' })),
@@ -76,7 +89,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
 
   it('should publish pending announcements and mark approval callbacks executed', async () => {
     const mockTx = buildMockTx();
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await processor.process(buildJob());
 
@@ -105,7 +118,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
       status: 'published',
       title: 'School Closure',
     });
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await processor.process(buildJob());
 
@@ -128,7 +141,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
       status: 'draft',
       title: 'School Closure',
     });
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await processor.process(buildJob());
 
@@ -148,7 +161,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
   it('should throw when target entity is not found', async () => {
     const mockTx = buildMockTx();
     mockTx.announcement.findFirst.mockResolvedValue(null);
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await expect(processor.process(buildJob())).rejects.toThrow(
       `Announcement ${ANNOUNCEMENT_ID} not found for tenant ${TENANT_ID}`,
@@ -158,7 +171,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
   it('should propagate database errors (not swallow them)', async () => {
     const mockTx = buildMockTx();
     mockTx.announcement.update.mockRejectedValue(new Error('DB connection lost'));
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await expect(processor.process(buildJob())).rejects.toThrow('DB connection lost');
   });
@@ -170,7 +183,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
       status: 'published',
       title: 'School Closure',
     });
-    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+    const processor = buildProcessor(mockTx);
 
     await processor.process(buildJob());
 

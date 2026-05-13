@@ -29,7 +29,7 @@
 | 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | 📦     |
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | 📦     |
 | 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | 📦     |
-| 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | ⏳     |
+| 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | 📦     |
 | 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | ⏳     |
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | ⏳     |
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | ⏳     |
@@ -276,16 +276,30 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] New module key `communications_outbound` added to registry (in spec 01); `communications` removed if not already.
-- [ ] Outbound controllers gated under `@ModuleEnabled('communications_outbound')`: announcements, notification-templates, notifications.controller's /admin/failed, email-domain, whatsapp-template.
-- [ ] Outbound processors guarded: dispatch-notifications, publish-announcement, announcement-approval-callback, retry-failed.
-- [ ] Inbox-related endpoints + processors NOT gated (notifications.controller list/unread/read; inbox-dispatch-channels.processor).
-- [ ] Module-gating leakage test for `communications_outbound` passes.
+- [x] New module key `communications_outbound` added to registry (in spec 01); `communications` removed if not already.
+- [x] Outbound controllers gated under `@ModuleEnabled('communications_outbound')`: announcements, notification-templates, notifications.controller's /admin/failed, email-domain, whatsapp-template.
+- [x] Outbound processors guarded: dispatch-notifications, publish-announcement, announcement-approval-callback, retry-failed.
+- [x] Inbox-related endpoints + processors NOT gated (notifications.controller list/unread/read; inbox-dispatch-channels.processor).
+- [x] Webhook handlers ack 200 after valid signature and skip provider handoff/status mutation when `communications_outbound` is disabled.
+- [x] Module-gating leakage test for `communications_outbound` passes.
 - [ ] Smoke test on production NHQS: toggling `communications_outbound` off stops new announcements but inbox conversations still work.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): split outbound communications gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/communications/webhooks/communications-webhooks.controller.spec.ts src/modules/communications/webhook.service.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/communications/deliverability/email-domain.controller.spec.ts src/modules/communications/whatsapp-templates/whatsapp-template.controller.spec.ts src/modules/communications/announcements.controller.spec.ts src/modules/communications/notification-templates.controller.spec.ts src/modules/communications/notifications.controller.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/communications/dispatch-notifications.processor.spec.ts src/processors/communications/publish-announcement.processor.spec.ts src/processors/communications/announcement-approval-callback.processor.spec.ts src/processors/communications/retry-failed.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)`
+  - API DI compile check with fake env (`DI OK`)
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint ...` on the touched API/worker/web/test files (warnings only: pre-existing cross-module configuration imports in communications webhooks; dispatch processor max-lines)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: The repo uses the existing fetch-based `apiClient`, not Axios; no Axios path was added. The communications morph-bar hub stays visible because inbox is core, while the admin nav entry, announcements card, and outbound settings tiles are hidden behind `communications_outbound`. Legacy platform webhooks have no URL tenant, so the skip check runs after notification lookup in `WebhookService`; per-tenant Resend/Twilio webhooks check immediately after signature verification and event recording.
 
 ---
 

@@ -17,15 +17,18 @@ import type { JwtPayload, RegisterEmailDomainDto, TenantContext } from '@school/
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 
 import { EmailDomainService } from './email-domain.service';
 
 @Controller('v1/email-domains')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, PermissionGuard, ModuleEnabledGuard)
+@ModuleEnabled('communications_outbound')
 export class EmailDomainController {
   constructor(private readonly emailDomain: EmailDomainService) {}
 

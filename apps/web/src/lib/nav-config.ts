@@ -181,7 +181,12 @@ export const navSectionConfigs: NavSectionConfig[] = [
         href: '/engagement',
         roles: STAFF_ROLES,
       },
-      { labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
+      {
+        labelKey: 'nav.communications',
+        href: '/communications',
+        moduleKey: 'communications_outbound',
+        roles: ADMIN_ROLES,
+      },
       { labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
     ],
   },

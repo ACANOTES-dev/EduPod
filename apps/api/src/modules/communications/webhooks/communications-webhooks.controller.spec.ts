@@ -51,6 +51,7 @@ function build({
     handleWhatsApp: jest.fn().mockResolvedValue(undefined),
   };
   const metrics = { recordWebhook: jest.fn() };
+  const tenantModuleService = { isEnabled: jest.fn().mockResolvedValue(true) };
   const ctrl = new CommunicationsWebhooksController(
     prisma,
     emailConfig as never,
@@ -60,8 +61,19 @@ function build({
     resendHandler as never,
     twilioHandler as never,
     metrics as never,
+    tenantModuleService as never,
   );
-  return { ctrl, prisma, emailConfig, smsConfig, verifier, resendHandler, twilioHandler, metrics };
+  return {
+    ctrl,
+    prisma,
+    emailConfig,
+    smsConfig,
+    verifier,
+    resendHandler,
+    twilioHandler,
+    metrics,
+    tenantModuleService,
+  };
 }
 
 function fakeReq(rawBody = Buffer.from('{}')): never {
@@ -101,6 +113,21 @@ describe('CommunicationsWebhooksController — email', () => {
     );
     expect(result).toEqual({ accepted: true });
     expect(resendHandler.handle).toHaveBeenCalledWith(TENANT_A, expect.any(Object));
+  });
+
+  it('accepts but skips handler handoff when outbound communications are disabled', async () => {
+    const { ctrl, resendHandler, tenantModuleService } = build({ verifyResult: true });
+    tenantModuleService.isEnabled.mockResolvedValue(false);
+
+    const result = await ctrl.receiveEmail(
+      TENANT_A,
+      fakeReq(),
+      { 'svix-id': 'evt_1', 'svix-timestamp': '1', 'svix-signature': 'v1,ok' },
+      { type: 'email.delivered', data: { message_id: 'm1' } },
+    );
+
+    expect(result).toEqual({ accepted: true });
+    expect(resendHandler.handle).not.toHaveBeenCalled();
   });
 
   it('rejects when tenant has no webhook secret configured', async () => {

@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 import { DISPATCH_NOTIFICATIONS_JOB } from './dispatch-notifications.processor';
@@ -25,6 +26,7 @@ export class RetryFailedNotificationsProcessor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job): Promise<void> {
@@ -74,6 +76,13 @@ export class RetryFailedNotificationsProcessor {
     let reenqueued = 0;
 
     for (const [tenantId, ids] of byTenant.entries()) {
+      if (!(await this.tenantModuleService.isEnabled(tenantId, 'communications_outbound'))) {
+        this.logger.log(
+          `Skipping retry re-enqueue for tenant ${tenantId} — communications_outbound disabled`,
+        );
+        continue;
+      }
+
       // Reset status to 'queued' within an RLS-scoped transaction
       await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;

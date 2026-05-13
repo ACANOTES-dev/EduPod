@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -20,7 +21,10 @@ export const PUBLISH_ANNOUNCEMENT_JOB = 'communications:publish-announcement';
 export class PublishAnnouncementProcessor {
   private readonly logger = new Logger(PublishAnnouncementProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<PublishAnnouncementPayload>): Promise<void> {
     if (job.name !== PUBLISH_ANNOUNCEMENT_JOB) {
@@ -31,6 +35,13 @@ export class PublishAnnouncementProcessor {
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'communications_outbound'))) {
+      this.logger.log(
+        `Skipping ${PUBLISH_ANNOUNCEMENT_JOB} for tenant ${tenant_id} — communications_outbound disabled`,
+      );
+      return;
     }
 
     this.logger.log(

@@ -11,6 +11,7 @@ import type { Twilio } from 'twilio';
 import { toNotificationChannel } from '@school/shared';
 import { resolveNotificationTemplateSource } from '@school/shared/notifications';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 import {
@@ -197,6 +198,7 @@ export class DispatchNotificationsProcessor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly configService: ConfigService,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job<DispatchNotificationsPayload>): Promise<void> {
@@ -208,6 +210,13 @@ export class DispatchNotificationsProcessor {
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'communications_outbound'))) {
+      this.logger.log(
+        `Skipping ${DISPATCH_NOTIFICATIONS_JOB} for tenant ${tenant_id} — communications_outbound disabled`,
+      );
+      return;
     }
 
     const idCount = job.data.notification_ids?.length ?? 0;

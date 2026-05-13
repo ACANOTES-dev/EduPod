@@ -17,6 +17,7 @@ import type { Request } from 'express';
 
 import { apiError } from '../../../common/errors/api-error';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { TenantModuleService } from '../../../common/services/tenant-module.service';
 import { EmailConfigService } from '../../configuration/email-config.service';
 import { SmsConfigService } from '../../configuration/sms-config.service';
 import { WhatsAppConfigService } from '../../configuration/whatsapp-config.service';
@@ -59,6 +60,7 @@ export class CommunicationsWebhooksController {
     private readonly resendHandler: ResendWebhookHandlerService,
     private readonly twilioHandler: TwilioWebhookHandlerService,
     private readonly metrics: CommsMetricsService,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   // ─── Email (Resend) ─────────────────────────────────────────────────────
@@ -96,6 +98,10 @@ export class CommunicationsWebhooksController {
       throw new UnauthorizedException(
         apiError('WEBHOOK_SIGNATURE_INVALID', 'Webhook signature verification failed'),
       );
+    }
+
+    if (!(await this.isOutboundEnabled(tenantId, 'Resend'))) {
+      return { accepted: true };
     }
 
     await this.resendHandler.handle(tenantId, body as object);
@@ -138,6 +144,10 @@ export class CommunicationsWebhooksController {
       );
     }
 
+    if (!(await this.isOutboundEnabled(tenantId, 'Twilio SMS'))) {
+      return { accepted: true };
+    }
+
     await this.twilioHandler.handleSms(tenantId, body);
     return { accepted: true };
   }
@@ -176,6 +186,10 @@ export class CommunicationsWebhooksController {
       throw new UnauthorizedException(
         apiError('WEBHOOK_SIGNATURE_INVALID', 'Webhook signature verification failed'),
       );
+    }
+
+    if (!(await this.isOutboundEnabled(tenantId, 'Twilio WhatsApp'))) {
+      return { accepted: true };
     }
 
     await this.twilioHandler.handleWhatsApp(tenantId, body);
@@ -223,6 +237,16 @@ export class CommunicationsWebhooksController {
       const message = err instanceof Error ? err.message : 'unknown';
       this.logger.error(`Failed to record webhook event for tenant ${args.tenantId}: ${message}`);
     }
+  }
+
+  private async isOutboundEnabled(tenantId: string, provider: string): Promise<boolean> {
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'communications_outbound');
+    if (!enabled) {
+      this.logger.warn(
+        `${provider} webhook accepted but skipped for tenant ${tenantId} because communications_outbound is disabled`,
+      );
+    }
+    return enabled;
   }
 }
 

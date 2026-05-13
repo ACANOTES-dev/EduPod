@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { WebhookService } from './webhook.service';
@@ -13,6 +14,7 @@ describe('WebhookService', () => {
       create: jest.Mock;
     };
   };
+  let tenantModuleService: { isEnabled: jest.Mock };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -24,9 +26,16 @@ describe('WebhookService', () => {
         create: jest.fn(),
       },
     };
+    tenantModuleService = {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WebhookService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        WebhookService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: TenantModuleService, useValue: tenantModuleService },
+      ],
     }).compile();
 
     service = module.get<WebhookService>(WebhookService);
@@ -68,6 +77,23 @@ describe('WebhookService', () => {
           delivered_at: expect.any(Date),
         },
       });
+      expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(
+        'tenant-1',
+        'communications_outbound',
+      );
+    });
+
+    it('should accept but skip Resend events when outbound communications are disabled', async () => {
+      const notification = makeNotification();
+      prisma.notification.findFirst.mockResolvedValue(notification);
+      tenantModuleService.isEnabled.mockResolvedValue(false);
+
+      await service.handleResendEvent({
+        type: 'email.delivered',
+        data: { message_id: 'msg-123' },
+      });
+
+      expect(prisma.notification.update).not.toHaveBeenCalled();
     });
 
     it('should update notification status to failed on bounce', async () => {

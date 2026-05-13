@@ -53,6 +53,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = PUBLISH_ANNOUNCEMENT_JOB,
   data: Partial<PublishAnnouncementPayload> = {},
@@ -74,7 +80,10 @@ describe('PublishAnnouncementProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new PublishAnnouncementProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new PublishAnnouncementProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('communications:other-job'));
 
@@ -83,7 +92,10 @@ describe('PublishAnnouncementProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new PublishAnnouncementProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new PublishAnnouncementProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(PUBLISH_ANNOUNCEMENT_JOB, { tenant_id: '' })),
@@ -92,7 +104,10 @@ describe('PublishAnnouncementProcessor', () => {
 
   it('should publish school-wide announcements and create notifications for the resolved audience', async () => {
     const mockTx = buildMockTx();
-    const processor = new PublishAnnouncementProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new PublishAnnouncementProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -137,7 +152,10 @@ describe('PublishAnnouncementProcessor', () => {
       target_payload: {},
       title: 'Sports Day',
     });
-    const processor = new PublishAnnouncementProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new PublishAnnouncementProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -159,7 +177,10 @@ describe('PublishAnnouncementProcessor', () => {
       announcementStatus = 'published';
       return { id: ANNOUNCEMENT_ID };
     });
-    const processor = new PublishAnnouncementProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new PublishAnnouncementProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
     await processor.process(buildJob());

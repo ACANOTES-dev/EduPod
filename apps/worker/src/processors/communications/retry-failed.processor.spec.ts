@@ -29,6 +29,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(name: string = RETRY_FAILED_NOTIFICATIONS_JOB): Job {
   return { data: {}, name } as unknown as Job;
 }
@@ -44,6 +50,7 @@ describe('RetryFailedNotificationsProcessor', () => {
     const processor = new RetryFailedNotificationsProcessor(
       mockPrisma as never,
       { add: jest.fn() } as unknown as Queue,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob('communications:other-job'));
@@ -58,6 +65,7 @@ describe('RetryFailedNotificationsProcessor', () => {
     const processor = new RetryFailedNotificationsProcessor(
       mockPrisma as never,
       mockQueue as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -94,6 +102,7 @@ describe('RetryFailedNotificationsProcessor', () => {
     const processor = new RetryFailedNotificationsProcessor(
       mockPrisma as never,
       mockQueue as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -125,5 +134,29 @@ describe('RetryFailedNotificationsProcessor', () => {
       { tenant_id: TENANT_B_ID, notification_ids: ['notif-b-1'] },
       { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
     );
+  });
+
+  it('should ack and skip retry re-enqueue for disabled outbound tenants', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.notification.findMany.mockResolvedValue([
+      {
+        id: 'notif-a-1',
+        tenant_id: TENANT_A_ID,
+        attempt_count: 1,
+        max_attempts: 3,
+      },
+    ]);
+    const mockQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    const processor = new RetryFailedNotificationsProcessor(
+      mockPrisma as never,
+      mockQueue as never,
+      buildTenantModuleService(false) as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockQueue.add).not.toHaveBeenCalled();
   });
 });

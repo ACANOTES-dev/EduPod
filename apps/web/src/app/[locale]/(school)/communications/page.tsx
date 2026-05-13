@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { IfModuleEnabled } from '@/components/if-module-enabled';
 import { apiClient, unwrap } from '@/lib/api-client';
 import { fmtLocale } from '@/lib/i18n-format';
 import { useIsAdmin } from '@/lib/use-is-admin';
@@ -225,34 +226,36 @@ export default function CommunicationsHubPage() {
           cta={t('cards.audiences.cta')}
         />
 
-        <StatCard
-          href={`/${locale}/communications/announcements`}
-          icon={Megaphone}
-          accent="success"
-          title={t('cards.announcements.title')}
-          description={t('cards.announcements.description')}
-          metric={
-            latestAnnouncement.status === 'ready'
-              ? latestAnnouncement.value
-                ? latestAnnouncement.value.title
-                : t('cards.announcements.emptyLabel')
-              : latestAnnouncement.status === 'error'
-                ? '—'
-                : null
-          }
-          metricTruncate
-          footerNote={
-            latestAnnouncement.status === 'ready' &&
-            latestAnnouncement.value &&
-            (latestAnnouncement.value.published_at ?? latestAnnouncement.value.scheduled_at)
-              ? `${t('cards.announcements.latestLabel')} · ${new Date(
-                  (latestAnnouncement.value.published_at ??
-                    latestAnnouncement.value.scheduled_at) as string,
-                ).toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' })}`
-              : undefined
-          }
-          cta={t('cards.announcements.cta')}
-        />
+        <IfModuleEnabled module="communications_outbound">
+          <StatCard
+            href={`/${locale}/communications/announcements`}
+            icon={Megaphone}
+            accent="success"
+            title={t('cards.announcements.title')}
+            description={t('cards.announcements.description')}
+            metric={
+              latestAnnouncement.status === 'ready'
+                ? latestAnnouncement.value
+                  ? latestAnnouncement.value.title
+                  : t('cards.announcements.emptyLabel')
+                : latestAnnouncement.status === 'error'
+                  ? '—'
+                  : null
+            }
+            metricTruncate
+            footerNote={
+              latestAnnouncement.status === 'ready' &&
+              latestAnnouncement.value &&
+              (latestAnnouncement.value.published_at ?? latestAnnouncement.value.scheduled_at)
+                ? `${t('cards.announcements.latestLabel')} · ${new Date(
+                    (latestAnnouncement.value.published_at ??
+                      latestAnnouncement.value.scheduled_at) as string,
+                  ).toLocaleDateString(fmtLocale(locale), { day: 'numeric', month: 'short' })}`
+                : undefined
+            }
+            cta={t('cards.announcements.cta')}
+          />
+        </IfModuleEnabled>
 
         <StatCard
           href={`/${locale}/inbox/oversight`}
@@ -279,32 +282,34 @@ export default function CommunicationsHubPage() {
       </section>
 
       {/* ─── Settings tiles ────────────────────────────────────────────── */}
-      <section>
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-text-primary">{t('settings.title')}</h2>
-          <p className="mt-1 text-sm text-text-secondary">{t('settings.description')}</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <SettingTile
-            href={`/${locale}/settings/messaging-policy`}
-            icon={Bell}
-            title={t('settings.messagingPolicy.title')}
-            description={t('settings.messagingPolicy.description')}
-          />
-          <SettingTile
-            href={`/${locale}/settings/communications/safeguarding`}
-            icon={KeyRound}
-            title={t('settings.safeguardingKeywords.title')}
-            description={t('settings.safeguardingKeywords.description')}
-          />
-          <SettingTile
-            href={`/${locale}/settings/communications/fallback`}
-            icon={Siren}
-            title={t('settings.fallback.title')}
-            description={t('settings.fallback.description')}
-          />
-        </div>
-      </section>
+      <IfModuleEnabled module="communications_outbound">
+        <section>
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold text-text-primary">{t('settings.title')}</h2>
+            <p className="mt-1 text-sm text-text-secondary">{t('settings.description')}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <SettingTile
+              href={`/${locale}/settings/messaging-policy`}
+              icon={Bell}
+              title={t('settings.messagingPolicy.title')}
+              description={t('settings.messagingPolicy.description')}
+            />
+            <SettingTile
+              href={`/${locale}/settings/communications/safeguarding`}
+              icon={KeyRound}
+              title={t('settings.safeguardingKeywords.title')}
+              description={t('settings.safeguardingKeywords.description')}
+            />
+            <SettingTile
+              href={`/${locale}/settings/communications/fallback`}
+              icon={Siren}
+              title={t('settings.fallback.title')}
+              description={t('settings.fallback.description')}
+            />
+          </div>
+        </section>
+      </IfModuleEnabled>
     </div>
   );
 }

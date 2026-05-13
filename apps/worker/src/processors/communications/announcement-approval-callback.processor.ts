@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -22,7 +23,10 @@ export const ANNOUNCEMENT_APPROVAL_CALLBACK_JOB = 'communications:on-approval';
 export class AnnouncementApprovalCallbackProcessor {
   private readonly logger = new Logger(AnnouncementApprovalCallbackProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<AnnouncementApprovalCallbackPayload>): Promise<void> {
     if (job.name !== ANNOUNCEMENT_APPROVAL_CALLBACK_JOB) {
@@ -33,6 +37,13 @@ export class AnnouncementApprovalCallbackProcessor {
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'communications_outbound'))) {
+      this.logger.log(
+        `Skipping ${ANNOUNCEMENT_APPROVAL_CALLBACK_JOB} for tenant ${tenant_id} — communications_outbound disabled`,
+      );
+      return;
     }
 
     this.logger.log(

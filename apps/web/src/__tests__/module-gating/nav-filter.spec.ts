@@ -1,7 +1,7 @@
 import { MODULE_REGISTRY } from '@school/shared/modules';
 import type { ModuleKey } from '@school/shared/modules';
 
-import { filterNavByModules, type NavSectionConfig } from '@/lib/nav-config';
+import { filterNavByModules, navSectionConfigs, type NavSectionConfig } from '@/lib/nav-config';
 
 describe('Nav filter module gating contract', () => {
   it.each(MODULE_REGISTRY)('hides entries gated by $key when disabled', ({ key }) => {
@@ -35,6 +35,19 @@ describe('Nav filter module gating contract', () => {
       filtered
         .find((section) => section.labelKey === 'nav.mixed')
         ?.items.find((item) => item.moduleKey === key),
+    ).toBeUndefined();
+  });
+
+  it('gates the communications admin entry without removing core inbox routes', () => {
+    const operations = navSectionConfigs.find((section) => section.labelKey === 'nav.operations');
+
+    expect(
+      operations?.items.find((item) => item.href === '/communications')?.moduleKey,
+    ).toBe('communications_outbound');
+    expect(
+      navSectionConfigs
+        .flatMap((section) => section.items)
+        .find((item) => item.href === '/inbox')?.moduleKey,
     ).toBeUndefined();
   });
 });

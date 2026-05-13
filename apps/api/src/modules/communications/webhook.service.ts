@@ -1,13 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class WebhookService {
   private readonly logger = new Logger(WebhookService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async handleResendEvent(event: { type: string; data: Record<string, unknown> }) {
     const messageId = event.data?.message_id as string | undefined;
@@ -22,6 +26,10 @@ export class WebhookService {
 
     if (!notification) {
       this.logger.warn(`No notification found for Resend message_id ${messageId}`);
+      return;
+    }
+
+    if (!(await this.isOutboundEnabled(notification.tenant_id, 'Resend'))) {
       return;
     }
 
@@ -65,6 +73,10 @@ export class WebhookService {
       return;
     }
 
+    if (!(await this.isOutboundEnabled(notification.tenant_id, 'Twilio'))) {
+      return;
+    }
+
     const status = event.MessageStatus;
     if (status === 'delivered') {
       await this.prisma.notification.update({
@@ -92,5 +104,15 @@ export class WebhookService {
         },
       });
     }
+  }
+
+  private async isOutboundEnabled(tenantId: string, provider: string): Promise<boolean> {
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'communications_outbound');
+    if (!enabled) {
+      this.logger.warn(
+        `${provider} legacy webhook accepted but skipped for tenant ${tenantId} because communications_outbound is disabled`,
+      );
+    }
+    return enabled;
   }
 }

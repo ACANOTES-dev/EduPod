@@ -73,6 +73,12 @@ function buildMockConfigService(): ConfigService {
   } as unknown as ConfigService;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 /**
  * Default tenant creds installed in beforeEach. Tests that need to
  * exercise specific failure paths override these via the helper mocks
@@ -130,7 +136,11 @@ describe('DispatchNotificationsProcessor', () => {
     mockTx = buildMockTx();
     const mockPrisma = buildMockPrisma(mockTx);
     const mockConfigService = buildMockConfigService();
-    processor = new DispatchNotificationsProcessor(mockPrisma as never, mockConfigService);
+    processor = new DispatchNotificationsProcessor(
+      mockPrisma as never,
+      mockConfigService,
+      buildTenantModuleService() as never,
+    );
     // Reset tenant-creds mocks to "everything configured + enabled".
     mockGetEmailCreds.mockResolvedValue(DEFAULT_EMAIL_CREDS);
     mockGetSmsCreds.mockResolvedValue(DEFAULT_SMS_CREDS);
@@ -157,6 +167,23 @@ describe('DispatchNotificationsProcessor', () => {
       await expect(processor.process(job)).rejects.toThrow(
         'Job rejected: missing tenant_id in payload.',
       );
+    });
+
+    it('should ack and skip dispatch when outbound communications are disabled', async () => {
+      const mockPrisma = buildMockPrisma(mockTx);
+      processor = new DispatchNotificationsProcessor(
+        mockPrisma as never,
+        buildMockConfigService(),
+        buildTenantModuleService(false) as never,
+      );
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notification.findMany).not.toHaveBeenCalled();
     });
   });
 
