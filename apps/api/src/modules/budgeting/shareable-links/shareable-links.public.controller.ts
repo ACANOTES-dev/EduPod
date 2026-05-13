@@ -16,6 +16,7 @@ import type { PublicShareResponse } from './shareable-links.types';
  * v1.5 follow-up (see implementations/11-shareable-links.md §12).
  */
 @Controller('v1/budgeting/share')
+// PUBLIC: intentionally ungated. Shareable link viewers reach this without an authenticated session via short-lived tokens embedded in the link. Disabling 'budgeting' hides the admin/management UI but does NOT invalidate already-issued share links.
 export class ShareableLinksPublicController {
   constructor(private readonly service: ShareableLinksService) {}
 

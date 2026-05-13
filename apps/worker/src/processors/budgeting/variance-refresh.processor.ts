@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -42,6 +43,7 @@ export class VarianceRefreshProcessor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.BUDGETING) private readonly budgetingQueue: Queue,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job<VarianceRefreshPayload>): Promise<void> {
@@ -54,6 +56,13 @@ export class VarianceRefreshProcessor {
     const { tenant_id, parent_model_id, triggered_by, manual } = job.data;
     if (!tenant_id) {
       this.logger.warn(`${BUDGETING_VARIANCE_REFRESH_JOB} received without tenant_id — rejected`);
+      return;
+    }
+    const enabled = await this.tenantModuleService.isEnabled(tenant_id, 'budgeting');
+    if (!enabled) {
+      this.logger.debug(
+        `${BUDGETING_VARIANCE_REFRESH_JOB} skipped — budgeting disabled for tenant ${tenant_id}`,
+      );
       return;
     }
 
@@ -84,6 +93,13 @@ export class VarianceRefreshProcessor {
     );
 
     for (const tenant of tenants) {
+      const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'budgeting');
+      if (!enabled) {
+        this.logger.debug(
+          `${BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB} skipped tenant ${tenant.id} — budgeting disabled`,
+        );
+        continue;
+      }
       const jobId = `cron:${BUDGETING_VARIANCE_REFRESH_JOB}:${tenant.id}`;
       await this.budgetingQueue.add(
         BUDGETING_VARIANCE_REFRESH_JOB,

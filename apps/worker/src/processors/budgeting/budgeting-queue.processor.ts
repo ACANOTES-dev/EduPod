@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 import {
@@ -41,6 +42,7 @@ export class BudgetingQueueDispatcher extends WorkerHost {
     private readonly varianceRefresh: VarianceRefreshProcessor,
     private readonly boardPackRender: BoardPackRenderProcessor,
     private readonly shareableLinkCleanup: ShareableLinkCleanupProcessor,
+    private readonly tenantModuleService: TenantModuleService,
   ) {
     super();
   }
@@ -48,10 +50,14 @@ export class BudgetingQueueDispatcher extends WorkerHost {
   async process(job: Job): Promise<void> {
     switch (job.name) {
       case BUDGETING_VARIANCE_REFRESH_JOB:
+        if (await this.shouldSkipTenantJob(job)) return;
+        await this.varianceRefresh.process(job);
+        return;
       case BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB:
         await this.varianceRefresh.process(job);
         return;
       case BUDGETING_BOARD_PACK_RENDER_JOB:
+        if (await this.shouldSkipTenantJob(job)) return;
         await this.boardPackRender.process(job);
         return;
       case BUDGETING_SHAREABLE_LINK_CLEANUP_JOB:
@@ -63,5 +69,16 @@ export class BudgetingQueueDispatcher extends WorkerHost {
         }
         return;
     }
+  }
+
+  private async shouldSkipTenantJob(job: Job): Promise<boolean> {
+    const data = job.data as { tenant_id?: unknown };
+    if (typeof data.tenant_id !== 'string') return false;
+
+    const enabled = await this.tenantModuleService.isEnabled(data.tenant_id, 'budgeting');
+    if (enabled) return false;
+
+    this.logger.debug(`${job.name} skipped — budgeting disabled for tenant ${data.tenant_id}`);
+    return true;
   }
 }

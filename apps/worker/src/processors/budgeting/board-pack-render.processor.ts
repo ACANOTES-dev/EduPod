@@ -9,6 +9,7 @@ import type { SnapshotPayload } from '@school/shared/budgeting';
 // during build, and adding the same dep twice (puppeteer, exceljs) to
 // the worker would duplicate the chromium binary on the deploy server.
 // See modeling/implementations/09-export-pipeline.md §10 — "shortcut path".
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { ExcelRendererService } from '../../../../api/src/modules/budgeting/exports/excel-renderer.service';
 import { PdfRendererService } from '../../../../api/src/modules/budgeting/exports/pdf-renderer.service';
 import { S3Service } from '../../../../api/src/modules/s3/s3.service';
@@ -32,6 +33,7 @@ export class BoardPackRenderProcessor {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @Inject(S3Service) private readonly s3: S3Service,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job<BoardPackRenderPayload>): Promise<void> {
@@ -44,6 +46,13 @@ export class BoardPackRenderProcessor {
     if (!snapshot_id || !format) {
       this.logger.warn(
         `${BUDGETING_BOARD_PACK_RENDER_JOB} rejected — missing snapshot_id or format`,
+      );
+      return;
+    }
+    const enabled = await this.tenantModuleService.isEnabled(tenant_id, 'budgeting');
+    if (!enabled) {
+      this.logger.debug(
+        `${BUDGETING_BOARD_PACK_RENDER_JOB} skipped — budgeting disabled for tenant ${tenant_id}`,
       );
       return;
     }

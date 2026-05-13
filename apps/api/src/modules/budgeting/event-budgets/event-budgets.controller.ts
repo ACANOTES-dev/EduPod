@@ -29,8 +29,10 @@ import {
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 
@@ -38,7 +40,8 @@ import { EventBudgetScenariosService } from './event-budget-scenarios.service';
 import { EventBudgetsService } from './event-budgets.service';
 
 @Controller('v1/budgeting/event-budgets')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('budgeting')
 export class EventBudgetsController {
   constructor(
     private readonly events: EventBudgetsService,

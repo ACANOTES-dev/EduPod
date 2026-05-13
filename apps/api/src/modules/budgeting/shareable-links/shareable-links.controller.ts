@@ -15,8 +15,10 @@ import { createShareableLinkSchema, type CreateShareableLinkDto } from '@school/
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 
@@ -31,7 +33,8 @@ import type { CreateLinkResponse, ListLinksResponse } from './shareable-links.ty
  * {@link ShareableLinksPublicController}.
  */
 @Controller('v1/budgeting/financial-models/:modelId/snapshots/:snapshotId/links')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('budgeting')
 export class ShareableLinksController {
   constructor(private readonly service: ShareableLinksService) {}
 

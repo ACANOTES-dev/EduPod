@@ -40,6 +40,10 @@ function buildMockQueue(): Queue {
   return { add: jest.fn().mockResolvedValue({}) } as unknown as Queue;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return { isEnabled: jest.fn().mockResolvedValue(enabled) };
+}
+
 function buildJob(name: string, data: Record<string, unknown> = {}): Job {
   return { id: 'test', name, data } as unknown as Job;
 }
@@ -49,7 +53,11 @@ describe('VarianceRefreshProcessor', () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
     const queue = buildMockQueue();
-    const proc = new VarianceRefreshProcessor(prisma as never, queue);
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      queue,
+      buildTenantModuleService() as never,
+    );
     await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB));
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -57,7 +65,11 @@ describe('VarianceRefreshProcessor', () => {
   it('returns no-op when tenant has no active published models', async () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
-    const proc = new VarianceRefreshProcessor(prisma as never, buildMockQueue());
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      buildMockQueue(),
+      buildTenantModuleService() as never,
+    );
     await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: TENANT_ID }));
     expect(tx.varianceCache.createMany).not.toHaveBeenCalled();
   });
@@ -65,7 +77,11 @@ describe('VarianceRefreshProcessor', () => {
   it('treats legacy `manual: true` as triggered_by=manual', async () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
-    const proc = new VarianceRefreshProcessor(prisma as never, buildMockQueue());
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      buildMockQueue(),
+      buildTenantModuleService() as never,
+    );
     await proc.process(
       buildJob(BUDGETING_VARIANCE_REFRESH_JOB, {
         tenant_id: TENANT_ID,
@@ -126,7 +142,11 @@ describe('VarianceRefreshProcessor', () => {
     tx.payment.aggregate.mockResolvedValue({ _sum: { amount: 110_000 } });
 
     const prisma = buildMockPrisma(tx);
-    const proc = new VarianceRefreshProcessor(prisma as never, buildMockQueue());
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      buildMockQueue(),
+      buildTenantModuleService() as never,
+    );
     await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: TENANT_ID }));
 
     expect(tx.varianceCache.deleteMany).toHaveBeenCalledWith({
@@ -145,7 +165,11 @@ describe('VarianceRefreshProcessor', () => {
   it('sets RLS context inside the transaction', async () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
-    const proc = new VarianceRefreshProcessor(prisma as never, buildMockQueue());
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      buildMockQueue(),
+      buildTenantModuleService() as never,
+    );
     await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: TENANT_ID }));
     expect(tx.$executeRaw).toHaveBeenCalled();
   });
@@ -158,7 +182,11 @@ describe('VarianceRefreshProcessor', () => {
       { id: '44444444-4444-4444-8444-444444444444', timezone: 'Asia/Riyadh' },
     ]);
     const queue = buildMockQueue();
-    const proc = new VarianceRefreshProcessor(prisma as never, queue);
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      queue,
+      buildTenantModuleService() as never,
+    );
     await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_BOOTSTRAP_JOB));
     expect(queue.add).toHaveBeenCalledTimes(2);
     expect(queue.add).toHaveBeenCalledWith(
@@ -169,6 +197,23 @@ describe('VarianceRefreshProcessor', () => {
         jobId: `cron:${BUDGETING_VARIANCE_REFRESH_JOB}:${TENANT_ID}`,
       }),
     );
+  });
+
+  it('skips variance refresh without writing cache rows when budgeting is disabled', async () => {
+    const tx = buildMockTx();
+    const prisma = buildMockPrisma(tx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const proc = new VarianceRefreshProcessor(
+      prisma as never,
+      buildMockQueue(),
+      tenantModuleService as never,
+    );
+
+    await proc.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: TENANT_ID }));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'budgeting');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.varianceCache.createMany).not.toHaveBeenCalled();
   });
 });
 

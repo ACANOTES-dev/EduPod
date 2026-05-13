@@ -14,14 +14,17 @@ import type { Response } from 'express';
 import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 
 import { ExportsService } from './exports.service';
 
 @Controller('v1/budgeting/financial-models/:id/snapshots/:snapshotId/exports')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@ModuleEnabled('budgeting')
 export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 

@@ -47,6 +47,10 @@ function buildMockS3() {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return { isEnabled: jest.fn().mockResolvedValue(enabled) };
+}
+
 const baseSnapshot = {
   id: SNAPSHOT_ID,
   version_number: 1,
@@ -76,7 +80,11 @@ describe('BoardPackRenderProcessor', () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
     const s3 = buildMockS3();
-    const proc = new BoardPackRenderProcessor(prisma as never, s3 as never);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      buildTenantModuleService() as never,
+    );
     await proc.process({
       id: 'job',
       name: BUDGETING_BOARD_PACK_RENDER_JOB,
@@ -90,7 +98,11 @@ describe('BoardPackRenderProcessor', () => {
     tx.financialModelSnapshot.findFirst.mockResolvedValue(baseSnapshot);
     const prisma = buildMockPrisma(tx);
     const s3 = buildMockS3();
-    const proc = new BoardPackRenderProcessor(prisma as never, s3 as never);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      buildTenantModuleService() as never,
+    );
     await proc.process({
       id: 'job',
       name: BUDGETING_BOARD_PACK_RENDER_JOB,
@@ -113,7 +125,11 @@ describe('BoardPackRenderProcessor', () => {
     tx.financialModelSnapshot.findFirst.mockResolvedValue(baseSnapshot);
     const prisma = buildMockPrisma(tx);
     const s3 = buildMockS3();
-    const proc = new BoardPackRenderProcessor(prisma as never, s3 as never);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      buildTenantModuleService() as never,
+    );
     await proc.process({
       id: 'job',
       name: BUDGETING_BOARD_PACK_RENDER_JOB,
@@ -133,7 +149,11 @@ describe('BoardPackRenderProcessor', () => {
     tx.financialModelSnapshot.findFirst.mockResolvedValue(null);
     const prisma = buildMockPrisma(tx);
     const s3 = buildMockS3();
-    const proc = new BoardPackRenderProcessor(prisma as never, s3 as never);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      buildTenantModuleService() as never,
+    );
     await proc.process({
       id: 'job',
       name: BUDGETING_BOARD_PACK_RENDER_JOB,
@@ -147,12 +167,37 @@ describe('BoardPackRenderProcessor', () => {
     const tx = buildMockTx();
     const prisma = buildMockPrisma(tx);
     const s3 = buildMockS3();
-    const proc = new BoardPackRenderProcessor(prisma as never, s3 as never);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      buildTenantModuleService() as never,
+    );
     await proc.process({
       id: 'job',
       name: 'unrelated:job',
       data: { tenant_id: TENANT_ID, snapshot_id: SNAPSHOT_ID, format: 'all' },
     } as unknown as Job);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('skips render when budgeting is disabled for the tenant', async () => {
+    const tx = buildMockTx();
+    const prisma = buildMockPrisma(tx);
+    const s3 = buildMockS3();
+    const tenantModuleService = buildTenantModuleService(false);
+    const proc = new BoardPackRenderProcessor(
+      prisma as never,
+      s3 as never,
+      tenantModuleService as never,
+    );
+    await proc.process({
+      id: 'job',
+      name: BUDGETING_BOARD_PACK_RENDER_JOB,
+      data: { tenant_id: TENANT_ID, snapshot_id: SNAPSHOT_ID, format: 'all' },
+    } as unknown as Job);
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'budgeting');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(s3.upload).not.toHaveBeenCalled();
   });
 });

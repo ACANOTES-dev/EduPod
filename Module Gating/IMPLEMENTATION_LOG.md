@@ -43,7 +43,7 @@
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ✅     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ✅     |
-| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | ⏳     |
+| 23  | [Budgeting full enforcement](implementations/23-budgeting-full-enforcement.md)                   | W3   | 📦     |
 
 ---
 
@@ -689,12 +689,12 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 10 admin/staff budgeting controllers under `apps/api/src/modules/budgeting/` gated with `@ModuleEnabled('budgeting')` + `ModuleEnabledGuard` at class level. Static-analysis test (impl 07) still passes.
-- [ ] `shareable-links.public.controller.ts` remains ungated with explicit doc comment (matches the public endpoint pattern from impls 12, 14, 19).
-- [ ] All 4 budgeting worker processors have Pattern B check (`budgeting-queue`, `shareable-link-cleanup`, `board-pack-render`, `variance-refresh`).
-- [ ] Frontend nav entries for budgeting under the Finance hub annotated with `moduleKey: 'budgeting'`.
-- [ ] Module-gating leakage tests pass for `budgeting`.
-- [ ] Public shareable-link viewer test confirms 200 for a valid token even when budgeting is disabled.
+- [x] All 10 admin/staff budgeting controllers under `apps/api/src/modules/budgeting/` gated with `@ModuleEnabled('budgeting')` + `ModuleEnabledGuard` at class level. Static-analysis test (impl 07) still passes.
+- [x] `shareable-links.public.controller.ts` remains ungated with explicit doc comment (matches the public endpoint pattern from impls 12, 14, 19).
+- [x] All 4 budgeting worker processors have Pattern B check (`budgeting-queue`, `shareable-link-cleanup`, `board-pack-render`, `variance-refresh`).
+- [x] Frontend nav entries for budgeting under the Finance hub annotated with `moduleKey: 'budgeting'`.
+- [x] Module-gating leakage tests pass for `budgeting`.
+- [x] Public shareable-link viewer test confirms 200 for a valid token even when budgeting is disabled.
 - [ ] Smoke test on NHQS:
   - Toggle `budgeting` off → admin loses /finance/budgeting/\* access; existing financial models + scenarios remain in DB.
   - Trigger a board-pack render via the API → 404 (gated).
@@ -703,7 +703,23 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce budgeting gate`
+- CI: local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/budgeting/budgeting-queue.processor.spec.ts src/processors/budgeting/variance-refresh.processor.spec.ts src/processors/budgeting/board-pack-render.processor.spec.ts src/processors/budgeting/shareable-link-cleanup.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=budgeting)`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: repo's Next pages-directory warning)
+  - API `AppModule` DI compile smoke returned `DI OK`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm validate:fast` passed. First run without the heap override OOMed during API lint; rerun with the repo-standard heap completed successfully.
+- Remote CI: pending push/deploy.
+- Deploy: pending GitHub Actions deploy.
+- Production smoke: pending deploy. Live off/on toggle will remain non-disruptive-only unless a safe platform-owner smoke path is available.
+- Notes: The public shareable-link controller remains intentionally ungated; disabling `budgeting` hides/blocks authenticated management surfaces but does not invalidate already-issued public share links. `budgeting:shareable-link-cleanup` is a cross-tenant cron, so it now checks each expired link's tenant before deleting and skips links for tenants where budgeting is disabled.
 
 ---
 

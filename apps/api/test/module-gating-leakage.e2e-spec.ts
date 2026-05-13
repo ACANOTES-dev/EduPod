@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
@@ -33,7 +35,17 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
     { method: 'POST', path: '/api/v1/scheduling-runs', body: {} },
   ],
   behaviour: [{ method: 'GET', path: '/api/v1/behaviour/incidents' }],
-  budgeting: [{ method: 'GET', path: '/api/v1/budgeting/financial-models' }],
+  budgeting: [
+    { method: 'GET', path: '/api/v1/budgeting/financial-models' },
+    {
+      method: 'GET',
+      path: '/api/v1/budgeting/financial-models/11111111-1111-1111-1111-111111111111/scenarios',
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/budgeting/financial-models/11111111-1111-1111-1111-111111111111/variance',
+    },
+  ],
   communications_outbound: [
     { method: 'GET', path: '/api/v1/announcements' },
     { method: 'GET', path: '/api/v1/notification-templates' },
@@ -84,6 +96,7 @@ const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
   'admissions',
   'auto_scheduling',
   'behaviour',
+  'budgeting',
   'communications_outbound',
   'compliance_advanced',
   'finance',
@@ -216,6 +229,69 @@ describe('Module gating leakage', () => {
 
         expect(complianceRes.body.error?.code).not.toBe('MODULE_DISABLED');
         expect(privacyNoticeRes.body.error?.code).not.toBe('MODULE_DISABLED');
+      },
+    );
+
+    const itBudgetingPublicShareStaysOpen = key === 'budgeting' ? it : it.skip;
+
+    itBudgetingPublicShareStaysOpen(
+      'keeps public shareable-link viewer route ungated when disabled',
+      async () => {
+        await disableModuleForTenant(prisma, fixture.tenantId, key);
+
+        const model = await prisma.financialModel.create({
+          data: {
+            tenant_id: fixture.tenantId,
+            name: 'Gate smoke budget',
+            fiscal_year_start: new Date('2026-09-01T00:00:00Z'),
+            fiscal_year_end: new Date('2027-06-30T00:00:00Z'),
+            horizon_years: 1,
+            drivers: {},
+            source_snapshot_json: {},
+            status: 'published',
+            created_by: fixture.ownerUserId,
+          },
+        });
+        const snapshot = await prisma.financialModelSnapshot.create({
+          data: {
+            tenant_id: fixture.tenantId,
+            parent_model_id: model.id,
+            version_number: 1,
+            payload: {
+              base_case: {
+                line_items: [],
+                totals_by_year: [],
+                per_pupil_unit_economics: [],
+              },
+              scenarios: [],
+            },
+            published_by: fixture.ownerUserId,
+          },
+        });
+        await prisma.financialModel.update({
+          where: { id: model.id },
+          data: { current_snapshot_id: snapshot.id },
+        });
+        const token = randomUUID();
+        await prisma.shareableLink.create({
+          data: {
+            tenant_id: fixture.tenantId,
+            token,
+            parent_model_id: model.id,
+            parent_snapshot_id: snapshot.id,
+            expires_at: new Date(Date.now() + 86_400_000),
+            scenarios_visible: ['base'],
+            created_by: fixture.ownerUserId,
+          },
+        });
+
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/budgeting/share/${token}`)
+          .set('Host', fixture.domainName);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data?.model_id ?? res.body.model_id).toBe(model.id);
+        expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
       },
     );
   });

@@ -31,31 +31,39 @@ interface MockProcessor<P> {
   process: jest.Mock<Promise<void>, [Job<P, unknown, string>]>;
 }
 
-function buildJob(name: string): Job {
-  // Intentional minimal shape — the dispatcher only reads `name` and `id`.
-  return { name, id: `job-${name}` } as Job;
+function buildTenantModuleService(enabled = true) {
+  return { isEnabled: jest.fn().mockResolvedValue(enabled) };
+}
+
+function buildJob(name: string, data: Record<string, unknown> = {}): Job {
+  // Intentional minimal shape — the dispatcher only reads `name`, `id`, and tenant_id.
+  return { name, id: `job-${name}`, data } as Job;
 }
 
 describe('BudgetingQueueDispatcher', () => {
   let variance: MockProcessor<unknown>;
   let boardPack: MockProcessor<unknown>;
   let cleanup: MockProcessor<unknown>;
+  let tenantModuleService: ReturnType<typeof buildTenantModuleService>;
   let dispatcher: BudgetingQueueDispatcher;
 
   beforeEach(() => {
     variance = { process: jest.fn().mockResolvedValue(undefined) };
     boardPack = { process: jest.fn().mockResolvedValue(undefined) };
     cleanup = { process: jest.fn().mockResolvedValue(undefined) };
+    tenantModuleService = buildTenantModuleService();
     dispatcher = new BudgetingQueueDispatcher(
       variance as unknown as VarianceRefreshProcessor,
       boardPack as unknown as BoardPackRenderProcessor,
       cleanup as unknown as ShareableLinkCleanupProcessor,
+      tenantModuleService as never,
     );
   });
 
   it('routes variance-refresh jobs to VarianceRefreshProcessor', async () => {
-    await dispatcher.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB));
+    await dispatcher.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: 'tenant-1' }));
     expect(variance.process).toHaveBeenCalledTimes(1);
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith('tenant-1', 'budgeting');
     expect(boardPack.process).not.toHaveBeenCalled();
     expect(cleanup.process).not.toHaveBeenCalled();
   });
@@ -66,9 +74,19 @@ describe('BudgetingQueueDispatcher', () => {
   });
 
   it('routes board-pack-render jobs to BoardPackRenderProcessor', async () => {
-    await dispatcher.process(buildJob(BUDGETING_BOARD_PACK_RENDER_JOB));
+    await dispatcher.process(buildJob(BUDGETING_BOARD_PACK_RENDER_JOB, { tenant_id: 'tenant-1' }));
     expect(boardPack.process).toHaveBeenCalledTimes(1);
     expect(variance.process).not.toHaveBeenCalled();
+    expect(cleanup.process).not.toHaveBeenCalled();
+  });
+
+  it('skips tenant jobs when budgeting is disabled', async () => {
+    tenantModuleService.isEnabled.mockResolvedValue(false);
+
+    await dispatcher.process(buildJob(BUDGETING_VARIANCE_REFRESH_JOB, { tenant_id: 'tenant-1' }));
+
+    expect(variance.process).not.toHaveBeenCalled();
+    expect(boardPack.process).not.toHaveBeenCalled();
     expect(cleanup.process).not.toHaveBeenCalled();
   });
 

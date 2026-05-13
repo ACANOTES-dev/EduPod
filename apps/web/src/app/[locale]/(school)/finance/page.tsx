@@ -17,8 +17,10 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { FinanceDashboardData } from '@school/shared';
+import type { ModuleKey } from '@school/shared/modules';
 
 import { PageHeader } from '@/components/page-header';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from './_components/currency-display';
@@ -51,6 +53,7 @@ interface HubCardConfig {
   accent: string;
   iconBg: string;
   glow: string;
+  moduleKey?: ModuleKey;
   comingSoon?: boolean;
 }
 
@@ -78,6 +81,7 @@ const HUB_CARDS: HubCardConfig[] = [
     accent: 'from-sky-400 via-sky-500 to-sky-600',
     iconBg: 'bg-sky-100 text-sky-700',
     glow: 'from-sky-50/80',
+    moduleKey: 'budgeting',
     comingSoon: true,
   },
 ];
@@ -116,9 +120,7 @@ function KpiTile({
               {value}
             </p>
           )}
-          {subtitle && !isLoading && (
-            <p className="mt-1 text-xs text-text-tertiary">{subtitle}</p>
-          )}
+          {subtitle && !isLoading && <p className="mt-1 text-xs text-text-tertiary">{subtitle}</p>}
         </div>
         <div className={`shrink-0 rounded-xl bg-surface-secondary p-2 ${accent}`}>
           <Icon className="h-5 w-5" />
@@ -220,6 +222,7 @@ export default function FinanceSuperHubPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const currencyCode = useTenantCurrency();
+  const budgetingEnabled = useModuleEnabled('budgeting');
 
   const [finance, setFinance] = React.useState<FinanceDashboardData | null>(null);
   const [payroll, setPayroll] = React.useState<PayrollDashboardSlice | null>(null);
@@ -377,10 +380,11 @@ export default function FinanceSuperHubPage() {
         aria-label={t('cards.ariaLabel')}
         className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
       >
-        {HUB_CARDS.map((card) => {
+        {HUB_CARDS.filter((card) => !card.moduleKey || budgetingEnabled).map((card) => {
           let stat: React.ReactNode;
           if (card.key === 'allFinances' && finance) {
-            stat = (finance.invoice_status_counts.issued ?? 0) +
+            stat =
+              (finance.invoice_status_counts.issued ?? 0) +
               (finance.invoice_status_counts.partially_paid ?? 0) +
               (finance.invoice_status_counts.overdue ?? 0);
           } else if (card.key === 'payroll' && latestPayroll) {
@@ -432,9 +436,7 @@ export default function FinanceSuperHubPage() {
           <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <TrendingDown className="h-4 w-4 text-danger-600" />
-              <h3 className="text-sm font-semibold text-text-primary">
-                {t('mini.topDebtors')}
-              </h3>
+              <h3 className="text-sm font-semibold text-text-primary">{t('mini.topDebtors')}</h3>
             </div>
             {finance.top_debtors.length === 0 ? (
               <p className="text-sm text-text-tertiary">{t('mini.allClear')}</p>
