@@ -1,0 +1,111 @@
+import type { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import request from 'supertest';
+
+import { MODULE_REGISTRY } from '@school/shared/modules';
+import type { ModuleKey } from '@school/shared/modules';
+
+import { disableModuleForTenant, enableModuleForTenant } from './_helpers/module-gating-fixtures';
+import { closeTestApp, createTestApp, login } from './helpers';
+import {
+  createTenantFixture,
+  deleteTenantFixture,
+  type TenantFixture,
+} from './tenant-fixture.builder';
+
+interface ModuleGatingProbe {
+  key: ModuleKey;
+  probes: Array<{ method: 'GET' | 'POST'; path: string; body?: unknown }>;
+}
+
+const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> = {
+  admissions: [{ method: 'GET', path: '/api/v1/admissions/dashboard' }],
+  ai_functions: [{ method: 'POST', path: '/api/v1/attendance/scan/confirm', body: {} }],
+  auto_scheduling: [{ method: 'GET', path: '/api/v1/scheduling/dashboard' }],
+  behaviour: [{ method: 'GET', path: '/api/v1/behaviour/incidents' }],
+  budgeting: [{ method: 'GET', path: '/api/v1/budgeting/financial-models' }],
+  communications_outbound: [{ method: 'GET', path: '/api/v1/announcements' }],
+  early_warning: [{ method: 'GET', path: '/api/v1/early-warning/students' }],
+  engagement: [{ method: 'GET', path: '/api/v1/engagement/events' }],
+  finance: [{ method: 'GET', path: '/api/v1/finance/invoices' }],
+  gradebook: [{ method: 'GET', path: '/api/v1/gradebook/grades' }],
+  homework: [{ method: 'GET', path: '/api/v1/homework/assignments' }],
+  leave: [{ method: 'GET', path: '/api/v1/leave/requests' }],
+  parent_inquiries: [{ method: 'GET', path: '/api/v1/parent-inquiries' }],
+  pastoral: [{ method: 'GET', path: '/api/v1/pastoral/cases' }],
+  payroll: [{ method: 'GET', path: '/api/v1/payroll/runs' }],
+  school_closures: [{ method: 'GET', path: '/api/v1/school-closures' }],
+  staff_wellbeing: [{ method: 'GET', path: '/api/v1/wellbeing/surveys' }],
+  website: [{ method: 'GET', path: '/api/v1/website/pages' }],
+};
+
+const PROBES: ReadonlyArray<ModuleGatingProbe> = MODULE_REGISTRY.filter(
+  (definition) => definition.default_enabled,
+).map((definition) => ({
+  key: definition.key,
+  probes: PROBE_ENDPOINTS[definition.key] ?? [],
+}));
+
+describe('Module gating leakage', () => {
+  let app: INestApplication;
+  let prisma: PrismaClient;
+  let fixture: TenantFixture;
+  let token: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    prisma = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    await prisma.$connect();
+    fixture = await createTenantFixture(prisma);
+    const auth = await login(app, fixture.ownerEmail, fixture.password, fixture.domainName);
+    token = auth.accessToken;
+  }, 60_000);
+
+  afterAll(async () => {
+    if (prisma && fixture) {
+      await deleteTenantFixture(prisma, fixture);
+    }
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  describe.each(PROBES)('module: $key', ({ key, probes }) => {
+    it.skip('returns 404 MODULE_DISABLED when the module is disabled', async () => {
+      await disableModuleForTenant(prisma, fixture.tenantId, key);
+      for (const probe of probes) {
+        const req =
+          probe.method === 'GET'
+            ? request(app.getHttpServer()).get(probe.path)
+            : request(app.getHttpServer())
+                .post(probe.path)
+                .send(probe.body ?? {});
+        const res = await req
+          .set('Authorization', `Bearer ${token}`)
+          .set('Host', fixture.domainName);
+
+        expect(res.status).toBe(404);
+        expect(res.body.error?.code).toBe('MODULE_DISABLED');
+        expect(res.body.error?.module).toBe(key);
+      }
+    });
+
+    it.skip('does not return MODULE_DISABLED when the module is enabled', async () => {
+      await enableModuleForTenant(prisma, fixture.tenantId, key);
+      for (const probe of probes) {
+        const req =
+          probe.method === 'GET'
+            ? request(app.getHttpServer()).get(probe.path)
+            : request(app.getHttpServer())
+                .post(probe.path)
+                .send(probe.body ?? {});
+        const res = await req
+          .set('Authorization', `Bearer ${token}`)
+          .set('Host', fixture.domainName);
+
+        expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
+      }
+    });
+  });
+});

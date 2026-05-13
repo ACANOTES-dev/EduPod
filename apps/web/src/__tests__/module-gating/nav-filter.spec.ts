@@ -1,0 +1,40 @@
+import { MODULE_REGISTRY } from '@school/shared/modules';
+import type { ModuleKey } from '@school/shared/modules';
+
+import { filterNavByModules, type NavSectionConfig } from '@/lib/nav-config';
+
+describe('Nav filter module gating contract', () => {
+  it.each(MODULE_REGISTRY)('hides entries gated by $key when disabled', ({ key }) => {
+    const sections: NavSectionConfig[] = [
+      {
+        labelKey: 'nav.core',
+        items: [{ labelKey: 'nav.home', href: '/dashboard' }],
+      },
+      {
+        labelKey: `nav.${key}`,
+        moduleKey: key,
+        items: [{ labelKey: `nav.${key}.dashboard`, href: `/${key}` }],
+      },
+      {
+        labelKey: 'nav.mixed',
+        items: [
+          { labelKey: 'nav.always', href: '/always' },
+          { labelKey: `nav.${key}.item`, href: `/${key}/item`, moduleKey: key },
+        ],
+      },
+    ];
+    const enabledModules = MODULE_REGISTRY.map((definition) => definition.key).filter(
+      (moduleKey): moduleKey is ModuleKey => moduleKey !== key,
+    );
+
+    const filtered = filterNavByModules(sections, enabledModules);
+
+    expect(filtered.find((section) => section.labelKey === `nav.${key}`)).toBeUndefined();
+    expect(filtered.find((section) => section.labelKey === 'nav.core')).toBeDefined();
+    expect(
+      filtered
+        .find((section) => section.labelKey === 'nav.mixed')
+        ?.items.find((item) => item.moduleKey === key),
+    ).toBeUndefined();
+  });
+});
