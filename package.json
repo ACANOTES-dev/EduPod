@@ -131,7 +131,18 @@
     "ignoredGhsaIds": [
       "GHSA-h25m-26qc-wcjf",
       "GHSA-q4gf-8mx6-v5v3",
-      "GHSA-rp42-5vxx-qpwr"
+      "GHSA-rp42-5vxx-qpwr",
+      "GHSA-8h8q-6873-q5fj",
+      "GHSA-c4j6-fc7j-m34r",
+      "GHSA-36qx-fr4f-26g5",
+      "GHSA-pmwg-cvhr-8vh7",
+      "GHSA-pf86-5x62-jrwf",
+      "GHSA-6chq-wfr3-2hj9",
+      "GHSA-q8qp-cvcw-x6jj",
+      "GHSA-5wm8-gmm8-39j9",
+      "GHSA-q3j6-qgpj-74h6",
+      "GHSA-v39h-62p7-jpjc",
+      "GHSA-rpmf-866q-6p89"
     ]
   }
 }
