@@ -38,9 +38,9 @@
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | 📦     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | 📦     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | 📦     |
-| 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | 📦     |
-| 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | 📦     |
-| 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | 📦     |
+| 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ✅     |
+| 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ✅     |
+| 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
 | 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     |
 
@@ -551,15 +551,18 @@ _See implementations/09-communications-split.md for full spec._
 #### Commits / CI / Deploy / Notes
 
 - Commit: `feat(module-gating): enforce leave module gate`
-- CI: not run remotely yet; local checks passed:
+- CI: local checks passed:
   - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts`
   - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts src/__tests__/translation-parity.spec.ts`
   - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=leave)`
   - `pnpm --filter @school/api type-check`
   - `pnpm --filter @school/web type-check`
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/web/test files (warnings only: pre-existing leave controller cross-module import warnings plus the repo's Next pages-directory warning)
-- Deploy: not deployed yet; production smoke not run in this implementation commit.
-- Notes: No leave worker processors exist, so no worker gating was required. The payroll-attendance route lives under `/v1/payroll` but is owned by the leave module and is now gated by `leave`, as specified. The spec's disruptive NHQS off/on toggle and leave-on + auto_scheduling-off cover-cascade smoke were not run in this local pass; the dependency behavior is documented in the registry `depends_on` hint and remains a production-smoke item after deploy.
+  - Full pre-push validation passed on the final W4 push after retrying transient local resource failures (`pnpm validate:ci` via pre-push hook).
+- Remote CI: GitHub Actions `CI / Deploy` succeeded on `main` for W4 code head `f457db42e99baeb35d691a3d6a34f13cdcdecada` (run `25826225677`), including unit shards, coverage merge, backend parallel + serial integration, visual smoke, build, CI checks, and deploy.
+- Deploy: deployed through `git push origin main` / GitHub Actions only. Production server head verified as `f457db42e99baeb35d691a3d6a34f13cdcdecada`.
+- Production smoke: non-disruptive smoke passed: `https://edupod.app/en/login` returned 200, `/api/health/ready` returned `ready`, and the deployment job's built-in smoke checks passed. `/api/health` returned `degraded` due existing BullMQ failed-job alerts (`notifications:failed>10`, `behaviour:failed>5`), while PostgreSQL, Redis, Meilisearch, and readiness were up. No disruptive production module off/on toggles were run.
+- Notes: No leave worker processors exist, so no worker gating was required. The payroll-attendance route lives under `/v1/payroll` but is owned by the leave module and is now gated by `leave`, as specified. The spec's disruptive NHQS off/on toggle and leave-on + auto_scheduling-off cover-cascade smoke were intentionally not run without a safe platform-owner smoke path; the dependency behavior is documented in the registry `depends_on` hint.
 
 ---
 
@@ -576,14 +579,16 @@ _See implementations/09-communications-split.md for full spec._
 #### Commits / CI / Deploy / Notes
 
 - Commit: `feat(module-gating): enforce school closures gate`
-- CI: not run remotely yet; local checks passed:
+- CI: local checks passed:
   - `pnpm --filter @school/api test -- --runTestsByPath src/modules/school-closures/school-closures.controller.spec.ts src/modules/school-closures/school-closures-read.facade.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
   - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
   - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=school_closures)`
   - `pnpm --filter @school/api type-check`
   - `pnpm --filter @school/web type-check`
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/web/test files (warnings only: repo's Next pages-directory warning)
-- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Remote CI: GitHub Actions `CI / Deploy` succeeded on `main` for W4 code head `f457db42e99baeb35d691a3d6a34f13cdcdecada` (run `25826225677`), including unit shards, coverage merge, backend parallel + serial integration, visual smoke, build, CI checks, and deploy.
+- Deploy: deployed through `git push origin main` / GitHub Actions only. Production server head verified as `f457db42e99baeb35d691a3d6a34f13cdcdecada`.
+- Production smoke: non-disruptive smoke passed: `https://edupod.app/en/login` returned 200, `/api/health/ready` returned `ready`, and the deployment job's built-in smoke checks passed. No disruptive production school_closures off/on toggle was run.
 - Notes: No school-closures worker processors exist. The toggle gates only `SchoolClosuresController`; downstream consumers keep using `SchoolClosuresService` / `SchoolClosuresReadFacade`, so previously configured closures remain honoured by attendance, scheduling, and finance/payroll read flows when management is disabled. A first controller-spec run failed because the newly added `ModuleEnabledGuard` needed to be overridden in the unit test harness; the spec was patched and then passed.
 
 ---
@@ -601,11 +606,13 @@ _See implementations/09-communications-split.md for full spec._
 #### Commits / CI / Deploy / Notes
 
 - Commit: `docs(module-gating): verify trips analytics cleanup`
-- CI: not run remotely yet; local checks passed:
+- CI: local checks passed:
   - `pnpm --filter @school/api test -- --runTestsByPath src/modules/trips/audience/trip-roster.provider.spec.ts`
   - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/architecture-docs.spec.ts)`
   - `rg -n "module_key.*analytics|analytics.*module_key" packages/prisma packages/shared/src/modules apps/api/src apps/worker/src apps/web/src --glob '!**/_archive/**' --glob '!**/archive/**'` returned zero hits.
-- Deploy: no separate production deploy required by the spec; production read-only DB assertion was run via SSH diagnostics and returned `0`.
+- Remote CI: GitHub Actions `CI / Deploy` succeeded on `main` for W4 code head `f457db42e99baeb35d691a3d6a34f13cdcdecada` (run `25826225677`), including unit shards, coverage merge, backend parallel + serial integration, visual smoke, build, CI checks, and deploy.
+- Deploy: deployed through `git push origin main` / GitHub Actions only. Production server head verified as `f457db42e99baeb35d691a3d6a34f13cdcdecada`.
+- Production smoke: read-only production DB assertion returned `0` for `SELECT COUNT(*) FROM tenant_modules WHERE module_key = 'analytics';`. Non-disruptive web/API readiness smoke also passed.
 - Notes: A broad `rg -n "'analytics'" apps/api/src apps/worker/src apps/web/src packages` still finds legitimate non-module-key usages: analytics permissions, `/analytics` routes/tabs, and `@SensitiveDataAccess('analytics')` audit categories. Those are not stale tenant-module ghost-key references and were intentionally left in place.
 
 ---
