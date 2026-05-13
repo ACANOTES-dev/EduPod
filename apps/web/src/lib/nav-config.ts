@@ -58,6 +58,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       {
         labelKey: 'nav.senParent',
         href: '/parent/sen',
+        moduleKey: 'sen',
         roles: ['parent'],
       },
     ],
@@ -110,17 +111,27 @@ export const navSectionConfigs: NavSectionConfig[] = [
     labelKey: 'nav.behaviour',
     roles: STAFF_ROLES,
     items: [
-      { labelKey: 'nav.behaviourDashboard', href: '/behaviour' },
-      { labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
-      { labelKey: 'nav.behaviourStudents', href: '/behaviour/students' },
+      { labelKey: 'nav.behaviourDashboard', href: '/behaviour', moduleKey: 'behaviour' },
+      {
+        labelKey: 'nav.behaviourIncidents',
+        href: '/behaviour/incidents',
+        moduleKey: 'behaviour',
+      },
+      {
+        labelKey: 'nav.behaviourStudents',
+        href: '/behaviour/students',
+        moduleKey: 'behaviour',
+      },
       {
         labelKey: 'nav.guardianRestrictions',
         href: '/behaviour/guardian-restrictions',
+        moduleKey: 'behaviour',
         roles: ADMIN_ROLES,
       },
       {
         labelKey: 'nav.pastoral',
         href: '/pastoral',
+        moduleKey: 'pastoral',
         roles: [...ADMIN_ROLES, 'teacher'],
       },
     ],
@@ -129,35 +140,51 @@ export const navSectionConfigs: NavSectionConfig[] = [
     labelKey: 'nav.wellbeing',
     roles: STAFF_ROLES,
     items: [
-      { labelKey: 'nav.myWorkload', href: '/wellbeing/my-workload' },
-      { labelKey: 'nav.supportResources', href: '/wellbeing/resources' },
-      { labelKey: 'nav.survey', href: '/wellbeing/survey' },
+      {
+        labelKey: 'nav.myWorkload',
+        href: '/wellbeing/my-workload',
+        moduleKey: 'staff_wellbeing',
+      },
+      {
+        labelKey: 'nav.supportResources',
+        href: '/wellbeing/resources',
+        moduleKey: 'staff_wellbeing',
+      },
+      { labelKey: 'nav.survey', href: '/wellbeing/survey', moduleKey: 'staff_wellbeing' },
       {
         labelKey: 'nav.wellbeingDashboard',
         href: '/wellbeing/dashboard',
+        moduleKey: 'staff_wellbeing',
         roles: ADMIN_ROLES,
       },
       {
         labelKey: 'nav.surveyManagement',
         href: '/wellbeing/surveys',
+        moduleKey: 'staff_wellbeing',
         roles: ADMIN_ROLES,
       },
       {
         labelKey: 'nav.boardReport',
         href: '/wellbeing/reports',
+        moduleKey: 'staff_wellbeing',
         roles: ADMIN_ROLES,
       },
     ],
   },
   {
     labelKey: 'nav.sen',
+    moduleKey: 'sen',
     roles: STAFF_ROLES,
     items: [
-      { labelKey: 'nav.senDashboard', href: '/sen' },
-      { labelKey: 'nav.senStudents', href: '/sen/students' },
-      { labelKey: 'nav.senResourceAllocation', href: '/sen/resource-allocation' },
-      { labelKey: 'nav.senSnaAssignments', href: '/sen/sna-assignments' },
-      { labelKey: 'nav.senReports', href: '/sen/reports' },
+      { labelKey: 'nav.senDashboard', href: '/sen', moduleKey: 'sen' },
+      { labelKey: 'nav.senStudents', href: '/sen/students', moduleKey: 'sen' },
+      {
+        labelKey: 'nav.senResourceAllocation',
+        href: '/sen/resource-allocation',
+        moduleKey: 'sen',
+      },
+      { labelKey: 'nav.senSnaAssignments', href: '/sen/sna-assignments', moduleKey: 'sen' },
+      { labelKey: 'nav.senReports', href: '/sen/reports', moduleKey: 'sen' },
     ],
   },
   {

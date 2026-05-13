@@ -50,4 +50,19 @@ describe('Nav filter module gating contract', () => {
         .find((item) => item.href === '/inbox')?.moduleKey,
     ).toBeUndefined();
   });
+
+  it('annotates already-enforced wellbeing modules in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => [
+      { href: `__section:${section.labelKey}`, moduleKey: section.moduleKey },
+      ...section.items,
+    ]);
+
+    expect(allItems.find((item) => item.href === '/behaviour')?.moduleKey).toBe('behaviour');
+    expect(allItems.find((item) => item.href === '/pastoral')?.moduleKey).toBe('pastoral');
+    expect(allItems.find((item) => item.href === '/parent/sen')?.moduleKey).toBe('sen');
+    expect(allItems.find((item) => item.href === '__section:nav.sen')?.moduleKey).toBe('sen');
+    expect(allItems.find((item) => item.href === '/wellbeing/my-workload')?.moduleKey).toBe(
+      'staff_wellbeing',
+    );
+  });
 });

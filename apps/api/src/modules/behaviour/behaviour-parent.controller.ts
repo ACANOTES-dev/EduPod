@@ -23,15 +23,18 @@ import {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { BehaviourParentService } from './behaviour-parent.service';
 
 @Controller('v1/parent/behaviour')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('behaviour')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourParentController {
   constructor(private readonly parentService: BehaviourParentService) {}
 

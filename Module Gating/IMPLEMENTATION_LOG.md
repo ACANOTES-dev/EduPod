@@ -30,7 +30,7 @@
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | 📦     |
 | 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | 📦     |
 | 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | 📦     |
-| 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | ⏳     |
+| 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | 📦     |
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | ⏳     |
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | ⏳     |
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | ⏳     |
@@ -307,14 +307,23 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `pastoral`, `behaviour`, `sen`, `staff_wellbeing`: every controller verified to have `@ModuleEnabled` + `ModuleEnabledGuard`.
-- [ ] Frontend nav for these 4 modules: nav entries gain `moduleKey`; nav filter hides them when disabled.
-- [ ] Module-gating leakage tests pass for all 4.
+- [x] `pastoral`, `behaviour`, `sen`, `staff_wellbeing`: every controller verified to have `@ModuleEnabled` + `ModuleEnabledGuard`.
+- [x] Frontend nav for these 4 modules: nav entries gain `moduleKey`; nav filter hides them when disabled.
+- [x] Module-gating leakage tests pass for all 4.
 - [ ] Smoke test on NHQS: each module can be toggled off and back on; nav updates immediately; no orphan endpoints reachable when off.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `fix(module-gating): verify wellbeing module gates`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)` (now active for `sen`, `behaviour`, `pastoral`, `staff_wellbeing`, plus prior `communications_outbound`)
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint ...` on touched API/web/test files (warnings only: pre-existing cross-module imports in `behaviour-recognition.controller.ts`, plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: Verification found four behaviour controllers that were not already gated (`behaviour-recognition`, `behaviour-interventions`, `behaviour-guardian-restrictions`, `behaviour-parent`), so this implementation includes the missing `@ModuleEnabled('behaviour')` / `ModuleEnabledGuard` wiring instead of staying frontend-only. Corrected the staff-wellbeing leakage probe from `/api/v1/wellbeing/surveys` to the actual `/api/v1/staff-wellbeing/surveys` route and included default-off `sen` in the active leakage cases.
 
 ---
 

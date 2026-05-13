@@ -38,14 +38,21 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
   pastoral: [{ method: 'GET', path: '/api/v1/pastoral/cases' }],
   payroll: [{ method: 'GET', path: '/api/v1/payroll/runs' }],
   school_closures: [{ method: 'GET', path: '/api/v1/school-closures' }],
-  staff_wellbeing: [{ method: 'GET', path: '/api/v1/wellbeing/surveys' }],
+  sen: [{ method: 'GET', path: '/api/v1/sen/overview' }],
+  staff_wellbeing: [{ method: 'GET', path: '/api/v1/staff-wellbeing/surveys' }],
   website: [{ method: 'GET', path: '/api/v1/website/pages' }],
 };
 
-const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>(['communications_outbound']);
+const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
+  'behaviour',
+  'communications_outbound',
+  'pastoral',
+  'sen',
+  'staff_wellbeing',
+]);
 
 const PROBES: ReadonlyArray<ModuleGatingProbe> = MODULE_REGISTRY.filter(
-  (definition) => definition.default_enabled,
+  (definition) => definition.default_enabled || ACTIVE_MODULE_GATING_CASES.has(definition.key),
 ).map((definition) => ({
   key: definition.key,
   probes: PROBE_ENDPOINTS[definition.key] ?? [],
