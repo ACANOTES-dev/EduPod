@@ -35,6 +35,8 @@ describe('HouseholdStatementsController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();

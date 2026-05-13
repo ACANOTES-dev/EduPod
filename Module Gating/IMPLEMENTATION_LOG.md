@@ -437,6 +437,7 @@ _See implementations/09-communications-split.md for full spec._
 #### Commits / CI / Deploy / Notes
 
 - Commit: `feat(module-gating): enforce finance module gate`
+- Follow-up commit: `test(module-gating): cover gated controller specs`
 - CI: not run remotely yet; local checks passed:
   - `pnpm --filter @school/api test -- --runTestsByPath src/modules/finance/stripe-webhook.controller.spec.ts src/common/guards/module-enabled-coverage.spec.ts`
   - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/finance/overdue-detection.processor.spec.ts src/processors/finance/invoice-approval-callback.processor.spec.ts src/processors/finance/stripe-refund-reconciliation.processor.spec.ts src/processors/finance/finance-queue.processor.spec.ts`
@@ -446,6 +447,7 @@ _See implementations/09-communications-split.md for full spec._
   - `pnpm --filter @school/worker type-check`
   - `pnpm --filter @school/web type-check`
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing cross-module imports/max-lines plus the repo's Next pages-directory warning)
+  - Follow-up after pre-push coverage: `pnpm --filter @school/api test -- --runTestsByPath src/modules/finance/discounts.controller.spec.ts src/modules/finance/fee-assignments.controller.spec.ts src/modules/finance/fee-generation.controller.spec.ts src/modules/finance/fee-structures.controller.spec.ts src/modules/finance/finance-dashboard.controller.spec.ts src/modules/finance/finance-enhanced.controller.spec.ts src/modules/finance/household-statements.controller.spec.ts src/modules/finance/invoices.controller.spec.ts src/modules/finance/payments.controller.spec.ts src/modules/finance/parent-finance.controller.spec.ts src/modules/finance/refunds.controller.spec.ts`
 - Deploy: not deployed yet; production smoke not run in this implementation commit.
 - Notes: `stripe-webhook.controller.ts` intentionally has no `@ModuleEnabled` decorator. `StripeService` now exposes `verifyWebhookEvent` and `processWebhookEvent` so the controller can verify Stripe's signature before the finance-module skip and still return 200 for disabled tenants. The parent-facing finance impact is enforced by hiding the parent dashboard finances tab and skipping parent finance summary prefetch when `finance` is disabled. No code touched `tenant_sequences`; local/prod sequence SELECT verification was not run because this pass avoided disruptive module off/on production toggles.
 
@@ -463,6 +465,7 @@ _See implementations/09-communications-split.md for full spec._
 #### Commits / CI / Deploy / Notes
 
 - Commit: `feat(module-gating): enforce homework module gate`
+- Follow-up commit: `test(module-gating): cover gated controller specs`
 - CI: not run remotely yet; local checks passed:
   - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts src/modules/homework/homework.controller.spec.ts src/modules/homework/homework-analytics.controller.spec.ts src/modules/homework/homework-completions.controller.spec.ts src/modules/homework/homework-diary.controller.spec.ts src/modules/homework/homework-parent.controller.spec.ts`
   - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/homework/completion-reminder.processor.spec.ts src/processors/homework/digest-homework.processor.spec.ts src/processors/homework/generate-recurring.processor.spec.ts src/processors/homework/homework-queue.processor.spec.ts src/processors/homework/overdue-detection.processor.spec.ts`
@@ -472,6 +475,7 @@ _See implementations/09-communications-split.md for full spec._
   - `pnpm --filter @school/worker type-check`
   - `pnpm --filter @school/web type-check`
   - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing max-lines plus the repo's Next pages-directory warning)
+  - Follow-up after pre-push coverage: `pnpm --filter @school/api test -- --runTestsByPath src/modules/homework/homework.controller.branch.spec.ts`
 - Deploy: not deployed yet; production smoke not run in this implementation commit.
 - Notes: The spec's homework probe paths were corrected to the actual routes: `/api/v1/homework`, `/api/v1/student/homework`, and `/api/v1/homework/analytics/completion-rates`. Re-enabling missed-recurring-generation behavior was not production-smoked because this pass avoided disruptive module off/on toggles.
 
