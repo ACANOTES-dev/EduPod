@@ -10,6 +10,7 @@ import type {
   ExamSolverInvigilator,
   ExamSolverRoom,
 } from '../../../../../packages/shared/src/schemas/exam-scheduling.schema';
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -47,13 +48,24 @@ function isoDate(d: Date): string {
 export class ExamSolverProcessor extends WorkerHost {
   private readonly logger = new Logger(ExamSolverProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {
     super();
   }
 
   async process(job: Job<ExamSolverPayload>): Promise<void> {
     // Sibling processor on the same queue — ignore anything that isn't ours.
     if (job.name !== EXAM_SOLVE_JOB) return;
+
+    const enabled = await this.tenantModuleService.isEnabled(job.data.tenant_id, 'auto_scheduling');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${EXAM_SOLVE_JOB} for tenant ${job.data.tenant_id}: auto_scheduling module disabled`,
+      );
+      return;
+    }
 
     this.logger.log(`Processing ${EXAM_SOLVE_JOB} — solve_job ${job.data.solve_job_id}`);
 

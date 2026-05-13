@@ -103,4 +103,11 @@ describe('Nav filter module gating contract', () => {
 
     expect(allItems.find((item) => item.href === '/homework')?.moduleKey).toBe('homework');
   });
+
+  it('annotates auto-scheduling entries without gating rooms', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/scheduling')?.moduleKey).toBe('auto_scheduling');
+    expect(allItems.find((item) => item.href === '/rooms')?.moduleKey).toBeUndefined();
+  });
 });

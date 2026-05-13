@@ -61,7 +61,7 @@ describe('AiSubstitutionService', () => {
       createMessage: mockMessagesCreate,
     };
     mockTenantModuleService = {
-      isEnabled: jest.fn().mockResolvedValue(true),
+      isEnabled: jest.fn().mockImplementation(() => Promise.resolve(true)),
     };
 
     mockPrisma = {
@@ -371,12 +371,29 @@ describe('AiSubstitutionService', () => {
   // ─── graceful degradation when SDK unavailable ────────────────────────────
 
   describe('graceful degradation', () => {
-    it('should return empty data when ai_functions is disabled', async () => {
-      mockTenantModuleService.isEnabled.mockResolvedValue(false);
+    it('should return empty data when auto_scheduling is disabled', async () => {
+      mockTenantModuleService.isEnabled.mockImplementation((_tenantId: string, moduleKey: string) =>
+        Promise.resolve(moduleKey !== 'auto_scheduling'),
+      );
 
       const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
       expect(result).toEqual({ data: [] });
+      expect(mockTenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'auto_scheduling');
+      expect(mockTenantModuleService.isEnabled).not.toHaveBeenCalledWith(TENANT_ID, 'ai_functions');
+      expect(mockMessagesCreate).not.toHaveBeenCalled();
+    });
+
+    it('should return empty data when ai_functions is disabled', async () => {
+      mockTenantModuleService.isEnabled.mockImplementation((_tenantId: string, moduleKey: string) =>
+        Promise.resolve(moduleKey !== 'ai_functions'),
+      );
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result).toEqual({ data: [] });
+      expect(mockTenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'auto_scheduling');
+      expect(mockTenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'ai_functions');
       expect(mockMessagesCreate).not.toHaveBeenCalled();
     });
 

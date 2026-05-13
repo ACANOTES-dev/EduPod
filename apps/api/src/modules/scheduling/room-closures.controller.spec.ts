@@ -46,19 +46,26 @@ describe('RoomClosuresController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RoomClosuresController],
       providers: [
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },{ provide: RoomClosuresService, useValue: mockService }],
+        {
+          provide: RoomsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            exists: jest.fn().mockResolvedValue(false),
+            findActiveRooms: jest.fn().mockResolvedValue([]),
+            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+            countActiveRooms: jest.fn().mockResolvedValue(0),
+            findAllClosures: jest.fn().mockResolvedValue([]),
+            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findClosureById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        { provide: RoomClosuresService, useValue: mockService },
+      ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(require('../../common/guards/module-enabled.guard').ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })

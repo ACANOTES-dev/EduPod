@@ -73,6 +73,16 @@ function buildMockPrismaClient(prisma: ReturnType<typeof buildMockPrisma>) {
   return prisma as unknown as PrismaClient;
 }
 
+function buildTenantModuleService(disabledTenants: string[] = []) {
+  return {
+    isEnabled: jest
+      .fn()
+      .mockImplementation((tenantId: string) =>
+        Promise.resolve(!disabledTenants.includes(tenantId)),
+      ),
+  };
+}
+
 describe('SchedulingStaleReaperJob', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
@@ -85,7 +95,10 @@ describe('SchedulingStaleReaperJob', () => {
 
   it('should ignore jobs with a different name', async () => {
     const prisma = buildMockPrisma();
-    const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+    const processor = new SchedulingStaleReaperJob(
+      buildMockPrismaClient(prisma),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('scheduling:other-job'));
 
@@ -119,7 +132,10 @@ describe('SchedulingStaleReaperJob', () => {
         ],
       },
     });
-    const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+    const processor = new SchedulingStaleReaperJob(
+      buildMockPrismaClient(prisma),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(SCHEDULING_REAP_STALE_JOB));
 
@@ -147,12 +163,49 @@ describe('SchedulingStaleReaperJob', () => {
         ],
       },
     });
-    const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+    const processor = new SchedulingStaleReaperJob(
+      buildMockPrismaClient(prisma),
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(SCHEDULING_REAP_STALE_JOB));
 
     expect(prisma.__updates).toHaveLength(1);
     expect(prisma.__updates[0]?.id).toBe('short-timeout-run');
+  });
+
+  it('should skip disabled tenants without reaping their stale runs', async () => {
+    const prisma = buildMockPrisma({
+      runsByTenant: {
+        [TENANT_A_ID]: [
+          {
+            id: 'disabled-tenant-run',
+            status: 'running',
+            updated_at: new Date('2026-04-01T11:30:00.000Z'),
+            config_snapshot: { settings: { max_solver_duration_seconds: 120 } },
+          },
+        ],
+        [TENANT_B_ID]: [
+          {
+            id: 'enabled-tenant-run',
+            status: 'running',
+            updated_at: new Date('2026-04-01T11:30:00.000Z'),
+            config_snapshot: { settings: { max_solver_duration_seconds: 120 } },
+          },
+        ],
+      },
+    });
+    const tenantModuleService = buildTenantModuleService([TENANT_A_ID]);
+    const processor = new SchedulingStaleReaperJob(
+      buildMockPrismaClient(prisma),
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob(SCHEDULING_REAP_STALE_JOB));
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'auto_scheduling');
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_B_ID, 'auto_scheduling');
+    expect(prisma.__updates.map((u) => u.id)).toEqual(['enabled-tenant-run']);
   });
 
   // SCHED-029 (STRESS-081): startup reaper runs once on worker bootstrap and
@@ -178,7 +231,10 @@ describe('SchedulingStaleReaperJob', () => {
         },
       });
 
-      const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+      const processor = new SchedulingStaleReaperJob(
+        buildMockPrismaClient(prisma),
+        buildTenantModuleService() as never,
+      );
       const reaped = await processor.reapOnStartup();
 
       expect(reaped).toBe(2);
@@ -200,7 +256,10 @@ describe('SchedulingStaleReaperJob', () => {
           [TENANT_A_ID]: [], // simulated filter: nothing returned
         },
       });
-      const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+      const processor = new SchedulingStaleReaperJob(
+        buildMockPrismaClient(prisma),
+        buildTenantModuleService() as never,
+      );
       const reaped = await processor.reapOnStartup();
 
       expect(reaped).toBe(0);
@@ -209,7 +268,10 @@ describe('SchedulingStaleReaperJob', () => {
 
     it('should run automatically on application bootstrap', async () => {
       const prisma = buildMockPrisma();
-      const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+      const processor = new SchedulingStaleReaperJob(
+        buildMockPrismaClient(prisma),
+        buildTenantModuleService() as never,
+      );
       const spy = jest.spyOn(processor, 'reapOnStartup').mockResolvedValue(0);
 
       await processor.onApplicationBootstrap();
@@ -219,7 +281,10 @@ describe('SchedulingStaleReaperJob', () => {
 
     it('should swallow errors from reapOnStartup so bootstrap does not crash', async () => {
       const prisma = buildMockPrisma();
-      const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+      const processor = new SchedulingStaleReaperJob(
+        buildMockPrismaClient(prisma),
+        buildTenantModuleService() as never,
+      );
       jest.spyOn(processor, 'reapOnStartup').mockRejectedValue(new Error('boom'));
 
       await expect(processor.onApplicationBootstrap()).resolves.not.toThrow();
@@ -274,7 +339,10 @@ describe('SchedulingStaleReaperJob', () => {
         },
       );
 
-      const processor = new SchedulingStaleReaperJob(buildMockPrismaClient(prisma));
+      const processor = new SchedulingStaleReaperJob(
+        buildMockPrismaClient(prisma),
+        buildTenantModuleService() as never,
+      );
       const reaped = await processor.reapOnStartup();
 
       expect(reaped).toBe(1);

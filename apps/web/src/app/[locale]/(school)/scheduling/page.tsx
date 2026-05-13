@@ -29,6 +29,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared/modules';
 import {
   Badge,
   Button,
@@ -39,6 +40,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -165,6 +167,7 @@ interface ModuleItem {
   descKey: string;
   href: string;
   icon: LucideIcon;
+  moduleKey?: ModuleKey;
 }
 
 interface ModuleCategory {
@@ -254,24 +257,28 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.periodGridDesc',
         href: '/scheduling/period-grid',
         icon: Calendar,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.curriculum',
         descKey: 'hub.curriculumDesc',
         href: '/scheduling/curriculum',
         icon: BookOpen,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.breakGroups',
         descKey: 'hub.breakGroupsDesc',
         href: '/scheduling/break-groups',
         icon: Clock,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.roomClosures',
         descKey: 'hub.roomClosuresDesc',
         href: '/scheduling/room-closures',
         icon: DoorClosed,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -287,24 +294,28 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.competenciesDesc',
         href: '/scheduling/competencies',
         icon: Users,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.coverageNav',
         descKey: 'hub.coverageDesc',
         href: '/scheduling/competency-coverage',
         icon: ShieldCheck,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.teacherConfig',
         descKey: 'hub.teacherConfigDesc',
         href: '/scheduling/teacher-config',
         icon: UserCog,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'auto.requirements',
         descKey: 'hub.requirementsDesc',
         href: '/scheduling/requirements',
         icon: ClipboardList,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -320,12 +331,14 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.availabilityDesc',
         href: '/scheduling/availability',
         icon: Clock,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'auto.preferences',
         descKey: 'hub.preferencesDesc',
         href: '/scheduling/preferences',
         icon: Heart,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -341,18 +354,21 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.autoSchedulerDesc',
         href: '/scheduling/auto',
         icon: Sparkles,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'runs.title',
         descKey: 'hub.runsDesc',
         href: '/scheduling/runs',
         icon: History,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'scenarios.navTitle',
         descKey: 'hub.scenariosDesc',
         href: '/scheduling/scenarios',
         icon: GitBranch,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -368,18 +384,21 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.substitutionsDesc',
         href: '/scheduling/substitutions',
         icon: UserX,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'v2.substituteCompetencies',
         descKey: 'hub.substituteCompetenciesDesc',
         href: '/scheduling/substitute-competencies',
         icon: UserCheck,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'board.navTitle',
         descKey: 'hub.boardDesc',
         href: '/scheduling/substitution-board',
         icon: MonitorPlay,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'myTimetable.navTitle',
@@ -392,12 +411,14 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.examsDesc',
         href: '/scheduling/exams',
         icon: FlaskConical,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'examSchedules.navTitle',
         descKey: 'hub.examSchedulesDesc',
         href: '/scheduling/exam-schedules',
         icon: ClipboardList,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -413,12 +434,14 @@ const CATEGORIES: ModuleCategory[] = [
         descKey: 'hub.analyticsDashboardDesc',
         href: '/scheduling/dashboard',
         icon: BarChart3,
+        moduleKey: 'auto_scheduling',
       },
       {
         labelKey: 'coverReports.navTitle',
         descKey: 'hub.coverReportsDesc',
         href: '/scheduling/cover-reports',
         icon: FileBarChart2,
+        moduleKey: 'auto_scheduling',
       },
     ],
   },
@@ -431,11 +454,18 @@ export default function SchedulingHubPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const autoSchedulingEnabled = useModuleEnabled('auto_scheduling');
 
   const [overview, setOverview] = React.useState<DashboardOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    if (!autoSchedulingEnabled) {
+      setOverview(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     apiClient<{ data: Array<{ id: string; name: string }> }>('/api/v1/academic-years?pageSize=20')
       .then((yearsRes) => {
@@ -461,7 +491,16 @@ export default function SchedulingHubPage() {
         console.error('[SchedulingHubPage]', err);
         setLoading(false);
       });
-  }, []);
+  }, [autoSchedulingEnabled]);
+
+  const visibleCategories = React.useMemo(
+    () =>
+      CATEGORIES.map((category) => ({
+        ...category,
+        items: category.items.filter((item) => !item.moduleKey || autoSchedulingEnabled),
+      })).filter((category) => category.items.length > 0),
+    [autoSchedulingEnabled],
+  );
 
   const totalClasses = overview?.total_classes ?? 0;
   const scheduledClasses = overview?.scheduled_classes ?? 0;
@@ -481,86 +520,90 @@ export default function SchedulingHubPage() {
         title={t('hub.title')}
         description={t('hub.description')}
         actions={
-          <Button onClick={() => router.push(`/${locale}/scheduling/auto`)} className="gap-1.5">
-            <Sparkles className="h-4 w-4" />
-            {t('auto.generateTimetable')}
-          </Button>
+          autoSchedulingEnabled ? (
+            <Button onClick={() => router.push(`/${locale}/scheduling/auto`)} className="gap-1.5">
+              <Sparkles className="h-4 w-4" />
+              {t('auto.generateTimetable')}
+            </Button>
+          ) : undefined
         }
       />
 
       {/* KPI cards */}
-      <TooltipProvider delayDuration={150}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard
-            label={t('hub.curriculumCard')}
-            value={loading ? '…' : totalClasses}
-            icon={BookOpen}
-            href="/scheduling/curriculum"
-            gradient="from-primary/60 to-primary"
-            accent="bg-primary/10 text-primary"
-            glow="from-primary/5"
-            subtitle={
-              overview && totalClasses > 0
-                ? configuredClasses > 0
-                  ? `${configuredClasses} ${t('hub.curriculumWithOverrides')}`
-                  : t('hub.curriculumCardHint')
-                : undefined
-            }
-            tooltip={t('hub.curriculumCardTooltip')}
-          />
-          <KpiCard
-            label={t('auto.completionPct')}
-            value={loading ? '…' : `${completionPct}%`}
-            icon={BarChart3}
-            href="/scheduling/dashboard"
-            gradient="from-emerald-400 to-emerald-600"
-            accent="bg-emerald-100 text-emerald-700"
-            glow="from-emerald-400/10"
-            subtitle={
-              overview && totalClasses > 0
-                ? `${scheduledClasses} / ${totalClasses} ${t('hub.slotsLabel')}`
-                : undefined
-            }
-          />
-          <KpiCard
-            label={t('auto.pinnedSlots')}
-            value={loading ? '…' : pinnedEntries}
-            icon={Pin}
-            href="/scheduling/runs"
-            gradient="from-amber-400 to-amber-600"
-            accent="bg-amber-100 text-amber-700"
-            glow="from-amber-400/10"
-            subtitle={t('hub.pinnedSubtitle')}
-          />
-          <KpiCard
-            label={t('hub.latestRun')}
-            value={
-              loading
-                ? '…'
-                : overview?.latest_run
-                  ? t(`hub.runStatus.${overview.latest_run.status}`)
-                  : t('hub.noRunYet')
-            }
-            icon={Sparkles}
-            href={
-              overview?.latest_run
-                ? `/scheduling/runs/${overview.latest_run.id}/review`
-                : '/scheduling/auto'
-            }
-            gradient="from-violet-400 to-violet-600"
-            accent="bg-violet-100 text-violet-700"
-            glow="from-violet-400/10"
-            subtitle={
-              overview?.latest_run
-                ? new Date(overview.latest_run.created_at).toLocaleDateString()
-                : t('hub.noRunSubtitle')
-            }
-          />
-        </div>
-      </TooltipProvider>
+      {autoSchedulingEnabled && (
+        <TooltipProvider delayDuration={150}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard
+              label={t('hub.curriculumCard')}
+              value={loading ? '…' : totalClasses}
+              icon={BookOpen}
+              href="/scheduling/curriculum"
+              gradient="from-primary/60 to-primary"
+              accent="bg-primary/10 text-primary"
+              glow="from-primary/5"
+              subtitle={
+                overview && totalClasses > 0
+                  ? configuredClasses > 0
+                    ? `${configuredClasses} ${t('hub.curriculumWithOverrides')}`
+                    : t('hub.curriculumCardHint')
+                  : undefined
+              }
+              tooltip={t('hub.curriculumCardTooltip')}
+            />
+            <KpiCard
+              label={t('auto.completionPct')}
+              value={loading ? '…' : `${completionPct}%`}
+              icon={BarChart3}
+              href="/scheduling/dashboard"
+              gradient="from-emerald-400 to-emerald-600"
+              accent="bg-emerald-100 text-emerald-700"
+              glow="from-emerald-400/10"
+              subtitle={
+                overview && totalClasses > 0
+                  ? `${scheduledClasses} / ${totalClasses} ${t('hub.slotsLabel')}`
+                  : undefined
+              }
+            />
+            <KpiCard
+              label={t('auto.pinnedSlots')}
+              value={loading ? '…' : pinnedEntries}
+              icon={Pin}
+              href="/scheduling/runs"
+              gradient="from-amber-400 to-amber-600"
+              accent="bg-amber-100 text-amber-700"
+              glow="from-amber-400/10"
+              subtitle={t('hub.pinnedSubtitle')}
+            />
+            <KpiCard
+              label={t('hub.latestRun')}
+              value={
+                loading
+                  ? '…'
+                  : overview?.latest_run
+                    ? t(`hub.runStatus.${overview.latest_run.status}`)
+                    : t('hub.noRunYet')
+              }
+              icon={Sparkles}
+              href={
+                overview?.latest_run
+                  ? `/scheduling/runs/${overview.latest_run.id}/review`
+                  : '/scheduling/auto'
+              }
+              gradient="from-violet-400 to-violet-600"
+              accent="bg-violet-100 text-violet-700"
+              glow="from-violet-400/10"
+              subtitle={
+                overview?.latest_run
+                  ? new Date(overview.latest_run.created_at).toLocaleDateString()
+                  : t('hub.noRunSubtitle')
+              }
+            />
+          </div>
+        </TooltipProvider>
+      )}
 
       {/* Latest run detail strip */}
-      {overview?.latest_run && (
+      {autoSchedulingEnabled && overview?.latest_run && (
         <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-5">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-400 via-violet-500 to-violet-600" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -617,29 +660,33 @@ export default function SchedulingHubPage() {
           {t('hub.quickActions')}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickAction
-            label={t('auto.autoScheduler')}
-            icon={Sparkles}
-            href="/scheduling/auto"
-            accent="bg-violet-100 text-violet-700"
-          />
+          {autoSchedulingEnabled ? (
+            <>
+              <QuickAction
+                label={t('auto.autoScheduler')}
+                icon={Sparkles}
+                href="/scheduling/auto"
+                accent="bg-violet-100 text-violet-700"
+              />
+              <QuickAction
+                label={t('substitutions.navTitle')}
+                icon={UserX}
+                href="/scheduling/substitutions"
+                accent="bg-indigo-100 text-indigo-700"
+              />
+              <QuickAction
+                label={t('board.navTitle')}
+                icon={MonitorPlay}
+                href="/scheduling/substitution-board"
+                accent="bg-sky-100 text-sky-700"
+              />
+            </>
+          ) : null}
           <QuickAction
             label={t('myTimetable.navTitle')}
             icon={Calendar}
             href="/scheduling/my-timetable"
             accent="bg-emerald-100 text-emerald-700"
-          />
-          <QuickAction
-            label={t('substitutions.navTitle')}
-            icon={UserX}
-            href="/scheduling/substitutions"
-            accent="bg-indigo-100 text-indigo-700"
-          />
-          <QuickAction
-            label={t('board.navTitle')}
-            icon={MonitorPlay}
-            href="/scheduling/substitution-board"
-            accent="bg-sky-100 text-sky-700"
           />
         </div>
       </div>
@@ -650,7 +697,7 @@ export default function SchedulingHubPage() {
           {t('hub.modulesHeading')}
         </h2>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {CATEGORIES.map((category) => (
+          {visibleCategories.map((category) => (
             <CategorySection key={category.titleKey} category={category} locale={locale} t={t} />
           ))}
         </div>

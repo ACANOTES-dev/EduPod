@@ -78,6 +78,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = SCHEDULING_SOLVE_V2_JOB,
   data: Partial<SchedulingSolverV2Payload> = {},
@@ -133,11 +139,29 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob('scheduling:other-job'));
 
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('should acknowledge solve jobs without side effects when auto_scheduling is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new SchedulingSolverV2Processor(
+      mockPrisma as never,
+      { process: jest.fn() } as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'auto_scheduling');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockSolveV3).not.toHaveBeenCalled();
   });
 
   it('should reject jobs without tenant_id', async () => {
@@ -146,6 +170,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await expect(
@@ -159,6 +184,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -184,6 +210,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -212,6 +239,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -232,6 +260,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -330,6 +359,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -361,6 +391,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     // Return empty unassigned so the finalStatus would have been 'completed'
@@ -390,6 +421,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
     mockSolveV3.mockRejectedValue(new Error('solver exploded'));
 
@@ -428,6 +460,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -456,6 +489,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
 
     await processor.process(buildJob());
@@ -476,6 +510,7 @@ describe('SchedulingSolverV2Processor', () => {
     const processor = new SchedulingSolverV2Processor(
       mockPrisma as never,
       { process: jest.fn() } as never,
+      buildTenantModuleService() as never,
     );
     mockSolveV3.mockRejectedValue(new CpSatSolveError('CP_SAT_UNREACHABLE', 'fetch failed', 0));
 

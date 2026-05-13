@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/comm
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../api/src/common/services/tenant-module.service';
+
 export const SCHEDULING_REAP_STALE_JOB = 'scheduling:reap-stale-runs';
 
 // Stage 8: this used to be `@Processor(QUEUE_NAMES.SCHEDULING)` alongside the
@@ -45,7 +47,10 @@ interface StaleRunRow {
 export class SchedulingStaleReaperJob implements OnApplicationBootstrap {
   private readonly logger = new Logger(SchedulingStaleReaperJob.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     // Fire-and-log: a reaper failure must not block worker startup.
@@ -77,6 +82,7 @@ export class SchedulingStaleReaperJob implements OnApplicationBootstrap {
     let reaped = 0;
     for (const tenantId of tenantIds) {
       try {
+        if (!(await this.isAutoSchedulingEnabled(tenantId))) continue;
         reaped += await this.reapStartupForTenant(tenantId, threshold);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -99,6 +105,7 @@ export class SchedulingStaleReaperJob implements OnApplicationBootstrap {
     let reaped = 0;
     for (const tenantId of tenantIds) {
       try {
+        if (!(await this.isAutoSchedulingEnabled(tenantId))) continue;
         reaped += await this.reapStaleForTenant(tenantId);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -116,6 +123,16 @@ export class SchedulingStaleReaperJob implements OnApplicationBootstrap {
       select: { id: true },
     });
     return tenants.map((t) => t.id);
+  }
+
+  private async isAutoSchedulingEnabled(tenantId: string): Promise<boolean> {
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'auto_scheduling');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${SCHEDULING_REAP_STALE_JOB} for tenant ${tenantId}: auto_scheduling module disabled`,
+      );
+    }
+    return enabled;
   }
 
   private async reapStartupForTenant(tenantId: string, threshold: Date): Promise<number> {

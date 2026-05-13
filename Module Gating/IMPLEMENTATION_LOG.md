@@ -36,7 +36,7 @@
 | 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | 📦     |
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | 📦     |
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | 📦     |
-| 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | ⏳     |
+| 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | 📦     |
 | 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | ⏳     |
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ⏳     |
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ⏳     |
@@ -481,15 +481,27 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 13 controllers under `apps/api/src/modules/scheduling/` and `apps/api/src/modules/scheduling-runs/` gain `@ModuleEnabled('auto_scheduling')` + `ModuleEnabledGuard` at class level.
-- [ ] `scheduling-public.controller.ts` — decision documented (recommend keep ungated since publicly published timetables should remain visible) — confirmed in spec.
-- [ ] Scheduling worker processors gain tenant module check (SolverV2Processor, ExamSolverProcessor, SchedulingStaleReaperProcessor).
-- [ ] Frontend `/scheduling/*` hidden via nav filter when disabled.
-- [ ] Module-gating leakage test passes for `auto_scheduling`.
+- [x] All 12 admin scheduling controllers under `apps/api/src/modules/scheduling/` and `apps/api/src/modules/scheduling-runs/` gain `@ModuleEnabled('auto_scheduling')` + `ModuleEnabledGuard`. `scheduling-enhanced.controller.ts` uses method-level gates so personal timetable/calendar-token reads remain core.
+- [x] `scheduling-public.controller.ts` stays ungated with explicit comment because published calendar feeds must remain visible.
+- [x] Scheduling worker processors gain tenant module check (SolverV2Processor, ExamSolverProcessor, SchedulingStaleReaperProcessor).
+- [x] AI substitution requires both `auto_scheduling` and `ai_functions`.
+- [x] Frontend `/scheduling` admin entry, operations scheduling card, and scheduling admin hub tiles/actions hide when disabled; `/rooms` and `/scheduling/my-timetable` remain unaffected.
+- [x] Module-gating leakage test passes for `auto_scheduling`, including personal timetable read-side availability.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce auto-scheduling module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts src/modules/scheduling/ai-substitution.service.spec.ts src/modules/scheduling/break-groups.controller.spec.ts src/modules/scheduling/curriculum-requirements.controller.spec.ts src/modules/scheduling/room-closures.controller.spec.ts src/modules/scheduling/scheduler-orchestration.controller.spec.ts src/modules/scheduling/scheduler-validation.controller.spec.ts src/modules/scheduling/scheduling-enhanced.controller.spec.ts src/modules/scheduling/teacher-competencies.controller.spec.ts src/modules/scheduling/teacher-scheduling-config.controller.spec.ts src/modules/scheduling-runs/scheduling-dashboard.controller.spec.ts src/modules/scheduling-runs/scheduling-runs.controller.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/scheduling/solver-v2.processor.spec.ts src/processors/scheduling/exam-solver.processor.spec.ts src/processors/scheduling-stale-reaper.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=auto_scheduling)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing cross-module imports/max-lines plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `scheduling-public.controller.ts` serves the actual published calendar route (`/api/v1/calendar/:tenantId/:token.ics`), not the stale spec path. The leakage probes use actual admin routes (`/api/v1/scheduling/teachers`, `/api/v1/scheduling-dashboard/overview`, `/api/v1/scheduling-runs`) and a read-side control (`/api/v1/scheduling/timetable/my`). No disruptive NHQS off/on toggle or cp-sat sidecar production log smoke was run in this pass.
 
 ---
 

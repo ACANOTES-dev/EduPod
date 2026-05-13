@@ -15,7 +15,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared/modules';
+
 import { PageHeader } from '@/components/page-header';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import type { RoleKey } from '@/lib/route-roles';
@@ -34,6 +37,7 @@ interface OperationsCardConfig {
   accent: string;
   iconBg: string;
   glow: string;
+  moduleKey?: ModuleKey;
   roles: RoleKey[];
 }
 
@@ -85,6 +89,7 @@ const CARDS: OperationsCardConfig[] = [
     accent: 'from-amber-400 via-amber-500 to-amber-600',
     iconBg: 'bg-amber-100 text-amber-700',
     glow: 'from-amber-50/80',
+    moduleKey: 'auto_scheduling',
     roles: ADMIN_ROLES,
   },
   {
@@ -123,10 +128,16 @@ export default function OperationsDashboardPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
+  const autoSchedulingEnabled = useModuleEnabled('auto_scheduling');
 
   const visibleCards = React.useMemo(
-    () => CARDS.filter((card) => hasAnyRole(...card.roles)),
-    [hasAnyRole],
+    () =>
+      CARDS.filter(
+        (card) =>
+          hasAnyRole(...card.roles) &&
+          (card.moduleKey !== 'auto_scheduling' || autoSchedulingEnabled),
+      ),
+    [autoSchedulingEnabled, hasAnyRole],
   );
 
   const admissionsVisible = React.useMemo(

@@ -30,8 +30,10 @@ import type {
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -53,7 +55,8 @@ const copyBodySchema = z.object({
 });
 
 @Controller('v1/scheduling/teacher-competencies')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('auto_scheduling')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class TeacherCompetenciesController {
   constructor(private readonly service: TeacherCompetenciesService) {}
 

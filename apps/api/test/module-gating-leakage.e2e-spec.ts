@@ -24,7 +24,14 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
     { method: 'GET', path: '/api/v1/applications' },
   ],
   ai_functions: [{ method: 'POST', path: '/api/v1/attendance/scan/confirm', body: {} }],
-  auto_scheduling: [{ method: 'GET', path: '/api/v1/scheduling/dashboard' }],
+  auto_scheduling: [
+    { method: 'GET', path: '/api/v1/scheduling/teachers' },
+    {
+      method: 'GET',
+      path: '/api/v1/scheduling-dashboard/overview?academic_year_id=11111111-1111-1111-1111-111111111111',
+    },
+    { method: 'POST', path: '/api/v1/scheduling-runs', body: {} },
+  ],
   behaviour: [{ method: 'GET', path: '/api/v1/behaviour/incidents' }],
   budgeting: [{ method: 'GET', path: '/api/v1/budgeting/financial-models' }],
   communications_outbound: [
@@ -61,6 +68,7 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
 const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
   'ai_functions',
   'admissions',
+  'auto_scheduling',
   'behaviour',
   'communications_outbound',
   'finance',
@@ -156,6 +164,19 @@ describe('Module gating leakage', () => {
         .set('Host', fixture.domainName);
 
       expect(res.status).not.toBe(404);
+      expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
+    });
+
+    const itTimetableStaysCore = key === 'auto_scheduling' ? it : it.skip;
+
+    itTimetableStaysCore('keeps personal timetable reads available when disabled', async () => {
+      await disableModuleForTenant(prisma, fixture.tenantId, key);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/scheduling/timetable/my?week_date=2026-03-20')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Host', fixture.domainName);
+
       expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
     });
   });

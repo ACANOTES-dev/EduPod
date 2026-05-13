@@ -34,23 +34,30 @@ describe('SchedulerValidationController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulerValidationController],
       providers: [
-        { provide: SchedulingRunsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findStatusById: jest.fn().mockResolvedValue(null),
-      findActiveRun: jest.fn().mockResolvedValue(null),
-      countActiveRuns: jest.fn().mockResolvedValue(0),
-      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
-      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
-      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
-      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findHistoricalRuns: jest.fn().mockResolvedValue([]),
-      findScenarioById: jest.fn().mockResolvedValue(null),
-      findScenarioStatusById: jest.fn().mockResolvedValue(null),
-      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findScenariosForComparison: jest.fn().mockResolvedValue([]),
-    } },{ provide: SchedulerValidationService, useValue: mockService }],
+        {
+          provide: SchedulingRunsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findStatusById: jest.fn().mockResolvedValue(null),
+            findActiveRun: jest.fn().mockResolvedValue(null),
+            countActiveRuns: jest.fn().mockResolvedValue(0),
+            findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+            findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+            findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+            listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findHistoricalRuns: jest.fn().mockResolvedValue([]),
+            findScenarioById: jest.fn().mockResolvedValue(null),
+            findScenarioStatusById: jest.fn().mockResolvedValue(null),
+            listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findScenariosForComparison: jest.fn().mockResolvedValue([]),
+          },
+        },
+        { provide: SchedulerValidationService, useValue: mockService },
+      ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(require('../../common/guards/module-enabled.guard').ModuleEnabledGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })

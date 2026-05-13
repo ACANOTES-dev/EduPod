@@ -92,6 +92,8 @@ describe('TeacherCompetenciesController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(require('../../common/guards/module-enabled.guard').ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();

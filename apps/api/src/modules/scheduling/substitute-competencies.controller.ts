@@ -32,8 +32,10 @@ import type {
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -59,7 +61,8 @@ const suggestWithAyQuerySchema = suggestSubstitutesQuerySchema.extend({
 });
 
 @Controller('v1/scheduling/substitute-competencies')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('auto_scheduling')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class SubstituteCompetenciesController {
   constructor(private readonly service: SubstituteCompetenciesService) {}
 

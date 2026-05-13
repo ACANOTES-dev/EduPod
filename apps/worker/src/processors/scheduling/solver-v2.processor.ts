@@ -5,6 +5,7 @@ import { Job } from 'bullmq';
 
 import { CpSatSolveError, solveViaCpSatV3 } from '../../../../../packages/shared/src/scheduler';
 import type { SolverInputV3 } from '../../../../../packages/shared/src/scheduler';
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 import {
@@ -35,6 +36,7 @@ export class SchedulingSolverV2Processor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     private readonly staleReaperJob: SchedulingStaleReaperJob,
+    private readonly tenantModuleService: TenantModuleService,
   ) {
     super();
   }
@@ -46,6 +48,14 @@ export class SchedulingSolverV2Processor extends WorkerHost {
     }
     if (job.name !== SCHEDULING_SOLVE_V2_JOB) {
       this.logger.warn(`Unknown scheduling job name: ${job.name} (id ${job.id})`);
+      return;
+    }
+
+    const enabled = await this.tenantModuleService.isEnabled(job.data.tenant_id, 'auto_scheduling');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${SCHEDULING_SOLVE_V2_JOB} for tenant ${job.data.tenant_id}: auto_scheduling module disabled`,
+      );
       return;
     }
 

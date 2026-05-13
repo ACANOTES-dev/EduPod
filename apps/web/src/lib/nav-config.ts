@@ -204,7 +204,12 @@ export const navSectionConfigs: NavSectionConfig[] = [
     roles: STAFF_ROLES,
     items: [
       { labelKey: 'nav.rooms', href: '/rooms', roles: ADMIN_ROLES },
-      { labelKey: 'nav.scheduling', href: '/scheduling', roles: ADMIN_ROLES },
+      {
+        labelKey: 'nav.scheduling',
+        href: '/scheduling',
+        moduleKey: 'auto_scheduling',
+        roles: ADMIN_ROLES,
+      },
     ],
   },
   {

@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { PersonalTimetableService } from './personal-timetable.service';
@@ -12,12 +7,14 @@ import { PersonalTimetableService } from './personal-timetable.service';
  * Public calendar endpoint — no auth guard.
  * Token in the URL path is the authentication mechanism (64-char random hex).
  * Returns iCalendar (.ics) format for use with webcal:// subscriptions.
+ *
+ * PUBLIC-FACING: published timetables for students/parents. Intentionally
+ * ungated. Disabling auto_scheduling hides the admin scheduler UI but does NOT
+ * hide already-published timetables that families need to read daily.
  */
 @Controller('v1/calendar')
 export class SchedulingPublicController {
-  constructor(
-    private readonly personalTimetableService: PersonalTimetableService,
-  ) {}
+  constructor(private readonly personalTimetableService: PersonalTimetableService) {}
 
   @Get(':tenantId/:token.ics')
   async getCalendarIcs(
@@ -25,10 +22,7 @@ export class SchedulingPublicController {
     @Param('token') token: string,
     @Res() res: Response,
   ) {
-    const icsContent = await this.personalTimetableService.generateIcsCalendar(
-      tenantId,
-      token,
-    );
+    const icsContent = await this.personalTimetableService.generateIcsCalendar(tenantId, token);
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="timetable.ics"');

@@ -56,6 +56,13 @@ export class AiSubstitutionService {
     scheduleId: string,
     date: string,
   ): Promise<{ data: AiSubstituteRanking[] }> {
+    if (!(await this.tenantModuleService.isEnabled(tenantId, 'auto_scheduling'))) {
+      this.logger.debug(
+        `Skipping AI substitution ranking for tenant ${tenantId}: auto_scheduling disabled`,
+      );
+      return { data: [] };
+    }
+
     if (!(await this.tenantModuleService.isEnabled(tenantId, 'ai_functions'))) {
       this.logger.debug(
         `Skipping AI substitution ranking for tenant ${tenantId}: ai_functions disabled`,

@@ -44,8 +44,10 @@ import {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
@@ -68,7 +70,7 @@ const rotationWeekQuerySchema = z.object({
 });
 
 @Controller('v1/scheduling')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class SchedulingEnhancedController {
   constructor(
     private readonly substitutionService: SubstitutionService,
@@ -88,6 +90,7 @@ export class SchedulingEnhancedController {
   // ─── Substitution ───────────────────────────────────────────────────────
 
   @Post('absences')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   @HttpCode(HttpStatus.CREATED)
   async reportAbsence(
@@ -100,6 +103,7 @@ export class SchedulingEnhancedController {
 
   // Teacher-initiated self-report. Derives staff_profile_id from the JWT.
   @Post('absences/self-report')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.report_own_absence')
   @HttpCode(HttpStatus.CREATED)
   async selfReportAbsence(
@@ -152,6 +156,7 @@ export class SchedulingEnhancedController {
   // ─── Offers (Accept / Decline / My) ──────────────────────────────────────
 
   @Get('offers/my')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.respond_to_offer')
   async listMyOffers(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -165,6 +170,7 @@ export class SchedulingEnhancedController {
   // self-report absence dialog so teachers can nominate a sub without needing
   // the admin-tier staff.view permission.
   @Get('colleagues')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.report_own_absence')
   async listColleagues(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -186,6 +192,7 @@ export class SchedulingEnhancedController {
   // pickers. Returns a flat {id, full_name, department} shape used by the
   // substitutions admin page.
   @Get('teachers')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async listTeachers(@CurrentTenant() tenant: { tenant_id: string }) {
     const all = await this.staffProfileReadFacade.findActiveStaff(tenant.tenant_id);
@@ -198,6 +205,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('offers/:id/accept')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.respond_to_offer')
   @HttpCode(HttpStatus.OK)
   async acceptOffer(
@@ -209,6 +217,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('offers/:id/decline')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.respond_to_offer')
   @HttpCode(HttpStatus.OK)
   async declineOffer(
@@ -228,6 +237,7 @@ export class SchedulingEnhancedController {
 
   // Admin-tier cancel (any absence in the tenant).
   @Post('absences/:id/cancel')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   @HttpCode(HttpStatus.OK)
   async cancelAbsenceAsAdmin(
@@ -249,6 +259,7 @@ export class SchedulingEnhancedController {
 
   // Teacher cancel — only their own absence.
   @Post('absences/:id/cancel-own')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.report_own_absence')
   @HttpCode(HttpStatus.OK)
   async cancelOwnAbsence(
@@ -279,6 +290,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('absences')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async getAbsences(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -288,6 +300,7 @@ export class SchedulingEnhancedController {
   }
 
   @Delete('absences/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   @HttpCode(HttpStatus.OK)
   async deleteAbsence(
@@ -298,6 +311,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('absences/:absenceId/substitutes')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async findEligibleSubstitutes(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -315,6 +329,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('absences/:absenceId/substitutes/ai')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async aiRankSubstitutes(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -331,6 +346,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('substitutions')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   @HttpCode(HttpStatus.CREATED)
   async assignSubstitute(
@@ -343,6 +359,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('substitutions')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async getSubstitutionRecords(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -353,6 +370,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('substitution-board')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_substitutions')
   async getTodayBoard(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.substitutionService.getTodayBoard(tenant.tenant_id);
@@ -361,6 +379,7 @@ export class SchedulingEnhancedController {
   // ─── Cover Reports ──────────────────────────────────────────────────────
 
   @Get('cover-reports')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getCoverReport(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -371,6 +390,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('cover-reports/fairness')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getCoverFairness(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -381,6 +401,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('cover-reports/by-department')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getCoverByDepartment(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -393,6 +414,7 @@ export class SchedulingEnhancedController {
   // ─── Schedule Swap ──────────────────────────────────────────────────────
 
   @Post('swaps/validate')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.OK)
   async validateSwap(
@@ -403,6 +425,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('swaps/execute')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.OK)
   async executeSwap(
@@ -414,6 +437,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('emergency-change')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.OK)
   async emergencyChange(
@@ -427,6 +451,7 @@ export class SchedulingEnhancedController {
   // ─── Personal Timetable ─────────────────────────────────────────────────
 
   @Get('timetable/teacher/:staffId')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getTeacherTimetable(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -453,6 +478,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('timetable/class/:classId')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getClassTimetable(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -501,6 +527,7 @@ export class SchedulingEnhancedController {
   // ─── Rotation Config ────────────────────────────────────────────────────
 
   @Put('rotation')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.OK)
   async upsertRotation(
@@ -512,6 +539,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('rotation')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getRotationConfig(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -522,6 +550,7 @@ export class SchedulingEnhancedController {
   }
 
   @Delete('rotation')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage')
   @HttpCode(HttpStatus.OK)
   async deleteRotationConfig(
@@ -533,6 +562,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('rotation/current-week')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getCurrentRotationWeek(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -549,6 +579,7 @@ export class SchedulingEnhancedController {
   // ─── Exam Sessions ──────────────────────────────────────────────────────
 
   @Post('exam-sessions')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.CREATED)
   async createExamSession(
@@ -560,6 +591,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('exam-sessions')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   async listExamSessions(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -570,6 +602,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('exam-sessions/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   async getExamSession(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -579,6 +612,7 @@ export class SchedulingEnhancedController {
   }
 
   @Put('exam-sessions/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.OK)
   async updateExamSession(
@@ -591,6 +625,7 @@ export class SchedulingEnhancedController {
   }
 
   @Delete('exam-sessions/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.OK)
   async deleteExamSession(
@@ -601,6 +636,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('exam-sessions/:id/slots')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   async listExamSlots(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -610,6 +646,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('exam-sessions/:id/slots')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.CREATED)
   async addExamSlot(
@@ -621,6 +658,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('exam-sessions/:id/generate')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.OK)
   async generateExamSchedule(
@@ -631,6 +669,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('exam-sessions/:id/assign-invigilators')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.OK)
   async assignInvigilators(
@@ -641,6 +680,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('exam-sessions/:id/publish')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_exams')
   @HttpCode(HttpStatus.OK)
   async publishExamSchedule(
@@ -653,6 +693,7 @@ export class SchedulingEnhancedController {
   // ─── Scenarios ──────────────────────────────────────────────────────────
 
   @Post('scenarios')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   @HttpCode(HttpStatus.CREATED)
   async createScenario(
@@ -664,6 +705,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('scenarios')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   async listScenarios(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -673,6 +715,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('scenarios/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   async getScenario(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -682,6 +725,7 @@ export class SchedulingEnhancedController {
   }
 
   @Put('scenarios/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   @HttpCode(HttpStatus.OK)
   async updateScenario(
@@ -693,6 +737,7 @@ export class SchedulingEnhancedController {
   }
 
   @Delete('scenarios/:id')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   @HttpCode(HttpStatus.OK)
   async deleteScenario(
@@ -703,6 +748,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('scenarios/:id/solve')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   @HttpCode(HttpStatus.OK)
   async runScenarioSolver(
@@ -713,6 +759,7 @@ export class SchedulingEnhancedController {
   }
 
   @Post('scenarios/compare')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.manage_scenarios')
   @HttpCode(HttpStatus.OK)
   async compareScenarios(
@@ -725,6 +772,7 @@ export class SchedulingEnhancedController {
   // ─── Analytics ──────────────────────────────────────────────────────────
 
   @Get('analytics/efficiency')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getEfficiencyDashboard(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -735,6 +783,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('analytics/workload')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getWorkloadHeatmap(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -745,6 +794,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('analytics/rooms')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getRoomUtilization(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -755,6 +805,7 @@ export class SchedulingEnhancedController {
   }
 
   @Get('analytics/historical')
+  @ModuleEnabled('auto_scheduling')
   @RequiresPermission('schedule.view_reports')
   async getHistoricalComparison(
     @CurrentTenant() tenant: { tenant_id: string },
