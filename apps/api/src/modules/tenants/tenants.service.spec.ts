@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
+import { MODULE_REGISTRY, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
@@ -148,8 +148,6 @@ describe('TenantsService', () => {
     [key: string]: jest.Mock;
   };
 
-  const isModuleEnabledByDefault = (moduleKey: (typeof MODULE_KEYS)[number]) => moduleKey !== 'sen';
-
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -219,11 +217,11 @@ describe('TenantsService', () => {
         school_name_display: 'Test School',
       },
       settings: { id: 'settings-1', tenant_id: 'new-tenant-id', settings: {} },
-      modules: MODULE_KEYS.map((k) => ({
-        id: `module-${k}`,
+      modules: MODULE_REGISTRY.map((moduleDefinition) => ({
+        id: `module-${moduleDefinition.key}`,
         tenant_id: 'new-tenant-id',
-        module_key: k,
-        is_enabled: isModuleEnabledByDefault(k),
+        module_key: moduleDefinition.key,
+        is_enabled: moduleDefinition.default_enabled,
       })),
       domains: [
         {
@@ -297,15 +295,15 @@ describe('TenantsService', () => {
         }),
       );
 
-      expect(mockPrisma.tenantModule.create).toHaveBeenCalledTimes(MODULE_KEYS.length);
+      expect(mockPrisma.tenantModule.create).toHaveBeenCalledTimes(MODULE_REGISTRY.length);
 
-      for (const moduleKey of MODULE_KEYS) {
+      for (const moduleDefinition of MODULE_REGISTRY) {
         expect(mockPrisma.tenantModule.create).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
               tenant_id: 'new-tenant-id',
-              module_key: moduleKey,
-              is_enabled: isModuleEnabledByDefault(moduleKey),
+              module_key: moduleDefinition.key,
+              is_enabled: moduleDefinition.default_enabled,
             }),
           }),
         );

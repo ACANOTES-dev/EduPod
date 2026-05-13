@@ -25,6 +25,8 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
+import { MODULE_REGISTRY } from '@school/shared/modules';
+
 import { seedInboxDefaultsForTenant } from '../src/inbox-defaults';
 import { SYSTEM_ROLES } from '../seed/system-roles';
 
@@ -37,27 +39,6 @@ const prisma = new PrismaClient({ datasources: { db: { url: connectionString } }
 
 const PASSWORD = 'StressTest2026!';
 const BCRYPT_ROUNDS = 10;
-
-// Module / notification / sequence keys mirror seed.ts. Kept inline so the
-// script is self-contained and doesn't drift silently if seed.ts changes.
-const MODULE_KEYS = [
-  'admissions',
-  'attendance',
-  'gradebook',
-  'finance',
-  'payroll',
-  'communications',
-  'website',
-  'analytics',
-  'compliance',
-  'parent_inquiries',
-  'auto_scheduling',
-  'staff_wellbeing',
-  'sen',
-  'behaviour',
-  'pastoral',
-  'ai_functions',
-];
 
 const NOTIFICATION_TYPES = [
   'invoice.issued',
@@ -137,10 +118,6 @@ const DEFAULT_SETTINGS = {
     plan_number_prefix: 'SSP',
   },
 };
-
-function getDefaultModuleEnabledState(moduleKey: string): boolean {
-  return moduleKey !== 'sen';
-}
 
 interface StressTenantDef {
   name: string;
@@ -226,16 +203,16 @@ async function provisionTenant(
   });
 
   // 5. Modules
-  for (const mk of MODULE_KEYS) {
+  for (const moduleDefinition of MODULE_REGISTRY) {
     const existing = await prisma.tenantModule.findFirst({
-      where: { tenant_id: tenant.id, module_key: mk },
+      where: { tenant_id: tenant.id, module_key: moduleDefinition.key },
     });
     if (!existing) {
       await prisma.tenantModule.create({
         data: {
           tenant_id: tenant.id,
-          module_key: mk,
-          is_enabled: getDefaultModuleEnabledState(mk),
+          module_key: moduleDefinition.key,
+          is_enabled: moduleDefinition.default_enabled,
         },
       });
     }

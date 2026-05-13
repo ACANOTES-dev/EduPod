@@ -18,32 +18,10 @@ import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
+import { MODULE_REGISTRY } from '@school/shared/modules/registry';
+
 import { SYSTEM_ROLES } from '../../../packages/prisma/seed/system-roles';
 import { seedInboxDefaultsForTenant } from '../../../packages/prisma/src/inbox-defaults';
-
-// ─── Seed constants (mirrored from packages/prisma/seed.ts) ──────────────────
-// Duplicated inline rather than imported so the fixture has no dependency on
-// seed.ts's private structure. If a new module/notification/sequence type is
-// added to prod, bump it here too — the fixture tests will flag mismatches.
-
-const MODULE_KEYS = [
-  'admissions',
-  'attendance',
-  'gradebook',
-  'finance',
-  'payroll',
-  'communications',
-  'website',
-  'analytics',
-  'compliance',
-  'parent_inquiries',
-  'auto_scheduling',
-  'staff_wellbeing',
-  'sen',
-  'behaviour',
-  'pastoral',
-  'ai_functions',
-] as const;
 
 const NOTIFICATION_TYPES = [
   'invoice.issued',
@@ -218,10 +196,6 @@ async function getPasswordHash(): Promise<string> {
 }
 
 // ─── Core builder ────────────────────────────────────────────────────────────
-
-function getDefaultModuleEnabledState(moduleKey: string): boolean {
-  return moduleKey !== 'sen';
-}
 
 export async function createTenantFixture(
   prisma: PrismaClient,
@@ -510,10 +484,10 @@ async function provisionAuthReadyTenant(
 
   // Modules — createMany batch
   await prisma.tenantModule.createMany({
-    data: MODULE_KEYS.map((mk) => ({
+    data: MODULE_REGISTRY.map((moduleDefinition) => ({
       tenant_id: tenantId,
-      module_key: mk,
-      is_enabled: getDefaultModuleEnabledState(mk),
+      module_key: moduleDefinition.key,
+      is_enabled: moduleDefinition.default_enabled,
     })),
     skipDuplicates: true,
   });

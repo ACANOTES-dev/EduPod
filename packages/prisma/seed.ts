@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 
+import { MODULE_REGISTRY } from '@school/shared/modules';
+
 import { COMMS_GAP_TEMPLATE_SEEDS } from './seed/comms-gap-templates';
 import { COVER_NOTIFICATION_TEMPLATE_SEEDS } from './seed/cover-notification-templates';
 import {
@@ -31,26 +33,6 @@ import { seedWellbeingDefaultsForTenant } from './src/wellbeing-defaults';
  *   5. Dev tenants with all defaults via Prisma
  *   6. Dev users + memberships + role assignments via Prisma
  */
-
-const MODULE_KEYS = [
-  'admissions',
-  'attendance',
-  'gradebook',
-  'finance',
-  'payroll',
-  'communications',
-  'website',
-  'analytics',
-  'compliance',
-  'parent_inquiries',
-  'auto_scheduling',
-  'staff_wellbeing',
-  'sen',
-  'behaviour',
-  'pastoral',
-  'ai_functions',
-  'budgeting',
-];
 
 const NOTIFICATION_TYPES = [
   'invoice.issued',
@@ -135,10 +117,6 @@ const DEFAULT_SETTINGS = {
     plan_number_prefix: 'SSP',
   },
 };
-
-function getDefaultModuleEnabledState(moduleKey: string): boolean {
-  return moduleKey !== 'sen';
-}
 
 function getDirectDatabaseUrl(): string {
   const connectionString = process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL;
@@ -428,18 +406,17 @@ async function main() {
         },
       });
 
-      // Create module rows for every supported module. SEN remains disabled
-      // until the tenant explicitly enables the rollout.
-      for (const mk of MODULE_KEYS) {
+      // Create module rows for every supported gateable module from the canonical registry.
+      for (const moduleDefinition of MODULE_REGISTRY) {
         const existing = await prisma.tenantModule.findFirst({
-          where: { tenant_id: tenant.id, module_key: mk },
+          where: { tenant_id: tenant.id, module_key: moduleDefinition.key },
         });
         if (!existing) {
           await prisma.tenantModule.create({
             data: {
               tenant_id: tenant.id,
-              module_key: mk,
-              is_enabled: getDefaultModuleEnabledState(mk),
+              module_key: moduleDefinition.key,
+              is_enabled: moduleDefinition.default_enabled,
             },
           });
         }

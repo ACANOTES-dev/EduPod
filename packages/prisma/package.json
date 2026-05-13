@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
+    "@school/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
     "ioredis": "^5.4.1",
     "pg": "^8.13.1"

@@ -12,11 +12,12 @@ import {
   seedWellbeingDefaultsForTenant,
 } from '@school/prisma';
 import {
-  MODULE_KEYS,
+  MODULE_REGISTRY,
   NOTIFICATION_TYPES,
   REGISTERED_LOCALES,
   SEQUENCE_TYPES,
   SYSTEM_ROLE_PERMISSIONS,
+  isModuleKey,
   type RoleTier,
 } from '@school/shared';
 
@@ -118,10 +119,6 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function getDefaultModuleEnabledState(moduleKey: (typeof MODULE_KEYS)[number]): boolean {
-  return moduleKey !== 'sen';
-}
-
 interface PaginationParams {
   page: number;
   pageSize: number;
@@ -207,14 +204,13 @@ export class TenantsService {
       });
     });
 
-    // Create module rows for every supported module. SEN ships disabled by
-    // default until the tenant explicitly enables the rollout.
-    for (const moduleKey of MODULE_KEYS) {
+    // Create module rows for every supported gateable module from the canonical registry.
+    for (const moduleDefinition of MODULE_REGISTRY) {
       await this.prisma.tenantModule.create({
         data: {
           tenant_id: tenant.id,
-          module_key: moduleKey,
-          is_enabled: getDefaultModuleEnabledState(moduleKey),
+          module_key: moduleDefinition.key,
+          is_enabled: moduleDefinition.default_enabled,
         },
       });
     }
@@ -778,7 +774,7 @@ export class TenantsService {
     }
 
     // Validate module key
-    if (!MODULE_KEYS.includes(moduleKey as (typeof MODULE_KEYS)[number])) {
+    if (!isModuleKey(moduleKey)) {
       throw new BadRequestException({
         code: 'INVALID_MODULE_KEY',
         message: `"${moduleKey}" is not a valid module key`,

@@ -22,7 +22,7 @@
 | #   | Spec                                                                                             | Wave | Status |
 | --- | ------------------------------------------------------------------------------------------------ | ---- | ------ |
 | 01  | [Canonical module registry](implementations/01-canonical-module-registry.md)                     | W1   | 📦     |
-| 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | ⏳     |
+| 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | 📦     |
 | 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | ⏳     |
 | 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | ⏳     |
 | 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | ⏳     |
@@ -90,16 +90,25 @@
 
 #### Acceptance
 
-- [ ] `apps/api/test/tenant-fixture.builder.ts`: `MODULE_KEYS` constant deleted, replaced with import from `@school/shared/modules/registry`.
-- [ ] `packages/prisma/seed.ts`: same — uses `MODULE_REGISTRY` to provision modules for new tenants.
-- [ ] New Prisma migration: backfills `tenantModule` rows for every existing tenant × every key in `MODULE_REGISTRY` (using `default_enabled`). Removes rows for deprecated keys (`analytics`).
-- [ ] Migration is idempotent (safe to re-run).
-- [ ] Migration includes a final SQL assertion: `SELECT tenant_id FROM tenants WHERE id NOT IN (SELECT tenant_id FROM tenant_modules GROUP BY tenant_id HAVING COUNT(*) = 20)` returns 0 rows. Migration aborts if assertion fails.
+- [x] `apps/api/test/tenant-fixture.builder.ts`: `MODULE_KEYS` constant deleted, replaced with import from `@school/shared/modules/registry`.
+- [x] `packages/prisma/seed.ts`: same — uses `MODULE_REGISTRY` to provision modules for new tenants.
+- [x] New Prisma migration: backfills `tenantModule` rows for every existing tenant × every key in `MODULE_REGISTRY` (using `default_enabled`). Removes rows for deprecated keys (`analytics`).
+- [x] Migration is idempotent (safe to re-run).
+- [x] Migration includes a final SQL assertion: `SELECT tenant_id FROM tenants WHERE id NOT IN (SELECT tenant_id FROM tenant_modules GROUP BY tenant_id HAVING COUNT(*) = 20)` returns 0 rows. Migration aborts if assertion fails.
 - [ ] Production run on NHQS + 4 stress tenants verified: each tenant has exactly 20 `tenantModule` rows post-migration, defaults match the registry.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `fix(module-gating): backfill tenant module registry rows`
+- CI: not run remotely; local checks passed:
+  - `pnpm --filter @school/prisma type-check`
+  - `pnpm --filter @school/prisma build`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/api test -- --runTestsByPath src/modules/tenants/tenants.service.spec.ts`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm --filter @school/api lint` (warnings only; first run without explicit heap OOMed)
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/src/modules/tenants/tenants.service.ts apps/api/src/modules/tenants/tenants.service.spec.ts apps/api/test/tenant-fixture.builder.ts packages/prisma/seed.ts packages/prisma/scripts/create-stress-tenants.ts` (warnings only)
+- Deploy: not deployed; no production verification yet.
+- Notes: API tenant provisioning and the stress-tenant script were also moved to `MODULE_REGISTRY` so fresh tenants, fixtures, seed, and stress tenants share the same defaults. The migration preserves `communications=false` by copying it to `communications_outbound=false`, then removes all non-canonical `tenant_modules` keys so each tenant has exactly 20 rows. Local DB migration execution was not run because no local `DATABASE_URL` / `DATABASE_MIGRATE_URL` is configured in this session.
 
 ---
 
