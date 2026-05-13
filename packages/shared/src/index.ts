@@ -21,6 +21,8 @@ export * from './constants/system';
 export * from './constants/feature-flags';
 export * from './constants/communications';
 export * from './constants/notification-failure-reasons';
+export { MODULE_KEYS_ARRAY, MODULE_REGISTRY, getModuleDefinition, isModuleKey } from './modules';
+export type { ModuleCategory, ModuleDefinition, ModuleKey } from './modules';
 
 // i18n shared kernel (locale codes + Zod schemas — used cross-cuttingly by
 // tenant config, household preferences, and any controller that accepts a

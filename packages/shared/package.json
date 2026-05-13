@@ -63,6 +63,12 @@
       "payroll": [
         "src/payroll/index.ts"
       ],
+      "modules": [
+        "src/modules/index.ts"
+      ],
+      "modules/*": [
+        "src/modules/*.ts"
+      ],
       "households/*": [
         "src/households/*.ts"
       ]
@@ -164,6 +170,14 @@
     "./payroll": {
       "types": "./src/payroll/index.ts",
       "default": "./dist/payroll/index.js"
+    },
+    "./modules": {
+      "types": "./src/modules/index.ts",
+      "default": "./dist/modules/index.js"
+    },
+    "./modules/*": {
+      "types": "./src/modules/*.ts",
+      "default": "./dist/modules/*.js"
     }
   },
   "scripts": {

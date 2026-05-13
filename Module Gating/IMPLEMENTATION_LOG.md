@@ -21,7 +21,7 @@
 
 | #   | Spec                                                                                             | Wave | Status |
 | --- | ------------------------------------------------------------------------------------------------ | ---- | ------ |
-| 01  | [Canonical module registry](implementations/01-canonical-module-registry.md)                     | W1   | ⏳     |
+| 01  | [Canonical module registry](implementations/01-canonical-module-registry.md)                     | W1   | 📦     |
 | 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | ⏳     |
 | 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | ⏳     |
 | 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | ⏳     |
@@ -68,15 +68,21 @@
 
 #### Acceptance
 
-- [ ] `packages/shared/src/modules/registry.ts` exists and exports `ModuleKey`, `ModuleDefinition`, `MODULE_REGISTRY`, `MODULE_KEYS`.
-- [ ] All 20 module keys (per STRATEGY §5.1) are defined with `display_name`, `description`, `default_enabled`, `category`.
-- [ ] `MODULE_KEYS` is a `ReadonlySet<ModuleKey>` derived from the registry (no parallel list).
-- [ ] Type-only import works from API + worker + web (`packages/shared` is consumed by all three).
-- [ ] Unit test in `packages/shared/src/modules/registry.spec.ts` asserts: 20 entries, no duplicate keys, every key matches the `ModuleKey` union.
+- [x] `packages/shared/src/modules/registry.ts` exists and exports `ModuleKey`, `ModuleDefinition`, `MODULE_REGISTRY`, `MODULE_KEYS`.
+- [x] All 20 module keys (per STRATEGY §5.1) are defined with `display_name`, `description`, `default_enabled`, `category`.
+- [x] `MODULE_KEYS` is a `ReadonlySet<ModuleKey>` derived from the registry (no parallel list).
+- [x] Type-only import works from API + worker + web (`packages/shared` is consumed by all three).
+- [x] Unit test in `packages/shared/src/modules/registry.spec.ts` asserts: 20 entries, no duplicate keys, every key matches the `ModuleKey` union.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): add canonical module registry`
+- CI: not run remotely; local package checks passed:
+  - `pnpm --filter @school/shared test -- --runTestsByPath src/modules/registry.spec.ts`
+  - `pnpm --filter @school/shared type-check`
+  - `pnpm --filter @school/shared lint`
+- Deploy: not deployed; server access treated as not granted for this pass.
+- Notes: `packages/shared/src/constants/modules.ts` now delegates to the canonical registry so older imports keep working without preserving a second module list. `packages/shared/package.json` exposes `@school/shared/modules` and `@school/shared/modules/*` for direct consumers.
 
 ---
 

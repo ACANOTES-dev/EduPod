@@ -1,23 +1,7 @@
-export const MODULE_KEYS = [
-  'admissions',
-  'attendance',
-  'gradebook',
-  'homework',
-  'sen',
-  'finance',
-  'payroll',
-  'communications',
-  'website',
-  'analytics',
-  'compliance',
-  'early_warning',
-  'parent_inquiries',
-  'auto_scheduling',
-  'ai_functions',
-  'behaviour',
-  'staff_wellbeing',
-  'engagement',
-  'pastoral',
-] as const;
-
-export type ModuleKey = (typeof MODULE_KEYS)[number];
+export {
+  MODULE_KEYS_ARRAY as MODULE_KEYS,
+  MODULE_REGISTRY,
+  getModuleDefinition,
+  isModuleKey,
+} from '../modules/registry';
+export type { ModuleCategory, ModuleDefinition, ModuleKey } from '../modules/registry';
