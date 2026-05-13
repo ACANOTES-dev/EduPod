@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import type Redis from 'ioredis';
 
@@ -29,6 +29,8 @@ function hasRedisGetClient(value: TenantModuleRedisClient): value is RedisServic
 export class TenantModuleService {
   static readonly CACHE_PREFIX = 'tenant_modules:';
   static readonly CACHE_TTL_SECONDS = 5 * 60;
+
+  private readonly logger = new Logger(TenantModuleService.name);
 
   constructor(
     @Inject(TENANT_MODULE_PRISMA_CLIENT)
@@ -127,7 +129,12 @@ export class TenantModuleService {
       return parsed.filter((value): value is ModuleKey => {
         return typeof value === 'string' && isModuleKey(value);
       });
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Ignoring malformed tenant module cache payload: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
       return [];
     }
   }

@@ -21,6 +21,7 @@ import {
   type RoleTier,
 } from '@school/shared';
 
+import { TenantModuleCacheBusService } from '../../common/services/tenant-module-cache-bus.service';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
@@ -144,6 +145,7 @@ export class TenantsService {
     private readonly authReadFacade: AuthReadFacade,
     private readonly rbacReadFacade: RbacReadFacade,
     private readonly tenantModuleService: TenantModuleService,
+    private readonly tenantModuleCacheBusService: TenantModuleCacheBusService,
   ) {}
 
   /**
@@ -799,6 +801,8 @@ export class TenantsService {
     if (actorUserId) {
       await this.securityAuditService.logModuleToggle(tenantId, actorUserId, moduleKey, isEnabled);
     }
+    await this.tenantModuleService.invalidateCache(tenantId);
+    await this.tenantModuleCacheBusService.publishInvalidation(tenantId, moduleKey, isEnabled);
 
     return result;
   }

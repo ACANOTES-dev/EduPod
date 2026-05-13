@@ -260,18 +260,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* ---- Refresh user ---- */
   const refreshUser = React.useCallback(async () => {
     try {
-      const data = await apiClient<{
-        data: { user: AuthUser; enabled_modules?: ModuleKey[] };
-      }>('/api/v1/auth/me');
-      if (data?.data) {
-        setUser(data.data.user);
-        setEnabledModules(data.data.enabled_modules ?? []);
+      const snapshot = await fetchMe();
+      if (snapshot) {
+        setUser(snapshot.user);
+        setEnabledModules(snapshot.enabledModules);
       }
     } catch (err) {
       console.error('Failed to refresh user:', err);
       // Keep current state but log for debugging
     }
-  }, []);
+  }, [fetchMe]);
 
   const value = React.useMemo<AuthContextType>(
     () => ({

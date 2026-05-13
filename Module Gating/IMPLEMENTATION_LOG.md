@@ -26,7 +26,7 @@
 | 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | 📦     |
 | 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | 📦     |
 | 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | 📦     |
-| 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | ⏳     |
+| 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | 📦     |
 | 07  | [Test contract](implementations/07-test-contract.md)                                             | W1   | ⏳     |
 | 08  | [Documentation pass](implementations/08-documentation-pass.md)                                   | W1   | ⏳     |
 | 09  | [Communications split](implementations/09-communications-split.md)                               | W2   | ⏳     |
@@ -192,15 +192,27 @@
 
 #### Acceptance
 
-- [ ] `TenantModuleService.getEnabledModules` reads from Redis key `tenant_modules:{tenantId}` with 5-min TTL; falls back to DB and re-caches on miss.
-- [ ] On toggle (admin console flips a module): handler `DEL tenant_modules:{tenantId}` AND publishes `tenant_modules:invalidated` on Redis pub/sub channel with `{ tenantId, module_key, is_enabled }`.
-- [ ] Frontend has a subscriber (via existing comms-cache-bus pattern) that triggers a `/me` refetch when the user's tenant matches the invalidation event.
-- [ ] Backend test: toggling fires both the cache delete and the pub/sub event.
-- [ ] Frontend test: receiving an invalidation event re-fetches `/me` and re-renders nav.
+- [x] `TenantModuleService.getEnabledModules` reads from Redis key `tenant_modules:{tenantId}` with 5-min TTL; falls back to DB and re-caches on miss.
+- [x] On toggle (admin console flips a module): handler `DEL tenant_modules:{tenantId}` AND publishes `tenant_modules:invalidated` on Redis pub/sub channel with `{ tenantId, module_key, is_enabled }`.
+- [x] Frontend has a subscriber (Option B) that polls `/me` every 60 seconds for authenticated tenant sessions so nav re-filters from refreshed `enabled_modules`.
+- [x] Worker subscriber subscribes at boot and invalidates worker-side cache on receipt.
+- [x] Backend test: toggling fires both the cache delete and the pub/sub event.
+- [x] Frontend test: polling subscriber triggers `/me` refresh for authenticated tenant sessions and stays inactive while auth is unresolved.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): add cache invalidation bus`
+- CI: not run remotely; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/services/tenant-module-cache-bus.service.spec.ts src/common/services/tenant-module.service.spec.ts src/modules/tenants/tenants.service.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/shared/tenant-module-cache-bus.subscriber.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/lib/realtime/tenant-module-subscriber.spec.ts`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/src/common/services/tenant-module-cache-bus.service.ts apps/api/src/common/services/tenant-module-cache-bus.service.spec.ts apps/api/src/common/services/tenant-module.service.ts apps/api/src/common/common.module.ts apps/api/src/modules/tenants/tenants.service.ts apps/api/src/modules/tenants/tenants.service.spec.ts apps/worker/src/shared/worker-shared-services.module.ts apps/worker/src/shared/tenant-module-cache-bus.subscriber.ts apps/worker/src/shared/tenant-module-cache-bus.subscriber.spec.ts` (warnings only)
+  - `(cd apps/web && NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint src/lib/realtime/tenant-module-subscriber.ts src/lib/realtime/tenant-module-subscriber.spec.ts 'src/app/[locale]/layout.tsx' src/providers/auth-provider.tsx')`
+- Deploy: not deployed; server access was not granted for this pass.
+- Notes: Pub/sub publish failures are logged and do not block the toggle after the DB write, audit log, and local cache delete. The frontend uses the spec's Option B polling fallback because the app has no tenant-module push channel yet; Option A remains a later upgrade path.
 
 ---
 

@@ -8,6 +8,8 @@ import {
 } from '../../../api/src/common/services/tenant-module.service';
 import { getRedisClient } from '../base/redis.helpers';
 
+import { TenantModuleCacheBusSubscriber } from './tenant-module-cache-bus.subscriber';
+
 @Module({
   providers: [
     {
@@ -20,6 +22,7 @@ import { getRedisClient } from '../base/redis.helpers';
     },
     { provide: TENANT_MODULE_PRISMA_CLIENT, useExisting: 'PRISMA_CLIENT' },
     { provide: TENANT_MODULE_REDIS_CLIENT, useFactory: () => getRedisClient() },
+    TenantModuleCacheBusSubscriber,
     TenantModuleService,
   ],
   exports: ['PRISMA_CLIENT', TenantModuleService],

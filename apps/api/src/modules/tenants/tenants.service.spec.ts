@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MODULE_REGISTRY, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
+import { TenantModuleCacheBusService } from '../../common/services/tenant-module-cache-bus.service';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
@@ -53,6 +54,10 @@ const mockSecurityAuditService = {
 const mockTenantModuleService = {
   getModuleRows: jest.fn(),
   invalidateCache: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockTenantModuleCacheBusService = {
+  publishInvalidation: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPrisma = {
@@ -136,6 +141,12 @@ const mockPrisma = {
   }),
 };
 
+function firstInvocationOrder(mockFn: jest.Mock): number {
+  const order = mockFn.mock.invocationCallOrder[0];
+  expect(order).toBeDefined();
+  return order ?? 0;
+}
+
 // ─── Test suite ──────────────────────────────────────────────────────────────
 
 describe('TenantsService', () => {
@@ -170,6 +181,7 @@ describe('TenantsService', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: TokenService, useValue: mockTokenService },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
+        { provide: TenantModuleCacheBusService, useValue: mockTenantModuleCacheBusService },
         { provide: TenantModuleService, useValue: mockTenantModuleService },
       ],
     }).compile();
@@ -1342,6 +1354,21 @@ describe('TenantsService', () => {
         'sen',
         true,
       );
+      expect(mockTenantModuleService.invalidateCache).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockTenantModuleCacheBusService.publishInvalidation).toHaveBeenCalledWith(
+        TENANT_ID,
+        'sen',
+        true,
+      );
+      const updateOrder = firstInvocationOrder(mockPrisma.tenantModule.update);
+      const auditOrder = firstInvocationOrder(mockSecurityAuditService.logModuleToggle);
+      const invalidateOrder = firstInvocationOrder(mockTenantModuleService.invalidateCache);
+      const publishOrder = firstInvocationOrder(
+        mockTenantModuleCacheBusService.publishInvalidation,
+      );
+      expect(updateOrder).toBeLessThan(auditOrder);
+      expect(auditOrder).toBeLessThan(invalidateOrder);
+      expect(invalidateOrder).toBeLessThan(publishOrder);
     });
 
     it('should disable a module for an existing tenant', async () => {
@@ -1414,6 +1441,12 @@ describe('TenantsService', () => {
       await service.toggleModule(TENANT_ID, 'finance', false);
 
       expect(mockSecurityAuditService.logModuleToggle).not.toHaveBeenCalled();
+      expect(mockTenantModuleService.invalidateCache).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockTenantModuleCacheBusService.publishInvalidation).toHaveBeenCalledWith(
+        TENANT_ID,
+        'finance',
+        false,
+      );
     });
   });
 });

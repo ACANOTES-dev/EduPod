@@ -11,6 +11,7 @@ import { LokiLogShipper } from './services/loki-log-shipper.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 import { RequestContextService } from './services/request-context.service';
 import { TenantCodePoolService } from './services/tenant-code-pool.service';
+import { TenantModuleCacheBusService } from './services/tenant-module-cache-bus.service';
 import {
   TENANT_MODULE_PRISMA_CLIENT,
   TENANT_MODULE_REDIS_CLIENT,
@@ -34,6 +35,7 @@ import {
     TenantCodePoolService,
     { provide: TENANT_MODULE_PRISMA_CLIENT, useExisting: PrismaService },
     { provide: TENANT_MODULE_REDIS_CLIENT, useExisting: RedisService },
+    TenantModuleCacheBusService,
     TenantModuleService,
   ],
   exports: [
@@ -42,6 +44,7 @@ import {
     PermissionCacheService,
     RequestContextService,
     TenantCodePoolService,
+    TenantModuleCacheBusService,
     TenantModuleService,
   ],
 })

@@ -6,6 +6,7 @@ import * as React from 'react';
 import '@/styles/globals.css';
 
 import { fonts } from '@/lib/fonts';
+import { TenantModuleSubscriber } from '@/lib/realtime/tenant-module-subscriber';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CookieConsentProvider } from '@/providers/cookie-consent-provider';
 import { DirectionProvider } from '@/providers/direction-provider';
@@ -48,6 +49,7 @@ export default async function LocaleLayout({ children, params: { locale } }: Loc
               <DirectionProvider locale={locale}>
                 <AuthProvider>
                   <ShortcutProvider>
+                    <TenantModuleSubscriber />
                     <SwRegister />
                     {children}
                   </ShortcutProvider>
