@@ -40,7 +40,7 @@ import { AnnouncementsService } from './announcements.service';
 
 @Controller('v1/announcements')
 @UseGuards(AuthGuard, PermissionGuard, ModuleEnabledGuard)
-@ModuleEnabled('communications')
+@ModuleEnabled('communications_outbound')
 export class AnnouncementsController {
   constructor(private readonly service: AnnouncementsService) {}
 

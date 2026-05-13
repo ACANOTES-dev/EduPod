@@ -34,7 +34,7 @@ import { NotificationTemplatesService } from './notification-templates.service';
 
 @Controller('v1/notification-templates')
 @UseGuards(AuthGuard, PermissionGuard, ModuleEnabledGuard)
-@ModuleEnabled('communications')
+@ModuleEnabled('communications_outbound')
 @RequiresPermission('communications.manage')
 export class NotificationTemplatesController {
   constructor(private readonly service: NotificationTemplatesService) {}

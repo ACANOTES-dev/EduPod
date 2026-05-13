@@ -22,6 +22,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let code = 'INTERNAL_ERROR';
     let details: unknown;
     let message = 'An unexpected error occurred';
+    let moduleKey: string | undefined;
 
     if (!(exception instanceof HttpException)) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
@@ -54,6 +55,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
 
         details = errorObj['details'] ?? resp['details'];
+
+        if (typeof errorObj['module'] === 'string') {
+          moduleKey = errorObj['module'];
+        }
       } else {
         code = this.getCodeFromStatus(status);
       }
@@ -62,6 +67,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json({
       error: {
         code,
+        ...(moduleKey !== undefined && { module: moduleKey }),
         message,
         ...(details !== undefined && { details }),
       },

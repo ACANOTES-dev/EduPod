@@ -23,7 +23,7 @@
 | --- | ------------------------------------------------------------------------------------------------ | ---- | ------ |
 | 01  | [Canonical module registry](implementations/01-canonical-module-registry.md)                     | W1   | 📦     |
 | 02  | [Seed data corrections + migration](implementations/02-seed-data-corrections.md)                 | W1   | 📦     |
-| 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | ⏳     |
+| 03  | [API enforcement layer](implementations/03-api-enforcement-layer.md)                             | W1   | 📦     |
 | 04  | [Frontend gating system](implementations/04-frontend-gating-system.md)                           | W1   | ⏳     |
 | 05  | [Worker gating layer](implementations/05-worker-gating-layer.md)                                 | W1   | ⏳     |
 | 06  | [Redis cache + invalidation](implementations/06-redis-cache-invalidation.md)                     | W1   | ⏳     |
@@ -116,15 +116,21 @@
 
 #### Acceptance
 
-- [ ] `@ModuleEnabled` decorator typed `<K extends ModuleKey>(key: K)` so typos become TS errors.
-- [ ] `ModuleEnabledGuard` returns `NotFoundException` with `{ code: 'MODULE_DISABLED', module: key, message: '...' }` instead of `ForbiddenException`.
-- [ ] Guard's missing-row default-deny behaviour documented inline with `// SAFETY:` comment + reference to STRATEGY §4.2.
-- [ ] All existing usages of `@ModuleEnabled` still pass tests.
-- [ ] New unit test in guard spec: missing row → 404 MODULE_DISABLED.
+- [x] `@ModuleEnabled` decorator typed `<K extends ModuleKey>(key: K)` so typos become TS errors.
+- [x] `ModuleEnabledGuard` returns `NotFoundException` with `{ code: 'MODULE_DISABLED', module: key, message: '...' }` instead of `ForbiddenException`.
+- [x] Guard's missing-row default-deny behaviour documented inline with `// SAFETY:` comment + reference to STRATEGY §4.2.
+- [x] All existing usages of `@ModuleEnabled` still pass tests.
+- [x] New unit test in guard spec: missing row → 404 MODULE_DISABLED.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `fix(module-gating): return structured disabled-module errors`
+- CI: not run remotely; local checks passed:
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled.guard.spec.ts src/common/filters/all-exceptions.filter.spec.ts src/modules/communications/announcements.controller.spec.ts src/modules/communications/notification-templates.controller.spec.ts src/modules/communications/notifications.controller.spec.ts`
+  - `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec eslint apps/api/src/common/decorators/module-enabled.decorator.ts apps/api/src/common/guards/module-enabled.guard.ts apps/api/src/common/guards/module-enabled.guard.spec.ts apps/api/src/common/exceptions/module-disabled.exception.ts apps/api/src/common/filters/all-exceptions.filter.ts apps/api/src/common/filters/all-exceptions.filter.spec.ts apps/api/src/modules/communications/announcements.controller.ts apps/api/src/modules/communications/notification-templates.controller.ts apps/api/src/modules/communications/notifications.controller.ts`
+- Deploy: not deployed.
+- Notes: Added `ModuleDisabledException` and preserved the top-level `error.module` field in `AllExceptionsFilter` so the frontend interceptor can redirect by module key. Existing communications surfaces that were already decorated with the deprecated `communications` key were moved to `communications_outbound`; this preserves current access after implementation 02 removes the old row and does not add new communications gating.
 
 ---
 

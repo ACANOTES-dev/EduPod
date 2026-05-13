@@ -1,6 +1,7 @@
 import { ArgumentsHost, BadRequestException, HttpStatus, NotFoundException } from '@nestjs/common';
 
 import { apiError } from '../errors/api-error';
+import { ModuleDisabledException } from '../exceptions/module-disabled.exception';
 
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
@@ -85,6 +86,21 @@ describe('AllExceptionsFilter', () => {
         code: 'VALIDATION_ERROR',
         details,
         message: 'Invalid input',
+      },
+    });
+  });
+
+  it('should preserve module key on module-disabled errors', () => {
+    const exception = new ModuleDisabledException('pastoral');
+
+    filter.catch(exception, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      error: {
+        code: 'MODULE_DISABLED',
+        module: 'pastoral',
+        message: 'This feature is disabled by your administrator.',
       },
     });
   });

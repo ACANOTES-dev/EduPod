@@ -47,7 +47,7 @@ export class NotificationsController {
 
   @Get('admin/failed')
   @UseGuards(PermissionGuard, ModuleEnabledGuard)
-  @ModuleEnabled('communications')
+  @ModuleEnabled('communications_outbound')
   @RequiresPermission('communications.view')
   async listFailed(@CurrentTenant() tenant: TenantContext) {
     return this.service.listFailed(tenant.tenant_id, { page: 1, pageSize: 100 });
