@@ -110,4 +110,41 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/scheduling')?.moduleKey).toBe('auto_scheduling');
     expect(allItems.find((item) => item.href === '/rooms')?.moduleKey).toBeUndefined();
   });
+
+  it('annotates advanced regulatory entries while keeping core regulatory routes visible', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/regulatory')?.moduleKey).toBeUndefined();
+    expect(
+      allItems.find((item) => item.href === '/regulatory/calendar')?.moduleKey,
+    ).toBeUndefined();
+    expect(
+      allItems.find((item) => item.href === '/regulatory/transfers')?.moduleKey,
+    ).toBeUndefined();
+    expect(
+      allItems.find((item) => item.href === '/regulatory/anti-bullying')?.moduleKey,
+    ).toBeUndefined();
+    expect(
+      allItems.find((item) => item.href === '/regulatory/safeguarding')?.moduleKey,
+    ).toBeUndefined();
+
+    expect(allItems.find((item) => item.href === '/regulatory/tusla')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+    expect(allItems.find((item) => item.href === '/regulatory/des-returns')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+    expect(allItems.find((item) => item.href === '/regulatory/october-returns')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+    expect(allItems.find((item) => item.href === '/regulatory/ppod')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+    expect(allItems.find((item) => item.href === '/regulatory/cba')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+    expect(allItems.find((item) => item.href === '/regulatory/submissions')?.moduleKey).toBe(
+      'compliance_advanced',
+    );
+  });
 });

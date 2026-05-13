@@ -263,17 +263,38 @@ export const navSectionConfigs: NavSectionConfig[] = [
     items: [
       { labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
       { labelKey: 'nav.regulatoryCalendar', href: '/regulatory/calendar' },
-      { labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
-      { labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
+      {
+        labelKey: 'nav.regulatoryTusla',
+        href: '/regulatory/tusla',
+        moduleKey: 'compliance_advanced',
+      },
+      {
+        labelKey: 'nav.regulatoryDesReturns',
+        href: '/regulatory/des-returns',
+        moduleKey: 'compliance_advanced',
+      },
       {
         labelKey: 'nav.regulatoryOctoberReturns',
         href: '/regulatory/october-returns',
+        moduleKey: 'compliance_advanced',
       },
-      { labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
-      { labelKey: 'nav.regulatoryCba', href: '/regulatory/cba' },
+      {
+        labelKey: 'nav.regulatoryPpod',
+        href: '/regulatory/ppod',
+        moduleKey: 'compliance_advanced',
+      },
+      {
+        labelKey: 'nav.regulatoryCba',
+        href: '/regulatory/cba',
+        moduleKey: 'compliance_advanced',
+      },
       { labelKey: 'nav.regulatoryTransfers', href: '/regulatory/transfers' },
       { labelKey: 'nav.regulatoryAntiBullying', href: '/regulatory/anti-bullying' },
-      { labelKey: 'nav.regulatorySubmissions', href: '/regulatory/submissions' },
+      {
+        labelKey: 'nav.regulatorySubmissions',
+        href: '/regulatory/submissions',
+        moduleKey: 'compliance_advanced',
+      },
       {
         labelKey: 'nav.regulatorySafeguarding',
         href: '/regulatory/safeguarding',

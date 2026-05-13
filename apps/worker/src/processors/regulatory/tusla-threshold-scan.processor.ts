@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Job name ───────────────────────────────────────────────────────────────
 export const REGULATORY_TUSLA_THRESHOLD_SCAN_JOB = 'regulatory:scan-tusla-thresholds';
 
@@ -15,7 +17,10 @@ const APPROACHING_RATIO = 0.8; // 80% of threshold = "approaching"
 export class RegulatoryTuslaThresholdScanProcessor {
   private readonly logger = new Logger(RegulatoryTuslaThresholdScanProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job): Promise<void> {
     if (job.name !== REGULATORY_TUSLA_THRESHOLD_SCAN_JOB) return;
@@ -29,6 +34,7 @@ export class RegulatoryTuslaThresholdScanProcessor {
 
     for (const tenant of tenants) {
       try {
+        if (!(await this.isComplianceAdvancedEnabled(tenant.id))) continue;
         await this.scanTenantThresholds(tenant.id);
       } catch (error) {
         this.logger.error(
@@ -38,6 +44,16 @@ export class RegulatoryTuslaThresholdScanProcessor {
     }
 
     this.logger.log(`TUSLA threshold scan complete — processed ${tenants.length} tenants`);
+  }
+
+  private async isComplianceAdvancedEnabled(tenantId: string): Promise<boolean> {
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'compliance_advanced');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${REGULATORY_TUSLA_THRESHOLD_SCAN_JOB} for tenant ${tenantId}: compliance_advanced module disabled`,
+      );
+    }
+    return enabled;
   }
 
   // ─── Per-tenant threshold scan ──────────────────────────────────────────

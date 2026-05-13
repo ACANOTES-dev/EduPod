@@ -4,12 +4,14 @@ import { AlarmClock, CalendarPlus, Download, FileText, History, TrendingUp } fro
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { ModuleKey } from '@school/shared/modules';
 import type { RegulatoryDashboardSummary } from '@school/shared/regulatory';
 
 import { HubTile } from '@/components/hub-tile';
 import { CardSkeleton, KpiTile } from '@/components/kpi-tile';
 import { PageHeader } from '@/components/page-header';
 import { QuickAction } from '@/components/quick-action';
+import { useModuleEnabled } from '@/hooks/use-module-enabled';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -32,6 +34,7 @@ interface QuickActionConfig {
   accent: string;
   gradient: string;
   roles: RoleKey[];
+  moduleKey?: ModuleKey;
 }
 
 const QUICK_ACTIONS: QuickActionConfig[] = [
@@ -42,6 +45,7 @@ const QUICK_ACTIONS: QuickActionConfig[] = [
     accent: 'bg-teal-100 text-teal-700',
     gradient: 'from-teal-400 to-teal-600',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'startPpodExport',
@@ -50,6 +54,7 @@ const QUICK_ACTIONS: QuickActionConfig[] = [
     accent: 'bg-cyan-100 text-cyan-700',
     gradient: 'from-cyan-400 to-cyan-600',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'newCalendarEvent',
@@ -66,6 +71,7 @@ const QUICK_ACTIONS: QuickActionConfig[] = [
     accent: 'bg-slate-100 text-slate-700',
     gradient: 'from-slate-400 to-slate-600',
     roles: STAFF_ROLES,
+    moduleKey: 'compliance_advanced',
   },
 ];
 
@@ -74,6 +80,7 @@ const QUICK_ACTIONS: QuickActionConfig[] = [
 export default function RegulatoryHubPage() {
   const t = useTranslations('regulatory.superHub');
   const { roleKeys } = useRoleCheck();
+  const complianceAdvancedEnabled = useModuleEnabled('compliance_advanced');
 
   const [summary, setSummary] = React.useState<RegulatoryDashboardSummary | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -105,13 +112,24 @@ export default function RegulatoryHubPage() {
 
   // ── Derived data ────────────────────────────────────────────────────────
   const visibleTiles = React.useMemo(
-    () => filterTilesForRoles(REGULATORY_TILES, roleKeys as RoleKey[]),
-    [roleKeys],
+    () =>
+      filterTilesForRoles(REGULATORY_TILES, roleKeys as RoleKey[]).filter(
+        (tile) =>
+          !tile.moduleKey || tile.moduleKey !== 'compliance_advanced' || complianceAdvancedEnabled,
+      ),
+    [complianceAdvancedEnabled, roleKeys],
   );
 
   const visibleActions = React.useMemo(
-    () => QUICK_ACTIONS.filter((a) => a.roles.some((r) => roleKeys.includes(r))),
-    [roleKeys],
+    () =>
+      QUICK_ACTIONS.filter(
+        (action) =>
+          action.roles.some((r) => roleKeys.includes(r)) &&
+          (!action.moduleKey ||
+            action.moduleKey !== 'compliance_advanced' ||
+            complianceAdvancedEnabled),
+      ),
+    [complianceAdvancedEnabled, roleKeys],
   );
 
   const overdueCount = summary?.calendar.overdue ?? 0;
@@ -213,6 +231,7 @@ export default function RegulatoryHubPage() {
               glow={tile.glow}
               count={resolveTileCount(tile.key, summary)}
               animationIndex={idx}
+              moduleKey={tile.moduleKey}
             />
           ))
         )}

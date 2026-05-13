@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PodDatabaseType, PodSyncStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -30,7 +31,10 @@ interface PpodCsvRow {
 export class RegulatoryPpodImportProcessor {
   private readonly logger = new Logger(RegulatoryPpodImportProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<PpodImportPayload>): Promise<void> {
     if (job.name !== REGULATORY_PPOD_IMPORT_JOB) return;
@@ -38,6 +42,13 @@ export class RegulatoryPpodImportProcessor {
     const { tenant_id } = job.data;
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'compliance_advanced'))) {
+      this.logger.debug(
+        `Skipping ${REGULATORY_PPOD_IMPORT_JOB} for tenant ${tenant_id}: compliance_advanced module disabled`,
+      );
+      return;
     }
 
     this.logger.log(

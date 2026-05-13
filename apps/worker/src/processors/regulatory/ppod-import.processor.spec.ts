@@ -36,6 +36,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = REGULATORY_PPOD_IMPORT_JOB,
   data: Partial<PpodImportPayload> = {},
@@ -60,7 +66,10 @@ describe('RegulatoryPpodImportProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodImportProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodImportProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('regulatory:other-job'));
 
@@ -69,11 +78,29 @@ describe('RegulatoryPpodImportProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodImportProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodImportProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(REGULATORY_PPOD_IMPORT_JOB, { tenant_id: '' })),
     ).rejects.toThrow('Job rejected: missing tenant_id in payload.');
+  });
+
+  it('should acknowledge jobs without side effects when compliance_advanced is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new RegulatoryPpodImportProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'compliance_advanced');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('should create a mapping when a row matches by PPS number', async () => {
@@ -82,7 +109,10 @@ describe('RegulatoryPpodImportProcessor', () => {
       async (args: { where: { national_id?: string } }) =>
         args.where.national_id ? { id: STUDENT_ID } : null,
     );
-    const processor = new RegulatoryPpodImportProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodImportProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -120,7 +150,10 @@ describe('RegulatoryPpodImportProcessor', () => {
       external_id: 'PPOD-OLD',
       id: MAPPING_ID,
     });
-    const processor = new RegulatoryPpodImportProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodImportProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(
       buildJob(REGULATORY_PPOD_IMPORT_JOB, {
@@ -140,7 +173,10 @@ describe('RegulatoryPpodImportProcessor', () => {
 
   it('should mark the sync log as completed_with_errors when rows cannot be matched', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodImportProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodImportProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(
       buildJob(REGULATORY_PPOD_IMPORT_JOB, {

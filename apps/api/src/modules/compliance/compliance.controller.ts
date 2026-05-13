@@ -44,6 +44,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { ComplianceService } from './compliance.service';
 
+// LEGAL REQUIREMENT: this controller MUST NEVER be gated. GDPR/DPA features are legally mandatory for every tenant. See Module Gating/STRATEGY.md §5.2.
 @Controller('v1/compliance-requests')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ComplianceController {

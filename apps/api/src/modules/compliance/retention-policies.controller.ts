@@ -27,8 +27,10 @@ import {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -37,7 +39,7 @@ import { RetentionPoliciesService } from './retention-policies.service';
 // ─── Retention Policies Controller ───────────────────────────────────────────
 
 @Controller('v1/retention-policies')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class RetentionPoliciesController {
   constructor(private readonly retentionPoliciesService: RetentionPoliciesService) {}
 
@@ -61,6 +63,7 @@ export class RetentionPoliciesController {
 
   // PATCH /v1/retention-policies/:id
   @Patch(':id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('compliance.manage')
   async overridePolicy(
     @CurrentTenant() tenant: TenantContext,
@@ -74,12 +77,13 @@ export class RetentionPoliciesController {
 // ─── Retention Holds Controller ───────────────────────────────────────────────
 
 @Controller('v1/retention-holds')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class RetentionHoldsController {
   constructor(private readonly retentionPoliciesService: RetentionPoliciesService) {}
 
   // POST /v1/retention-holds
   @Post()
+  @ModuleEnabled('compliance_advanced')
   @HttpCode(HttpStatus.CREATED)
   @RequiresPermission('compliance.manage')
   async createHold(
@@ -92,6 +96,7 @@ export class RetentionHoldsController {
 
   // DELETE /v1/retention-holds/:id
   @Delete(':id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('compliance.manage')
   async releaseHold(
     @CurrentTenant() tenant: TenantContext,
@@ -102,6 +107,7 @@ export class RetentionHoldsController {
 
   // GET /v1/retention-holds
   @Get()
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('compliance.manage')
   async listHolds(
     @CurrentTenant() tenant: TenantContext,

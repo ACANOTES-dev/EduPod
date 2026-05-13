@@ -29,6 +29,7 @@ import type {
 } from './dto/create-privacy-notice.dto';
 import { PrivacyNoticesService } from './privacy-notices.service';
 
+// LEGAL REQUIREMENT: this controller MUST NEVER be gated. GDPR/DPA features are legally mandatory for every tenant. See Module Gating/STRATEGY.md §5.2.
 @Controller('v1/privacy-notices')
 @UseGuards(AuthGuard)
 export class PrivacyNoticesController {

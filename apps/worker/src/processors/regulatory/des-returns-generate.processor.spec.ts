@@ -27,6 +27,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = REGULATORY_DES_GENERATE_JOB,
   data: Partial<DesGeneratePayload> = {},
@@ -49,7 +55,10 @@ describe('RegulatoryDesGenerateProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryDesGenerateProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryDesGenerateProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('regulatory:other-job'));
 
@@ -58,17 +67,38 @@ describe('RegulatoryDesGenerateProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryDesGenerateProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryDesGenerateProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(REGULATORY_DES_GENERATE_JOB, { tenant_id: '' })),
     ).rejects.toThrow('Job rejected: missing tenant_id in payload.');
   });
 
+  it('should acknowledge jobs without side effects when compliance_advanced is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new RegulatoryDesGenerateProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'compliance_advanced');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('should mark the latest matching submission as in progress', async () => {
     const mockTx = buildMockTx();
     mockTx.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
-    const processor = new RegulatoryDesGenerateProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryDesGenerateProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -90,7 +120,10 @@ describe('RegulatoryDesGenerateProcessor', () => {
 
   it('should skip the status update when no matching submission exists', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryDesGenerateProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryDesGenerateProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 

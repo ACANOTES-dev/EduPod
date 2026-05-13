@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient, RegulatorySubmissionStatus } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -20,7 +21,10 @@ export const REGULATORY_DES_GENERATE_JOB = 'regulatory:generate-des-files';
 export class RegulatoryDesGenerateProcessor {
   private readonly logger = new Logger(RegulatoryDesGenerateProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<DesGeneratePayload>): Promise<void> {
     if (job.name !== REGULATORY_DES_GENERATE_JOB) return;
@@ -28,6 +32,13 @@ export class RegulatoryDesGenerateProcessor {
     const { tenant_id } = job.data;
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'compliance_advanced'))) {
+      this.logger.debug(
+        `Skipping ${REGULATORY_DES_GENERATE_JOB} for tenant ${tenant_id}: compliance_advanced module disabled`,
+      );
+      return;
     }
 
     this.logger.log(

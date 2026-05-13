@@ -60,6 +60,16 @@ function buildJob(name: string = REGULATORY_TUSLA_THRESHOLD_SCAN_JOB): Job {
   return { data: {}, name } as unknown as Job;
 }
 
+function buildTenantModuleService(disabledTenants: string[] = []) {
+  return {
+    isEnabled: jest
+      .fn()
+      .mockImplementation((tenantId: string) =>
+        Promise.resolve(!disabledTenants.includes(tenantId)),
+      ),
+  };
+}
+
 describe('RegulatoryTuslaThresholdScanProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -67,10 +77,15 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockPrisma = buildMockPrisma();
-    const processor = new RegulatoryTuslaThresholdScanProcessor(mockPrisma as never);
+    const tenantModuleService = buildTenantModuleService();
+    const processor = new RegulatoryTuslaThresholdScanProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
 
     await processor.process(buildJob('regulatory:other-job'));
 
+    expect(tenantModuleService.isEnabled).not.toHaveBeenCalled();
     expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
   });
 
@@ -80,7 +95,10 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
       failingTenants: [TENANT_A_ID],
       studentsByTenant: { [TENANT_B_ID]: [] },
     });
-    const processor = new RegulatoryTuslaThresholdScanProcessor(mockPrisma as never);
+    const processor = new RegulatoryTuslaThresholdScanProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(processor.process(buildJob())).resolves.toBeUndefined();
 
@@ -91,6 +109,31 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
     expect(mockPrisma.student.findMany).toHaveBeenCalledTimes(2);
   });
 
+  it('should skip disabled tenants without scanning their attendance', async () => {
+    const mockPrisma = buildMockPrisma({
+      activeTenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
+      studentsByTenant: {
+        [TENANT_A_ID]: [{ id: STUDENT_A_ID }],
+        [TENANT_B_ID]: [{ id: STUDENT_B_ID }],
+      },
+    });
+    const tenantModuleService = buildTenantModuleService([TENANT_A_ID]);
+    const processor = new RegulatoryTuslaThresholdScanProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'compliance_advanced');
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_B_ID, 'compliance_advanced');
+    expect(mockPrisma.student.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_B_ID, status: 'active' },
+      select: { id: true },
+    });
+  });
+
   it('should create an approaching-threshold alert when absences reach 80 percent of threshold', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
 
@@ -99,7 +142,10 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
         absentDaysByStudent: { [STUDENT_A_ID]: 16 },
         studentsByTenant: { [TENANT_A_ID]: [{ id: STUDENT_A_ID }] },
       });
-      const processor = new RegulatoryTuslaThresholdScanProcessor(mockPrisma as never);
+      const processor = new RegulatoryTuslaThresholdScanProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await processor.process(buildJob());
 
@@ -135,7 +181,10 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
         absentDaysByStudent: { [STUDENT_B_ID]: 22 },
         studentsByTenant: { [TENANT_A_ID]: [{ id: STUDENT_B_ID }] },
       });
-      const processor = new RegulatoryTuslaThresholdScanProcessor(mockPrisma as never);
+      const processor = new RegulatoryTuslaThresholdScanProcessor(
+        mockPrisma as never,
+        buildTenantModuleService() as never,
+      );
 
       await processor.process(buildJob());
 
@@ -160,7 +209,10 @@ describe('RegulatoryTuslaThresholdScanProcessor', () => {
       absentDaysByStudent: { [STUDENT_A_ID]: 22 },
       studentsByTenant: { [TENANT_A_ID]: [{ id: STUDENT_A_ID }] },
     });
-    const processor = new RegulatoryTuslaThresholdScanProcessor(mockPrisma as never);
+    const processor = new RegulatoryTuslaThresholdScanProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(processor.process(buildJob())).resolves.toBeUndefined();
 

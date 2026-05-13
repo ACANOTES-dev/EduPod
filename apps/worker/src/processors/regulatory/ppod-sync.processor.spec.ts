@@ -67,6 +67,12 @@ function buildMockPrisma(mockTx: MockTx) {
   };
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 function buildJob(
   name: string = REGULATORY_PPOD_SYNC_JOB,
   data: Partial<PpodSyncPayload> = {},
@@ -90,7 +96,10 @@ describe('RegulatoryPpodSyncProcessor', () => {
 
   it('should ignore jobs with a different name', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodSyncProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodSyncProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob('regulatory:other-job'));
 
@@ -99,16 +108,37 @@ describe('RegulatoryPpodSyncProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodSyncProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodSyncProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(REGULATORY_PPOD_SYNC_JOB, { tenant_id: '' })),
     ).rejects.toThrow('Job rejected: missing tenant_id in payload.');
   });
 
+  it('should acknowledge jobs without side effects when compliance_advanced is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new RegulatoryPpodSyncProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'compliance_advanced');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('should create pending mappings during a full sync', async () => {
     const mockTx = buildMockTx();
-    const processor = new RegulatoryPpodSyncProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodSyncProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -148,7 +178,10 @@ describe('RegulatoryPpodSyncProcessor', () => {
       id: MAPPING_ID,
       last_sync_hash: buildStudentHash(student),
     });
-    const processor = new RegulatoryPpodSyncProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodSyncProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(REGULATORY_PPOD_SYNC_JOB, { scope: 'incremental' }));
 
@@ -168,7 +201,10 @@ describe('RegulatoryPpodSyncProcessor', () => {
       id: MAPPING_ID,
       last_sync_hash: 'old-hash',
     });
-    const processor = new RegulatoryPpodSyncProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new RegulatoryPpodSyncProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(REGULATORY_PPOD_SYNC_JOB, { scope: 'incremental' }));
 

@@ -38,6 +38,13 @@ const PROBE_ENDPOINTS: Partial<Record<ModuleKey, ModuleGatingProbe['probes']>> =
     { method: 'GET', path: '/api/v1/announcements' },
     { method: 'GET', path: '/api/v1/notification-templates' },
   ],
+  compliance_advanced: [
+    { method: 'GET', path: '/api/v1/regulatory/des/readiness?academic_year=2025-2026' },
+    { method: 'GET', path: '/api/v1/regulatory/tusla/threshold-monitor' },
+    { method: 'GET', path: '/api/v1/regulatory/ppod/status?database_type=ppod' },
+    { method: 'GET', path: '/api/v1/regulatory/cba/status?academic_year=2025-2026' },
+    { method: 'GET', path: '/api/v1/retention-holds' },
+  ],
   early_warning: [{ method: 'GET', path: '/api/v1/early-warning/students' }],
   engagement: [{ method: 'GET', path: '/api/v1/engagement/events' }],
   finance: [
@@ -71,6 +78,7 @@ const ACTIVE_MODULE_GATING_CASES = new Set<ModuleKey>([
   'auto_scheduling',
   'behaviour',
   'communications_outbound',
+  'compliance_advanced',
   'finance',
   'gradebook',
   'homework',
@@ -179,5 +187,27 @@ describe('Module gating leakage', () => {
 
       expect(res.body.error?.code).not.toBe('MODULE_DISABLED');
     });
+
+    const itComplianceCoreStaysCore = key === 'compliance_advanced' ? it : it.skip;
+
+    itComplianceCoreStaysCore(
+      'keeps legally required compliance and GDPR endpoints available when disabled',
+      async () => {
+        await disableModuleForTenant(prisma, fixture.tenantId, key);
+
+        const complianceRes = await request(app.getHttpServer())
+          .get('/api/v1/compliance-requests')
+          .set('Authorization', `Bearer ${token}`)
+          .set('Host', fixture.domainName);
+
+        const privacyNoticeRes = await request(app.getHttpServer())
+          .get('/api/v1/privacy-notices/current')
+          .set('Authorization', `Bearer ${token}`)
+          .set('Host', fixture.domainName);
+
+        expect(complianceRes.body.error?.code).not.toBe('MODULE_DISABLED');
+        expect(privacyNoticeRes.body.error?.code).not.toBe('MODULE_DISABLED');
+      },
+    );
   });
 });

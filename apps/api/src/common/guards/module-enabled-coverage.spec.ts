@@ -60,4 +60,53 @@ describe('Module enabled guard coverage', () => {
       );
     }
   });
+
+  it('keeps legally required GDPR controllers ungated and documented', () => {
+    const repoRoot = resolve(__dirname, '../../../../..');
+    const gdprDir = resolve(repoRoot, 'apps/api/src/modules/gdpr');
+    const controllerFiles = collectControllerFiles(gdprDir);
+    const violations: CoverageViolation[] = [];
+    const legalRequirementComment =
+      'LEGAL REQUIREMENT: this controller MUST NEVER be gated. GDPR/DPA features are legally mandatory for every tenant. See Module Gating/STRATEGY.md §5.2.';
+
+    for (const filePath of controllerFiles) {
+      const content = readFileSync(filePath, 'utf8');
+      if (/@ModuleEnabled\(/.test(content)) {
+        violations.push({
+          file: filePath.replace(`${repoRoot}/`, ''),
+          reason: 'GDPR controllers must not use @ModuleEnabled',
+        });
+      }
+      if (!content.includes(legalRequirementComment)) {
+        violations.push({
+          file: filePath.replace(`${repoRoot}/`, ''),
+          reason: 'missing legal-requirement ungated comment',
+        });
+      }
+    }
+
+    if (violations.length > 0) {
+      const summary = violations
+        .map((violation) => `  - ${violation.file}: ${violation.reason}`)
+        .join('\n');
+      throw new Error(
+        `GDPR module-gating violations (${violations.length}):\n${summary}\n\n` +
+          'GDPR/DPA controllers are core legal obligations and must remain ungated.',
+      );
+    }
+  });
+
+  it('keeps the compliance request controller ungated and documented', () => {
+    const repoRoot = resolve(__dirname, '../../../../..');
+    const controllerPath = resolve(
+      repoRoot,
+      'apps/api/src/modules/compliance/compliance.controller.ts',
+    );
+    const content = readFileSync(controllerPath, 'utf8');
+    const legalRequirementComment =
+      'LEGAL REQUIREMENT: this controller MUST NEVER be gated. GDPR/DPA features are legally mandatory for every tenant. See Module Gating/STRATEGY.md §5.2.';
+
+    expect(content).toContain(legalRequirementComment);
+    expect(content).not.toMatch(/@ModuleEnabled\(/);
+  });
 });

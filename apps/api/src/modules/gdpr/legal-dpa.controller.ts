@@ -11,6 +11,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { DpaService } from './dpa.service';
 
+// LEGAL REQUIREMENT: this controller MUST NEVER be gated. GDPR/DPA features are legally mandatory for every tenant. See Module Gating/STRATEGY.md §5.2.
 @Controller('v1/legal/dpa')
 @UseGuards(AuthGuard)
 export class LegalDpaController {

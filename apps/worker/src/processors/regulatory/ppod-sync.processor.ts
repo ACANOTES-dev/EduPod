@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PodDatabaseType, PodSyncStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
@@ -22,7 +23,10 @@ export const REGULATORY_PPOD_SYNC_JOB = 'regulatory:ppod-sync';
 export class RegulatoryPpodSyncProcessor {
   private readonly logger = new Logger(RegulatoryPpodSyncProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<PpodSyncPayload>): Promise<void> {
     if (job.name !== REGULATORY_PPOD_SYNC_JOB) return;
@@ -30,6 +34,13 @@ export class RegulatoryPpodSyncProcessor {
     const { tenant_id } = job.data;
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    if (!(await this.tenantModuleService.isEnabled(tenant_id, 'compliance_advanced'))) {
+      this.logger.debug(
+        `Skipping ${REGULATORY_PPOD_SYNC_JOB} for tenant ${tenant_id}: compliance_advanced module disabled`,
+      );
+      return;
     }
 
     this.logger.log(

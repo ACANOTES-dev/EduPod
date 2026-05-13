@@ -13,6 +13,7 @@ import {
   Siren,
 } from 'lucide-react';
 
+import type { ModuleKey } from '@school/shared/modules';
 import type { RegulatoryDashboardSummary } from '@school/shared/regulatory';
 
 import type { RoleKey } from '@/lib/route-roles';
@@ -41,6 +42,7 @@ export interface RegulatoryTileConfig {
   iconBg: string;
   glow: string;
   roles: RoleKey[];
+  moduleKey?: ModuleKey;
 }
 
 // ─── Catalogue ──────────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-teal-100 text-teal-700',
     glow: 'from-teal-50/80',
     roles: STAFF_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'ppod',
@@ -68,6 +71,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-cyan-100 text-cyan-700',
     glow: 'from-cyan-50/80',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'desReturns',
@@ -77,6 +81,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-sky-100 text-sky-700',
     glow: 'from-sky-50/80',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'octoberReturns',
@@ -86,6 +91,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-indigo-100 text-indigo-700',
     glow: 'from-indigo-50/80',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'cba',
@@ -95,6 +101,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-violet-100 text-violet-700',
     glow: 'from-violet-50/80',
     roles: ADMIN_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'transfers',
@@ -122,6 +129,7 @@ export const REGULATORY_TILES: RegulatoryTileConfig[] = [
     iconBg: 'bg-slate-100 text-slate-700',
     glow: 'from-slate-50/80',
     roles: STAFF_ROLES,
+    moduleKey: 'compliance_advanced',
   },
   {
     key: 'antiBullying',

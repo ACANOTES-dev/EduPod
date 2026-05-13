@@ -37,7 +37,7 @@
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | 📦     |
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | 📦     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | 📦     |
-| 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | ⏳     |
+| 17  | [Compliance / regulatory split](implementations/17-compliance-regulatory-split.md)               | W3   | 📦     |
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ⏳     |
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ⏳     |
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ⏳     |
@@ -509,16 +509,27 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `compliance_advanced` added to registry; `compliance` (the old gateable key) is NOT in the gateable registry (it's promoted to core).
-- [ ] `regulatory.controller.ts` 67 endpoints split: DES/TUSLA/PPOD/CBA paths gated `@ModuleEnabled('compliance_advanced')` at method level; core paths remain ungated.
-- [ ] `retention-policies.controller.ts`: advanced policy methods gated; basic policies ungated.
-- [ ] `gdpr/*.controller.ts` (all 7): remain ungated (legal requirement).
-- [ ] Frontend: `/settings/compliance` always visible; `/settings/regulatory` always visible; sub-sections (DES, TUSLA) conditional on `compliance_advanced`.
-- [ ] Module-gating leakage test passes for `compliance_advanced`.
+- [x] `compliance_advanced` added to registry; `compliance` (the old gateable key) is NOT in the gateable registry (it's promoted to core).
+- [x] `regulatory.controller.ts` 67 endpoints split: DES/TUSLA/PPOD/CBA, reduced-school-days, October returns, and regulatory submissions paths gated `@ModuleEnabled('compliance_advanced')` at method level; dashboard, calendar, transfers, anti-bullying, safeguarding, and GDPR summary paths remain ungated.
+- [x] `retention-policies.controller.ts`: advanced policy/hold methods gated; basic policy listing and preview remain ungated.
+- [x] `gdpr/*.controller.ts` (all 8 present in repo) and `compliance.controller.ts` remain ungated with legal-requirement comments.
+- [x] Frontend: regulatory/compliance hubs stay visible; DES/TUSLA/PPOD/CBA/October/submissions sub-sections and quick actions are conditional on `compliance_advanced`.
+- [x] Module-gating leakage test passes for `compliance_advanced`, including core compliance/GDPR controls.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): split advanced compliance gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled-coverage.spec.ts src/modules/regulatory/regulatory.controller.spec.ts src/modules/compliance/retention-policies.controller.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/regulatory/des-returns-generate.processor.spec.ts src/processors/regulatory/ppod-import.processor.spec.ts src/processors/regulatory/ppod-sync.processor.spec.ts src/processors/regulatory/tusla-threshold-scan.processor.spec.ts src/processors/regulatory/regulatory-queue.processor.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts src/app/[locale]/(school)/regulatory/_components/hub-tile-catalogue.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts --testNamePattern=compliance_advanced)`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm exec eslint ...` on touched API/worker/web/test files (warnings only: pre-existing regulatory controller max-lines/max-public-methods plus the repo's Next pages-directory warning)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `regulatory.controller.ts` uses method-level gates because it mixes core legal/compliance routes with advanced regulatory reporting. The leakage probes use actual routes (`/api/v1/regulatory/des/readiness`, `/api/v1/regulatory/tusla/threshold-monitor`, `/api/v1/regulatory/ppod/status`, `/api/v1/regulatory/cba/status`, `/api/v1/retention-holds`) and core controls (`/api/v1/compliance-requests`, `/api/v1/privacy-notices/current`). No disruptive NHQS off/on toggle or production `tenant_modules` SQL smoke was run in this pass; verification remained non-disruptive until CI/deploy.
 
 ---
 

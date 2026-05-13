@@ -92,6 +92,18 @@ describe('REGULATORY_TILES catalogue', () => {
       expect(keys).toContain(key);
     }
   });
+
+  it('marks advanced Irish regulatory tiles with the compliance advanced module', () => {
+    const moduleKeyByTile = new Map(REGULATORY_TILES.map((tile) => [tile.key, tile.moduleKey]));
+
+    for (const key of ['tusla', 'ppod', 'desReturns', 'octoberReturns', 'cba', 'submissions']) {
+      expect(moduleKeyByTile.get(key as RegulatoryTileKey)).toBe('compliance_advanced');
+    }
+
+    for (const key of ['transfers', 'calendar', 'antiBullying', 'safeguarding', 'gdpr']) {
+      expect(moduleKeyByTile.get(key as RegulatoryTileKey)).toBeUndefined();
+    }
+  });
 });
 
 describe('resolveTileCount', () => {

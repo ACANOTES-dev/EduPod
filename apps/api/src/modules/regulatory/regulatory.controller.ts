@@ -83,9 +83,11 @@ import {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -176,7 +178,7 @@ const cbaPendingQuerySchema = z.object({
 type CbaPendingQueryDto = z.infer<typeof cbaPendingQuerySchema>;
 
 @Controller('v1/regulatory')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class RegulatoryController {
   constructor(
     private readonly antiBullyingService: RegulatoryAntiBullyingService,
@@ -289,6 +291,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/submissions
   @Get('submissions')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async listSubmissions(
     @CurrentTenant() tenant: TenantContext,
@@ -306,6 +309,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/submissions/:id
   @Get('submissions/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async getSubmission(
     @CurrentTenant() tenant: TenantContext,
@@ -316,6 +320,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/submissions
   @Post('submissions')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage')
   @HttpCode(HttpStatus.CREATED)
   async createSubmission(
@@ -328,6 +333,7 @@ export class RegulatoryController {
 
   // PATCH /v1/regulatory/submissions/:id
   @Patch('submissions/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage')
   async updateSubmission(
     @CurrentTenant() tenant: TenantContext,
@@ -342,6 +348,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/absence-mappings
   @Get('tusla/absence-mappings')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_tusla')
   async listTuslaMappings(@CurrentTenant() tenant: TenantContext) {
     return this.tuslaMappingsService.findAll(tenant.tenant_id);
@@ -349,6 +356,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/tusla/absence-mappings
   @Post('tusla/absence-mappings')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_tusla')
   @HttpCode(HttpStatus.CREATED)
   async createTuslaMapping(
@@ -361,6 +369,7 @@ export class RegulatoryController {
 
   // DELETE /v1/regulatory/tusla/absence-mappings/:id
   @Delete('tusla/absence-mappings/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_tusla')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteTuslaMapping(
@@ -374,6 +383,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/threshold-monitor
   @Get('tusla/threshold-monitor')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async getThresholdMonitor(
     @CurrentTenant() tenant: TenantContext,
@@ -388,6 +398,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/tusla/sar/generate
   @Post('tusla/sar/generate')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_tusla')
   async generateSar(
     @CurrentTenant() tenant: TenantContext,
@@ -399,6 +410,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/sar/:id/export
   @Get('tusla/sar/:id/export')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async exportSar(
     @CurrentTenant() tenant: TenantContext,
@@ -413,6 +425,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/tusla/aar/generate
   @Post('tusla/aar/generate')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_tusla')
   async generateAar(
     @CurrentTenant() tenant: TenantContext,
@@ -424,6 +437,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/aar/:id/export
   @Get('tusla/aar/:id/export')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async exportAar(
     @CurrentTenant() tenant: TenantContext,
@@ -438,6 +452,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/suspensions
   @Get('tusla/suspensions')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async getSuspensions(
     @CurrentTenant() tenant: TenantContext,
@@ -448,6 +463,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/tusla/expulsions
   @Get('tusla/expulsions')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.view')
   async getExpulsions(
     @CurrentTenant() tenant: TenantContext,
@@ -460,6 +476,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/des/subject-mappings
   @Get('des/subject-mappings')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   async listDesMappings(@CurrentTenant() tenant: TenantContext) {
     return this.desMappingsService.findAll(tenant.tenant_id);
@@ -467,6 +484,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/des/subject-mappings
   @Post('des/subject-mappings')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   @HttpCode(HttpStatus.CREATED)
   async createDesMapping(
@@ -479,6 +497,7 @@ export class RegulatoryController {
 
   // DELETE /v1/regulatory/des/subject-mappings/:id
   @Delete('des/subject-mappings/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteDesMapping(
@@ -492,6 +511,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/reduced-school-days
   @Get('reduced-school-days')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_reduced_days')
   async listReducedSchoolDays(
     @CurrentTenant() tenant: TenantContext,
@@ -508,6 +528,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/reduced-school-days
   @Post('reduced-school-days')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_reduced_days')
   @HttpCode(HttpStatus.CREATED)
   async createReducedSchoolDay(
@@ -520,6 +541,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/reduced-school-days/:id
   @Get('reduced-school-days/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_reduced_days')
   async getReducedSchoolDay(
     @CurrentTenant() tenant: TenantContext,
@@ -530,6 +552,7 @@ export class RegulatoryController {
 
   // PATCH /v1/regulatory/reduced-school-days/:id
   @Patch('reduced-school-days/:id')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_reduced_days')
   async updateReducedSchoolDay(
     @CurrentTenant() tenant: TenantContext,
@@ -543,6 +566,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/des/readiness
   @Get('des/readiness')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   async desReadiness(
     @CurrentTenant() tenant: TenantContext,
@@ -553,6 +577,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/des/preview/:fileType
   @Get('des/preview/:fileType')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   async desPreview(
     @CurrentTenant() tenant: TenantContext,
@@ -565,6 +590,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/des/generate/:fileType
   @Post('des/generate/:fileType')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_des')
   async desGenerate(
     @CurrentTenant() tenant: TenantContext,
@@ -580,6 +606,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/readiness
   @Get('october-returns/readiness')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsReadiness(
     @CurrentTenant() tenant: TenantContext,
@@ -590,6 +617,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/preview
   @Get('october-returns/preview')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsPreview(
     @CurrentTenant() tenant: TenantContext,
@@ -600,6 +628,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/issues
   @Get('october-returns/issues')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsIssues(
     @CurrentTenant() tenant: TenantContext,
@@ -612,6 +641,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/ppod/status
   @Get('ppod/status')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   async getPpodStatus(
     @CurrentTenant() tenant: TenantContext,
@@ -622,6 +652,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/ppod/students
   @Get('ppod/students')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   async listPpodStudents(
     @CurrentTenant() tenant: TenantContext,
@@ -637,6 +668,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/ppod/sync-log
   @Get('ppod/sync-log')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   async getPpodSyncLog(
     @CurrentTenant() tenant: TenantContext,
@@ -652,6 +684,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/ppod/diff
   @Get('ppod/diff')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   async getPpodDiff(
     @CurrentTenant() tenant: TenantContext,
@@ -662,6 +695,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/ppod/import
   @Post('ppod/import')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   @HttpCode(HttpStatus.OK)
   async importFromPpod(
@@ -674,6 +708,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/ppod/export-csv
   @Post('ppod/export-csv')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   @HttpCode(HttpStatus.OK)
   async exportForPpod(
@@ -686,6 +721,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/ppod/sync
   @Post('ppod/sync')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   @HttpCode(HttpStatus.OK)
   async syncPpod(
@@ -698,6 +734,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/ppod/sync/:studentId
   @Post('ppod/sync/:studentId')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_ppod')
   @HttpCode(HttpStatus.OK)
   async syncPpodStudent(
@@ -718,6 +755,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/cba/status
   @Get('cba/status')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_cba')
   async getCbaStatus(
     @CurrentTenant() tenant: TenantContext,
@@ -728,6 +766,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/cba/pending
   @Get('cba/pending')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_cba')
   async getCbaPending(
     @CurrentTenant() tenant: TenantContext,
@@ -743,6 +782,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/cba/sync
   @Post('cba/sync')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_cba')
   @HttpCode(HttpStatus.OK)
   async syncCba(
@@ -755,6 +795,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/cba/sync/:studentId
   @Post('cba/sync/:studentId')
+  @ModuleEnabled('compliance_advanced')
   @RequiresPermission('regulatory.manage_cba')
   @HttpCode(HttpStatus.OK)
   async syncCbaStudent(
