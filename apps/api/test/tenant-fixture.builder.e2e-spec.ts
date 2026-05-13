@@ -1,6 +1,8 @@
 /* eslint-disable school/no-raw-sql-outside-rls -- test setup/teardown bypasses RLS */
 import { PrismaClient } from '@prisma/client';
 
+import { MODULE_REGISTRY } from '@school/shared';
+
 import {
   createTenantFixture,
   deleteTenantFixture,
@@ -67,15 +69,15 @@ describe('createTenantFixture', () => {
         expect(fixture.parentId).toBeDefined();
         expect(fixture.password).toBe(FIXTURE_PASSWORD);
 
-        // Modules: all 16 present, SEN disabled, others enabled
+        // Modules: every canonical gateable module present with registry defaults.
         const modules = await prisma.tenantModule.findMany({
           where: { tenant_id: fixture.tenantId },
         });
-        expect(modules).toHaveLength(16);
-        const sen = modules.find((m) => m.module_key === 'sen');
-        expect(sen?.is_enabled).toBe(false);
-        const attendance = modules.find((m) => m.module_key === 'attendance');
-        expect(attendance?.is_enabled).toBe(true);
+        expect(modules).toHaveLength(MODULE_REGISTRY.length);
+        for (const moduleDefinition of MODULE_REGISTRY) {
+          const moduleRow = modules.find((m) => m.module_key === moduleDefinition.key);
+          expect(moduleRow?.is_enabled).toBe(moduleDefinition.default_enabled);
+        }
 
         // Roles: all tenant-scoped system roles are provisioned — not just the
         // ones for the 4 default users. Service-layer flows (e.g. creating a
