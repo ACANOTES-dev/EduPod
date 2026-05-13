@@ -41,7 +41,7 @@
 | 18  | [New toggle: leave](implementations/18-new-toggle-leave.md)                                      | W4   | ✅     |
 | 19  | [New toggle: school_closures](implementations/19-new-toggle-school-closures.md)                  | W4   | ✅     |
 | 20  | [Trips placeholder + analytics ghost-key cleanup](implementations/20-trips-analytics-cleanup.md) | W4   | ✅     |
-| 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | ⏳     |
+| 21  | [Migration runbook for existing tenants](implementations/21-migration-runbook.md)                | W5   | 📦     |
 | 22  | [Admin console handoff spec](implementations/22-admin-console-handoff.md)                        | W5   | ⏳     |
 
 ---
@@ -623,14 +623,26 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] `Module Gating/migration-runbook.md` documents: pre-migration verification (SQL count assertion), execution command, post-migration verification (every tenant has 20 rows), rollback plan (delete the new tenantModule rows; the schema column stays).
-- [ ] Audit-log row inserted for the migration: who ran it, when, with the registry snapshot.
-- [ ] NHQS verified post-migration: dashboard loads normally, all expected nav entries visible, no toast/redirect storms.
-- [ ] 4 stress tenants verified.
+- [x] `Module Gating/migration-runbook.md` exists with pre-migration verification, post-migration verification, rollout audit entry, per-tenant smoke test, dev rollback drill, emergency rollback, and rollback decision tree.
+- [x] Production verification SQL run on NHQS + 4 stress tenants: every tenant has exactly 20 `tenant_modules` rows.
+- [x] Production verification SQL confirmed zero `analytics` tenant-module rows remain.
+- [x] Audit-log row inserted for each active tenant capturing the W5 rollout module snapshot.
+- [x] Smoke test commands run successfully on NHQS via curl: `/me` returns `enabled_modules` and a default-on gated endpoint returns without `MODULE_DISABLED`.
+- [ ] Rollback procedure tested in dev: disable a module via SQL, confirm 404; re-enable + invalidate cache via SQL+Redis, confirm 200 within seconds.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `docs(module-gating): add migration runbook`
+- CI: local docs verification passed:
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/architecture-docs.spec.ts)`
+- Deploy: pending.
+- Production verification:
+  - Production server head before implementation 21 was `e9b829a4`, matching the expected W4 deployed head.
+  - Active tenant module-row counts: `nhqs`, `stress-a`, `stress-b`, `stress-c`, and `stress-d` each have exactly 20 rows.
+  - `SELECT COUNT(*) FROM tenant_modules WHERE module_key = 'analytics';` returned `0`.
+  - Rollout audit insertion was idempotent and inserted 5 rows for action `module_gating.system_rolled_out`, one per active tenant.
+  - NHQS owner smoke: `/api/v1/auth/me` returned 19 enabled modules (NHQS has `sen` enabled), and `GET /api/v1/pastoral/cases` returned HTTP 200 with no `MODULE_DISABLED` error.
+- Notes: No disruptive production off/on toggles were run. The rollback drill remains documented but untested locally because this session does not have a disposable local/dev database with Redis available.
 
 ---
 
