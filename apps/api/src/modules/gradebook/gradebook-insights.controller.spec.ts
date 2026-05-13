@@ -2,6 +2,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+
 import { AiCommentsService } from './ai/ai-comments.service';
 import { AiGradingInstructionService } from './ai/ai-grading-instruction.service';
 import { AiGradingService } from './ai/ai-grading.service';
@@ -85,6 +87,10 @@ const mockProgressReportService = {
   send: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('GradebookInsightsController', () => {
   let controller: GradebookInsightsController;
 
@@ -92,6 +98,7 @@ describe('GradebookInsightsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradebookInsightsController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         { provide: AnalyticsService, useValue: mockAnalyticsService },
         { provide: AiCommentsService, useValue: mockAiCommentsService },
         { provide: AiGradingService, useValue: mockAiGradingService },

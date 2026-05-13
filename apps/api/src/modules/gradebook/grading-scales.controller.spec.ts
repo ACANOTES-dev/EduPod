@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+
 import { GradingScalesController } from './grading-scales.controller';
 import { GradingScalesService } from './grading-scales.service';
 
@@ -16,6 +18,10 @@ const mockGradingScalesService = {
   delete: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('GradingScalesController', () => {
   let controller: GradingScalesController;
 
@@ -23,6 +29,7 @@ describe('GradingScalesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradingScalesController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         { provide: GradingScalesService, useValue: mockGradingScalesService },
       ],
     })
@@ -44,7 +51,10 @@ describe('GradingScalesController', () => {
     const result = await controller.findAll(tenantContext, { page: 1, pageSize: 20 });
 
     expect(result).toEqual(expected);
-    expect(mockGradingScalesService.findAll).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20 });
+    expect(mockGradingScalesService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+    });
   });
 
   it('should return a single grading scale by id', async () => {
@@ -60,7 +70,10 @@ describe('GradingScalesController', () => {
   it('should create a grading scale and return the new record', async () => {
     const dto = {
       name: 'A-F Scale',
-      config_json: { type: 'numeric' as const, ranges: [{ label: 'A', min: 90, max: 100, gpa_value: 4.0 }] },
+      config_json: {
+        type: 'numeric' as const,
+        ranges: [{ label: 'A', min: 90, max: 100, gpa_value: 4.0 }],
+      },
     };
     const created = { id: SCALE_ID, ...dto, tenant_id: TENANT_ID };
     mockGradingScalesService.create.mockResolvedValue(created);

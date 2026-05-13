@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +41,10 @@ const mockTenantReadFacade = {
   findBranding: jest.fn().mockResolvedValue(null),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('TranscriptsController', () => {
   let controller: TranscriptsController;
 
@@ -51,6 +56,7 @@ describe('TranscriptsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TranscriptsController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: TranscriptsService, useValue: mockTranscriptsService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },

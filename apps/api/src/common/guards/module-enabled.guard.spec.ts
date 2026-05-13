@@ -28,12 +28,12 @@ function createExecutionContext(request: Record<string, unknown> = {}): Executio
 describe('ModuleEnabledGuard', () => {
   let guard: ModuleEnabledGuard;
   let reflector: Reflector;
-  let getAllAndOverrideSpy: jest.SpyInstance;
+  let getAllSpy: jest.SpyInstance;
   let mockTenantModuleService: { isEnabled: jest.Mock };
 
   beforeEach(() => {
     reflector = new Reflector();
-    getAllAndOverrideSpy = jest.spyOn(reflector, 'getAllAndOverride');
+    getAllSpy = jest.spyOn(reflector, 'getAll');
     mockTenantModuleService = {
       isEnabled: jest.fn().mockResolvedValue(false),
     };
@@ -47,7 +47,7 @@ describe('ModuleEnabledGuard', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('allows access when no module metadata is present', async () => {
-    getAllAndOverrideSpy.mockReturnValue(undefined);
+    getAllSpy.mockReturnValue([]);
 
     const allowed = await guard.canActivate(createExecutionContext());
 
@@ -56,9 +56,7 @@ describe('ModuleEnabledGuard', () => {
   });
 
   it('allows access when the required module is enabled', async () => {
-    getAllAndOverrideSpy.mockImplementation((key: string) =>
-      key === MODULE_ENABLED_KEY ? 'pastoral' : undefined,
-    );
+    getAllSpy.mockImplementation((key: string) => (key === MODULE_ENABLED_KEY ? ['pastoral'] : []));
     mockTenantModuleService.isEnabled.mockResolvedValue(true);
 
     const allowed = await guard.canActivate(
@@ -70,7 +68,7 @@ describe('ModuleEnabledGuard', () => {
   });
 
   it('throws MODULE_DISABLED as a 404 when the module row exists disabled', async () => {
-    getAllAndOverrideSpy.mockReturnValue('pastoral');
+    getAllSpy.mockReturnValue(['pastoral']);
     mockTenantModuleService.isEnabled.mockResolvedValue(false);
 
     await expect(
@@ -88,7 +86,7 @@ describe('ModuleEnabledGuard', () => {
   });
 
   it('throws MODULE_DISABLED as a 404 when the module row is missing', async () => {
-    getAllAndOverrideSpy.mockReturnValue('early_warning');
+    getAllSpy.mockReturnValue(['early_warning']);
     mockTenantModuleService.isEnabled.mockResolvedValue(false);
 
     await expect(
@@ -97,10 +95,32 @@ describe('ModuleEnabledGuard', () => {
   });
 
   it('keeps missing tenant context as a forbidden auth setup error', async () => {
-    getAllAndOverrideSpy.mockReturnValue('pastoral');
+    getAllSpy.mockReturnValue(['pastoral']);
 
     await expect(guard.canActivate(createExecutionContext())).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('requires both class and method module metadata when both are present', async () => {
+    getAllSpy.mockReturnValue(['gradebook', 'ai_functions']);
+    mockTenantModuleService.isEnabled.mockImplementation(async (_tenantId: string, moduleKey) => {
+      return moduleKey === 'gradebook';
+    });
+
+    await expect(
+      guard.canActivate(createExecutionContext({ tenantContext: { tenant_id: TENANT_ID } })),
+    ).rejects.toMatchObject({
+      response: {
+        error: {
+          code: 'MODULE_DISABLED',
+          module: 'ai_functions',
+        },
+      },
+      status: 404,
+    });
+
+    expect(mockTenantModuleService.isEnabled).toHaveBeenNthCalledWith(1, TENANT_ID, 'gradebook');
+    expect(mockTenantModuleService.isEnabled).toHaveBeenNthCalledWith(2, TENANT_ID, 'ai_functions');
   });
 });

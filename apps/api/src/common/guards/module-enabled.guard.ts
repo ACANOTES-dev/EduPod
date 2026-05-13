@@ -28,12 +28,15 @@ export class ModuleEnabledGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredModule = this.reflector.getAllAndOverride<ModuleKey | undefined>(
-      MODULE_ENABLED_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredModules = (
+      this.reflector.getAll(MODULE_ENABLED_KEY, [
+        context.getClass(),
+        context.getHandler(),
+      ]) as Array<ModuleKey | undefined>
+    ).filter((moduleKey): moduleKey is ModuleKey => Boolean(moduleKey));
+    const uniqueRequiredModules = [...new Set(requiredModules)];
 
-    if (!requiredModule) {
+    if (uniqueRequiredModules.length === 0) {
       return true;
     }
 
@@ -49,24 +52,26 @@ export class ModuleEnabledGuard implements CanActivate {
       });
     }
 
-    const enabled = await this.tenantModuleService.isEnabled(
-      tenantContext.tenant_id,
-      requiredModule,
-    );
+    for (const requiredModule of uniqueRequiredModules) {
+      const enabled = await this.tenantModuleService.isEnabled(
+        tenantContext.tenant_id,
+        requiredModule,
+      );
 
-    if (!enabled) {
-      // SAFETY: TenantModuleService excludes a key in BOTH cases:
-      //   (a) tenant_modules row exists with is_enabled=false
-      //   (b) NO tenant_modules row exists for this (tenant, key) pair
-      //
-      // Case (b) is default deny. This is intentional, but it means every
-      // gateable module key MUST have a tenant_modules row provisioned for
-      // every tenant before enforcement of that key can ship. The
-      // canonical-registry backfill migration (Module Gating implementation 02)
-      // is the invariant that protects existing tenants from accidental 404s.
-      //
-      // See Module Gating/STRATEGY.md sections 4.2 and 9 for the rationale.
-      throw new ModuleDisabledException(requiredModule);
+      if (!enabled) {
+        // SAFETY: TenantModuleService excludes a key in BOTH cases:
+        //   (a) tenant_modules row exists with is_enabled=false
+        //   (b) NO tenant_modules row exists for this (tenant, key) pair
+        //
+        // Case (b) is default deny. This is intentional, but it means every
+        // gateable module key MUST have a tenant_modules row provisioned for
+        // every tenant before enforcement of that key can ship. The
+        // canonical-registry backfill migration (Module Gating implementation 02)
+        // is the invariant that protects existing tenants from accidental 404s.
+        //
+        // See Module Gating/STRATEGY.md sections 4.2 and 9 for the rationale.
+        throw new ModuleDisabledException(requiredModule);
+      }
     }
 
     return true;

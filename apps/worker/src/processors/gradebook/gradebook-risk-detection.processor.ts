@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -70,12 +71,23 @@ interface GradeDataPoint {
 export class GradebookRiskDetectionProcessor {
   private readonly logger = new Logger(GradebookRiskDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(job: Job<GradebookRiskDetectionPayload>): Promise<void> {
     const { tenant_id } = job.data;
 
     if (tenant_id) {
+      const enabled = await this.tenantModuleService.isEnabled(tenant_id, 'gradebook');
+      if (!enabled) {
+        this.logger.debug(
+          `Skipping ${GRADEBOOK_DETECT_RISKS_JOB} for tenant ${tenant_id}: gradebook module disabled`,
+        );
+        return;
+      }
+
       // Per-tenant mode: dispatched explicitly for a single tenant
       this.logger.log(`Processing ${GRADEBOOK_DETECT_RISKS_JOB} — tenant ${tenant_id}`);
       const innerJob = new GradebookRiskDetectionJob(this.prisma);
@@ -93,6 +105,14 @@ export class GradebookRiskDetectionProcessor {
 
     let successCount = 0;
     for (const tenant of tenants) {
+      const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'gradebook');
+      if (!enabled) {
+        this.logger.debug(
+          `Skipping ${GRADEBOOK_DETECT_RISKS_JOB} for tenant ${tenant.id}: gradebook module disabled`,
+        );
+        continue;
+      }
+
       const innerJob = new GradebookRiskDetectionJob(this.prisma);
       try {
         await innerJob.execute({ tenant_id: tenant.id });

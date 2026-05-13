@@ -17,8 +17,10 @@ import { z } from 'zod';
 import { createGradingScaleSchema, updateGradingScaleSchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -32,7 +34,8 @@ const listGradingScalesQuerySchema = z.object({
 });
 
 @Controller('v1')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class GradingScalesController {
   constructor(private readonly gradingScalesService: GradingScalesService) {}
 

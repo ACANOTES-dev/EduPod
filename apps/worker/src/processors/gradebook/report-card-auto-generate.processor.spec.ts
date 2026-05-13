@@ -46,6 +46,12 @@ function buildJob(name: string = REPORT_CARD_AUTO_GENERATE_JOB): Job {
   return { data: {}, name } as unknown as Job;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('ReportCardAutoGenerateProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -53,7 +59,10 @@ describe('ReportCardAutoGenerateProcessor', () => {
 
   it('should skip tenants with no recently ended periods', async () => {
     const mockPrisma = buildMockPrisma();
-    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+    const processor = new ReportCardAutoGenerateProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -80,7 +89,10 @@ describe('ReportCardAutoGenerateProcessor', () => {
       { student_id: STUDENT_B_ID },
     ]);
     mockPrisma.reportCard.findMany.mockResolvedValue([{ student_id: STUDENT_A_ID }]);
-    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+    const processor = new ReportCardAutoGenerateProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -118,12 +130,30 @@ describe('ReportCardAutoGenerateProcessor', () => {
   it('sets app.current_tenant_id via set_config before querying', async () => {
     const mockPrisma = buildMockPrisma();
     mockPrisma.academicPeriod.findMany.mockResolvedValueOnce([]);
-    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+    const processor = new ReportCardAutoGenerateProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.academicPeriod.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips tenants when the gradebook module is disabled', async () => {
+    const mockPrisma = buildMockPrisma();
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new ReportCardAutoGenerateProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'gradebook');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.reportCard.createMany).not.toHaveBeenCalled();
   });
 
   it('skips tenants with malformed (empty/invalid) ids', async () => {
@@ -134,7 +164,10 @@ describe('ReportCardAutoGenerateProcessor', () => {
       { default_locale: 'en', id: TENANT_A_ID },
     ]);
     mockPrisma.academicPeriod.findMany.mockResolvedValue([]);
-    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
+    const processor = new ReportCardAutoGenerateProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 

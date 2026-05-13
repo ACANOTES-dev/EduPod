@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
+
 import { AssessmentCategoriesController } from './assessment-categories.controller';
 import { AssessmentCategoriesService } from './assessment-categories.service';
 
@@ -26,6 +28,10 @@ const mockAssessmentCategoriesService = {
   delete: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('AssessmentCategoriesController', () => {
   let controller: AssessmentCategoriesController;
 
@@ -33,6 +39,7 @@ describe('AssessmentCategoriesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AssessmentCategoriesController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         {
           provide: AssessmentCategoriesService,
           useValue: mockAssessmentCategoriesService,

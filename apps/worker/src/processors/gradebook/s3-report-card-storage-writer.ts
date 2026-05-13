@@ -7,6 +7,8 @@ import {
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 import type { ReportCardStorageWriter } from './report-card-generation.processor';
 
 /**
@@ -28,7 +30,10 @@ export class S3ReportCardStorageWriter implements ReportCardStorageWriter, OnMod
   private client: S3Client | null = null;
   private bucket: string | undefined;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   onModuleInit(): void {
     const region = this.configService.get<string>('S3_REGION');
@@ -74,8 +79,16 @@ export class S3ReportCardStorageWriter implements ReportCardStorageWriter, OnMod
    * store it verbatim in `report_cards.pdf_storage_key`.
    */
   async upload(tenantId: string, key: string, body: Buffer, contentType: string): Promise<string> {
-    const client = this.ensureClient();
     const fullKey = `${tenantId}/${key}`;
+    const enabled = await this.tenantModuleService.isEnabled(tenantId, 'gradebook');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping report-card PDF upload for tenant ${tenantId}: gradebook module disabled`,
+      );
+      return fullKey;
+    }
+
+    const client = this.ensureClient();
 
     await client.send(
       new PutObjectCommand({

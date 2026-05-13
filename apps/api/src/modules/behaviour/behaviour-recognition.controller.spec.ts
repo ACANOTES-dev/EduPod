@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import {
   MOCK_FACADE_PROVIDERS,
   AcademicReadFacade,
@@ -85,6 +86,10 @@ const mockConfigurationReadFacade = {
   findSettingsJson: jest.fn().mockResolvedValue(null),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('BehaviourRecognitionController', () => {
   let controller: BehaviourRecognitionController;
 
@@ -92,6 +97,7 @@ describe('BehaviourRecognitionController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourRecognitionController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: BehaviourRecognitionService, useValue: mockRecognitionService },
         { provide: BehaviourAwardService, useValue: mockAwardService },

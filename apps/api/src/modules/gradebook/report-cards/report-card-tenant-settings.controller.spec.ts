@@ -6,6 +6,7 @@ import type { JwtPayload } from '@school/shared';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { TenantModuleService } from '../../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -31,6 +32,10 @@ const mockSettingsService = {
 const mockPrisma = {};
 const mockPermissionCacheService = { getPermissions: jest.fn() };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('ReportCardTenantSettingsController', () => {
   let controller: ReportCardTenantSettingsController;
 
@@ -38,6 +43,7 @@ describe('ReportCardTenantSettingsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReportCardTenantSettingsController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: ReportCardTenantSettingsService, useValue: mockSettingsService },
         { provide: PrismaService, useValue: mockPrisma },

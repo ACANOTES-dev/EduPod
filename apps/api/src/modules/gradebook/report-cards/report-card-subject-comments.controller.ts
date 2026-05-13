@@ -70,7 +70,8 @@ const ADMIN_PERMISSION = 'report_cards.manage';
 // ─── Controller ──────────────────────────────────────────────────────────────
 
 @Controller('v1/report-card-subject-comments')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class ReportCardSubjectCommentsController {
   constructor(
     private readonly commentsService: ReportCardSubjectCommentsService,

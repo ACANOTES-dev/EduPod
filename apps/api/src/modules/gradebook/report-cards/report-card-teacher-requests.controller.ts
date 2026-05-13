@@ -16,8 +16,10 @@ import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
@@ -40,7 +42,8 @@ import type { TeacherRequestActor } from './report-card-teacher-requests.service
 const ADMIN_PERMISSION = 'report_cards.manage';
 
 @Controller('v1/report-card-teacher-requests')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class ReportCardTeacherRequestsController {
   constructor(
     private readonly teacherRequestsService: ReportCardTeacherRequestsService,

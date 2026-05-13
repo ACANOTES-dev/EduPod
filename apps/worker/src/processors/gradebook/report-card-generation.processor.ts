@@ -8,6 +8,7 @@ import type {
   ReportCardRenderPayload,
 } from '@school/shared';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 import {
   REPORT_CARD_RENDERER_TOKEN,
@@ -64,9 +65,18 @@ export class ReportCardGenerationProcessor {
     @Inject(REPORT_CARD_RENDERER_TOKEN) private readonly renderer: ReportCardRenderer,
     @Inject(REPORT_CARD_STORAGE_WRITER_TOKEN)
     private readonly storage: ReportCardStorageWriter,
+    private readonly tenantModuleService: TenantModuleService,
   ) {}
 
   async process(job: Job<ReportCardGenerationPayload>): Promise<void> {
+    const enabled = await this.tenantModuleService.isEnabled(job.data.tenant_id, 'gradebook');
+    if (!enabled) {
+      this.logger.debug(
+        `Skipping ${REPORT_CARD_GENERATION_JOB} for tenant ${job.data.tenant_id}: gradebook module disabled`,
+      );
+      return;
+    }
+
     this.logger.log(
       `Processing ${REPORT_CARD_GENERATION_JOB} — tenant=${job.data.tenant_id} batch=${job.data.batch_job_id}`,
     );

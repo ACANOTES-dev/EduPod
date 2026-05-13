@@ -2,6 +2,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import {
   MOCK_FACADE_PROVIDERS,
   ParentReadFacade,
@@ -76,6 +77,10 @@ const mockTenantFacade = {
   findBranding: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('ParentGradebookController', () => {
   let controller: ParentGradebookController;
 
@@ -83,6 +88,7 @@ describe('ParentGradebookController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ParentGradebookController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: ParentReadFacade, useValue: mockParentFacade },
         { provide: StudentReadFacade, useValue: mockStudentFacade },

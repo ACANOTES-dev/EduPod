@@ -33,7 +33,7 @@
 | 10  | [Already-enforced verification](implementations/10-already-enforced-verification.md)             | W2   | 📦     |
 | 11  | [Partial-enforcement completion](implementations/11-partial-enforcement-completion.md)           | W2   | 📦     |
 | 12  | [Admissions full enforcement](implementations/12-admissions-full-enforcement.md)                 | W3   | 📦     |
-| 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | ⏳     |
+| 13  | [Gradebook full enforcement](implementations/13-gradebook-full-enforcement.md)                   | W3   | 📦     |
 | 14  | [Finance full enforcement](implementations/14-finance-full-enforcement.md)                       | W3   | ⏳     |
 | 15  | [Homework full enforcement](implementations/15-homework-full-enforcement.md)                     | W3   | ⏳     |
 | 16  | [Auto-scheduling full enforcement](implementations/16-auto-scheduling-full-enforcement.md)       | W3   | ⏳     |
@@ -397,14 +397,30 @@ _See implementations/09-communications-split.md for full spec._
 
 #### Acceptance
 
-- [ ] All 14 controllers under `apps/api/src/modules/gradebook/` gain `@ModuleEnabled('gradebook')` + `ModuleEnabledGuard` at class level.
-- [ ] Gradebook cron processors gain tenant module check (gradebook-risk-detection, report-card-auto-generate, report-card-generation, mass-report-card-pdf, s3-report-card-storage-writer).
-- [ ] Frontend `/gradebook`, `/report-cards`, `/report-comments`, `/transcripts` hidden via nav filter when disabled.
-- [ ] Module-gating leakage test passes for `gradebook`.
+- [x] All 14 controllers under `apps/api/src/modules/gradebook/` gain `@ModuleEnabled('gradebook')` + `ModuleEnabledGuard` at class level.
+- [x] Gradebook cron processors gain tenant module check (gradebook-risk-detection, report-card-auto-generate, report-card-generation, mass-report-card-pdf, s3-report-card-storage-writer).
+- [x] Frontend `/gradebook`, `/report-cards`, `/report-comments`, `/transcripts` hidden via nav filter when disabled.
+- [x] Module-gating leakage test passes for `gradebook`.
+- [x] Worker tests pass for the report-card pipeline (disabled -> no render/S3 upload).
+- [ ] Smoke test on NHQS: gradebook/report cards/report comments/parent views toggle off and back on; previously published PDFs are not deleted and access is restored after re-enable.
 
 #### Commits / CI / Deploy / Notes
 
-_(populate when implementing)_
+- Commit: `feat(module-gating): enforce gradebook module gate`
+- CI: not run remotely yet; local checks passed:
+  - `pnpm --filter @school/api test -- --runTestsByPath src/common/guards/module-enabled.guard.spec.ts src/common/guards/module-enabled-coverage.spec.ts src/modules/gradebook/assessment-categories.controller.spec.ts src/modules/gradebook/gradebook-advanced.controller.spec.ts src/modules/gradebook/gradebook-insights.controller.spec.ts src/modules/gradebook/gradebook.controller.spec.ts src/modules/gradebook/grading-scales.controller.spec.ts src/modules/gradebook/parent-gradebook.controller.spec.ts src/modules/gradebook/transcripts.controller.spec.ts src/modules/gradebook/report-cards/report-card-overall-comments.controller.spec.ts src/modules/gradebook/report-cards/report-card-subject-comments.controller.spec.ts src/modules/gradebook/report-cards/report-card-teacher-requests.controller.spec.ts src/modules/gradebook/report-cards/report-card-tenant-settings.controller.spec.ts src/modules/gradebook/report-cards/report-cards-enhanced.controller.spec.ts src/modules/gradebook/report-cards/report-cards.controller.spec.ts src/modules/gradebook/report-cards/report-comment-windows.controller.spec.ts`
+  - `pnpm --filter @school/worker test -- --runTestsByPath src/processors/gradebook/gradebook-risk-detection.processor.spec.ts src/processors/gradebook/report-card-auto-generate.processor.spec.ts src/processors/gradebook/report-card-generation.processor.spec.ts src/processors/gradebook/mass-report-card-pdf.processor.spec.ts src/processors/gradebook/s3-report-card-storage-writer.spec.ts`
+  - `pnpm --filter @school/web test -- --runTestsByPath src/__tests__/module-gating/nav-filter.spec.ts`
+  - `(cd apps/api && npx jest --config jest.integration.config.js --runInBand --runTestsByPath test/module-gating-leakage.e2e-spec.ts)` (now active for `gradebook`, plus prior W2/W3 modules)
+  - API DI compile check with fake env (`DI OK`)
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/worker type-check`
+  - `pnpm --filter @school/web type-check`
+  - `NODE_OPTIONS=--max-old-space-size=14336 pnpm --filter @school/api lint` (warnings only: pre-existing cross-module imports/max-lines)
+  - `pnpm --filter @school/worker lint` (warnings only: pre-existing max-lines)
+  - `pnpm --filter @school/web lint` (warnings only: pre-existing i18n/hooks/max-lines)
+- Deploy: not deployed yet; production smoke not run in this implementation commit.
+- Notes: `ModuleEnabledGuard` now enforces all class and method `@ModuleEnabled` metadata instead of letting method metadata override the class. This preserves the intended double gate for gradebook AI paths: `gradebook` must be enabled and `ai_functions` must also be enabled. The gradebook leakage probe uses actual routes (`/api/v1/gradebook/assessments`, `/api/v1/report-cards`, `/api/v1/transcripts/students/:studentId`) rather than the stale `/api/v1/gradebook/grades` path. Parent gradebook/report-card routes are class-gated with the same `gradebook` toggle as staff/admin routes; parent nav has no dedicated gradebook entry in the current config.
 
 ---
 

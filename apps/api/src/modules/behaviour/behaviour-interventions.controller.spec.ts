@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 
 import { BehaviourInterventionsController } from './behaviour-interventions.controller';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
@@ -53,6 +54,10 @@ const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('BehaviourInterventionsController', () => {
   let controller: BehaviourInterventionsController;
 
@@ -60,6 +65,7 @@ describe('BehaviourInterventionsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourInterventionsController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         { provide: BehaviourInterventionsService, useValue: mockInterventionsService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
       ],

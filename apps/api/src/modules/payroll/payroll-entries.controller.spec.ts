@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 
 import { PayrollEntriesController } from './payroll-entries.controller';
 import { PayrollEntriesService } from './payroll-entries.service';
@@ -23,6 +24,10 @@ const mockService = {
   calculatePreview: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('PayrollEntriesController', () => {
   let controller: PayrollEntriesController;
 
@@ -32,6 +37,7 @@ describe('PayrollEntriesController', () => {
     const module = await Test.createTestingModule({
       controllers: [PayrollEntriesController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         { provide: PayrollEntriesService, useValue: mockService },
       ],
     })

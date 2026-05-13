@@ -133,7 +133,8 @@ const nlQueryHistoryQuerySchema = z.object({
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 @Controller('v1')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class GradebookInsightsController {
   constructor(
     private readonly analyticsService: AnalyticsService,

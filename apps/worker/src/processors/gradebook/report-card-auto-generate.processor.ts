@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { TenantModuleService } from '../../../../api/src/common/services/tenant-module.service';
+
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
 export const REPORT_CARD_AUTO_GENERATE_JOB = 'report-cards:auto-generate';
@@ -25,7 +27,10 @@ export class ReportCardAutoGenerateProcessor {
   private readonly failureCountByTenant = new Map<string, number>();
   private static readonly CIRCUIT_BREAKER_THRESHOLD = 3;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly tenantModuleService: TenantModuleService,
+  ) {}
 
   async process(_job: Job): Promise<void> {
     this.logger.log('Running report card auto-generate across all tenants...');
@@ -50,6 +55,14 @@ export class ReportCardAutoGenerateProcessor {
           `Skipping tenant with invalid id "${tenant.id}" — ignored to avoid RLS cast failure`,
         );
         skippedInvalid += 1;
+        continue;
+      }
+
+      const enabled = await this.tenantModuleService.isEnabled(tenant.id, 'gradebook');
+      if (!enabled) {
+        this.logger.debug(
+          `Skipping ${REPORT_CARD_AUTO_GENERATE_JOB} for tenant ${tenant.id}: gradebook module disabled`,
+        );
         continue;
       }
 

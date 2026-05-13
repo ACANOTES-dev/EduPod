@@ -18,8 +18,10 @@ import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { createFileInterceptor } from '../../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
@@ -42,7 +44,8 @@ const SIGNATURE_MIMES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 // ─── Controller ──────────────────────────────────────────────────────────────
 
 @Controller('v1/report-card-tenant-settings')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class ReportCardTenantSettingsController {
   constructor(private readonly settingsService: ReportCardTenantSettingsService) {}
 

@@ -5,6 +5,7 @@ import type { ReportCardRenderer } from '../report-card-render.contract';
 import {
   NullReportCardStorageWriter,
   REPORT_CARD_GENERATION_JOB,
+  ReportCardGenerationProcessor,
   ReportCardGenerationJob,
   type ReportCardGenerationPayload,
 } from './report-card-generation.processor';
@@ -193,11 +194,41 @@ function buildFakePrisma(tx: unknown): PrismaClient {
   } as unknown as PrismaClient;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('ReportCardGenerationProcessor — job name constant', () => {
   it('exports the conventional job name', () => {
     expect(REPORT_CARD_GENERATION_JOB).toBe('report-cards:generate');
+  });
+
+  it('silently skips generation when the gradebook module is disabled', async () => {
+    const { tx } = buildMockTx();
+    const { renderer, render } = buildFakeRenderer();
+    const storage = new NullReportCardStorageWriter();
+    storage.upload = jest.fn().mockResolvedValue('unused-key');
+    const prisma = buildFakePrisma(tx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new ReportCardGenerationProcessor(
+      prisma,
+      renderer,
+      storage,
+      tenantModuleService as never,
+    );
+
+    await processor.process({
+      data: { tenant_id: TENANT_ID, batch_job_id: BATCH_JOB_ID },
+      name: REPORT_CARD_GENERATION_JOB,
+    } as never);
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'gradebook');
+    expect(render).not.toHaveBeenCalled();
+    expect(storage.upload).not.toHaveBeenCalled();
   });
 });
 

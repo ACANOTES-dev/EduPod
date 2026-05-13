@@ -4,6 +4,7 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 
 import { BehaviourParentController } from './behaviour-parent.controller';
 import { BehaviourParentService } from './behaviour-parent.service';
@@ -36,13 +37,20 @@ const mockParentService = {
   submitAppeal: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('BehaviourParentController', () => {
   let controller: BehaviourParentController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourParentController],
-      providers: [{ provide: BehaviourParentService, useValue: mockParentService }],
+      providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
+        { provide: BehaviourParentService, useValue: mockParentService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

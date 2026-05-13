@@ -44,6 +44,12 @@ function buildJob(
   } as Job<MassReportCardPdfPayload>;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('MassReportCardPdfProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -51,7 +57,10 @@ describe('MassReportCardPdfProcessor', () => {
 
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
-    const processor = new MassReportCardPdfProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new MassReportCardPdfProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(MASS_REPORT_CARD_PDF_JOB, { tenant_id: '' })),
@@ -67,7 +76,10 @@ describe('MassReportCardPdfProcessor', () => {
         template_locale: 'en',
       },
     ]);
-    const processor = new MassReportCardPdfProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new MassReportCardPdfProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -85,6 +97,22 @@ describe('MassReportCardPdfProcessor', () => {
     });
   });
 
+  it('silently skips PDF batches when the gradebook module is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new MassReportCardPdfProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'gradebook');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockTx.reportCard.findMany).not.toHaveBeenCalled();
+  });
+
   it('should be safe to rerun the same PDF batch payload', async () => {
     const mockTx = buildMockTx();
     mockTx.reportCard.findMany.mockResolvedValue([
@@ -94,7 +122,10 @@ describe('MassReportCardPdfProcessor', () => {
         template_locale: 'en',
       },
     ]);
-    const processor = new MassReportCardPdfProcessor(buildMockPrisma(mockTx) as never);
+    const processor = new MassReportCardPdfProcessor(
+      buildMockPrisma(mockTx) as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
     await processor.process(buildJob());

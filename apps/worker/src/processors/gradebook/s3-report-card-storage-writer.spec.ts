@@ -27,22 +27,39 @@ const TENANT_ID = '3ba9b02c-0339-49b8-8583-a06e05a32ac5';
 const REPORT_CARD_KEY =
   'report-cards/f2b78ca9-864b-4c7e-b6aa-849abb71e709/periods/6e821d84-d963-45d1-840d-91e32b684296/603aaf52-ac16-4cf9-a82a-c13b8eb4c8bd/en.pdf';
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('S3ReportCardStorageWriter', () => {
   let writer: S3ReportCardStorageWriter;
   let mockConfigService: { get: jest.Mock };
+  let tenantModuleService: ReturnType<typeof buildTenantModuleService>;
 
   beforeEach(async () => {
     mockSend.mockReset();
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string) => S3_CONFIG[key] ?? undefined),
     };
+    tenantModuleService = buildTenantModuleService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         S3ReportCardStorageWriter,
         { provide: ConfigService, useValue: mockConfigService },
       ],
-    }).compile();
+    })
+      .overrideProvider(S3ReportCardStorageWriter)
+      .useFactory({
+        factory: () =>
+          new S3ReportCardStorageWriter(
+            mockConfigService as unknown as ConfigService,
+            tenantModuleService as never,
+          ),
+      })
+      .compile();
 
     writer = module.get<S3ReportCardStorageWriter>(S3ReportCardStorageWriter);
     writer.onModuleInit();
@@ -62,6 +79,7 @@ describe('S3ReportCardStorageWriter', () => {
 
     expect(returned).toBe(`${TENANT_ID}/${REPORT_CARD_KEY}`);
     expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_ID, 'gradebook');
 
     const commandArg = mockSend.mock.calls[0][0] as { input: Record<string, unknown> };
     expect(commandArg.input).toMatchObject({
@@ -84,6 +102,20 @@ describe('S3ReportCardStorageWriter', () => {
     });
   });
 
+  it('does not upload a PDF when the gradebook module is disabled', async () => {
+    tenantModuleService.isEnabled.mockResolvedValue(false);
+
+    const returned = await writer.upload(
+      TENANT_ID,
+      REPORT_CARD_KEY,
+      Buffer.from('pdf-bytes'),
+      'application/pdf',
+    );
+
+    expect(returned).toBe(`${TENANT_ID}/${REPORT_CARD_KEY}`);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
   it('throws a clear error when S3 env vars are missing', async () => {
     // Simulate a test-environment worker whose S3 env vars are unset: NODE_ENV=test lets
     // onModuleInit log a warning and return without throwing, so that upload() is the
@@ -91,7 +123,10 @@ describe('S3ReportCardStorageWriter', () => {
     mockConfigService.get.mockImplementation((key: string) =>
       key === 'NODE_ENV' ? 'test' : undefined,
     );
-    const fresh = new S3ReportCardStorageWriter(mockConfigService as unknown as ConfigService);
+    const fresh = new S3ReportCardStorageWriter(
+      mockConfigService as unknown as ConfigService,
+      buildTenantModuleService() as never,
+    );
     fresh.onModuleInit();
 
     await expect(

@@ -82,4 +82,12 @@ describe('Nav filter module gating contract', () => {
     expect(allItems.find((item) => item.href === '/admissions')?.moduleKey).toBe('admissions');
     expect(allItems.find((item) => item.href === '/applications')?.moduleKey).toBe('admissions');
   });
+
+  it('annotates gradebook and report-card entries in the real nav config', () => {
+    const allItems = navSectionConfigs.flatMap((section) => section.items);
+
+    expect(allItems.find((item) => item.href === '/gradebook')?.moduleKey).toBe('gradebook');
+    expect(allItems.find((item) => item.href === '/report-cards')?.moduleKey).toBe('gradebook');
+    expect(allItems.find((item) => item.href === '/report-comments')?.moduleKey).toBe('gradebook');
+  });
 });

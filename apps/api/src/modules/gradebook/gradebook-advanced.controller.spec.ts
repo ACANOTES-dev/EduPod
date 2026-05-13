@@ -2,6 +2,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -97,6 +98,10 @@ const mockPrisma = {
   grade: { findMany: jest.fn() },
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('GradebookAdvancedController', () => {
   let controller: GradebookAdvancedController;
 
@@ -104,6 +109,7 @@ describe('GradebookAdvancedController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradebookAdvancedController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
         { provide: RubricService, useValue: mockRubricService },

@@ -1,16 +1,11 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
@@ -18,7 +13,8 @@ import { TenantReadFacade } from '../tenants/tenant-read.facade';
 import { TranscriptsService } from './transcripts.service';
 
 @Controller('v1')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('gradebook')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class TranscriptsController {
   constructor(
     private readonly transcriptsService: TranscriptsService,
@@ -32,10 +28,7 @@ export class TranscriptsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.transcriptsService.getTranscriptData(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.transcriptsService.getTranscriptData(tenant.tenant_id, studentId);
   }
 
   @Get('transcripts/students/:studentId/pdf')

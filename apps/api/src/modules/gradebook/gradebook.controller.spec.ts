@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { TenantModuleService } from '../../common/services/tenant-module.service';
 import {
   MOCK_FACADE_PROVIDERS,
   ClassesReadFacade,
@@ -127,6 +128,10 @@ const mockPrisma = {
   $transaction: jest.fn(),
 };
 
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
+
 describe('GradebookController', () => {
   let controller: GradebookController;
 
@@ -134,6 +139,7 @@ describe('GradebookController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradebookController],
       providers: [
+        { provide: TenantModuleService, useValue: mockTenantModuleService },
         ...MOCK_FACADE_PROVIDERS,
         { provide: StaffProfileReadFacade, useValue: mockStaffProfileFacade },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },

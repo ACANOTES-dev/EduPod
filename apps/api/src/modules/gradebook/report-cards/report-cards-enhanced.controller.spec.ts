@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { TenantModuleService } from '../../../common/services/tenant-module.service';
 
 import { GradeThresholdService } from './grade-threshold.service';
 import { ReportCardAcknowledgmentService } from './report-card-acknowledgment.service';
@@ -111,6 +112,7 @@ async function buildModule() {
   const module: TestingModule = await Test.createTestingModule({
     controllers: [ReportCardsEnhancedController],
     providers: [
+      { provide: TenantModuleService, useValue: mockTenantModuleService },
       { provide: ReportCardTemplateService, useValue: mockTemplateService },
       { provide: ReportCardApprovalService, useValue: mockApprovalService },
       { provide: ReportCardDeliveryService, useValue: mockDeliveryService },
@@ -133,6 +135,10 @@ async function buildModule() {
 
   return module.get<ReportCardsEnhancedController>(ReportCardsEnhancedController);
 }
+
+const mockTenantModuleService = {
+  isEnabled: jest.fn().mockResolvedValue(true),
+};
 
 describe('ReportCardsEnhancedController — templates', () => {
   let controller: ReportCardsEnhancedController;

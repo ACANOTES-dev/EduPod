@@ -147,6 +147,12 @@ function buildJob(
   } as Job<GradebookRiskDetectionPayload>;
 }
 
+function buildTenantModuleService(enabled = true) {
+  return {
+    isEnabled: jest.fn().mockResolvedValue(enabled),
+  };
+}
+
 describe('GradebookRiskDetectionProcessor', () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -160,7 +166,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       failingTransactionCalls: [1],
       tenants: [{ id: TENANT_A_ID }, { id: TENANT_B_ID }],
     });
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await expect(
       processor.process(buildJob(GRADEBOOK_DETECT_RISKS_JOB, { tenant_id: undefined })),
@@ -190,7 +199,10 @@ describe('GradebookRiskDetectionProcessor', () => {
         2: tenantBTx,
       },
     });
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob(GRADEBOOK_DETECT_RISKS_JOB, { tenant_id: undefined }));
 
@@ -219,12 +231,31 @@ describe('GradebookRiskDetectionProcessor', () => {
       riskDetectionSettings: { enabled: false },
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
     expect(mockTx.grade.findMany).not.toHaveBeenCalled();
     expect(mockTx.studentAcademicRiskAlert.create).not.toHaveBeenCalled();
+  });
+
+  it('silently skips tenant-specific jobs when the gradebook module is disabled', async () => {
+    const mockTx = buildMockTx();
+    const mockPrisma = buildMockPrisma(mockTx);
+    const tenantModuleService = buildTenantModuleService(false);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      tenantModuleService as never,
+    );
+
+    await processor.process(buildJob());
+
+    expect(tenantModuleService.isEnabled).toHaveBeenCalledWith(TENANT_A_ID, 'gradebook');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockTx.grade.findMany).not.toHaveBeenCalled();
   });
 
   it('should create a high-risk alert when trajectory drop crosses the high threshold', async () => {
@@ -271,7 +302,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       students: [STUDENT_A_ID],
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -330,7 +364,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       students: [STUDENT_A_ID],
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -364,7 +401,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       students: [STUDENT_A_ID],
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -410,7 +450,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       students: [STUDENT_A_ID, STUDENT_B_ID],
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
@@ -446,7 +489,10 @@ describe('GradebookRiskDetectionProcessor', () => {
       students: studentIds,
     });
     const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
+    const processor = new GradebookRiskDetectionProcessor(
+      mockPrisma as never,
+      buildTenantModuleService() as never,
+    );
 
     await processor.process(buildJob());
 
