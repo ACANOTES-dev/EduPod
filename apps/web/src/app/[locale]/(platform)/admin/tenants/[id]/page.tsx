@@ -676,7 +676,7 @@ function ModulesTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () =
       setError(null);
       await apiClient(`/api/v1/admin/tenants/${tenant.id}/modules/${moduleKey}`, {
         method: 'PATCH',
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ is_enabled: enabled }),
       });
       onUpdate();
     } catch (err: unknown) {
