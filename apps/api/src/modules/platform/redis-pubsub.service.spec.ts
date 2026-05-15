@@ -117,4 +117,19 @@ describe('RedisPubSubService', () => {
     expect(subscriber.unsubscribe).toHaveBeenCalledWith('platform:health');
     expect(callback).not.toHaveBeenCalled();
   });
+
+  it('should defer subscriptions registered before Redis is initialized', async () => {
+    await service.onModuleDestroy();
+    const callback = jest.fn<void, [Record<string, unknown>]>();
+
+    expect(() => service.subscribe('platform:alerts', callback)).not.toThrow();
+    await service.onModuleInit();
+
+    const subscriber = mockRedisState.clients.at(-1);
+    if (!subscriber) {
+      throw new Error('Subscriber mock was not created');
+    }
+
+    expect(subscriber.subscribe).toHaveBeenCalledWith('platform:alerts');
+  });
 });

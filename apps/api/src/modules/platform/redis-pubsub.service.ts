@@ -12,6 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisPubSubService.name);
   private readonly callbacks = new Map<string, Set<RedisPubSubCallback>>();
+  private initialized = false;
   private publisher: Redis | null = null;
   private subscriber: Redis | null = null;
 
@@ -43,13 +44,18 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     });
 
     await Promise.all([this.publisher.connect(), this.subscriber.connect()]);
+    this.initialized = true;
+    await Promise.all([...this.callbacks.keys()].map((channel) => this.subscribeRedis(channel)));
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([this.publisher?.quit(), this.subscriber?.quit()]);
+    this.initialized = false;
+    const publisher = this.publisher;
+    const subscriber = this.subscriber;
     this.publisher = null;
     this.subscriber = null;
     this.callbacks.clear();
+    await Promise.all([publisher?.quit(), subscriber?.quit()]);
   }
 
   async publish(channel: string, payload: Record<string, unknown>): Promise<void> {
@@ -67,12 +73,12 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.callbacks.set(channel, new Set([callback]));
-    void this.getSubscriber()
-      .subscribe(channel)
-      .then(() => this.logger.debug(`Subscribed to platform pub/sub channel ${channel}`))
-      .catch((err: unknown) => {
-        this.logger.error(`Failed to subscribe to platform pub/sub channel ${channel}`, err);
-      });
+    if (!this.initialized || !this.subscriber) {
+      this.logger.debug(`Registered platform pub/sub callback for ${channel}`);
+      return;
+    }
+
+    void this.subscribeRedis(channel);
   }
 
   unsubscribe(channel: string, callback: RedisPubSubCallback): void {
@@ -88,12 +94,11 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.callbacks.delete(channel);
-    void this.getSubscriber()
-      .unsubscribe(channel)
-      .then(() => this.logger.debug(`Unsubscribed from platform pub/sub channel ${channel}`))
-      .catch((err: unknown) => {
-        this.logger.error(`Failed to unsubscribe from platform pub/sub channel ${channel}`, err);
-      });
+    if (!this.initialized || !this.subscriber) {
+      return;
+    }
+
+    void this.unsubscribeRedis(channel);
   }
 
   private handleMessage(channel: string, rawMessage: string): void {
@@ -129,5 +134,23 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Redis subscriber not initialized');
     }
     return this.subscriber;
+  }
+
+  private async subscribeRedis(channel: string): Promise<void> {
+    try {
+      await this.getSubscriber().subscribe(channel);
+      this.logger.debug(`Subscribed to platform pub/sub channel ${channel}`);
+    } catch (err: unknown) {
+      this.logger.error(`Failed to subscribe to platform pub/sub channel ${channel}`, err);
+    }
+  }
+
+  private async unsubscribeRedis(channel: string): Promise<void> {
+    try {
+      await this.getSubscriber().unsubscribe(channel);
+      this.logger.debug(`Unsubscribed from platform pub/sub channel ${channel}`);
+    } catch (err: unknown) {
+      this.logger.error(`Failed to unsubscribe from platform pub/sub channel ${channel}`, err);
+    }
   }
 }
