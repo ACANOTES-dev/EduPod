@@ -4,6 +4,14 @@
 
 Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. Two confirmed tenants pending onboarding.
 
+## Local Secrets
+
+Platform-admin production smoke credentials are stored locally at:
+
+`/Users/ram/.codex/secrets/edupod-platform-admin.env`
+
+Load `EDUPOD_PLATFORM_ADMIN_EMAIL` and `EDUPOD_PLATFORM_ADMIN_PASSWORD` from that file when a platform-admin login is needed for QA or smoke verification. Do not print the password, commit it, add it to repo docs, include it in screenshots/logs, or expose it in final answers.
+
 ## Reference Documents
 
 ```
