@@ -313,21 +313,30 @@ const { connected } = usePlatformSocket();
 
 ## Acceptance Criteria
 
-- [ ] `@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io` installed in `apps/api/package.json`
-- [ ] `socket.io-client` installed in `apps/web/package.json`
-- [ ] `PlatformModule` registered in `AppModule`
-- [ ] WebSocket gateway at `/platform` namespace accepts connections with valid platform-owner JWT
-- [ ] WebSocket gateway rejects connections without a token, with an invalid token, or from non-platform-owner users
-- [ ] `RedisPubSubService` can publish messages to any `platform:*` channel
-- [ ] `RedisPubSubService` receives messages from subscribed channels and invokes callbacks
-- [ ] `PlatformGateway` bridges Redis pub/sub messages to Socket.IO events
-- [ ] Frontend `PlatformSocketProvider` establishes a Socket.IO connection on mount
-- [ ] Frontend `usePlatformSocket()` hook provides `connected` state and `subscribe` function
-- [ ] Connection status indicator visible in platform layout header
-- [ ] Auto-reconnection works after brief disconnections
-- [ ] All tests pass: `platform.gateway.spec.ts`, `redis-pubsub.service.spec.ts`
-- [ ] `turbo lint` and `turbo type-check` pass with no new errors
-- [ ] No existing tests regress
+- [x] `@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io` installed in `apps/api/package.json`
+- [x] `socket.io-client` installed in `apps/web/package.json`
+- [x] `PlatformModule` registered in `AppModule`
+- [x] WebSocket gateway at `/platform` namespace accepts connections with valid platform-owner JWT
+- [x] WebSocket gateway rejects connections without a token, with an invalid token, or from non-platform-owner users
+- [x] `RedisPubSubService` can publish messages to any `platform:*` channel
+- [x] `RedisPubSubService` receives messages from subscribed channels and invokes callbacks
+- [x] `PlatformGateway` bridges Redis pub/sub messages to Socket.IO events
+- [x] Frontend `PlatformSocketProvider` establishes a Socket.IO connection on mount
+- [x] Frontend `usePlatformSocket()` hook provides `connected` state and `subscribe` function
+- [x] Connection status indicator visible in platform layout header
+- [x] Auto-reconnection works after brief disconnections
+- [x] All tests pass: `platform.gateway.spec.ts`, `redis-pubsub.service.spec.ts`
+- [x] `turbo lint` and `turbo type-check` pass with no new errors
+- [x] No existing tests regress
+
+---
+
+## Commits / CI / Notes
+
+- Commits: `215b64f7`, `9d5b379d`, `6b22cb0d`, `fecb8e8b`
+- CI: [25940620299](https://github.com/ACANOTES-dev/EduPod/actions/runs/25940620299) green after Redis lifecycle fix; [25941442993](https://github.com/ACANOTES-dev/EduPod/actions/runs/25941442993) green after production WebSocket path fix.
+- Production smoke: 2026-05-15 passed on `https://dua.edupod.app/en/login`; platform login succeeded, dashboard loaded, `/platform` Socket.IO namespace connected via `/api/socket.io`, and the layout indicator showed connected.
+- Note: the production smoke exposed one direct Session 1A transport blocker from the Session 0 stealth host routing: `/socket.io` was served by the web process, so the Socket.IO engine path was moved under `/api/socket.io` while keeping the required `/platform` namespace.
 
 ---
 
