@@ -167,6 +167,7 @@ describe('AuthService', () => {
     del: jest.Mock;
     sadd: jest.Mock;
     srem: jest.Mock;
+    sismember: jest.Mock;
     smembers: jest.Mock;
     expire: jest.Mock;
     incr: jest.Mock;
@@ -190,6 +191,7 @@ describe('AuthService', () => {
       del: jest.fn().mockResolvedValue(1),
       sadd: jest.fn().mockResolvedValue(1),
       srem: jest.fn().mockResolvedValue(1),
+      sismember: jest.fn().mockResolvedValue(0),
       smembers: jest.fn().mockResolvedValue([]),
       expire: jest.fn().mockResolvedValue(1),
       incr: jest.fn().mockResolvedValue(1),
@@ -736,6 +738,102 @@ describe('AuthService', () => {
       );
     });
 
+    it('should reject tenant users on the stealth platform host with invalid credentials', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+
+      await expect(
+        service.login(
+          MOCK_USER.email,
+          PASSWORD_PLAIN,
+          '127.0.0.1',
+          'jest-agent',
+          undefined,
+          undefined,
+          'dua.edupod.app',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockRateLimitService.recordFailedLogin).toHaveBeenCalledWith(
+        MOCK_USER.email,
+        '127.0.0.1',
+        'jest-agent',
+      );
+      expect(mockSecurityAuditService.logLoginFailure).toHaveBeenCalledWith(
+        MOCK_USER.email,
+        '127.0.0.1',
+        'INVALID_CREDENTIALS',
+        null,
+        'jest-agent',
+      );
+    });
+
+    it('should allow platform users on the stealth platform host', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+      redisClient.sismember.mockImplementation((key: string) =>
+        Promise.resolve(key === 'platform_owner_user_ids' ? 1 : 0),
+      );
+
+      const result = await service.login(
+        MOCK_USER.email,
+        PASSWORD_PLAIN,
+        '127.0.0.1',
+        'jest-agent',
+        undefined,
+        undefined,
+        'dua.edupod.app',
+      );
+
+      expect(result).toHaveProperty('access_token');
+      expect(redisClient.sismember).toHaveBeenCalledWith('platform_owner_user_ids', USER_ID);
+    });
+
+    it('should reject platform users on tenant hosts with invalid credentials', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      redisClient.sismember.mockImplementation((key: string) =>
+        Promise.resolve(key === 'platform_owner_user_ids' ? 1 : 0),
+      );
+
+      await expect(
+        service.login(
+          MOCK_USER.email,
+          PASSWORD_PLAIN,
+          '127.0.0.1',
+          'jest-agent',
+          TENANT_ID,
+          undefined,
+          'nhqs.edupod.app',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrisma.tenantMembership.findUnique).not.toHaveBeenCalled();
+      expect(mockSecurityAuditService.logLoginFailure).toHaveBeenCalledWith(
+        MOCK_USER.email,
+        '127.0.0.1',
+        'INVALID_CREDENTIALS',
+        TENANT_ID,
+        'jest-agent',
+      );
+    });
+
+    it('should treat bare localhost as neutral for platform test harness logins', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      const result = await service.login(
+        MOCK_USER.email,
+        PASSWORD_PLAIN,
+        '127.0.0.1',
+        'jest-agent',
+        undefined,
+        undefined,
+        '127.0.0.1:58123',
+      );
+
+      expect(result).toHaveProperty('access_token');
+      expect(redisClient.sismember).not.toHaveBeenCalled();
+    });
+
     // ─── Tenant context during login ────────────────────────────────────────
 
     it('should validate tenant membership when tenantId is provided', async () => {
@@ -1031,6 +1129,31 @@ describe('AuthService', () => {
         'EX',
         604800,
       );
+    });
+
+    it('should treat bare localhost as neutral for platform refresh sessions', async () => {
+      const refreshToken = service.signRefreshToken({
+        sub: USER_ID,
+        session_id: SESSION_ID,
+      });
+
+      const sessionData = {
+        user_id: USER_ID,
+        session_id: SESSION_ID,
+        tenant_id: null,
+        membership_id: null,
+        ip_address: '127.0.0.1',
+        user_agent: 'jest-agent',
+        created_at: '2026-01-01T00:00:00.000Z',
+        last_active_at: '2026-01-01T00:00:00.000Z',
+      };
+      mockSessionService.getSession.mockResolvedValue(sessionData);
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+
+      const result = await service.refresh(refreshToken, null, '127.0.0.1:58123');
+
+      expect(result).toHaveProperty('access_token');
+      expect(redisClient.sismember).not.toHaveBeenCalled();
     });
 
     it('should heal a tenant-less session when refresh is requested from a valid tenant host', async () => {

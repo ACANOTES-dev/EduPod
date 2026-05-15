@@ -37,6 +37,10 @@ import type {
 
 export type { LoginResult, MfaRequiredResult, MfaSetupResult, SanitisedUser, SessionInfo };
 
+const PLATFORM_HOST = 'dua.edupod.app';
+const PLATFORM_HOST_DEV = 'dua.localhost';
+const PLATFORM_USER_REDIS_KEYS = ['platform_owner_user_ids', 'platform_support_user_ids'] as const;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -114,6 +118,7 @@ export class AuthService {
     userAgent: string,
     tenantId?: string,
     mfaCode?: string,
+    originHost?: string,
   ): Promise<LoginResult | MfaRequiredResult> {
     // 1–4. Validate credentials and user status
     const user = await this.validateCredentialsAndStatus(
@@ -122,6 +127,15 @@ export class AuthService {
       ipAddress,
       userAgent,
       tenantId ?? null,
+    );
+
+    await this.enforceHostCredentialBoundary(
+      user.id,
+      email,
+      ipAddress,
+      userAgent,
+      tenantId ?? null,
+      originHost,
     );
 
     // 5. Tenant context checks
@@ -301,6 +315,7 @@ export class AuthService {
   async refresh(
     refreshToken: string,
     requestedTenantId?: string | null,
+    originHost?: string,
   ): Promise<{ access_token: string; refresh_token: string }> {
     // 1. Verify refresh token
     let payload: RefreshTokenPayload;
@@ -345,6 +360,8 @@ export class AuthService {
         message: 'Your account is no longer active',
       });
     }
+
+    await this.enforceRefreshHostBoundary(user.id, session.tenant_id, originHost);
 
     if (!session.tenant_id && requestedTenantId) {
       const membership = await runWithRlsContext(
@@ -873,6 +890,90 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  private async enforceHostCredentialBoundary(
+    userId: string,
+    email: string,
+    ipAddress: string,
+    userAgent: string,
+    tenantId: string | null,
+    originHost?: string,
+  ): Promise<void> {
+    const host = this.normaliseHost(originHost);
+    if (!host || this.isNeutralLocalHost(host)) return;
+
+    const isPlatformHost = host === PLATFORM_HOST || host === PLATFORM_HOST_DEV;
+    const isPlatformUser = await this.isPlatformUser(userId);
+
+    if ((isPlatformHost && !isPlatformUser) || (!isPlatformHost && isPlatformUser)) {
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.rateLimitService.recordIpFailedLogin(ipAddress);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
+  }
+
+  private async enforceRefreshHostBoundary(
+    userId: string,
+    sessionTenantId: string | null,
+    originHost?: string,
+  ): Promise<void> {
+    const host = this.normaliseHost(originHost);
+    if (!host || this.isNeutralLocalHost(host)) return;
+
+    const isPlatformHost = host === PLATFORM_HOST || host === PLATFORM_HOST_DEV;
+    const isPlatformUser = await this.isPlatformUser(userId);
+
+    if (
+      (isPlatformHost && (sessionTenantId || !isPlatformUser)) ||
+      (!isPlatformHost && isPlatformUser)
+    ) {
+      throw new UnauthorizedException({
+        code: 'INVALID_REFRESH_TOKEN',
+        message: 'Invalid or expired refresh token',
+      });
+    }
+  }
+
+  private async isPlatformUser(userId: string): Promise<boolean> {
+    const client = this.redis.getClient();
+
+    try {
+      for (const key of PLATFORM_USER_REDIS_KEYS) {
+        const isMember = await client.sismember(key, userId);
+        if (isMember) return true;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Platform user lookup failed for ${userId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
+
+    return false;
+  }
+
+  private normaliseHost(host?: string): string {
+    const rawHost = (host ?? '').split(',')[0]?.trim().toLowerCase() ?? '';
+    if (rawHost.startsWith('[')) {
+      return rawHost.replace(/]:\d+$/, ']').replace(/^\[(.*)]$/, '$1');
+    }
+
+    return rawHost.replace(/:\d+$/, '');
+  }
+
+  private isNeutralLocalHost(host: string): boolean {
+    return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
   }
 
   private sanitiseUser(user: {

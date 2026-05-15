@@ -20,7 +20,7 @@ import { cn } from '@school/ui';
 
 import { ErrorBoundary } from '@/components/error-boundary';
 import { apiClient } from '@/lib/api-client';
-import { RequireAuth } from '@/providers/auth-provider';
+import { useAuth } from '@/providers/auth-provider';
 
 interface NavItem {
   icon: LucideIcon;
@@ -36,9 +36,15 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const t = useTranslations();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
+  const isLoginPath =
+    pathname === `/${locale}/login` || (pathname ?? '').startsWith(`/${locale}/login/`);
 
   // Fetch open incident count for the alert badge
   React.useEffect(() => {
+    if (isLoginPath) {
+      return undefined;
+    }
+
     async function fetchOpenIncidents() {
       try {
         const res = await apiClient<{ meta: { total: number } }>(
@@ -52,7 +58,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     void fetchOpenIncidents();
     const interval = setInterval(() => void fetchOpenIncidents(), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoginPath]);
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: t('platform.admin.dashboard'), href: `/${locale}/admin` },
@@ -104,8 +110,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     </nav>
   );
 
+  if (isLoginPath) {
+    return <>{children}</>;
+  }
+
   return (
-    <RequireAuth>
+    <PlatformAccessGate>
       <div className="flex h-screen bg-background">
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
@@ -160,6 +170,39 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           </main>
         </div>
       </div>
-    </RequireAuth>
+    </PlatformAccessGate>
+  );
+}
+
+function PlatformAccessGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-700" />
+      </div>
+    );
+  }
+
+  const activeMemberships = (user?.memberships ?? []).filter(
+    (membership) => membership.membership_status === 'active',
+  );
+
+  if (!isAuthenticated || activeMemberships.length > 0) {
+    return <PlainNotFound />;
+  }
+
+  return <>{children}</>;
+}
+
+function PlainNotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-text-primary">
+      <div className="text-center">
+        <h1 className="text-3xl font-semibold">404</h1>
+        <p className="mt-2 text-sm text-text-secondary">Page not found</p>
+      </div>
+    </div>
   );
 }

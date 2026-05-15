@@ -119,6 +119,7 @@ describe('AuthController', () => {
         'jest-test',
         TENANT_ID,
         undefined,
+        '',
       );
       expect(result).toEqual({
         access_token: 'at-123',
@@ -215,6 +216,7 @@ describe('AuthController', () => {
         'jest-test',
         TENANT_ID,
         undefined,
+        '',
       );
     });
 
@@ -245,6 +247,7 @@ describe('AuthController', () => {
         'jest-test',
         dtoTenantId,
         undefined,
+        '',
       );
     });
 
@@ -303,6 +306,7 @@ describe('AuthController', () => {
         'jest-test',
         undefined,
         undefined,
+        '',
       );
     });
 
@@ -333,6 +337,7 @@ describe('AuthController', () => {
         'jest-test',
         undefined,
         undefined,
+        '',
       );
     });
 
@@ -363,6 +368,7 @@ describe('AuthController', () => {
         'unknown',
         undefined,
         undefined,
+        '',
       );
     });
 
@@ -392,6 +398,7 @@ describe('AuthController', () => {
         'jest-test',
         undefined,
         '123456',
+        '',
       );
     });
 
@@ -422,6 +429,7 @@ describe('AuthController', () => {
         'jest-test',
         undefined,
         undefined,
+        '',
       );
     });
 
@@ -473,6 +481,7 @@ describe('AuthController', () => {
         'jest-test',
         TENANT_ID,
         undefined,
+        '',
       );
       expect(warnSpy).not.toHaveBeenCalled();
     });
@@ -503,6 +512,75 @@ describe('AuthController', () => {
         'jest-test',
         TENANT_ID,
         undefined,
+        '',
+      );
+    });
+
+    it('should pass the normalized forwarded host to authService', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+
+      await controller.login(
+        { email: 'user@school.test', password: 'pass123' },
+        buildMockRequest({
+          headers: {
+            'x-forwarded-host': 'DUA.EDUPOD.APP:443',
+            'user-agent': 'jest-test',
+          },
+        }),
+        buildMockResponse(),
+        null,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        '127.0.0.1',
+        'jest-test',
+        undefined,
+        undefined,
+        'dua.edupod.app',
+      );
+    });
+
+    it('should scope the platform refresh cookie to the platform host', async () => {
+      const loginResult = {
+        access_token: 'at-123',
+        refresh_token: 'rt-456',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+      const originalNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      const res = buildMockResponse();
+
+      await controller.login(
+        { email: 'user@school.test', password: 'pass123' },
+        buildMockRequest({
+          headers: {
+            'x-forwarded-host': 'dua.edupod.app',
+            'user-agent': 'jest-test',
+          },
+        }),
+        res,
+        null,
+      );
+
+      process.env.NODE_ENV = originalNodeEnv;
+
+      expect(res.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        'rt-456',
+        expect.objectContaining({
+          domain: 'dua.edupod.app',
+          httpOnly: true,
+          sameSite: 'strict',
+          secure: true,
+        }),
       );
     });
   });
@@ -518,7 +596,7 @@ describe('AuthController', () => {
       const res = buildMockResponse();
       const result = await controller.refresh(req, res, mockTenantContext);
 
-      expect(service.refresh).toHaveBeenCalledWith('rt-cookie', TENANT_ID);
+      expect(service.refresh).toHaveBeenCalledWith('rt-cookie', TENANT_ID, '');
       expect(result).toEqual({ access_token: 'new-at' });
       expect(res.cookie).toHaveBeenCalledWith(
         'refresh_token',

@@ -10,6 +10,10 @@ import { Button, Input, Label } from '@school/ui';
 
 import { useAuth, type AuthUser } from '@/providers/auth-provider';
 
+import { PlatformLoginForm } from '../../(platform)/login/_components/login-form';
+
+const PLATFORM_HOSTS = new Set(['dua.edupod.app', 'dua.localhost']);
+
 export default function LoginPage() {
   const t = useTranslations('auth');
   const router = useRouter();
@@ -25,7 +29,12 @@ export default function LoginPage() {
   const [, setMfaSessionToken] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isPlatformHost, setIsPlatformHost] = React.useState<boolean | null>(null);
   const isRedirecting = React.useRef(false);
+
+  React.useEffect(() => {
+    setIsPlatformHost(PLATFORM_HOSTS.has(window.location.hostname.toLowerCase()));
+  }, []);
 
   // Sanitise redirect: only allow relative paths to prevent open-redirect attacks
   const rawRedirect = searchParams?.get('redirect') ?? null;
@@ -99,6 +108,14 @@ export default function LoginPage() {
         });
     }
   }, [user, router, redirectTo, locale, switchTenant, getDashboardPath]);
+
+  if (isPlatformHost === null) {
+    return null;
+  }
+
+  if (isPlatformHost) {
+    return <PlatformLoginForm />;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

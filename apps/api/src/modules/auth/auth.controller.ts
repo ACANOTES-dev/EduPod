@@ -39,6 +39,10 @@ import type { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto';
 import type { PasswordResetRequestDto } from './dto/password-reset-request.dto';
 import type { SwitchTenantDto } from './dto/switch-tenant.dto';
 
+const PLATFORM_HOST = 'dua.edupod.app';
+const PLATFORM_HOST_DEV = 'dua.localhost';
+const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Controller('v1/auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -57,6 +61,7 @@ export class AuthController {
     const ipAddress =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
+    const originHost = getOriginHost(req);
 
     // Host-resolved tenant always wins; body tenant_id is fallback for platform-level login
     let tenantId: string | undefined;
@@ -78,6 +83,7 @@ export class AuthController {
       userAgent,
       tenantId,
       dto.mfa_code,
+      originHost,
     );
 
     // If MFA required, return early without setting cookie
@@ -87,11 +93,8 @@ export class AuthController {
 
     // Set refresh token as httpOnly cookie
     res.cookie('refresh_token', result.refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/api/v1/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      ...buildRefreshCookieOptions(originHost),
+      maxAge: REFRESH_COOKIE_MAX_AGE_MS,
     });
 
     return {
@@ -115,15 +118,17 @@ export class AuthController {
       );
     }
 
-    const result = await this.authService.refresh(refreshToken, tenantContext?.tenant_id);
+    const originHost = getOriginHost(req);
+    const result = await this.authService.refresh(
+      refreshToken,
+      tenantContext?.tenant_id,
+      originHost,
+    );
 
     // RC-C019: Rotate refresh token — set the new token as an httpOnly cookie
     res.cookie('refresh_token', result.refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/api/v1/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      ...buildRefreshCookieOptions(originHost),
+      maxAge: REFRESH_COOKIE_MAX_AGE_MS,
     });
 
     return { access_token: result.access_token };
@@ -153,10 +158,7 @@ export class AuthController {
 
     // Clear the refresh token cookie
     res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/api/v1/auth/refresh',
+      ...buildRefreshCookieOptions(getOriginHost(req)),
     });
   }
 
@@ -261,4 +263,33 @@ export class AuthController {
   async revokeSession(@CurrentUser() user: JwtPayload, @Param('id') sessionId: string) {
     await this.authService.revokeSession(user.sub, sessionId);
   }
+}
+
+function getOriginHost(req: Request): string {
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const host = Array.isArray(forwardedHost)
+    ? (forwardedHost[0] ?? '')
+    : forwardedHost || req.headers.host || '';
+
+  return normaliseHost(host);
+}
+
+function normaliseHost(host: string): string {
+  return host.split(',')[0]?.trim().toLowerCase().replace(/:\d+$/, '') ?? '';
+}
+
+function isPlatformHost(host: string): boolean {
+  return host === PLATFORM_HOST || host === PLATFORM_HOST_DEV;
+}
+
+function buildRefreshCookieOptions(host: string) {
+  const platformHost = isPlatformHost(host);
+
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: platformHost ? ('strict' as const) : ('lax' as const),
+    path: '/api/v1/auth/refresh',
+    ...(platformHost && process.env.NODE_ENV === 'production' ? { domain: PLATFORM_HOST } : {}),
+  };
 }

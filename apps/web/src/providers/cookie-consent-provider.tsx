@@ -12,6 +12,8 @@ import {
   type ConsentCategories,
 } from '@/lib/cookie-consent';
 
+const STEALTH_PLATFORM_HOSTS = new Set(['dua.edupod.app', 'dua.localhost']);
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
@@ -21,6 +23,10 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
   const [analyticsEnabled, setAnalyticsEnabled] = React.useState(false);
 
   React.useEffect(() => {
+    if (STEALTH_PLATFORM_HOSTS.has(window.location.hostname.toLowerCase())) {
+      return;
+    }
+
     const consent = getConsent();
     if (!consent || hasConsentExpired()) {
       setVisible(true);

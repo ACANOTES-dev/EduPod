@@ -9,9 +9,15 @@ import * as React from 'react';
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const [schoolName, setSchoolName] = React.useState('School OS');
+  const [isPlatformHost, setIsPlatformHost] = React.useState(false);
 
   React.useEffect(() => {
     const hostname = window.location.hostname;
+    if (hostname === 'dua.edupod.app' || hostname === 'dua.localhost') {
+      setIsPlatformHost(true);
+      return;
+    }
+
     const parts = hostname.split('.');
     // If subdomain exists (e.g., nhqs.edupod.app has 3+ parts), use it
     if (parts.length >= 3 && parts[0] && parts[0] !== 'www') {
@@ -22,9 +28,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-surface to-background px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">{schoolName}</h1>
-        </div>
+        {!isPlatformHost ? (
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold tracking-tight text-text-primary">{schoolName}</h1>
+          </div>
+        ) : null}
         {children}
       </div>
     </div>
