@@ -11717,3 +11717,14 @@ model BudgetingTenantPreferences {
 
   @@map("budgeting_tenant_preferences")
 }
+
+model PlatformHealthSnapshot {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status     String   @db.VarChar(20)
+  checks     Json     @db.JsonB
+  uptime     Int
+  created_at DateTime @default(now()) @db.Timestamptz()
+
+  @@index([created_at(sort: Desc)], map: "idx_platform_health_snapshots_created_at")
+  @@map("platform_health_snapshots")
+}
