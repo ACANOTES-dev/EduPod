@@ -3,6 +3,7 @@ import {
   isPlatformHost,
   isPlatformLoginPath,
   isRetiredAdminPath,
+  isSocketIoPath,
   normaliseHost,
 } from '../../middleware';
 
@@ -33,5 +34,12 @@ describe('stealth subdomain middleware helpers', () => {
     expect(isRetiredAdminPath('/en/admin/health')).toBe(true);
     expect(isRetiredAdminPath('/en/dashboard')).toBe(false);
     expect(isRetiredAdminPath('/admin')).toBe(false);
+  });
+
+  it('recognises Socket.IO transport paths for middleware bypass', () => {
+    expect(isSocketIoPath('/socket.io')).toBe(true);
+    expect(isSocketIoPath('/socket.io/')).toBe(true);
+    expect(isSocketIoPath('/socket.io/admin')).toBe(true);
+    expect(isSocketIoPath('/en/socket.io')).toBe(false);
   });
 });

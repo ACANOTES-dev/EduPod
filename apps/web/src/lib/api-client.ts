@@ -1,6 +1,7 @@
 import { handleApiError, type ApiErrorPayload } from './handle-api-error';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+export const ACCESS_TOKEN_CHANGED_EVENT = 'edupod:access-token-changed';
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
@@ -13,6 +14,9 @@ export function setApiErrorHandler(handler: ((error: ApiErrorPayload) => void) |
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ACCESS_TOKEN_CHANGED_EVENT));
+  }
 }
 
 export function getAccessToken(): string | null {
@@ -245,7 +249,7 @@ async function doRefresh(): Promise<boolean> {
 
     if (response.ok) {
       const data = await response.json();
-      accessToken = data.data?.access_token || null;
+      setAccessToken(data.data?.access_token || null);
       return !!accessToken;
     }
     return false;

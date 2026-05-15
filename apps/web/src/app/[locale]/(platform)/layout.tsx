@@ -19,8 +19,10 @@ import * as React from 'react';
 import { cn } from '@school/ui';
 
 import { ErrorBoundary } from '@/components/error-boundary';
+import { usePlatformSocket } from '@/hooks/use-platform-socket';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
+import { PlatformSocketProvider } from '@/providers/platform-socket-provider';
 
 interface NavItem {
   icon: LucideIcon;
@@ -116,61 +118,103 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
   return (
     <PlatformAccessGate>
-      <div className="flex h-screen bg-background">
-        {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
-          <div className="flex h-14 items-center border-b border-border px-5">
-            <span className="text-sm font-semibold text-text-primary">
-              {t('platform.admin.title')}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
-        </aside>
-
-        {/* Mobile sidebar overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-            <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
-              <div className="flex h-14 items-center justify-between border-b border-border px-5">
-                <span className="text-sm font-semibold text-text-primary">
-                  {t('platform.admin.title')}
-                </span>
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  className="p-1 text-text-secondary hover:text-text-primary"
-                  aria-label={t('common.close')}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
-            </aside>
-          </div>
-        )}
-
-        {/* Main content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
-            <button
-              className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
-              onClick={() => setMobileOpen(true)}
-              aria-label={t('sidebar.openMenu')}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <h1 className="text-lg font-semibold text-text-primary lg:hidden">
-              {t('platform.admin.title')}
-            </h1>
-          </header>
-          <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-            <ErrorBoundary resetKeys={[pathname]}>
-              <div className="mx-auto max-w-content">{children}</div>
-            </ErrorBoundary>
-          </main>
-        </div>
-      </div>
+      <PlatformSocketProvider>
+        <PlatformShell
+          closeLabel={t('common.close')}
+          mobileOpen={mobileOpen}
+          openMenuLabel={t('sidebar.openMenu')}
+          pathname={pathname}
+          setMobileOpen={setMobileOpen}
+          sidebarNav={sidebarNav}
+          title={t('platform.admin.title')}
+        >
+          {children}
+        </PlatformShell>
+      </PlatformSocketProvider>
     </PlatformAccessGate>
+  );
+}
+
+function PlatformShell({
+  children,
+  closeLabel,
+  mobileOpen,
+  openMenuLabel,
+  pathname,
+  setMobileOpen,
+  sidebarNav,
+  title,
+}: {
+  children: React.ReactNode;
+  closeLabel: string;
+  mobileOpen: boolean;
+  openMenuLabel: string;
+  pathname: string | null;
+  setMobileOpen: (open: boolean) => void;
+  sidebarNav: React.ReactNode;
+  title: string;
+}) {
+  const { connected } = usePlatformSocket();
+
+  return (
+    <div className="flex h-screen bg-background">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
+        <div className="flex h-14 items-center border-b border-border px-5">
+          <span className="text-sm font-semibold text-text-primary">{title}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+      </aside>
+
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
+            <div className="flex h-14 items-center justify-between border-b border-border px-5">
+              <span className="text-sm font-semibold text-text-primary">{title}</span>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1 text-text-secondary hover:text-text-primary"
+                aria-label={closeLabel}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+          </aside>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
+          <button
+            className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
+            onClick={() => setMobileOpen(true)}
+            aria-label={openMenuLabel}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn(
+                'h-2 w-2 shrink-0 rounded-full',
+                connected ? 'bg-success-text' : 'bg-danger-dot',
+              )}
+              aria-label={connected ? 'Real-time connected' : 'Real-time disconnected'}
+              role="status"
+            />
+            <h1 className="truncate text-lg font-semibold text-text-primary lg:text-sm">{title}</h1>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+          <ErrorBoundary resetKeys={[pathname]}>
+            <div className="mx-auto max-w-content">{children}</div>
+          </ErrorBoundary>
+        </main>
+      </div>
+    </div>
   );
 }
 

@@ -14,6 +14,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${API_URL}/api/:path*`,
       },
+      {
+        source: '/socket.io/:path*',
+        destination: `${API_URL}/socket.io/:path*`,
+      },
     ];
   },
   async redirects() {

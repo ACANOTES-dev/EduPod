@@ -21,5 +21,6 @@ import { HealthService } from './health.service';
   ],
   controllers: [AdminHealthController, HealthController],
   providers: [HealthService, PlatformOwnerGuard],
+  exports: [HealthService],
 })
 export class HealthModule {}

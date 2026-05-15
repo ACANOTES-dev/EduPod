@@ -54,6 +54,7 @@ import { PayrollModule } from './modules/payroll/payroll.module';
 import { PdfRenderingModule } from './modules/pdf-rendering/pdf-rendering.module';
 import { PeopleDashboardModule } from './modules/people-dashboard/people-dashboard.module';
 import { PeriodGridModule } from './modules/period-grid/period-grid.module';
+import { PlatformModule } from './modules/platform/platform.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PublicHouseholdsModule } from './modules/public-households/public-households.module';
@@ -120,6 +121,7 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
     CommonModule,
     ReadFacadesModule,
     HealthModule,
+    PlatformModule,
     AuthModule,
     S3Module,
     TenantsModule,

@@ -35,6 +35,10 @@ export function isRetiredAdminPath(pathname: string): boolean {
   return /^\/[a-z]{2}\/admin(?:\/|$)/.test(pathname);
 }
 
+export function isSocketIoPath(pathname: string): boolean {
+  return pathname === '/socket.io' || pathname.startsWith('/socket.io/');
+}
+
 export default function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
@@ -69,5 +73,5 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
+  matcher: ['/((?!api|socket.io|_next|_vercel|.*\\..*).*)'],
 };
