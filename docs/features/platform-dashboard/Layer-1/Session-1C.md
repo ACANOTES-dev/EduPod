@@ -892,22 +892,22 @@ Add real-time unacknowledged alert count to the sidebar "Alerts" nav item.
 
 ## Acceptance Criteria
 
-- [ ] `platform_alert_rules` and `platform_alert_history` tables exist in the database
-- [ ] Alert rule CRUD endpoints work correctly (create, list, update, delete)
-- [ ] Alert evaluation runs every 30 seconds and checks all enabled rules
-- [ ] All 6 condition operators evaluate correctly
-- [ ] Cooldown periods are respected (no re-fire within cooldown window)
-- [ ] Sustained duration conditions are tracked across evaluation cycles
-- [ ] Email notifications are sent via Resend when alerts fire
-- [ ] Alerts auto-resolve when the condition clears
-- [ ] Alert history endpoint supports filtering by status, severity, and rule
-- [ ] Acknowledge endpoint transitions alert from `fired` to `acknowledged`
-- [ ] Alerts page renders with History and Rules tabs
-- [ ] Alert rule form allows creating and editing rules
-- [ ] Real-time alert indicator shows unacknowledged count in sidebar
-- [ ] New alerts appear in the history table without page refresh (via WebSocket)
-- [ ] All tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
+- [x] `platform_alert_rules` and `platform_alert_history` tables exist in the database
+- [x] Alert rule CRUD endpoints work correctly (create, list, update, delete)
+- [x] Alert evaluation runs every 30 seconds and checks all enabled rules
+- [x] All 6 condition operators evaluate correctly
+- [x] Cooldown periods are respected (no re-fire within cooldown window)
+- [x] Sustained duration conditions are tracked across evaluation cycles
+- [x] Email notifications are sent via Resend when alerts fire
+- [x] Alerts auto-resolve when the condition clears
+- [x] Alert history endpoint supports filtering by status, severity, and rule
+- [x] Acknowledge endpoint transitions alert from `fired` to `acknowledged`
+- [x] Alerts page renders with History and Rules tabs
+- [x] Alert rule form allows creating and editing rules
+- [x] Real-time alert indicator shows unacknowledged count in sidebar
+- [x] New alerts appear in the history table without page refresh (via WebSocket)
+- [x] All tests pass
+- [x] `turbo lint` and `turbo type-check` pass
 
 ---
 
@@ -950,3 +950,11 @@ Also create in `_components/`:
 | `packages/shared/src/schemas/platform.ts`                      | Add alert rule and history schemas                                                   |
 | `packages/shared/src/index.ts`                                 | Export new schemas                                                                   |
 | `packages/prisma/prisma/schema.prisma`                         | Add PlatformAlertRule, PlatformAlertHistory models, AlertSeverity, AlertStatus enums |
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `c2351351` (`feat(platform): add admin alert framework`)
+- CI run: [main CI / Deploy #25945536142](https://github.com/ACANOTES-dev/EduPod/actions/runs/25945536142) -- passed, including deploy
+- Production smoke: 2026-05-16 (Europe/Dublin) -- passed. Verified platform login, dashboard load, real-time connection indicator, Alerts page, no-email smoke rule creation, evaluator-fired history row, acknowledgement workflow, cleanup delete, and the Session 1B health dashboard.
