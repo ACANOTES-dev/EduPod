@@ -27,6 +27,7 @@ import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
 import { backfillInboxPermissionsForTenant } from '../inbox/inbox-permissions.init';
+import { OnboardingService } from '../platform/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
@@ -133,6 +134,12 @@ interface ListTenantsFilter {
   search?: string;
 }
 
+interface TenantOnboardingSummary {
+  total: number;
+  completed: number;
+  percent_complete: number;
+}
+
 @Injectable()
 export class TenantsService {
   private readonly logger = new Logger(TenantsService.name);
@@ -146,6 +153,7 @@ export class TenantsService {
     private readonly rbacReadFacade: RbacReadFacade,
     private readonly tenantModuleService: TenantModuleService,
     private readonly tenantModuleCacheBusService: TenantModuleCacheBusService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   /**
@@ -292,6 +300,8 @@ export class TenantsService {
     // Tenants opt in via Settings → Reports; they absorb the Anthropic cost.
     await seedReportsDefaultsForTenant(this.prisma, tenant.id);
 
+    await this.onboardingService.seedDefaultSteps(tenant.id);
+
     // Backfill inbox.* and safeguarding.* permission grants for the new
     // tenant's admin-tier roles immediately. Without this, a tenant
     // created after boot would have to wait until the next app restart
@@ -356,8 +366,15 @@ export class TenantsService {
       this.prisma.tenant.count({ where }),
     ]);
 
+    const tenantsWithOnboarding = await Promise.all(
+      data.map(async (tenant) => ({
+        ...tenant,
+        onboarding: await this.getOnboardingSummary(tenant.id),
+      })),
+    );
+
     return {
-      data,
+      data: tenantsWithOnboarding,
       meta: { page, pageSize, total },
     };
   }
@@ -808,6 +825,22 @@ export class TenantsService {
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
+
+  private async getOnboardingSummary(tenantId: string): Promise<TenantOnboardingSummary | null> {
+    const steps = await this.prisma.tenantOnboardingStep.findMany({
+      where: { tenant_id: tenantId },
+      select: { status: true },
+    });
+    const total = steps.length;
+    if (total === 0) return null;
+
+    const completed = steps.filter((step) => step.status === 'completed').length;
+    return {
+      total,
+      completed,
+      percent_complete: Math.round((completed / total) * 100),
+    };
+  }
 
   /**
    * Invalidate all cached domain → tenant mappings for a tenant.

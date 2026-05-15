@@ -14,14 +14,26 @@ import { AlertRulesController } from './alert-rules.controller';
 import { AlertRulesService } from './alert-rules.service';
 import { HealthHistoryController } from './health-history.controller';
 import { HealthSnapshotService } from './health-snapshot.service';
+import { OnboardingController } from './onboarding.controller';
+import { PlatformOnboardingModule } from './platform-onboarding.module';
+import { PlatformRealtimeModule } from './platform-realtime.module';
 import { PlatformGateway } from './platform.gateway';
-import { RedisPubSubService } from './redis-pubsub.service';
 
 @Module({
-  imports: [AuthModule, CommunicationsModule, HealthModule],
-  controllers: [HealthHistoryController, AlertRulesController, AlertHistoryController],
+  imports: [
+    AuthModule,
+    CommunicationsModule,
+    HealthModule,
+    PlatformOnboardingModule,
+    PlatformRealtimeModule,
+  ],
+  controllers: [
+    HealthHistoryController,
+    AlertRulesController,
+    AlertHistoryController,
+    OnboardingController,
+  ],
   providers: [
-    RedisPubSubService,
     PlatformGateway,
     HealthSnapshotService,
     AlertRulesService,
@@ -30,6 +42,6 @@ import { RedisPubSubService } from './redis-pubsub.service';
     AlertDispatchService,
     PlatformOwnerGuard,
   ],
-  exports: [RedisPubSubService],
+  exports: [PlatformOnboardingModule, PlatformRealtimeModule],
 })
 export class PlatformModule {}

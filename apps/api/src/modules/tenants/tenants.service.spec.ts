@@ -9,6 +9,7 @@ import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
+import { OnboardingService } from '../platform/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
@@ -60,6 +61,10 @@ const mockTenantModuleCacheBusService = {
   publishInvalidation: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockOnboardingService = {
+  seedDefaultSteps: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockPrisma = {
   tenant: {
     findUnique: jest.fn(),
@@ -108,6 +113,9 @@ const mockPrisma = {
   tenantMembership: {
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn(),
+  },
+  tenantOnboardingStep: {
+    findMany: jest.fn().mockResolvedValue([]),
   },
   user: {
     count: jest.fn(),
@@ -183,6 +191,7 @@ describe('TenantsService', () => {
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
         { provide: TenantModuleCacheBusService, useValue: mockTenantModuleCacheBusService },
         { provide: TenantModuleService, useValue: mockTenantModuleService },
+        { provide: OnboardingService, useValue: mockOnboardingService },
       ],
     }).compile();
 
@@ -333,6 +342,8 @@ describe('TenantsService', () => {
       );
 
       expect(mockPrisma.tenantSequence.create).toHaveBeenCalledTimes(SEQUENCE_TYPES.length);
+
+      expect(mockOnboardingService.seedDefaultSteps).toHaveBeenCalledWith('new-tenant-id');
 
       expect(result).toEqual(fullTenantWithIncludes);
     });
@@ -584,7 +595,7 @@ describe('TenantsService', () => {
       const result = await service.listTenants({ page: 1, pageSize: 20 });
 
       expect(result).toEqual({
-        data: tenants,
+        data: [{ id: TENANT_ID, name: 'School A', status: 'active', onboarding: null }],
         meta: { page: 1, pageSize: 20, total: 1 },
       });
       expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith(
@@ -594,6 +605,29 @@ describe('TenantsService', () => {
           orderBy: { created_at: 'desc' },
         }),
       );
+    });
+
+    it('should include onboarding progress when steps exist', async () => {
+      const tenants = [{ id: TENANT_ID, name: 'School A', status: 'active' }];
+      mockPrisma.tenant.findMany.mockResolvedValueOnce(tenants);
+      mockPrisma.tenant.count.mockResolvedValueOnce(1);
+      mockPrisma.tenantOnboardingStep.findMany.mockResolvedValueOnce([
+        { status: 'completed' },
+        { status: 'completed' },
+        { status: 'pending' },
+      ]);
+
+      const result = await service.listTenants({ page: 1, pageSize: 20 });
+
+      expect(result.data).toEqual([
+        expect.objectContaining({
+          onboarding: {
+            total: 3,
+            completed: 2,
+            percent_complete: 67,
+          },
+        }),
+      ]);
     });
 
     it('should apply status filter when provided', async () => {

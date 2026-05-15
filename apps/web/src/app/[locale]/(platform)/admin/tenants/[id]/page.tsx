@@ -1,6 +1,15 @@
 'use client';
 
-import { ArrowLeft, Globe, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ClipboardCheck,
+  Globe,
+  Loader2,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
@@ -22,6 +31,8 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+
+import { OnboardingTracker } from './_components/onboarding-tracker';
 
 // ---------- Types ----------
 
@@ -54,7 +65,7 @@ interface TenantDetail {
   modules: TenantModule[];
 }
 
-type TabKey = 'overview' | 'domains' | 'modules';
+type TabKey = 'overview' | 'domains' | 'modules' | 'onboarding';
 
 const statusVariantMap: Record<TenantDetail['status'], 'success' | 'warning' | 'neutral'> = {
   active: 'success',
@@ -140,6 +151,7 @@ export default function TenantDetailPage() {
       { key: 'overview', label: 'Overview', icon: Settings },
       { key: 'domains', label: 'Domains', icon: Globe },
       { key: 'modules', label: 'Modules', icon: Settings },
+      { key: 'onboarding', label: 'Onboarding', icon: ClipboardCheck },
     ];
 
   return (
@@ -191,6 +203,7 @@ export default function TenantDetailPage() {
         {activeTab === 'overview' && <OverviewTab tenant={tenant} onUpdate={fetchTenant} />}
         {activeTab === 'domains' && <DomainsTab tenant={tenant} onUpdate={fetchTenant} />}
         {activeTab === 'modules' && <ModulesTab tenant={tenant} onUpdate={fetchTenant} />}
+        {activeTab === 'onboarding' && <OnboardingTracker tenantId={tenant.id} />}
       </div>
     </div>
   );

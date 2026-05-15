@@ -4,15 +4,16 @@ This directory contains ADRs (Architecture Decision Records) for the School Oper
 
 ## Index
 
-| ADR                                                       | Title                                              | Status                         | Date       |
-| --------------------------------------------------------- | -------------------------------------------------- | ------------------------------ | ---------- |
-| [ADR-001](ADR-001-prisma-direct-reads.md)                 | Prisma-Direct Reads for Cross-Module Data Access   | Accepted (with migration plan) | 2026-04-01 |
-| [ADR-002](ADR-002-survey-responses-no-rls.md)             | survey_responses Table Has No tenant_id and No RLS | Accepted                       | 2026-04-01 |
-| [ADR-003](ADR-003-tenant-aware-job-raw-sql.md)            | TenantAwareJob Uses Raw SQL for RLS Context        | Accepted                       | 2026-04-01 |
-| [ADR-004](ADR-004-sub-module-extraction-pattern.md)       | Module Sub-Module Extraction Pattern               | Accepted                       | 2026-04-01 |
-| [ADR-005](ADR-005-cross-cutting-dependency-review.md)     | Require ADR for New Cross-Cutting Dependencies     | Accepted                       | 2026-04-01 |
-| [ADR-006](ADR-006-platform-health-snapshot-dependency.md) | Platform Health Snapshot Dependency                | Accepted                       | 2026-05-15 |
-| [ADR-007](ADR-007-platform-alert-email-dispatch.md)       | Platform Alert Email Dispatch                      | Accepted                       | 2026-05-15 |
+| ADR                                                         | Title                                              | Status                         | Date       |
+| ----------------------------------------------------------- | -------------------------------------------------- | ------------------------------ | ---------- |
+| [ADR-001](ADR-001-prisma-direct-reads.md)                   | Prisma-Direct Reads for Cross-Module Data Access   | Accepted (with migration plan) | 2026-04-01 |
+| [ADR-002](ADR-002-survey-responses-no-rls.md)               | survey_responses Table Has No tenant_id and No RLS | Accepted                       | 2026-04-01 |
+| [ADR-003](ADR-003-tenant-aware-job-raw-sql.md)              | TenantAwareJob Uses Raw SQL for RLS Context        | Accepted                       | 2026-04-01 |
+| [ADR-004](ADR-004-sub-module-extraction-pattern.md)         | Module Sub-Module Extraction Pattern               | Accepted                       | 2026-04-01 |
+| [ADR-005](ADR-005-cross-cutting-dependency-review.md)       | Require ADR for New Cross-Cutting Dependencies     | Accepted                       | 2026-04-01 |
+| [ADR-006](ADR-006-platform-health-snapshot-dependency.md)   | Platform Health Snapshot Dependency                | Accepted                       | 2026-05-15 |
+| [ADR-007](ADR-007-platform-alert-email-dispatch.md)         | Platform Alert Email Dispatch                      | Accepted                       | 2026-05-15 |
+| [ADR-008](ADR-008-platform-onboarding-provider-boundary.md) | Platform Onboarding Provider Boundary              | Accepted                       | 2026-05-16 |
 
 ## When to Write an ADR
 

@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-16 (Session 1D platform onboarding tracker: documented `BillingStatus` and `OnboardingStepStatus`). Previously: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -678,6 +678,31 @@ active    -> [suspended, archived]
 suspended -> [active, archived]
 archived*
 ```
+
+### BillingStatus
+
+```
+trial      -> [active, past_due, cancelled]
+active     -> [past_due, cancelled]
+past_due   -> [active, cancelled]
+cancelled*
+```
+
+- **Guarded by**: Session 1D stores the status on `tenants.billing_status`; no billing automation transition service exists yet.
+- **Side effects**: `billing_status_set` in the platform onboarding tracker is manual in Session 1D and records only onboarding completion. It does not suspend tenants, trigger invoicing, or perform Layer 2 billing/audit work.
+
+### OnboardingStepStatus
+
+```
+pending     -> [in_progress, completed, skipped]
+in_progress -> [pending, completed, skipped]
+completed   -> [pending, in_progress, skipped]
+skipped     -> [pending, in_progress, completed]
+```
+
+- **Guarded by**: `OnboardingService.updateStep()` validates blockers before allowing `completed` unless the update is an auto-complete event.
+- **Side effects**: Every update publishes a `platform:onboarding` Redis pub/sub payload consumed by the platform WebSocket gateway as `onboarding:update`.
+- **Scope**: Platform-level, no tenant RLS. The rows are tenant-associated by `tenant_id`, but the controller is guarded by platform-owner access only.
 
 ### MembershipStatus
 

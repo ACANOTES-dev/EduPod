@@ -11,6 +11,8 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { OnboardingProgressBar } from './[id]/_components/onboarding-progress-bar';
+
 interface Tenant {
   id: string;
   name: string;
@@ -18,6 +20,11 @@ interface Tenant {
   status: 'active' | 'suspended' | 'archived';
   default_locale: string;
   created_at: string;
+  onboarding: {
+    total: number;
+    completed: number;
+    percent_complete: number;
+  } | null;
 }
 
 interface TenantListResponse {
@@ -143,6 +150,23 @@ export default function TenantListPage() {
       render: (tenant: Tenant) => (
         <span className="text-text-secondary">{tenant.default_locale.toUpperCase()}</span>
       ),
+    },
+    {
+      key: 'onboarding',
+      header: 'Onboarding',
+      render: (tenant: Tenant) =>
+        tenant.onboarding ? (
+          <div className="min-w-32 max-w-40">
+            <OnboardingProgressBar
+              compact
+              completed={tenant.onboarding.completed}
+              percentComplete={tenant.onboarding.percent_complete}
+              total={tenant.onboarding.total}
+            />
+          </div>
+        ) : (
+          <span className="text-xs text-text-tertiary">Not started</span>
+        ),
     },
     {
       key: 'created_at',

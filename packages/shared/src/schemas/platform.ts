@@ -108,3 +108,19 @@ export const alertHistoryQuerySchema = z.object({
 });
 
 export type AlertHistoryQuery = z.infer<typeof alertHistoryQuerySchema>;
+
+// ─── Tenant Onboarding ───────────────────────────────────────────────────────
+
+export const onboardingStepStatusSchema = z.enum([
+  'pending',
+  'in_progress',
+  'completed',
+  'skipped',
+]);
+
+export const updateOnboardingStepSchema = z.object({
+  status: onboardingStepStatusSchema,
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export type UpdateOnboardingStepDto = z.infer<typeof updateOnboardingStepSchema>;

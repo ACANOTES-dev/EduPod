@@ -17,6 +17,33 @@ enum TenantStatus {
   archived
 }
 
+enum BillingStatus {
+  active
+  past_due
+  cancelled
+
+  @@map("billing_status")
+}
+
+enum OnboardingPhase {
+  infrastructure
+  data
+  configuration
+  go_live
+
+  @@map("onboarding_phase")
+}
+
+enum OnboardingStepStatus {
+  pending
+  in_progress
+  completed
+  skipped
+  blocked
+
+  @@map("onboarding_step_status")
+}
+
 enum DomainType {
   app
   public_site
@@ -512,23 +539,24 @@ enum ContactFormStatus {
 // ─── Platform & Tenancy ──────────────────────────────────────────────────────
 
 model Tenant {
-  id                        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                      String       @db.VarChar(255)
-  slug                      String       @unique @db.VarChar(100)
-  status                    TenantStatus @default(active)
-  default_locale            String       @default("en") @db.VarChar(10)
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String        @db.VarChar(255)
+  slug                      String        @unique @db.VarChar(100)
+  status                    TenantStatus  @default(active)
+  billing_status            BillingStatus @default(active)
+  default_locale            String        @default("en") @db.VarChar(10)
   // supported_locales lists every locale this tenant can serve. Backfilled
   // to {en, ar} for every existing tenant in migration
   // 20260428000000_add_locale_expansion_columns. New tenants default to {en}
   // only — platform admin opts them into more later. Enforced via DB CHECK
   // that default_locale must be in supported_locales.
-  supported_locales         String[]     @default(["en"]) @db.VarChar(10)
-  timezone                  String       @db.VarChar(100)
-  date_format               String       @db.VarChar(50)
-  currency_code             String       @db.VarChar(10)
-  academic_year_start_month Int          @db.SmallInt
-  created_at                DateTime     @default(now()) @db.Timestamptz()
-  updated_at                DateTime     @default(now()) @updatedAt @db.Timestamptz()
+  supported_locales         String[]      @default(["en"]) @db.VarChar(10)
+  timezone                  String        @db.VarChar(100)
+  date_format               String        @db.VarChar(50)
+  currency_code             String        @db.VarChar(10)
+  academic_year_start_month Int           @db.SmallInt
+  created_at                DateTime      @default(now()) @db.Timestamptz()
+  updated_at                DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   domains               TenantDomain[]
@@ -547,6 +575,7 @@ model Tenant {
   approval_workflows    ApprovalWorkflow[]
   approval_requests     ApprovalRequest[]
   user_ui_preferences   UserUiPreference[]
+  onboarding_steps      TenantOnboardingStep[]
 
   // P2 Relations
   households                   Household[]
@@ -1663,6 +1692,7 @@ model User {
   event_budgets_created               EventBudget[]            @relation("event_budget_creator")
   shareable_links_created             ShareableLink[]          @relation("shareable_link_creator")
   platform_alerts_acknowledged        PlatformAlertHistory[]   @relation("platform_alert_acknowledger")
+  onboarding_steps_completed          TenantOnboardingStep[]   @relation("onboarding_completer")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -11783,4 +11813,29 @@ model PlatformAlertHistory {
   @@index([status], map: "idx_platform_alert_history_status")
   @@index([rule_id], map: "idx_platform_alert_history_rule_id")
   @@map("platform_alert_history")
+}
+
+model TenantOnboardingStep {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String               @db.Uuid
+  phase        OnboardingPhase
+  step_key     String               @db.VarChar(100)
+  label        String               @db.VarChar(255)
+  description  String               @db.Text
+  status       OnboardingStepStatus @default(pending)
+  is_auto      Boolean              @default(false)
+  blocked_by   String[]             @default([])
+  completed_at DateTime?            @db.Timestamptz()
+  completed_by String?              @db.Uuid
+  metadata     Json?                @db.JsonB
+  sort_order   Int
+  created_at   DateTime             @default(now()) @db.Timestamptz()
+  updated_at   DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  completer User?  @relation("onboarding_completer", fields: [completed_by], references: [id])
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, step_key], map: "uq_tenant_onboarding_step")
+  @@index([tenant_id], map: "idx_tenant_onboarding_steps_tenant")
+  @@map("tenant_onboarding_steps")
 }

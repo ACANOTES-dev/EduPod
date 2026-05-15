@@ -301,6 +301,27 @@
     "permission": null
   },
   {
+    "method": "GET",
+    "path": "/v1/admin/tenants/:id/onboarding",
+    "controller": "OnboardingController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/tenants/:id/onboarding/:stepId",
+    "controller": "OnboardingController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/tenants/:id/onboarding/reset",
+    "controller": "OnboardingController",
+    "module": "platform",
+    "permission": null
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/reactivate",
     "controller": "TenantsController",

@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { OnboardingService } from '../platform/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -32,6 +33,10 @@ const mockPrisma = {
   },
 };
 
+const mockOnboardingService = {
+  autoCompleteStep: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('DomainsService', () => {
   let service: DomainsService;
 
@@ -41,6 +46,7 @@ describe('DomainsService', () => {
         DomainsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: OnboardingService, useValue: mockOnboardingService },
       ],
     }).compile();
 
@@ -86,6 +92,11 @@ describe('DomainsService', () => {
       is_primary: false,
     });
     expect(result).toEqual(created);
+    expect(mockOnboardingService.autoCompleteStep).toHaveBeenCalledWith(
+      TENANT_ID,
+      'domain_configured',
+      { domain: 'new.example.com' },
+    );
   });
 
   it('should throw ConflictException when domain is already taken', async () => {
@@ -110,7 +121,7 @@ describe('DomainsService', () => {
       tenant_id: TENANT_ID,
       domain: 'old.example.com',
     });
-    const updated = { id: DOMAIN_ID, is_primary: true };
+    const updated = { id: DOMAIN_ID, domain: 'old.example.com', is_primary: true };
     mockPrisma.tenantDomain.update.mockResolvedValueOnce(updated);
 
     const result = await service.updateDomain(TENANT_ID, DOMAIN_ID, { is_primary: true });
@@ -118,13 +129,33 @@ describe('DomainsService', () => {
     expect(mockRedisClient.del).toHaveBeenCalledWith('tenant_domain:old.example.com');
   });
 
+  it('should auto-complete SSL verification when SSL status becomes active', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
+    mockPrisma.tenantDomain.findFirst.mockResolvedValueOnce({
+      id: DOMAIN_ID,
+      tenant_id: TENANT_ID,
+      domain: 'school.example.com',
+    });
+    mockPrisma.tenantDomain.update.mockResolvedValueOnce({
+      id: DOMAIN_ID,
+      domain: 'school.example.com',
+      ssl_status: 'active',
+    });
+
+    await service.updateDomain(TENANT_ID, DOMAIN_ID, { ssl_status: 'active' });
+
+    expect(mockOnboardingService.autoCompleteStep).toHaveBeenCalledWith(TENANT_ID, 'ssl_verified', {
+      domain: 'school.example.com',
+    });
+  });
+
   it('should throw NotFoundException when updating a non-existent domain', async () => {
     mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
     mockPrisma.tenantDomain.findFirst.mockResolvedValueOnce(null);
 
-    await expect(
-      service.updateDomain(TENANT_ID, DOMAIN_ID, { is_primary: true }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.updateDomain(TENANT_ID, DOMAIN_ID, { is_primary: true })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   // ── removeDomain ──

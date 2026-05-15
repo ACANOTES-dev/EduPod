@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-16 (Session 1D platform onboarding tracker: added `TenantOnboardingStep`, `PlatformOnboardingModule`, and `PlatformRealtimeModule`; documented the one-way TenantsModule -> PlatformOnboardingModule import used for onboarding seeding/auto-complete without importing full PlatformModule). Previously: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -365,12 +365,12 @@ If a module is not listed individually, it is either:
 
 ### TenantsModule
 
-- **Contract**: tenant CRUD + lifecycle, public tenant lookup, custom domains, tenant-self management, `TenantReadFacade` (currency_code, tenant settings, branding metadata)
-- **Primary consumers**: admissions, auth, budgeting, classes, communications, engagement, finance, gdpr, gradebook, homework, households, payroll, preferences, scheduling, staff-profiles, students
-- **Imports**: S3Module, SequenceModule
+- **Contract**: tenant CRUD + lifecycle, public tenant lookup, custom domains, tenant-self management, onboarding seeding/auto-completion hooks, `TenantReadFacade` (currency_code, tenant settings, branding metadata)
+- **Primary consumers**: admissions, auth, budgeting, classes, communications, engagement, finance, gdpr, gradebook, homework, households, payroll, platform-admin onboarding tracker, preferences, scheduling, staff-profiles, students
+- **Imports**: PlatformOnboardingModule, S3Module, SequenceModule
 - **Exports**: TenantsService, SequenceModule (re-export), TenantReadFacade
 - **Blast radius**: VERY HIGH — the tenant settings surface is queried by nearly every domain on hot paths (currency display, module flags, admissions caps, payroll formula configs). Schema changes ripple platform-wide.
-- **Notes**: TenantsModule re-exports SequenceModule, so any module that imports TenantsModule transitively gains the sequence allocator. The `TokenService` provider lives here too (shared with AuthModule via cross-import) — historical artefact of the platform/auth split.
+- **Notes**: TenantsModule re-exports SequenceModule, so any module that imports TenantsModule transitively gains the sequence allocator. The `TokenService` provider lives here too (shared with AuthModule via cross-import) — historical artefact of the platform/auth split. Session 1D imports only `PlatformOnboardingModule`, not full `PlatformModule`, so tenant create/domain hooks can seed and auto-complete onboarding steps without pulling in platform dashboards, auth guards, health, alerts, or communications.
 
 ### AuthModule
 
@@ -501,7 +501,9 @@ These modules are comparatively safe to change in isolation as long as their sha
 Other low-dependency modules:
 
 - `HealthModule`
-- `PlatformModule` — platform-admin real-time bridge and operational dashboard services. Imports `HealthModule` for the Session 1B health snapshot interval and Session 1C alert metric evaluation. Imports `CommunicationsModule` only to use the exported `ResendEmailProvider` for platform alert email dispatch, routed through `PLATFORM_ALERT_EMAIL_TENANT_ID` so the communications module's tenant-scoped credential contract remains intact. Exports `RedisPubSubService` for platform dashboard publishers.
+- `PlatformModule` — platform-admin real-time bridge and operational dashboard services. Imports `HealthModule` for the Session 1B health snapshot interval and Session 1C alert metric evaluation. Imports `CommunicationsModule` only to use the exported `ResendEmailProvider` for platform alert email dispatch, routed through `PLATFORM_ALERT_EMAIL_TENANT_ID` so the communications module's tenant-scoped credential contract remains intact. Imports `PlatformOnboardingModule` for the Session 1D tenant onboarding tracker endpoints and `PlatformRealtimeModule` for the Session 1A Redis pub/sub bridge.
+- `PlatformOnboardingModule` — provider-only module exporting `OnboardingService`. It owns platform-level `tenant_onboarding_steps` reads/writes, publishes onboarding updates over Redis pub/sub, and is imported by TenantsModule for tenant create/domain auto-complete hooks. It must remain separate from full `PlatformModule` to avoid tenant/auth/platform import cycles.
+- `PlatformRealtimeModule` — provider-only module exporting `RedisPubSubService` for platform dashboard publishers and WebSocket gateway consumers. It remains platform-admin scoped and should not become a general-purpose application event bus.
 - `MetricsModule`
 - `PreferencesModule`
 - `ParentsModule`

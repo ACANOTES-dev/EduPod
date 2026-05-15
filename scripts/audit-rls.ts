@@ -31,6 +31,8 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   survey_participation_tokens:
     'Anonymity by design — tokens are not tenant-isolated to preserve survey anonymity.',
   gdpr_export_policies: 'Platform-level configuration, not tenant-scoped.',
+  tenant_onboarding_steps:
+    'Platform-admin onboarding tracker; tenant_id is a data-integrity FK, not an RLS boundary.',
 };
 
 // ─── PascalCase to snake_case conversion ──────────────────────────────────────
@@ -190,9 +192,7 @@ function main(): void {
     }
   }
   if (migrationOnly.length > 0) {
-    console.log(
-      `  (${migrationOnly.length} in migrations only, not in canonical catalogue)`,
-    );
+    console.log(`  (${migrationOnly.length} in migrations only, not in canonical catalogue)`);
   }
   console.log('');
 

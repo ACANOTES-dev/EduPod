@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { OnboardingService } from '../platform/onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -16,6 +17,7 @@ export class DomainsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   /**
@@ -58,6 +60,10 @@ export class DomainsService {
       },
     });
 
+    await this.onboardingService.autoCompleteStep(tenantId, 'domain_configured', {
+      domain: domain.domain,
+    });
+
     return domain;
   }
 
@@ -84,6 +90,12 @@ export class DomainsService {
 
     // Invalidate the cached domain→tenant mapping
     await this.invalidateDomainCache(domain.domain);
+
+    if (data.ssl_status === 'active') {
+      await this.onboardingService.autoCompleteStep(tenantId, 'ssl_verified', {
+        domain: updated.domain,
+      });
+    }
 
     return updated;
   }
