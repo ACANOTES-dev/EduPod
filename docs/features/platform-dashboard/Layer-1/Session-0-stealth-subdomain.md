@@ -153,21 +153,21 @@ The existing 404 page (`apps/web/src/app/[locale]/not-found.tsx` if present, or 
 
 ## 5. Acceptance
 
-- [ ] DNS: `dig dua.edupod.app` resolves; HTTPS works (cert valid).
-- [ ] `https://dua.edupod.app/` (no auth) → 404.
-- [ ] `https://dua.edupod.app/random-path` → 404.
-- [ ] `https://dua.edupod.app/en/login` → renders the login form. No external nav, no marketing.
-- [ ] Login as a tenant `school_owner` at `dua.edupod.app/login` → fails with "Invalid email or password" (NOT 403, NOT a "you don't have permission" message).
-- [ ] Login as a `platform_owner` at `dua.edupod.app/login` → succeeds, redirects to `/en/admin`, dashboard renders.
-- [ ] Login as a `platform_owner` at `nhqs.edupod.app/login` → fails with "Invalid email or password" (platform credentials don't work on tenant hosts).
-- [ ] After platform login: cookie inspector shows `Domain=dua.edupod.app` on the JWT/refresh cookies (NOT `.edupod.app`).
-- [ ] Open a tenant tab (`nhqs.edupod.app`) and a platform tab (`dua.edupod.app`) simultaneously: cookies don't bleed; logout in one doesn't affect the other.
-- [ ] `https://nhqs.edupod.app/en/admin` → 404. The old access route is retired.
-- [ ] `https://edupod.app/en/admin` → 404. Same.
-- [ ] Cloudflare WAF rate limit visible: 6th login attempt within 15 min from one IP → 429.
-- [ ] No mention of `dua.edupod.app` in `robots.txt`, `sitemap.xml`, public marketing pages, or repo README.
-- [ ] e2e + middleware unit tests pass.
-- [ ] Operations runbook (`docs/runbooks/dua-stealth-subdomain.md`) committed with: access instructions, the rotation procedure, and a note pointing at this spec.
+- [x] DNS: `dig dua.edupod.app` resolves; HTTPS works (cert valid).
+- [x] `https://dua.edupod.app/` (no auth) → 404.
+- [x] `https://dua.edupod.app/random-path` → 404.
+- [x] `https://dua.edupod.app/en/login` → renders the login form. No external nav, no marketing.
+- [x] Login as a tenant `school_owner` at `dua.edupod.app/login` → fails with "Invalid email or password" (NOT 403, NOT a "you don't have permission" message).
+- [x] Login as a `platform_owner` at `dua.edupod.app/login` → succeeds, redirects to `/en/admin`, dashboard renders.
+- [x] Login as a `platform_owner` at `nhqs.edupod.app/login` → fails with "Invalid email or password" (platform credentials don't work on tenant hosts).
+- [x] After platform login: cookie inspector shows `Domain=dua.edupod.app` on the JWT/refresh cookies (NOT `.edupod.app`).
+- [x] Open a tenant tab (`nhqs.edupod.app`) and a platform tab (`dua.edupod.app`) simultaneously: cookies don't bleed; logout in one doesn't affect the other.
+- [x] `https://nhqs.edupod.app/en/admin` → 404. The old access route is retired.
+- [x] `https://edupod.app/en/admin` → 404. Same.
+- [x] Cloudflare WAF rate limit visible: 6th login attempt within 15 min from one IP → 429.
+- [x] No mention of `dua.edupod.app` in `robots.txt`, `sitemap.xml`, public marketing pages, or repo README.
+- [x] e2e + middleware unit tests pass.
+- [x] Operations runbook (`docs/runbooks/dua-stealth-subdomain.md`) committed with: access instructions, the rotation procedure, and a note pointing at this spec.
 
 ---
 
@@ -188,3 +188,12 @@ The existing 404 page (`apps/web/src/app/[locale]/not-found.tsx` if present, or 
 - **Why not just no subdomain at all** (Option B from the brainstorm — log in via the main app, get redirected by role): it's slightly more secure (zero discoverability) but creates a confusing UX where the same login form serves wildly different audiences. The stealth subdomain approach gives the operator a clean separate browser-bookmark + window grouping while keeping discoverability low.
 - **Interaction with the i18n Tier 2 guard (DZ-i18n-1)**: the platform admin shell is English-only (per the existing `(platform)` route group convention). The Tier 2 guard's redirect logic operates on tenant-side routes; it shouldn't fire on `dua.edupod.app` because that host is excluded from tenant resolution. Verify during implementation by visiting `dua.edupod.app/it/admin` — should 404, not redirect.
 - **Local development**: contributors will need `dua.localhost` mapped to `127.0.0.1` in their `/etc/hosts`. Add a one-line setup note to the repo README's local-dev section. The Next.js middleware honours both `dua.edupod.app` (production) and `dua.localhost` (dev).
+
+## 8. Commits / CI / Notes
+
+- `d4bd4b30` — `feat(platform): add stealth admin subdomain gate`
+  - CI: https://github.com/ACANOTES-dev/EduPod/actions/runs/25929084265
+- `e3eb8a20` — `fix(auth): expose platform refresh cookie to stealth host`
+  - CI: https://github.com/ACANOTES-dev/EduPod/actions/runs/25934810578
+- Operator confirmed DNS, HTTPS certificate, and Cloudflare WAF were live on 2026-05-15.
+- Production smoke completed on 2026-05-15: unauthenticated stealth-host paths return 404, `/en/login` renders, tenant credentials are rejected on the stealth host, platform credentials are rejected on tenant hosts, platform login reaches `/en/admin`, platform and tenant cookies remain isolated, tenant-host `/en/admin` routes return 404, and the Cloudflare rate limit returned 429 during repeated login attempts.
