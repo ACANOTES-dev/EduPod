@@ -35,6 +35,7 @@ export function PlatformSocketProvider({ children }: { children: React.ReactNode
     function createSocket(token: string): Socket {
       const socket = io(`${API_URL}/platform`, {
         auth: { token },
+        path: '/api/socket.io',
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,

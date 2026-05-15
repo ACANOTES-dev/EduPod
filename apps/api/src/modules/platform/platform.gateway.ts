@@ -58,6 +58,7 @@ function isJwtPayload(value: unknown): value is JwtPayload {
 
 @WebSocketGateway({
   namespace: '/platform',
+  path: '/api/socket.io',
   cors: {
     origin: true,
     credentials: true,
