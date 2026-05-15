@@ -501,6 +501,7 @@ These modules are comparatively safe to change in isolation as long as their sha
 Other low-dependency modules:
 
 - `HealthModule`
+- `PlatformModule` — platform-admin real-time bridge and operational dashboard services. Imports `HealthModule` for the Session 1B health snapshot interval, exports `RedisPubSubService` for platform dashboard publishers.
 - `MetricsModule`
 - `PreferencesModule`
 - `ParentsModule`

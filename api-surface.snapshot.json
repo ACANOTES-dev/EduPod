@@ -119,6 +119,13 @@
     "permission": null
   },
   {
+    "method": "GET",
+    "path": "/v1/admin/health/history",
+    "controller": "HealthHistoryController",
+    "module": "platform",
+    "permission": null
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/impersonate",
     "controller": "TenantsController",

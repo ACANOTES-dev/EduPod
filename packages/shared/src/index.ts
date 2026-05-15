@@ -70,6 +70,7 @@ export * from './schemas/admission-form.schema';
 export * from './schemas/application.schema';
 export * from './schemas/registration.schema';
 export * from './schemas/job-payload.schema';
+export * from './schemas/platform';
 
 // P4A Types
 export * from './types/room';

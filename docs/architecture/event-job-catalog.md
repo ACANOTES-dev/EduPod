@@ -13,6 +13,10 @@
 - **Repeatable cron registrations**: `~53` repeatable jobs registered in [apps/worker/src/cron/cron-scheduler.service.ts](/Users/ram/Desktop/SDB/apps/worker/src/cron/cron-scheduler.service.ts) (count includes per-tenant variance-refresh entries registered at runtime by `budgeting:variance-refresh-bootstrap`)
 - **Architecture rule**: async communication is BullMQ-driven; there is no `EventEmitter2` event bus
 
+## API Process Intervals
+
+- `platform:health-snapshot` -> every `60s` in the API process via `HealthSnapshotService` (Session 1B). Calls `HealthService.check()`, persists `platform_health_snapshots`, publishes `platform:health` snapshot/state-change messages through `RedisPubSubService`, and prunes snapshots older than 7 days. This is intentionally not a BullMQ worker job because it monitors the API process's own dependencies and WebSocket-facing health state.
+
 ### Core rules
 
 - Most domain jobs require `tenant_id` and run inside `TenantAwareJob`
