@@ -48,6 +48,7 @@ const envSchema = z
 
     // Optional -- Platform
     PLATFORM_DOMAIN: z.string().default('edupod.app'),
+    PLATFORM_ALERT_EMAIL_TENANT_ID: z.string().uuid().optional(),
     MFA_ISSUER: z.string().default('SchoolOS'),
   })
   .superRefine((data, ctx) => {

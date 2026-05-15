@@ -14,7 +14,9 @@ The platform admin dashboard must become a world-class operations centre — the
 
 > **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. The closure handoff (`Module Gating/admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
 
-> **Hosting decision (2026-05-13):** The platform admin console is moving from `edupod.app/[locale]/admin/*` (publicly discoverable login form) to a stealth subdomain **`dua.edupod.app`**. All Layer 1/2/3 work runs under that origin. Unauthenticated requests to any path other than `/login` return a plain 404 indistinguishable from a non-existent host. JWT cookies are domain-locked to `dua.edupod.app` so platform sessions don't bleed into tenant tabs. The DNS name + access pattern stay out of marketing copy, sitemaps, robots.txt, and the public README — operations runbook only. Full design: `docs/features/platform-dashboard/Layer-1/Session-0-stealth-subdomain.md`. This is **Session 0** — a hard prerequisite for every Layer 1/2/3 session.
+> **Hosting decision (2026-05-13):** The platform admin console is moving from `edupod.app/[locale]/admin/*` (publicly discoverable login form) to a stealth subdomain **`dua.edupod.app`**. All Layer 1/1.5/2/3/4 work runs under that origin. Unauthenticated requests to any path other than `/login` return a plain 404 indistinguishable from a non-existent host. JWT cookies are domain-locked to `dua.edupod.app` so platform sessions don't bleed into tenant tabs. The DNS name + access pattern stay out of marketing copy, sitemaps, robots.txt, and the public README — operations runbook only. Full design: `docs/features/platform-dashboard/Layer-1/Session-0-stealth-subdomain.md`. This is **Session 0** — a hard prerequisite for every Layer 1/1.5/2/3/4 session.
+
+> **Safety + Copilot decision (2026-05-14):** External design review on this date flagged that (a) Layer 2/3 dangerous actions and Layer 4's AI Copilot were both planned to ship before the platform RBAC, audit ledger, and confirmation primitives were in place, and (b) an AI Operations Copilot is the natural Layer 4 of this dashboard. Two new layers added: **Layer 1.5 — Platform Ops Safety** (3 sessions: platform_users + RBAC, audit ledger + error redaction, confirmation UX + alert silencing) inserts between Layer 1 and Layer 2 and is a hard prerequisite for everything dangerous after it; **Layer 4 — AI Operations Copilot** (5 sessions: observability context, read-only copilot, fix recommendations, supervised actions, incident postmortems) closes the layer arc with an evidence-first AI assistant. Total dashboard scope is now **22 sessions across 4 layers** (was 14). Layer 1 Session 1A and Session 1B are shipped; Session 1C is in progress. See §6 Build Sequence for the complete updated order and `docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md` + `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` for the layer plans.
 
 ## 2. Requirements
 
@@ -454,10 +456,18 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 ### Layer 1 — Operational Foundation (5 sessions; Session 0 is a hard prerequisite)
 
 0: Stealth subdomain (`dua.edupod.app`) — DNS, host-routing middleware, JWT cookie scoping, 404-by-default. Runs before everything else.
-1A: WebSocket infrastructure + Redis pub/sub
-1B: Health dashboard with real-time updates
-1C: Alert framework (rules, evaluation, email, history UI)
+1A: WebSocket infrastructure + Redis pub/sub — **shipped**
+1B: Health dashboard with real-time updates — **shipped**
+1C: Alert framework (rules, evaluation, email, history UI) — **in progress**
 1D: Onboarding tracker with inline actions
+
+### Layer 1.5 — Platform Ops Safety (3 sessions; inserted 2026-05-14)
+
+> **Origin:** External design review on 2026-05-14 flagged that Layer 2/3 dangerous actions and Layer 4 AI Copilot were both planned to ship before the platform RBAC, audit ledger, and confirmation primitives were in place. Layer 1.5 is a safety-foundation pass that makes the rest of the dashboard operator-safe before powerful actions land. Full plan: `docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md`.
+
+1.5A: `platform_users` + RBAC (replaces the existing `platform_owner_user_ids` Redis set with proper tables; introduces `platform_support` role; new `PlatformRoleGuard`)
+1.5B: Cross-tenant audit ledger + error log redaction & retention
+1.5C: Confirmation UX (`<DestructiveConfirmDialog>`, `<TwoPersonConfirmationDialog>`) + alert silencing + maintenance windows
 
 ### Layer 2 — Intelligence & Power Tools (4 sessions)
 
@@ -471,12 +481,24 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 3A: Dashboard home redesign
 3B: Support toolkit (6 actions + audit trail)
 3C: Session & cache management + maintenance mode
-3D: Platform users & navigation redesign
+3D: Platform users & navigation redesign — **scope reduced**: the `platform_users` + role table work moved to Session 1.5A. This session now focuses on the navigation polish + Cmd+K palette only.
 3E: Tenant module toggles UI (registry-driven; consumes Module Gating foundation)
 
-**Total: 14 sessions across 3 layers** (Session 0 + Layer 1 4 + Layer 2 4 + Layer 3 5).
+### Layer 4 — AI Operations Copilot (5 sessions; added 2026-05-14)
 
-> **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end (W1–W5). The Module Gating foundation provides the canonical registry, the typed toggle endpoint, the `/me` payload, the cache invalidation pipeline, and the audit-log integration that Session 3E renders as UI. `Module Gating/admin-console-handoff.md` is the closure contract. Session 3E should NOT be started until Module Gating Wave 5 is complete.
+> **Origin:** Operator-proposed (2026-05-14) and refined by the same external design review. The arc: **Layer 1 = what is happening, Layer 2 = why is it happening, Layer 3 = what controls do I have, Layer 4 = what should I do, and can the system help me do it.** Full plan: `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md`.
+
+4A: Observability context layer (correlation IDs, deploy events, runbook index, evidence service)
+4B: Read-only incident copilot (chat interface; **prompt-injection defense + citation enforcement** are non-negotiable)
+4C: Fix recommendation engine (proactive structured proposals)
+4D: Supervised actions (operator-approved execution; reuses Layer 1.5C two-person primitive; inherits existing Sentry triage runbook guardrails)
+4E: Incident learning + postmortems (auto-detect incidents, AI-generated postmortems, prevention recommendations)
+
+**Total: 22 sessions across 4 layers + Session 0** (1 + 4 + 3 + 4 + 5 + 5 = 22).
+
+> **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end. The Module Gating foundation is **complete** (W1–W5 shipped 2026-05-13) — impl 23 (budgeting full enforcement) is the one outstanding gap, tracked in `Module Gating/IMPLEMENTATION_LOG.md` as a 2-3 hour follow-up. `Module Gating/admin-console-handoff.md` is the closure contract.
+
+> **Layer 4 hard prerequisites:** Layer 4 cannot start until Layer 1 + Layer 1.5 + Layer 2 + at least Layer 3 Sessions 3B + 3C are shipped. The AI Copilot reads from the audit ledger (1.5B), error log redaction (1.5B), recommendation surface (4C → built on top of 1.5C primitives), and the action surface that 3B/3C ship. Skipping the Layer 1.5 prerequisite turns the AI into a security liability. See `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` §2 for the full prerequisite matrix.
 
 ## 7. Navigation Structure (Final)
 

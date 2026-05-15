@@ -1,8 +1,9 @@
 # Platform Admin Dashboard -- Layer 1: Operational Foundation
 
-**Date:** 2026-04-01 (revised 2026-05-13: Session 0 stealth subdomain prerequisite added)
-**Status:** Plan
+**Date:** 2026-04-01 (revised 2026-05-13: Session 0 stealth subdomain prerequisite added; revised 2026-05-14: shipped status updated, Layer 1.5 follow-on noted)
+**Status:** In progress (1A + 1B shipped; 1C in progress; Session 0 + 1D pending)
 **Sessions:** 5 (Session 0, 1A, 1B, 1C, 1D)
+**Followed by:** Layer 1.5 — Platform Ops Safety (`docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md`) — 3 sessions that ship before Layer 2 starts
 **Design Spec:** `docs/superpowers/specs/2026-04-01-platform-admin-dashboard-design.md`
 
 ---
@@ -49,9 +50,17 @@ Session 0: Stealth Subdomain (dua.edupod.app)        [PREREQUISITE — runs firs
               +---> Session 1D: Onboarding Tracker (depends on 1A for real-time onboarding step updates)
 ```
 
-**Execution order:** Session 0 (stealth subdomain) lands first — every subsequent dashboard URL lives at `dua.edupod.app` and depends on that routing/cookie infrastructure. Then 1A. Then 1B and 1D can run in parallel. 1C follows 1B.
+**Execution order:** Session 0 (stealth subdomain) lands first — every subsequent dashboard URL lives at `dua.edupod.app` and depends on that routing/cookie infrastructure. Then 1A. Then 1B and 1D can run in parallel. 1C follows 1B. After 1D ships, **Layer 1.5 — Platform Ops Safety** runs as a prerequisite for Layer 2 + Layer 4 (RBAC + audit ledger + confirmation primitives must land before any dangerous action surface or AI Copilot reads the system).
 
-**Recommended sequential order:** 0 -> 1A -> 1B -> 1C -> 1D
+**Recommended sequential order:** 0 -> 1A -> 1B -> 1C -> 1D -> 1.5A -> 1.5B -> 1.5C -> Layer 2
+
+**Current shipped status (2026-05-14):**
+
+- ✅ Session 1A: WebSocket infrastructure + Redis pub/sub
+- ✅ Session 1B: Health dashboard with real-time updates
+- 🚧 Session 1C: Alert framework — in progress
+- ⏳ Session 0: Stealth subdomain — pending (DNS step requires operator coordination)
+- ⏳ Session 1D: Onboarding tracker — pending
 
 ---
 

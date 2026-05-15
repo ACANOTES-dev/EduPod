@@ -501,7 +501,7 @@ These modules are comparatively safe to change in isolation as long as their sha
 Other low-dependency modules:
 
 - `HealthModule`
-- `PlatformModule` — platform-admin real-time bridge and operational dashboard services. Imports `HealthModule` for the Session 1B health snapshot interval, exports `RedisPubSubService` for platform dashboard publishers.
+- `PlatformModule` — platform-admin real-time bridge and operational dashboard services. Imports `HealthModule` for the Session 1B health snapshot interval and Session 1C alert metric evaluation. Imports `CommunicationsModule` only to use the exported `ResendEmailProvider` for platform alert email dispatch, routed through `PLATFORM_ALERT_EMAIL_TENANT_ID` so the communications module's tenant-scoped credential contract remains intact. Exports `RedisPubSubService` for platform dashboard publishers.
 - `MetricsModule`
 - `PreferencesModule`
 - `ParentsModule`

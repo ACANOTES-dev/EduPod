@@ -99,6 +99,48 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/alerts/history",
+    "controller": "AlertHistoryController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/history/:id/acknowledge",
+    "controller": "AlertHistoryController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/alerts/rules",
+    "controller": "AlertRulesController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/rules",
+    "controller": "AlertRulesController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alerts/rules/:id",
+    "controller": "AlertRulesController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/rules/:id",
+    "controller": "AlertRulesController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/audit-logs",
     "controller": "PlatformAuditLogController",
     "module": "audit-log",

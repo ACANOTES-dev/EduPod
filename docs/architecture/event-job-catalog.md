@@ -16,6 +16,7 @@
 ## API Process Intervals
 
 - `platform:health-snapshot` -> every `60s` in the API process via `HealthSnapshotService` (Session 1B). Calls `HealthService.check()`, persists `platform_health_snapshots`, publishes `platform:health` snapshot/state-change messages through `RedisPubSubService`, and prunes snapshots older than 7 days. This is intentionally not a BullMQ worker job because it monitors the API process's own dependencies and WebSocket-facing health state.
+- `platform:alert-evaluation` -> every `30s` in the API process via `AlertEvaluationService` (Session 1C). Reads enabled `platform_alert_rules`, evaluates them against the current `HealthService.check()` result, writes `platform_alert_history`, sends configured email notifications through the existing tenant-scoped Resend provider when `PLATFORM_ALERT_EMAIL_TENANT_ID` is configured, publishes `platform:alerts` fired/resolved messages through `RedisPubSubService`, respects cooldown windows, tracks sustained conditions in API-process memory, and auto-resolves open alerts when conditions clear.
 
 ### Core rules
 

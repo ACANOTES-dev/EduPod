@@ -122,6 +122,7 @@ import { WhatsAppTemplateService } from './whatsapp-templates/whatsapp-template.
     IsEnabledCacheService,
     SuppressionListService,
     EmailDomainService,
+    ResendEmailProvider,
     WhatsAppTemplateService,
     WhatsAppServiceWindowService,
     CommsLoggerService,

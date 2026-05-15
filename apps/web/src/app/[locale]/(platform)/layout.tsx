@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  Bell,
   Building2,
   ClipboardList,
   LayoutDashboard,
@@ -37,44 +38,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const locale = (params?.locale as string) ?? 'en';
   const t = useTranslations();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
   const isLoginPath =
     pathname === `/${locale}/login` || (pathname ?? '').startsWith(`/${locale}/login/`);
-
-  // Fetch open incident count for the alert badge
-  React.useEffect(() => {
-    if (isLoginPath) {
-      return undefined;
-    }
-
-    async function fetchOpenIncidents() {
-      try {
-        const res = await apiClient<{ meta: { total: number } }>(
-          '/api/v1/admin/security-incidents?pageSize=1&severity=high',
-        );
-        setOpenIncidentCount(res.meta.total);
-      } catch (err) {
-        console.error('[PlatformLayout.fetchOpenIncidents]', err);
-      }
-    }
-    void fetchOpenIncidents();
-    const interval = setInterval(() => void fetchOpenIncidents(), 60_000);
-    return () => clearInterval(interval);
-  }, [isLoginPath]);
-
-  const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: t('platform.admin.dashboard'), href: `/${locale}/admin` },
-    { icon: Building2, label: t('platform.tenants'), href: `/${locale}/admin/tenants` },
-    { icon: Activity, label: t('platform.admin.systemHealth'), href: `/${locale}/admin/health` },
-    { icon: Workflow, label: 'Queues', href: `/${locale}/admin/queues` },
-    { icon: ClipboardList, label: t('auditLog.title'), href: `/${locale}/admin/audit-log` },
-    {
-      icon: ShieldAlert,
-      label: t('platform.admin.securityIncidents'),
-      href: `/${locale}/admin/security-incidents`,
-      badge: openIncidentCount,
-    },
-  ];
 
   const isActive = (href: string) => {
     if (href === `/${locale}/admin`) {
@@ -83,7 +48,130 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     return (pathname ?? '').startsWith(href);
   };
 
-  const sidebarNav = (
+  if (isLoginPath) {
+    return <>{children}</>;
+  }
+
+  return (
+    <PlatformAccessGate>
+      <PlatformSocketProvider>
+        <PlatformShell
+          closeLabel={t('common.close')}
+          mobileOpen={mobileOpen}
+          openMenuLabel={t('sidebar.openMenu')}
+          pathname={pathname}
+          setMobileOpen={setMobileOpen}
+          sidebarNav={
+            <PlatformSidebarNav
+              auditLogLabel={t('auditLog.title')}
+              dashboardLabel={t('platform.admin.dashboard')}
+              healthLabel={t('platform.admin.systemHealth')}
+              isActive={isActive}
+              locale={locale}
+              securityIncidentsLabel={t('platform.admin.securityIncidents')}
+              setMobileOpen={setMobileOpen}
+              tenantsLabel={t('platform.tenants')}
+            />
+          }
+          title={t('platform.admin.title')}
+        >
+          {children}
+        </PlatformShell>
+      </PlatformSocketProvider>
+    </PlatformAccessGate>
+  );
+}
+
+function PlatformSidebarNav({
+  auditLogLabel,
+  dashboardLabel,
+  healthLabel,
+  isActive,
+  locale,
+  securityIncidentsLabel,
+  setMobileOpen,
+  tenantsLabel,
+}: {
+  auditLogLabel: string;
+  dashboardLabel: string;
+  healthLabel: string;
+  isActive: (href: string) => boolean;
+  locale: string;
+  securityIncidentsLabel: string;
+  setMobileOpen: (open: boolean) => void;
+  tenantsLabel: string;
+}) {
+  const { subscribe } = usePlatformSocket();
+  const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
+  const [unacknowledgedAlertCount, setUnacknowledgedAlertCount] = React.useState(0);
+
+  React.useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const [incidents, alerts] = await Promise.all([
+          apiClient<{ meta: { total: number } }>(
+            '/api/v1/admin/security-incidents?pageSize=1&severity=high',
+          ),
+          apiClient<{ meta: { total: number } }>(
+            '/api/v1/admin/alerts/history?pageSize=1&status=fired',
+          ),
+        ]);
+        setOpenIncidentCount(incidents.meta.total);
+        setUnacknowledgedAlertCount(alerts.meta.total);
+      } catch (err) {
+        console.error('[PlatformSidebarNav.fetchCounts]', err);
+      }
+    }
+
+    void fetchCounts();
+    const interval = setInterval(() => void fetchCounts(), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    return subscribe('alert:new', (payload) => {
+      if (payload !== null && typeof payload === 'object' && !Array.isArray(payload)) {
+        const type = (payload as { type?: unknown }).type;
+        if (type === 'alert_fired') {
+          setUnacknowledgedAlertCount((count) => count + 1);
+        }
+        if (type === 'alert_resolved') {
+          setUnacknowledgedAlertCount((count) => Math.max(0, count - 1));
+        }
+      }
+    });
+  }, [subscribe]);
+
+  React.useEffect(() => {
+    function handleAcknowledged() {
+      setUnacknowledgedAlertCount((count) => Math.max(0, count - 1));
+    }
+
+    window.addEventListener('platform-alerts:acknowledged', handleAcknowledged);
+    return () => window.removeEventListener('platform-alerts:acknowledged', handleAcknowledged);
+  }, []);
+
+  const navItems: NavItem[] = [
+    { icon: LayoutDashboard, label: dashboardLabel, href: `/${locale}/admin` },
+    { icon: Building2, label: tenantsLabel, href: `/${locale}/admin/tenants` },
+    { icon: Activity, label: healthLabel, href: `/${locale}/admin/health` },
+    {
+      icon: Bell,
+      label: 'Alerts',
+      href: `/${locale}/admin/alerts`,
+      badge: unacknowledgedAlertCount,
+    },
+    { icon: Workflow, label: 'Queues', href: `/${locale}/admin/queues` },
+    { icon: ClipboardList, label: auditLogLabel, href: `/${locale}/admin/audit-log` },
+    {
+      icon: ShieldAlert,
+      label: securityIncidentsLabel,
+      href: `/${locale}/admin/security-incidents`,
+      badge: openIncidentCount,
+    },
+  ];
+
+  return (
     <nav className="flex flex-col gap-1 p-3">
       {navItems.map((item) => {
         const active = isActive(item.href);
@@ -110,28 +198,6 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         );
       })}
     </nav>
-  );
-
-  if (isLoginPath) {
-    return <>{children}</>;
-  }
-
-  return (
-    <PlatformAccessGate>
-      <PlatformSocketProvider>
-        <PlatformShell
-          closeLabel={t('common.close')}
-          mobileOpen={mobileOpen}
-          openMenuLabel={t('sidebar.openMenu')}
-          pathname={pathname}
-          setMobileOpen={setMobileOpen}
-          sidebarNav={sidebarNav}
-          title={t('platform.admin.title')}
-        >
-          {children}
-        </PlatformShell>
-      </PlatformSocketProvider>
-    </PlatformAccessGate>
   );
 }
 
