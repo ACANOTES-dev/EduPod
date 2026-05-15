@@ -26,6 +26,7 @@ jobs:
       cancel-in-progress: true
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
+      docs_only: ${{ steps.docs_only.outputs.docs_only }}
       frontend: ${{ steps.filter.outputs.frontend }}
       solver: ${{ steps.filter.outputs.solver }}
     steps:
@@ -58,8 +59,64 @@ jobs:
               - 'apps/solver-py/**'
               - 'packages/shared/src/scheduler/**'
 
+      - name: Detect docs-only change
+        id: docs_only
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          base_sha="${PR_BASE_SHA:-$BEFORE_SHA}"
+
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+            base_sha="$(git rev-list --max-parents=0 HEAD)"
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only "$base_sha" "$GITHUB_SHA")
+
+          docs_only=false
+          if (( ${#changed_files[@]} > 0 )); then
+            docs_only=true
+          fi
+
+          for path in "${changed_files[@]}"; do
+            case "$path" in
+              *.md|*.mdx) ;;
+              *)
+                docs_only=false
+                break
+                ;;
+            esac
+          done
+
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+
+  docs-only:
+    if: github.event_name != 'schedule' && needs.changes.outputs.docs_only == 'true'
+    needs: [changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate markdown diff
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          base_sha="${PR_BASE_SHA:-$BEFORE_SHA}"
+
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+            base_sha="$(git rev-list --max-parents=0 HEAD)"
+          fi
+
+          git diff --check "$base_sha" "$GITHUB_SHA"
+
   ci:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && needs.changes.outputs.docs_only != 'true'
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -165,7 +222,7 @@ jobs:
         run: node scripts/check-cross-module-deps.js --max-violations 0
 
   unit-tests:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && needs.changes.outputs.docs_only != 'true'
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -246,7 +303,7 @@ jobs:
           if-no-files-found: error
 
   unit-tests-merge:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && needs.unit-tests.result == 'success'
     needs: [unit-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -314,7 +371,7 @@ jobs:
         run: pnpm run check:test-gate
 
   build:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'))
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -373,7 +430,7 @@ jobs:
   # file split; critical-path analysis justifying the split is in the
   # 2026-04-19 CI optimization note.
   backend-serial:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changes.outputs.backend == 'true'))
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -468,7 +525,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
   backend-parallel:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changes.outputs.backend == 'true'))
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -575,7 +632,7 @@ jobs:
     # Gate tightened 2026-04-19: previously ran on every push (was top source
     # of red-X notifications on healthy runs). Now fires only when the sidecar
     # code or the CP-SAT contract actually changes, or on manual dispatch.
-    if: needs.changes.outputs.solver == 'true' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.solver == 'true')
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -662,7 +719,7 @@ jobs:
         run: pnpm --filter @school/shared test -- --testPathPattern="cp-sat-regression" --testTimeout=900000
 
   visual:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changes.outputs.frontend == 'true'))
     needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -809,8 +866,8 @@ jobs:
         run: bash scripts/ci-restore-drill.sh
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci, unit-tests-merge, build, backend-serial, backend-parallel]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.docs_only != 'true'
+    needs: [changes, ci, unit-tests-merge, build, backend-serial, backend-parallel]
     runs-on: ubuntu-latest
     env:
       SENTRY_ENVIRONMENT: production

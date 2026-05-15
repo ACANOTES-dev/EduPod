@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Pre-push hook — runs full validate:ci so every push matches what CI will run.
+# Pre-push hook — runs full validate:ci for runtime changes so every push
+# matches what CI will run. Markdown-only pushes take the lightweight docs path.
 #
 # BYPASS OPTIONS (use deliberately):
 #   HUSKY=0 git push            # disables all husky hooks
@@ -21,6 +22,70 @@
 #   - test-gate check     <1s
 #   - integration tests   ~50s
 set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+empty_tree="$(git hash-object -t tree /dev/null)"
+current_branch="$(git symbolic-ref -q HEAD || true)"
+upstream_ref=""
+
+if [ -n "$current_branch" ]; then
+  upstream_ref="$(git for-each-ref --format='%(upstream:short)' "$current_branch" | head -n 1)"
+fi
+
+if [ -n "$upstream_ref" ] && git rev-parse --verify "$upstream_ref" >/dev/null 2>&1; then
+  base_ref="$(git merge-base HEAD "$upstream_ref")"
+elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+  base_ref="$(git merge-base HEAD origin/main)"
+elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+  base_ref="HEAD~1"
+else
+  base_ref="$empty_tree"
+fi
+
+changed_files=()
+while IFS= read -r path; do
+  [ -n "$path" ] && changed_files+=("$path")
+done < <(git diff --name-only "$base_ref" HEAD)
+
+docs_only=false
+if [ "${#changed_files[@]}" -gt 0 ]; then
+  docs_only=true
+fi
+
+for path in "${changed_files[@]}"; do
+  case "$path" in
+    *.md|*.mdx) ;;
+    *)
+      docs_only=false
+      break
+      ;;
+  esac
+done
+
+if [ "$docs_only" = "true" ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  pre-push: markdown-only change detected"
+  echo "  running:  markdown formatting + whitespace checks"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+
+  git diff --check "$base_ref" HEAD
+
+  existing_docs=()
+  for path in "${changed_files[@]}"; do
+    [ -f "$path" ] && existing_docs+=("$path")
+  done
+
+  if [ "${#existing_docs[@]}" -gt 0 ]; then
+    pnpm exec prettier --check "${existing_docs[@]}"
+  fi
+
+  echo ""
+  echo "  ✓ markdown-only pre-push checks passed"
+  exit 0
+fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  pre-push: running full validate:ci (≈2 min)"

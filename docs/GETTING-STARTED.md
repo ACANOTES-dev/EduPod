@@ -126,10 +126,9 @@ pnpm hotspots:check
 5. Run the full verification set before pushing or opening a PR.
 6. Refresh hotspot metrics if you changed a tracked hotspot module.
 
-The pre-push hook now runs the local CI-parity fast gate automatically:
+The pre-push hook runs the local CI-parity gate automatically for runtime changes. It refreshes the parallel integration-test database, then runs `pnpm validate:ci`.
 
-- `pnpm validate:fast`
-- `pnpm test:affected`
+Markdown-only changes use a lightweight path instead: Prettier checks the changed Markdown/MDX files and Git checks the diff for whitespace errors. These pushes do not need the local integration-test database stack.
 
 ## 13. Working with Tenancy and RLS
 

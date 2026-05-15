@@ -52,6 +52,8 @@ pnpm commitlint --edit "$1"
 bash scripts/pre-push-check.sh
 ```
 
+Runtime changes run the full local CI-parity gate. Markdown-only changes use the lightweight docs path: changed Markdown/MDX files are checked with Prettier and `git diff --check`, and the integration-test database stack is not required.
+
 ### `lint-staged` config in root `package.json`
 
 ```json
