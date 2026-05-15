@@ -535,18 +535,18 @@ export { healthHistoryQuerySchema, type HealthHistoryQuery } from './schemas/pla
 
 ## Acceptance Criteria
 
-- [ ] `platform_health_snapshots` table exists in the database
-- [ ] Health snapshots are persisted every 60 seconds automatically
-- [ ] State change detection publishes to `platform:health` Redis channel when status transitions
-- [ ] GET `/v1/admin/health/history` returns snapshot history for the requested time range
-- [ ] Health page at `/en/admin/health` renders with overall status banner
-- [ ] 5 status cards display: PostgreSQL, Redis, Meilisearch, BullMQ, Disk
-- [ ] Each card shows current status (up/down), primary metric, and 24h sparkline
-- [ ] Real-time updates arrive via WebSocket and update the UI without page refresh
-- [ ] Old snapshots (>7 days) are cleaned up automatically
-- [ ] Page is responsive and usable at 375px width
-- [ ] All tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
+- [x] `platform_health_snapshots` table exists in the database
+- [x] Health snapshots are persisted every 60 seconds automatically
+- [x] State change detection publishes to `platform:health` Redis channel when status transitions
+- [x] GET `/v1/admin/health/history` returns snapshot history for the requested time range
+- [x] Health page at `/en/admin/health` renders with overall status banner
+- [x] 5 status cards display: PostgreSQL, Redis, Meilisearch, BullMQ, Disk
+- [x] Each card shows current status (up/down), primary metric, and 24h sparkline
+- [x] Real-time updates arrive via WebSocket and update the UI without page refresh
+- [x] Old snapshots (>7 days) are cleaned up automatically
+- [x] Page is responsive and usable at 375px width
+- [x] All tests pass
+- [x] `turbo lint` and `turbo type-check` pass
 
 ---
 
@@ -573,3 +573,14 @@ export { healthHistoryQuerySchema, type HealthHistoryQuery } from './schemas/pla
 | `apps/api/src/modules/platform/platform.module.ts` | Add HealthHistoryController, HealthSnapshotService; import HealthModule |
 | `packages/shared/src/index.ts`                     | Export health history query schema                                      |
 | `packages/prisma/prisma/schema.prisma`             | Add PlatformHealthSnapshot model                                        |
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `42f6824becedc0927856b6e57b6b26b6bc1d2abc` (`feat(platform): add health dashboard snapshots`)
+- Schema snapshot fix commit: `6b6839109231e02c437907f547b6fcbf36ace792` (`test(prisma): update schema snapshot`)
+- Initial CI run: `https://github.com/ACANOTES-dev/EduPod/actions/runs/25943007171` failed on the Prisma schema snapshot check and was fixed forward.
+- Final CI/deploy run: `https://github.com/ACANOTES-dev/EduPod/actions/runs/25943341022` passed and deployed to production.
+- Production smoke: May 15, 2026, passed on `https://dua.edupod.app/en/admin/health` after platform-admin login. Verified dashboard load, health history API 200, all five health cards, real-time connected indicator, live `health:update` WebSocket frame, and 375px responsive layout.
+- Local notes: targeted backend/platform health tests, full API Jest suite, shared/web/prisma tests, relevant type checks, and relevant lint checks passed before deploy. `pnpm check:arch-docs` exited successfully with pre-existing documentation drift warnings outside Session 1B scope; `pnpm check:migration-safety` reported pre-existing older migration warnings, not the new additive Session 1B migration.
