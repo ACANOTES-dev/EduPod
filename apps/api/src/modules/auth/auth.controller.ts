@@ -289,7 +289,7 @@ function buildRefreshCookieOptions(host: string) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: platformHost ? ('strict' as const) : ('lax' as const),
-    path: '/api/v1/auth/refresh',
+    path: platformHost ? '/' : '/api/v1/auth/refresh',
     ...(platformHost && process.env.NODE_ENV === 'production' ? { domain: PLATFORM_HOST } : {}),
   };
 }

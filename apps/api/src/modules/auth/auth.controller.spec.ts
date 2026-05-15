@@ -578,6 +578,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           domain: 'dua.edupod.app',
           httpOnly: true,
+          path: '/',
           sameSite: 'strict',
           secure: true,
         }),
