@@ -264,21 +264,122 @@ Run `turbo test` to verify no existing tests broken by the page rewrite.
 
 ## 9. Acceptance Criteria
 
-- [ ] Old 4-stat-card dashboard is fully replaced
-- [ ] Health strip shows 5 components with correct status colors
-- [ ] Health strip updates via WebSocket (or polling fallback)
-- [ ] Active alerts panel shows up to 5 unacknowledged alerts
-- [ ] Acknowledge button removes alert from panel
-- [ ] "View All" link navigates to alerts page
-- [ ] Tenant cards show one card per tenant with name, status, billing, metrics
-- [ ] Onboarding progress shown for tenants still onboarding
-- [ ] "+ New Tenant" card navigates to tenant creation
-- [ ] Click tenant card navigates to tenant detail page
-- [ ] Activity feed shows recent platform activity
-- [ ] Activity feed updates in real-time
-- [ ] Quick actions bar shows 4 buttons with correct navigation
-- [ ] Responsive: single column on mobile, 2-column grid on desktop
-- [ ] RTL-safe: all styling uses logical properties (no `ml-`, `mr-`, `pl-`, `pr-`, etc.)
-- [ ] No `any` types, no `@ts-ignore`, all imports ordered
-- [ ] `turbo lint` and `turbo type-check` pass
-- [ ] `turbo test` passes with zero regressions
+- [x] Old 4-stat-card dashboard is fully replaced
+- [x] Health strip shows 5 components with correct status colors
+- [x] Health strip updates via WebSocket (or polling fallback)
+- [x] Active alerts panel shows up to 5 unacknowledged alerts
+- [x] Acknowledge button removes alert from panel
+- [x] "View All" link navigates to alerts page
+- [x] Tenant cards show one card per tenant with name, status, billing, metrics
+- [x] Onboarding progress shown for tenants still onboarding
+- [x] "+ New Tenant" card navigates to tenant creation
+- [x] Click tenant card navigates to tenant detail page
+- [x] Activity feed shows recent platform activity
+- [x] Activity feed updates in real-time
+- [x] Quick actions bar shows 4 buttons with correct navigation
+- [x] Responsive: single column on mobile, 2-column grid on desktop
+- [x] RTL-safe: all styling uses logical properties (no `ml-`, `mr-`, `pl-`, `pr-`, etc.)
+- [x] No `any` types, no `@ts-ignore`, all imports ordered
+- [x] `turbo lint` and `turbo type-check` pass
+- [x] `turbo test` passes with zero regressions
+
+---
+
+## 10. Commits / CI / Notes
+
+- Implementation commit: `09e45837 feat(platform): redesign admin dashboard home`
+- CI/deploy: GitHub Actions run `25972203639` passed; the production deploy job completed successfully.
+- Verification:
+  - Targeted ESLint for touched admin dashboard files passed.
+  - `pnpm --filter @school/web type-check` passed.
+  - `pnpm --filter @school/web lint` passed with pre-existing warnings only.
+  - `pnpm turbo run test --filter=@school/web` passed.
+  - `pnpm turbo run test --concurrency=1` passed after the default parallel full-suite run was killed by local OOM.
+  - `pnpm --filter @school/web build` passed.
+  - Production smoke on `https://dua.edupod.app/en/admin` verified all five panels, loaded health strip, active-alert empty state, tenant-card navigation, activity feed, quick-action navigation, desktop layout, and mobile no-overflow layout.
+- Notes:
+  - Activity feed intentionally merges the existing alert history and platform audit log surfaces, then listens to the existing alert, onboarding, and queue socket events. No new Layer 3B activity/support endpoint was added.
+  - Production platform middleware currently serves platform admin only under `/en/admin`; `/ar/admin` still returns the existing 404. Session 3A touched components were checked for logical spacing classes and smoke-tested under RTL document direction with no horizontal overflow.
+
+---
+
+## 11. Next Session Prompt
+
+```text
+Implement Session 3B of the Platform Admin Dashboard build. Server access granted for diagnostics
+
+Spec:
+docs/features/platform-dashboard/Layer-3/Session-3B.md
+
+Context:
+- Sessions 0, 1A, 1B, 1C, 1D, 1.5A, 1.5B, 1.5C, 2A, 2B, 2C, 2D, and 3A are complete, deployed, smoke-tested, and accepted.
+- The platform admin host is https://dua.edupod.app.
+- Platform admin credentials are stored locally at:
+  /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print secrets, commit secrets, or expose them in logs/screenshots.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read docs/features/platform-dashboard/Layer-1/Layer-1-Plan.md.
+5. Read docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md.
+6. Read docs/features/platform-dashboard/Layer-2/Layer-2-Plan.md.
+7. Read docs/features/platform-dashboard/Layer-3/Layer-3-Plan.md.
+8. Read docs/features/platform-dashboard/Layer-3/Session-3B.md end-to-end.
+9. Read docs/features/platform-dashboard/Layer-3/Session-3A.md.
+10. Load relevant rule packs:
+   - .claude/rules/backend.md
+   - .claude/rules/frontend.md
+   - .claude/rules/prisma.md
+   - .claude/rules/testing.md
+   - .claude/rules/code-quality.md
+   - .claude/rules/architecture-policing.md if architecture/blast-radius docs are touched
+
+Implementation requirements:
+- Stay strictly within Session 3B.
+- Implement the support toolkit and full support-action audit trail described in the Session 3B spec.
+- Do not add Layer 3C/3D/3E capabilities.
+- Preserve existing platform admin navigation, auth, alerts, health, tenant, queue, audit, error diagnostics, and Session 3A dashboard behavior.
+- Follow RLS rules exactly: platform-level tables do not get tenant RLS; tenant-scoped operations still use the established RLS-aware transaction patterns.
+- Follow the active UX redesign spec and use token-driven styling.
+
+Verification:
+- Run targeted backend and frontend checks for touched files.
+- Run relevant API/web type-check and lint.
+- Run Prisma generation/migration validation required by the repo.
+- Run regression coverage for platform support actions, platform audit action listing, tenant/user detail actions, routing/navigation, and any touched shared components.
+- Verify with the Codex browser or Playwright:
+  - support actions render only for authorized platform admins
+  - password reset, MFA reset, resend invite, unlock account, transfer ownership, disable user, and enable user flows handle success/error states safely
+  - every support action writes the required audit record
+  - audit list filters and pagination work
+  - dashboard Session 3A home still loads with all five panels
+  - mobile layout has no horizontal overflow
+
+Deployment rules:
+- Deploy through CI only.
+- Commit to main and push to origin main.
+- git push origin main triggers GitHub Actions and scripts/deploy-production.sh.
+- Never deploy by SSH, rsync, or direct server file edits.
+- SSH access, if used at all, is diagnostics only.
+
+Git hygiene:
+- Stage only explicit files you touched. Never use git add . or git add -A.
+- Before pushing:
+  1. git fetch origin main
+  2. git log --oneline origin/main..HEAD
+  3. verify every outgoing commit is intentional
+- Watch CI with gh run watch / gh run view.
+- If CI fails, fix forward with another commit and push.
+
+Completion:
+- When CI is green and production smoke passes, tick the Acceptance Criteria checkboxes in:
+  docs/features/platform-dashboard/Layer-3/Session-3B.md
+- Add a short "Commits / CI / Notes" section at the end of that session doc.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 3B is fully complete and whether the repo is ready for the next parallel/sequence work.
+- Final response should include the generated next-session prompt.
+```
