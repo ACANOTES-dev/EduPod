@@ -131,6 +131,7 @@ import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.p
 import { RegulatoryQueueDispatcher } from './processors/regulatory/regulatory-queue.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
+import { TenantMaintenanceWindowCheckProcessor } from './processors/reports/maintenance-window-check.processor';
 import { ReportAlertsHandler } from './processors/reports/report-alerts.processor';
 import {
   ReportsExportBatchHandler,
@@ -587,6 +588,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ScheduledReportsTickProcessor,
     ScheduledReportsDeliverProcessor,
     ReportAlertsHandler,
+    TenantMaintenanceWindowCheckProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

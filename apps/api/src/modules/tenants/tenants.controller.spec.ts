@@ -5,7 +5,11 @@ import type { JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 
+import { MaintenanceService } from './maintenance.service';
+import { PlatformCacheService } from './platform-cache.service';
+import { PlatformSessionService } from './platform-session.service';
 import { PlatformSupportService } from './platform-support.service';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
@@ -54,6 +58,24 @@ describe('TenantsController', () => {
     transferOwnership: jest.Mock;
     unlockAccount: jest.Mock;
   };
+  let mockSessionService: {
+    forceLogoutTenant: jest.Mock;
+    forceLogoutUser: jest.Mock;
+    listSessions: jest.Mock;
+  };
+  let mockCacheService: {
+    flushCache: jest.Mock;
+    getCacheStats: jest.Mock;
+  };
+  let mockMaintenanceService: {
+    createMaintenanceWindow: jest.Mock;
+    deleteMaintenanceWindow: jest.Mock;
+    listMaintenanceWindows: jest.Mock;
+    toggleMaintenanceMode: jest.Mock;
+  };
+  let mockPlatformUsersService: {
+    hasPermission: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockService = {
@@ -82,12 +104,34 @@ describe('TenantsController', () => {
       transferOwnership: jest.fn(),
       unlockAccount: jest.fn(),
     };
+    mockSessionService = {
+      forceLogoutTenant: jest.fn(),
+      forceLogoutUser: jest.fn(),
+      listSessions: jest.fn(),
+    };
+    mockCacheService = {
+      flushCache: jest.fn(),
+      getCacheStats: jest.fn(),
+    };
+    mockMaintenanceService = {
+      createMaintenanceWindow: jest.fn(),
+      deleteMaintenanceWindow: jest.fn(),
+      listMaintenanceWindows: jest.fn(),
+      toggleMaintenanceMode: jest.fn(),
+    };
+    mockPlatformUsersService = {
+      hasPermission: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenantsController],
       providers: [
         { provide: TenantsService, useValue: mockService },
+        { provide: PlatformSessionService, useValue: mockSessionService },
+        { provide: PlatformCacheService, useValue: mockCacheService },
+        { provide: MaintenanceService, useValue: mockMaintenanceService },
         { provide: PlatformSupportService, useValue: mockSupportService },
+        { provide: PlatformUsersService, useValue: mockPlatformUsersService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -221,6 +265,140 @@ describe('TenantsController', () => {
     const result = await controller.getDashboard();
     expect(result).toEqual(dashboard);
     expect(mockService.getDashboard).toHaveBeenCalled();
+  });
+
+  it('should delegate session listing to the session service', async () => {
+    const sessions = [{ tenant_id: TENANT_ID, tenant_name: 'School', sessions: [] }];
+    mockSessionService.listSessions.mockResolvedValueOnce(sessions);
+
+    const result = await controller.listSessions();
+    expect(result).toEqual(sessions);
+    expect(mockSessionService.listSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it('should delegate tenant force logout with audit context', async () => {
+    mockSessionService.forceLogoutTenant.mockResolvedValueOnce({ logged_out: 2 });
+
+    const result = await controller.forceLogoutTenant(TENANT_ID, mockUser, mockRequest);
+    expect(result).toEqual({ logged_out: 2 });
+    expect(mockSessionService.forceLogoutTenant).toHaveBeenCalledWith(TENANT_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate user force logout with audit context', async () => {
+    mockSessionService.forceLogoutUser.mockResolvedValueOnce({ logged_out: 1 });
+
+    const result = await controller.forceLogoutUser(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ logged_out: 1 });
+    expect(mockSessionService.forceLogoutUser).toHaveBeenCalledWith(USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate cache stats and flush controls', async () => {
+    const stats = [{ cache_type: 'permissions', key_count: 2 }];
+    mockCacheService.getCacheStats.mockResolvedValueOnce(stats);
+    mockCacheService.flushCache.mockResolvedValueOnce({ keys_deleted: 2 });
+
+    await expect(controller.getCacheStats()).resolves.toEqual(stats);
+    const result = await controller.flushCache(
+      { cache_type: 'permissions', tenant_id: TENANT_ID },
+      mockUser,
+      mockRequest,
+    );
+    expect(result).toEqual({ keys_deleted: 2 });
+    expect(mockCacheService.flushCache).toHaveBeenCalledWith(
+      { cache_type: 'permissions', tenant_id: TENANT_ID },
+      {
+        actor_user_id: USER_ID,
+        ip_address: undefined,
+        user_agent: undefined,
+      },
+    );
+    expect(mockPlatformUsersService.hasPermission).not.toHaveBeenCalled();
+  });
+
+  it('should require global cache permission for global flushes', async () => {
+    mockPlatformUsersService.hasPermission.mockResolvedValueOnce(true);
+    mockCacheService.flushCache.mockResolvedValueOnce({ keys_deleted: 4 });
+
+    const result = await controller.flushCache({ cache_type: 'all' }, mockUser, mockRequest);
+
+    expect(result).toEqual({ keys_deleted: 4 });
+    expect(mockPlatformUsersService.hasPermission).toHaveBeenCalledWith(
+      USER_ID,
+      'platform.cache.flush_global',
+    );
+  });
+
+  it('should deny global cache flushes without global permission', async () => {
+    mockPlatformUsersService.hasPermission.mockResolvedValueOnce(false);
+
+    await expect(
+      controller.flushCache({ cache_type: 'all' }, mockUser, mockRequest),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'PLATFORM_PERMISSION_DENIED',
+        permission: 'platform.cache.flush_global',
+      },
+    });
+    expect(mockCacheService.flushCache).not.toHaveBeenCalled();
+  });
+
+  it('should delegate maintenance controls', async () => {
+    const updatedTenant = { id: TENANT_ID, maintenance_mode: true };
+    mockMaintenanceService.toggleMaintenanceMode.mockResolvedValueOnce(updatedTenant);
+    mockMaintenanceService.listMaintenanceWindows.mockResolvedValueOnce([]);
+    mockMaintenanceService.createMaintenanceWindow.mockResolvedValueOnce({ id: 'window-1' });
+    mockMaintenanceService.deleteMaintenanceWindow.mockResolvedValueOnce({ deleted: true });
+
+    await expect(
+      controller.toggleMaintenance(
+        TENANT_ID,
+        { enabled: true, message: 'Brief maintenance' },
+        mockUser,
+        mockRequest,
+      ),
+    ).resolves.toEqual(updatedTenant);
+    expect(mockMaintenanceService.toggleMaintenanceMode).toHaveBeenCalledWith(
+      TENANT_ID,
+      true,
+      'Brief maintenance',
+      {
+        actor_user_id: USER_ID,
+        ip_address: undefined,
+        user_agent: undefined,
+      },
+    );
+
+    await expect(controller.listMaintenanceWindows({ tenant_id: TENANT_ID })).resolves.toEqual([]);
+    expect(mockMaintenanceService.listMaintenanceWindows).toHaveBeenCalledWith(TENANT_ID);
+
+    const dto = {
+      tenant_id: TENANT_ID,
+      starts_at: new Date('2030-01-01T10:00:00.000Z'),
+      ends_at: new Date('2030-01-01T11:00:00.000Z'),
+      message: 'Scheduled work',
+    };
+    await expect(controller.createMaintenanceWindow(dto, mockUser, mockRequest)).resolves.toEqual({
+      id: 'window-1',
+    });
+    expect(mockMaintenanceService.createMaintenanceWindow).toHaveBeenCalledWith(dto, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+
+    await expect(
+      controller.deleteMaintenanceWindow(TENANT_ID, mockUser, mockRequest),
+    ).resolves.toEqual({
+      deleted: true,
+    });
   });
 
   it('should delegate impersonate with correct params', async () => {

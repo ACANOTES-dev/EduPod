@@ -8,6 +8,7 @@ import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { CommonModule } from './common/common.module';
 import { GuardianRestrictionInterceptorModule } from './common/interceptors/guardian-restriction.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
+import { MaintenanceModeMiddleware } from './common/middleware/maintenance-mode.middleware';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
@@ -202,7 +203,7 @@ export class AppModule implements NestModule {
       .forRoutes('*');
 
     consumer
-      .apply(TenantResolutionMiddleware, RequestContextMiddleware)
+      .apply(TenantResolutionMiddleware, MaintenanceModeMiddleware, RequestContextMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.ALL },
         { path: 'health/(.*)', method: RequestMethod.ALL },

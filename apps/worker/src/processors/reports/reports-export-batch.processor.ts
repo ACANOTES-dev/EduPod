@@ -8,6 +8,10 @@ import type { TenantJobPayload } from '../../base/tenant-aware-job';
 import { TenantAwareJob } from '../../base/tenant-aware-job';
 
 import {
+  TENANT_MAINTENANCE_WINDOW_CHECK_JOB,
+  TenantMaintenanceWindowCheckProcessor,
+} from './maintenance-window-check.processor';
+import {
   REPORTS_ALERT_EVALUATE_JOB,
   REPORTS_ALERT_EVALUATE_TENANT_JOB,
   ReportAlertsHandler,
@@ -61,9 +65,7 @@ export class ReportsExportBatchHandler {
 
     const { tenant_id } = job.data;
     if (!tenant_id) {
-      throw new Error(
-        'Job rejected: missing tenant_id in reports:export-batch payload',
-      );
+      throw new Error('Job rejected: missing tenant_id in reports:export-batch payload');
     }
 
     this.logger.log(
@@ -130,6 +132,7 @@ export class ReportsExportBatchProcessor extends WorkerHost {
     private readonly scheduledTick: ScheduledReportsTickProcessor,
     private readonly scheduledDeliver: ScheduledReportsDeliverProcessor,
     private readonly alertsHandler: ReportAlertsHandler,
+    private readonly maintenanceWindowCheck: TenantMaintenanceWindowCheckProcessor,
   ) {
     super();
   }
@@ -153,6 +156,9 @@ export class ReportsExportBatchProcessor extends WorkerHost {
         // handler branches internally on `job.name` to either dispatch
         // the per-tenant fan-out or run a single tenant's evaluation.
         await this.alertsHandler.process(job);
+        return;
+      case TENANT_MAINTENANCE_WINDOW_CHECK_JOB:
+        await this.maintenanceWindowCheck.process(job);
         return;
       default:
         // Unknown jobs (incl. canary echoes, DZ-48) complete silently;

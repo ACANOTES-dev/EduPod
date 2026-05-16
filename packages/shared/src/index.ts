@@ -71,6 +71,7 @@ export * from './schemas/application.schema';
 export * from './schemas/registration.schema';
 export * from './schemas/job-payload.schema';
 export * from './schemas/platform';
+export * from './schemas/platform-operations';
 export * from './schemas/platform-support';
 
 // P4A Types

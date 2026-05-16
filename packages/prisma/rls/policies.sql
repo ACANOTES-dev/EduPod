@@ -14,6 +14,7 @@
 --   gdpr_export_policies     — platform-level, no tenant_id
 --   platform_tenant_metrics  — platform-admin analytics; tenant_id is correlation only
 --   tenant_onboarding_steps  — platform-admin tracker; tenant_id is an integrity FK, not RLS
+--   tenant_maintenance_windows — platform-admin scheduler; tenant_id is an integrity FK, not RLS
 -- =============================================================
 
 -- Template for a standard tenant-scoped table:

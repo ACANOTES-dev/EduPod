@@ -252,6 +252,20 @@
     "permission": "platform.audit_log.view"
   },
   {
+    "method": "POST",
+    "path": "/v1/admin/cache/flush",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.cache.flush_tenant"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/cache/stats",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.tenants.view"
+  },
+  {
     "method": "GET",
     "path": "/v1/admin/dashboard",
     "controller": "TenantsController",
@@ -292,6 +306,27 @@
     "controller": "TenantsController",
     "module": "tenants",
     "permission": "platform.tenants.impersonate"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/maintenance-windows",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.tenants.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/maintenance-windows",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.maintenance.toggle"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/maintenance-windows/:id",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.maintenance.toggle"
   },
   {
     "method": "GET",
@@ -512,6 +547,27 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/sessions",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.tenants.view"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/sessions/tenant/:tenantId",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.sessions.force_logout_tenant"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/sessions/user/:userId",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.sessions.force_logout_user"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/tenants",
     "controller": "TenantsController",
     "module": "tenants",
@@ -551,6 +607,13 @@
     "controller": "TenantMetricsController",
     "module": "platform",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/tenants/:id/maintenance",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.maintenance.toggle"
   },
   {
     "method": "GET",

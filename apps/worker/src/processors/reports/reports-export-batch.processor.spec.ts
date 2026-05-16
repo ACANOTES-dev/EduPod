@@ -2,6 +2,10 @@ import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
 import {
+  TENANT_MAINTENANCE_WINDOW_CHECK_JOB,
+  type TenantMaintenanceWindowCheckProcessor,
+} from './maintenance-window-check.processor';
+import {
   REPORTS_ALERT_EVALUATE_JOB,
   REPORTS_ALERT_EVALUATE_TENANT_JOB,
   type ReportAlertsHandler,
@@ -95,17 +99,20 @@ describe('ReportsExportBatchProcessor (dispatcher)', () => {
   let scheduledTick: jest.Mocked<Pick<ScheduledReportsTickProcessor, 'process'>>;
   let scheduledDeliver: jest.Mocked<Pick<ScheduledReportsDeliverProcessor, 'process'>>;
   let alertsHandler: jest.Mocked<Pick<ReportAlertsHandler, 'process'>>;
+  let maintenanceWindowCheck: jest.Mocked<Pick<TenantMaintenanceWindowCheckProcessor, 'process'>>;
 
   beforeEach(() => {
     exportBatch = { process: jest.fn().mockResolvedValue(undefined) };
     scheduledTick = { process: jest.fn().mockResolvedValue(undefined) };
     scheduledDeliver = { process: jest.fn().mockResolvedValue(undefined) };
     alertsHandler = { process: jest.fn().mockResolvedValue(undefined) };
+    maintenanceWindowCheck = { process: jest.fn().mockResolvedValue(undefined) };
     dispatcher = new ReportsExportBatchProcessor(
       exportBatch as unknown as ReportsExportBatchHandler,
       scheduledTick as unknown as ScheduledReportsTickProcessor,
       scheduledDeliver as unknown as ScheduledReportsDeliverProcessor,
       alertsHandler as unknown as ReportAlertsHandler,
+      maintenanceWindowCheck as unknown as TenantMaintenanceWindowCheckProcessor,
     );
   });
 
@@ -130,6 +137,13 @@ describe('ReportsExportBatchProcessor (dispatcher)', () => {
     const job = buildBareJob(REPORTS_ALERT_EVALUATE_TENANT_JOB);
     await dispatcher.process(job);
     expect(alertsHandler.process).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes tenant maintenance window checks to the maintenance handler', async () => {
+    const job = buildBareJob(TENANT_MAINTENANCE_WINDOW_CHECK_JOB);
+    await dispatcher.process(job);
+    expect(maintenanceWindowCheck.process).toHaveBeenCalledTimes(1);
+    expect(alertsHandler.process).not.toHaveBeenCalled();
   });
 
   it('routes scheduled-run jobs to the tick handler', async () => {
@@ -160,9 +174,7 @@ describe('ReportsExportBatchProcessor (dispatcher)', () => {
     const warnSpy = jest.spyOn(dispatcher['logger'], 'warn').mockImplementation();
     const job = buildBareJob('reports:totally-unknown');
     await dispatcher.process(job);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('reports:totally-unknown'),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('reports:totally-unknown'));
     warnSpy.mockRestore();
   });
 });

@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -17,16 +19,28 @@ import type { Request } from 'express';
 import { z } from 'zod';
 
 import {
+  cacheFlushSchema,
+  createMaintenanceWindowSchema,
   createTenantSchema,
   listAuditActionsQuerySchema,
+  listMaintenanceWindowsQuerySchema,
   listUsersQuerySchema,
+  maintenanceToggleSchema,
   paginationQuerySchema,
   toggleModuleSchema,
   transferOwnershipSchema,
   updateSupportedLocalesSchema,
   updateTenantSchema,
 } from '@school/shared';
-import type { JwtPayload, ListAuditActionsQuery, ListUsersQuery } from '@school/shared';
+import type {
+  CacheFlushDto,
+  CreateMaintenanceWindowDto,
+  JwtPayload,
+  ListAuditActionsQuery,
+  ListMaintenanceWindowsQuery,
+  ListUsersQuery,
+  MaintenanceToggleDto,
+} from '@school/shared';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
@@ -35,10 +49,14 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { auditContextFromRequest } from '../platform-audit/audit-request-context';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import type { TransferOwnershipDto } from './dto/transfer-ownership.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import { MaintenanceService } from './maintenance.service';
+import { PlatformCacheService } from './platform-cache.service';
+import { PlatformSessionService } from './platform-session.service';
 import { PlatformSupportService } from './platform-support.service';
 import { TenantsService } from './tenants.service';
 
@@ -59,7 +77,11 @@ const listTenantsQuerySchema = paginationQuerySchema.extend({
 export class TenantsController {
   constructor(
     private readonly tenantsService: TenantsService,
+    private readonly platformSessionService: PlatformSessionService,
+    private readonly platformCacheService: PlatformCacheService,
+    private readonly maintenanceService: MaintenanceService,
     private readonly platformSupportService: PlatformSupportService,
+    private readonly platformUsersService: PlatformUsersService,
   ) {}
 
   @Post('tenants')
@@ -157,6 +179,111 @@ export class TenantsController {
   @RequiresPlatformPermission('platform.tenants.view')
   async getDashboard() {
     return this.tenantsService.getDashboard();
+  }
+
+  @Get('sessions')
+  @RequiresPlatformPermission('platform.tenants.view')
+  async listSessions() {
+    return this.platformSessionService.listSessions();
+  }
+
+  @Delete('sessions/tenant/:tenantId')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.sessions.force_logout_tenant')
+  async forceLogoutTenant(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSessionService.forceLogoutTenant(
+      tenantId,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Delete('sessions/user/:userId')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.sessions.force_logout_user')
+  async forceLogoutUser(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSessionService.forceLogoutUser(
+      userId,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Get('cache/stats')
+  @RequiresPlatformPermission('platform.tenants.view')
+  async getCacheStats() {
+    return this.platformCacheService.getCacheStats();
+  }
+
+  @Post('cache/flush')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.cache.flush_tenant')
+  async flushCache(
+    @Body(new ZodValidationPipe(cacheFlushSchema)) dto: CacheFlushDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    await this.assertCacheFlushPermission(user.sub, dto);
+    return this.platformCacheService.flushCache(dto, auditContextFromRequest(user, request));
+  }
+
+  @Patch('tenants/:id/maintenance')
+  @RequiresPlatformPermission('platform.maintenance.toggle')
+  async toggleMaintenance(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(maintenanceToggleSchema)) dto: MaintenanceToggleDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.maintenanceService.toggleMaintenanceMode(
+      id,
+      dto.enabled,
+      dto.message,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Get('maintenance-windows')
+  @RequiresPlatformPermission('platform.tenants.view')
+  async listMaintenanceWindows(
+    @Query(new ZodValidationPipe(listMaintenanceWindowsQuerySchema))
+    query: ListMaintenanceWindowsQuery,
+  ) {
+    return this.maintenanceService.listMaintenanceWindows(query.tenant_id);
+  }
+
+  @Post('maintenance-windows')
+  @RequiresPlatformPermission('platform.maintenance.toggle')
+  async createMaintenanceWindow(
+    @Body(new ZodValidationPipe(createMaintenanceWindowSchema)) dto: CreateMaintenanceWindowDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.maintenanceService.createMaintenanceWindow(
+      dto,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Delete('maintenance-windows/:id')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.maintenance.toggle')
+  async deleteMaintenanceWindow(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.maintenanceService.deleteMaintenanceWindow(
+      id,
+      auditContextFromRequest(user, request),
+    );
   }
 
   @Get('users')
@@ -324,5 +451,23 @@ export class TenantsController {
       user.sub,
       auditContextFromRequest(user, request),
     );
+  }
+
+  private async assertCacheFlushPermission(userId: string, dto: CacheFlushDto): Promise<void> {
+    if (dto.tenant_id) {
+      return;
+    }
+
+    const hasGlobalPermission = await this.platformUsersService.hasPermission(
+      userId,
+      'platform.cache.flush_global',
+    );
+    if (!hasGlobalPermission) {
+      throw new NotFoundException({
+        code: 'PLATFORM_PERMISSION_DENIED',
+        permission: 'platform.cache.flush_global',
+        message: 'You do not have permission to perform this action.',
+      });
+    }
   }
 }

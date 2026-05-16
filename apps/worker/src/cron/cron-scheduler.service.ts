@@ -55,6 +55,7 @@ import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-dail
 import { PASTORAL_CRON_DISPATCH_OVERDUE_JOB } from '../processors/pastoral/pastoral-cron-dispatch.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
+import { TENANT_MAINTENANCE_WINDOW_CHECK_JOB } from '../processors/reports/maintenance-window-check.processor';
 import { REPORTS_ALERT_EVALUATE_JOB } from '../processors/reports/report-alerts.processor';
 import { REPORTS_SCHEDULED_RUN_JOB } from '../processors/reports/scheduled-reports-tick.processor';
 import { SCHEDULING_REAP_STALE_JOB } from '../processors/scheduling-stale-reaper.processor';
@@ -1047,5 +1048,22 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${REPORTS_ALERT_EVALUATE_JOB} (every 30 minutes)`);
+
+    // ── platform:maintenance-window-check (Session 3C) ─────────────────────
+    // Cross-tenant tenant-maintenance tick. Fired every minute so scheduled
+    // windows enter/exit close to their wall-clock boundaries.
+    await this.reportsQueue.add(
+      TENANT_MAINTENANCE_WINDOW_CHECK_JOB,
+      {},
+      {
+        repeat: { every: 60_000 },
+        jobId: `cron:${TENANT_MAINTENANCE_WINDOW_CHECK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${TENANT_MAINTENANCE_WINDOW_CHECK_JOB} (every minute)`,
+    );
   }
 }

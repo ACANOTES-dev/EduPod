@@ -9,6 +9,7 @@ import {
   Building2,
   CalendarClock,
   ClipboardList,
+  DatabaseZap,
   FileSearch,
   LayoutDashboard,
   ListChecks,
@@ -246,6 +247,12 @@ function PlatformSidebarNav({
       label: 'Users',
       href: `/${locale}/admin/users`,
       permission: 'platform.users.reset_password',
+    },
+    {
+      icon: DatabaseZap,
+      label: 'Sessions & Cache',
+      href: `/${locale}/admin/sessions`,
+      permission: 'platform.tenants.view',
     },
     {
       icon: ShieldCheck,

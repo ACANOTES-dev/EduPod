@@ -35,6 +35,8 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
     'Platform-admin analytics snapshots; tenant_id is a correlation FK, not an RLS boundary.',
   tenant_onboarding_steps:
     'Platform-admin onboarding tracker; tenant_id is a data-integrity FK, not an RLS boundary.',
+  tenant_maintenance_windows:
+    'Platform-admin maintenance scheduler; tenant_id is a data-integrity FK, not an RLS boundary.',
 };
 
 // ─── PascalCase to snake_case conversion ──────────────────────────────────────

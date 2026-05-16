@@ -9,6 +9,9 @@ import { SequenceModule } from '../sequence/sequence.module';
 
 import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
+import { MaintenanceService } from './maintenance.service';
+import { PlatformCacheService } from './platform-cache.service';
+import { PlatformSessionService } from './platform-session.service';
 import { PlatformSupportService } from './platform-support.service';
 import { PublicTenantsController } from './public-tenants.controller';
 import { PublicTenantsService } from './public-tenants.service';
@@ -37,6 +40,9 @@ import { TenantsService } from './tenants.service';
     DomainsService,
     PublicTenantsService,
     TenantReadFacade,
+    MaintenanceService,
+    PlatformCacheService,
+    PlatformSessionService,
     PlatformSupportService,
   ],
   exports: [TenantsService, SequenceModule, TenantReadFacade],
