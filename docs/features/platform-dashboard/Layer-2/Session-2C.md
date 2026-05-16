@@ -716,21 +716,29 @@ BullMQ `Queue` class is mocked in tests. The mock provides:
 
 ## 8. Acceptance Criteria
 
-- [ ] `GET /v1/admin/queues` returns all 20 queues with correct job counts
-- [ ] `GET /v1/admin/queues/:name/jobs` returns paginated job list, filterable by status
-- [ ] `GET /v1/admin/queues/:name/jobs/:id` returns full job detail with payload, error, stacktrace
-- [ ] `POST /v1/admin/queues/:name/jobs/:id/retry` retries a failed job (400 for non-failed)
-- [ ] `POST /v1/admin/queues/:name/pause` pauses queue processing
-- [ ] `POST /v1/admin/queues/:name/resume` resumes paused queue
-- [ ] `POST /v1/admin/queues/:name/clean` cleans completed or failed jobs
-- [ ] Queue name validation: returns 404 for queue names not in `QUEUE_NAMES`
-- [ ] All endpoints guarded by `PlatformOwnerGuard`
-- [ ] Queue dashboard page shows all 20 queues as cards with live counts
-- [ ] WebSocket `queue_metrics` events update counts every 10 seconds
-- [ ] Queue detail page shows job list with status filter tabs
-- [ ] Job detail panel shows payload JSON, error stack, attempt history
-- [ ] Pause/resume toggle works from the UI
-- [ ] Clean buttons show confirmation dialog before executing
-- [ ] Retry button on failed jobs triggers retry and refreshes list
-- [ ] All tests pass with mocked BullMQ Queue instances
-- [ ] `turbo lint` and `turbo type-check` pass with zero errors
+- [x] `GET /v1/admin/queues` returns all 25 current queues with correct job counts
+- [x] `GET /v1/admin/queues/:name/jobs` returns paginated job list, filterable by status
+- [x] `GET /v1/admin/queues/:name/jobs/:id` returns full job detail with payload, error, stacktrace
+- [x] `POST /v1/admin/queues/:name/jobs/:id/retry` retries a failed job (400 for non-failed)
+- [x] `POST /v1/admin/queues/:name/pause` pauses queue processing
+- [x] `POST /v1/admin/queues/:name/resume` resumes paused queue
+- [x] `POST /v1/admin/queues/:name/clean` cleans completed or failed jobs
+- [x] Queue name validation: returns 404 for queue names not in `QUEUE_NAMES`
+- [x] All endpoints guarded by platform RBAC permissions
+- [x] Queue dashboard page shows all 25 current queues as cards with live counts
+- [x] WebSocket `queue_metrics` events update counts every 10 seconds
+- [x] Queue detail page shows job list with status filter tabs
+- [x] Job detail panel shows payload JSON, error stack, attempt history
+- [x] Pause/resume toggle works from the UI
+- [x] Clean buttons show confirmation dialog before executing
+- [x] Retry button on failed jobs triggers retry and refreshes list
+- [x] All tests pass with mocked BullMQ Queue instances
+- [x] `turbo lint` and `turbo type-check` pass with zero errors
+
+## 9. Commits / CI / Notes
+
+- Implementation commit: `966f7a68de006f4a18f2c39b57a57d2f1527de0c` (`feat(platform): add queue management dashboard`)
+- CI / deploy: <https://github.com/ACANOTES-dev/EduPod/actions/runs/25969896063> passed and deployed through `git push origin main`.
+- Local verification: targeted queue/admin tests, platform regression suites, backend/frontend/worker type checks, backend/frontend/worker lint, `pnpm turbo run test`, `pnpm validate:fast`, and `pnpm validate:ci` passed.
+- Production smoke: 2026-05-16 on <https://dua.edupod.app> passed. Verified platform login/dashboard, queue dashboard with 25 queues, queue detail for `notifications`, status filters, job detail panel, guarded pause/resume/clean controls, queue metrics graceful fallback, tenant list/detail/onboarding, health, alerts/history/rules/channels/silences/maintenance, platform users, permissions, audit log, error log, and redaction rules.
+- Production queue mutations were not executed during smoke; controls were verified as guarded/rendered, and mutation audit logging is covered by controller/service tests.
