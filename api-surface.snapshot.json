@@ -196,6 +196,13 @@
     "permission": "platform.alerts.silence"
   },
   {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/rules/:id/toggle",
+    "controller": "AlertRulesController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
     "method": "GET",
     "path": "/v1/admin/audit-logs",
     "controller": "PlatformAuditLogController",

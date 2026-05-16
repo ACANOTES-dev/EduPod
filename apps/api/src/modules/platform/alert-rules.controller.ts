@@ -19,6 +19,8 @@ import {
   createAlertRuleSchema,
   type CreateAlertRuleDto,
   type JwtPayload,
+  toggleAlertRuleSchema,
+  type ToggleAlertRuleDto,
   updateAlertRuleSchema,
   type UpdateAlertRuleDto,
 } from '@school/shared';
@@ -53,6 +55,22 @@ export class AlertRulesController {
     @Req() request: Request,
   ): Promise<PlatformAlertRule> {
     return this.alertRulesService.create(dto, auditContextFromRequest(user, request));
+  }
+
+  // PATCH /v1/admin/alerts/rules/:id/toggle
+  @Patch(':id/toggle')
+  @RequiresPlatformPermission('platform.alerts.silence')
+  async toggle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(toggleAlertRuleSchema)) dto: ToggleAlertRuleDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<PlatformAlertRule> {
+    return this.alertRulesService.toggle(
+      id,
+      dto.is_enabled,
+      auditContextFromRequest(user, request),
+    );
   }
 
   // PATCH /v1/admin/alerts/rules/:id

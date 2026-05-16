@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import type { CreateAlertRuleDto } from '@school/shared';
@@ -22,12 +22,21 @@ const CREATE_DTO: CreateAlertRuleDto = {
   severity: 'critical',
   cooldown_minutes: 15,
   is_enabled: true,
+  is_security_critical: false,
   notify_emails: ['ops@example.com'],
+  channel_ids: [],
 };
 
 const ALERT_RULE = {
   id: RULE_ID,
-  ...CREATE_DTO,
+  name: CREATE_DTO.name,
+  metric: CREATE_DTO.metric,
+  condition_config: CREATE_DTO.condition_config,
+  severity: CREATE_DTO.severity,
+  cooldown_minutes: CREATE_DTO.cooldown_minutes,
+  is_enabled: CREATE_DTO.is_enabled,
+  is_security_critical: CREATE_DTO.is_security_critical,
+  notify_emails: CREATE_DTO.notify_emails,
   created_at: new Date('2026-05-15T10:00:00.000Z'),
   updated_at: new Date('2026-05-15T10:00:00.000Z'),
 };
@@ -89,8 +98,59 @@ describe('AlertRulesService', () => {
         severity: CREATE_DTO.severity,
         cooldown_minutes: CREATE_DTO.cooldown_minutes,
         is_enabled: CREATE_DTO.is_enabled,
+        is_security_critical: CREATE_DTO.is_security_critical,
         notify_emails: CREATE_DTO.notify_emails,
       },
+    });
+  });
+
+  it('rejects queue metrics without a queue in condition_config', async () => {
+    await expect(
+      service.create({
+        ...CREATE_DTO,
+        metric: 'queue_depth',
+        condition_config: { operator: 'gt', threshold: 100 },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects health status metrics without a component in condition_config', async () => {
+    await expect(
+      service.create({
+        ...CREATE_DTO,
+        metric: 'health_status',
+        condition_config: { operator: 'gte', threshold: 1 },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('sets default severity and cooldown values', async () => {
+    const ruleWithDefaults = {
+      ...ALERT_RULE,
+      severity: 'warning',
+      cooldown_minutes: 15,
+      is_enabled: true,
+      is_security_critical: false,
+      notify_emails: [],
+    };
+    mockPrisma.platformAlertRule.create.mockResolvedValueOnce(ruleWithDefaults);
+
+    await expect(
+      service.create({
+        name: 'Redis degraded',
+        metric: 'health_status',
+        condition_config: { component: 'redis', operator: 'gte', threshold: 1 },
+      } as CreateAlertRuleDto),
+    ).resolves.toEqual(ruleWithDefaults);
+
+    expect(mockPrisma.platformAlertRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        severity: 'warning',
+        cooldown_minutes: 15,
+        is_enabled: true,
+        is_security_critical: false,
+        notify_emails: [],
+      }),
     });
   });
 
@@ -111,12 +171,37 @@ describe('AlertRulesService', () => {
     });
   });
 
+  it('rejects updates that would leave queue metrics without a queue', async () => {
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+
+    await expect(service.update(RULE_ID, { metric: 'queue_depth' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
   it('throws when updating a missing rule', async () => {
     mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(null);
 
     await expect(service.update(RULE_ID, { is_enabled: false })).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('toggles an existing alert rule', async () => {
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.update.mockResolvedValueOnce({
+      ...ALERT_RULE,
+      is_enabled: false,
+    });
+
+    await expect(service.toggle(RULE_ID, false)).resolves.toMatchObject({
+      is_enabled: false,
+    });
+
+    expect(mockPrisma.platformAlertRule.update).toHaveBeenCalledWith({
+      where: { id: RULE_ID },
+      data: { is_enabled: false },
+    });
   });
 
   it('deletes an existing alert rule', async () => {

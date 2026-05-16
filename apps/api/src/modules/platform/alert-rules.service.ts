@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type PlatformAlertRule } from '@prisma/client';
 
-import type { CreateAlertRuleDto, UpdateAlertRuleDto } from '@school/shared';
+import {
+  createAlertRuleSchema,
+  type CreateAlertRuleDto,
+  type UpdateAlertRuleDto,
+} from '@school/shared';
 
 import {
   PlatformAuditService,
@@ -11,6 +15,18 @@ import { PrismaService } from '../prisma/prisma.service';
 
 function toJsonValue(value: CreateAlertRuleDto['condition_config']): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function validateAlertRuleInput(input: unknown): CreateAlertRuleDto {
+  const parsed = createAlertRuleSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new BadRequestException({
+      code: 'INVALID_ALERT_RULE_CONFIG',
+      message: 'Alert rule condition is invalid.',
+      details: parsed.error.flatten(),
+    });
+  }
+  return parsed.data;
 }
 
 @Injectable()
@@ -27,16 +43,17 @@ export class AlertRulesService {
   }
 
   async create(dto: CreateAlertRuleDto, audit?: PlatformAuditContext): Promise<PlatformAlertRule> {
+    const validated = validateAlertRuleInput(dto);
     const created = await this.prisma.platformAlertRule.create({
       data: {
-        name: dto.name,
-        metric: dto.metric,
-        condition_config: toJsonValue(dto.condition_config),
-        severity: dto.severity,
-        cooldown_minutes: dto.cooldown_minutes,
-        is_enabled: dto.is_enabled,
-        is_security_critical: dto.is_security_critical,
-        notify_emails: dto.notify_emails,
+        name: validated.name,
+        metric: validated.metric,
+        condition_config: toJsonValue(validated.condition_config),
+        severity: validated.severity,
+        cooldown_minutes: validated.cooldown_minutes,
+        is_enabled: validated.is_enabled,
+        is_security_critical: validated.is_security_critical,
+        notify_emails: validated.notify_emails,
       },
     });
     if (audit) {
@@ -64,17 +81,34 @@ export class AlertRulesService {
       });
     }
 
+    const validated = validateAlertRuleInput({
+      name: existing.name,
+      metric: existing.metric,
+      condition_config: existing.condition_config,
+      severity: existing.severity,
+      cooldown_minutes: existing.cooldown_minutes,
+      is_enabled: existing.is_enabled,
+      is_security_critical: existing.is_security_critical,
+      notify_emails: existing.notify_emails,
+      channel_ids: [],
+      ...dto,
+    });
+
     const data: Prisma.PlatformAlertRuleUpdateInput = {};
-    if (dto.name !== undefined) data.name = dto.name;
-    if (dto.metric !== undefined) data.metric = dto.metric;
+    if (dto.name !== undefined) data.name = validated.name;
+    if (dto.metric !== undefined) data.metric = validated.metric;
     if (dto.condition_config !== undefined)
-      data.condition_config = toJsonValue(dto.condition_config);
-    if (dto.severity !== undefined) data.severity = dto.severity;
-    if (dto.cooldown_minutes !== undefined) data.cooldown_minutes = dto.cooldown_minutes;
-    if (dto.is_enabled !== undefined) data.is_enabled = dto.is_enabled;
+      data.condition_config = toJsonValue(validated.condition_config);
+    if (dto.severity !== undefined) data.severity = validated.severity;
+    if (dto.cooldown_minutes !== undefined) data.cooldown_minutes = validated.cooldown_minutes;
+    if (dto.is_enabled !== undefined) data.is_enabled = validated.is_enabled;
     if (dto.is_security_critical !== undefined)
-      data.is_security_critical = dto.is_security_critical;
-    if (dto.notify_emails !== undefined) data.notify_emails = dto.notify_emails;
+      data.is_security_critical = validated.is_security_critical;
+    if (dto.notify_emails !== undefined) data.notify_emails = validated.notify_emails;
+
+    if (Object.keys(data).length === 0) {
+      return existing;
+    }
 
     const updated = await this.prisma.platformAlertRule.update({
       where: { id },
@@ -90,6 +124,14 @@ export class AlertRulesService {
       });
     }
     return updated;
+  }
+
+  async toggle(
+    id: string,
+    isEnabled: boolean,
+    audit?: PlatformAuditContext,
+  ): Promise<PlatformAlertRule> {
+    return this.update(id, { is_enabled: isEnabled }, audit);
   }
 
   async remove(id: string, audit?: PlatformAuditContext): Promise<void> {

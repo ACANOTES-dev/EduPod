@@ -3,7 +3,6 @@
 import { Bell, ListChecks } from 'lucide-react';
 import * as React from 'react';
 
-import type { CreateAlertRuleDto } from '@school/shared';
 import { cn, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
@@ -11,8 +10,7 @@ import { usePlatformSocket } from '@/hooks/use-platform-socket';
 import { apiClient } from '@/lib/api-client';
 
 import { AlertHistoryTable, type PlatformAlertHistory } from './_components/alert-history-table';
-import { AlertRuleForm } from './_components/alert-rule-form';
-import { AlertRuleList, type PlatformAlertRule } from './_components/alert-rule-list';
+import { AlertRulesManager } from './_components/alert-rules-manager';
 
 type AlertsTab = 'history' | 'rules';
 
@@ -106,11 +104,6 @@ export default function PlatformAlertsPage() {
   const [alertsPage, setAlertsPage] = React.useState(1);
   const [alertsTotal, setAlertsTotal] = React.useState(0);
   const [alertsLoading, setAlertsLoading] = React.useState(true);
-  const [rules, setRules] = React.useState<PlatformAlertRule[]>([]);
-  const [rulesLoading, setRulesLoading] = React.useState(true);
-  const [formLoading, setFormLoading] = React.useState(false);
-  const [showRuleForm, setShowRuleForm] = React.useState(false);
-  const [editingRule, setEditingRule] = React.useState<PlatformAlertRule | null>(null);
 
   const loadHistory = React.useCallback(async (page: number) => {
     try {
@@ -129,23 +122,9 @@ export default function PlatformAlertsPage() {
     }
   }, []);
 
-  const loadRules = React.useCallback(async () => {
-    try {
-      setRulesLoading(true);
-      const result = await apiClient<PlatformAlertRule[]>('/api/v1/admin/alerts/rules');
-      setRules(result);
-    } catch (err: unknown) {
-      console.error('[PlatformAlertsPage.loadRules]', err);
-      toast.error(getErrorMessage(err, 'Failed to load alert rules.'));
-    } finally {
-      setRulesLoading(false);
-    }
-  }, []);
-
   React.useEffect(() => {
     void loadHistory(1);
-    void loadRules();
-  }, [loadHistory, loadRules]);
+  }, [loadHistory]);
 
   React.useEffect(() => {
     return subscribe('alert:new', (payload) => {
@@ -182,74 +161,6 @@ export default function PlatformAlertsPage() {
       console.error('[PlatformAlertsPage.handleAcknowledge]', err);
       toast.error(getErrorMessage(err, 'Failed to acknowledge alert.'));
     }
-  }
-
-  async function handleToggle(id: string, enabled: boolean) {
-    try {
-      const updated = await apiClient<PlatformAlertRule>(`/api/v1/admin/alerts/rules/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ is_enabled: enabled }),
-      });
-      setRules((current) => current.map((rule) => (rule.id === id ? updated : rule)));
-    } catch (err: unknown) {
-      console.error('[PlatformAlertsPage.handleToggle]', err);
-      toast.error(getErrorMessage(err, 'Failed to update alert rule.'));
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!window.confirm('Delete this alert rule and its alert history?')) {
-      return;
-    }
-
-    try {
-      await apiClient<void>(`/api/v1/admin/alerts/rules/${id}`, { method: 'DELETE' });
-      setRules((current) => current.filter((rule) => rule.id !== id));
-      toast.success('Alert rule deleted.');
-    } catch (err: unknown) {
-      console.error('[PlatformAlertsPage.handleDelete]', err);
-      toast.error(getErrorMessage(err, 'Failed to delete alert rule.'));
-    }
-  }
-
-  async function handleSubmitRule(data: CreateAlertRuleDto) {
-    try {
-      setFormLoading(true);
-      if (editingRule) {
-        const updated = await apiClient<PlatformAlertRule>(
-          `/api/v1/admin/alerts/rules/${editingRule.id}`,
-          { method: 'PATCH', body: JSON.stringify(data) },
-        );
-        setRules((current) => current.map((rule) => (rule.id === updated.id ? updated : rule)));
-        toast.success('Alert rule updated.');
-      } else {
-        const created = await apiClient<PlatformAlertRule>('/api/v1/admin/alerts/rules', {
-          method: 'POST',
-          body: JSON.stringify(data),
-        });
-        setRules((current) => [created, ...current]);
-        toast.success('Alert rule created.');
-      }
-      setShowRuleForm(false);
-      setEditingRule(null);
-    } catch (err: unknown) {
-      console.error('[PlatformAlertsPage.handleSubmitRule]', err);
-      toast.error(getErrorMessage(err, 'Failed to save alert rule.'));
-    } finally {
-      setFormLoading(false);
-    }
-  }
-
-  function startCreate() {
-    setEditingRule(null);
-    setShowRuleForm(true);
-    setActiveTab('rules');
-  }
-
-  function startEdit(rule: PlatformAlertRule) {
-    setEditingRule(rule);
-    setShowRuleForm(true);
-    setActiveTab('rules');
   }
 
   return (
@@ -301,30 +212,7 @@ export default function PlatformAlertsPage() {
           />
         ) : null}
 
-        {activeTab === 'rules' ? (
-          <div className="space-y-5">
-            {showRuleForm ? (
-              <AlertRuleForm
-                initialData={editingRule}
-                loading={formLoading}
-                onCancel={() => {
-                  setShowRuleForm(false);
-                  setEditingRule(null);
-                }}
-                onSubmit={handleSubmitRule}
-              />
-            ) : null}
-
-            <AlertRuleList
-              loading={rulesLoading}
-              onAdd={startCreate}
-              onDelete={(id) => void handleDelete(id)}
-              onEdit={startEdit}
-              onToggle={(id, enabled) => void handleToggle(id, enabled)}
-              rules={rules}
-            />
-          </div>
-        ) : null}
+        {activeTab === 'rules' ? <AlertRulesManager /> : null}
       </div>
     </div>
   );

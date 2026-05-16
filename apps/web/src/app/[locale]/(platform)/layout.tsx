@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileSearch,
   LayoutDashboard,
+  ListChecks,
   Menu,
   ScanText,
   ShieldAlert,
@@ -196,9 +197,15 @@ function PlatformSidebarNav({
     },
     {
       icon: Bell,
-      label: 'Alerts',
+      label: 'Alert History',
       href: `/${locale}/admin/alerts`,
       badge: unacknowledgedAlertCount,
+      permission: 'platform.alerts.view',
+    },
+    {
+      icon: ListChecks,
+      label: 'Alert Rules',
+      href: `/${locale}/admin/alerts/rules`,
       permission: 'platform.alerts.view',
     },
     {

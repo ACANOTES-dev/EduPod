@@ -49,6 +49,7 @@ function buildMockService() {
     create: jest.fn().mockResolvedValue({ id: RULE_ID, ...RULE_BODY }),
     list: jest.fn().mockResolvedValue([]),
     remove: jest.fn().mockResolvedValue(undefined),
+    toggle: jest.fn().mockResolvedValue({ id: RULE_ID, ...RULE_BODY, is_enabled: false }),
     update: jest.fn().mockResolvedValue({ id: RULE_ID, ...RULE_BODY, is_enabled: false }),
   };
 }
@@ -104,6 +105,16 @@ describe('AlertRulesController', () => {
       },
     );
   });
+
+  it('delegates toggle to the service', async () => {
+    await controller.toggle(RULE_ID, { is_enabled: false }, mockUser, mockRequest);
+
+    expect(mockService.toggle).toHaveBeenCalledWith(RULE_ID, false, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
 });
 
 describe('AlertRulesController — HTTP guards and validation', () => {
@@ -143,7 +154,7 @@ describe('AlertRulesController — HTTP guards and validation', () => {
     await request(app.getHttpServer()).post('/v1/admin/alerts/rules').send(RULE_BODY).expect(201);
 
     expect(mockService.create).toHaveBeenCalledWith(
-      RULE_BODY,
+      { ...RULE_BODY, channel_ids: [] },
       expect.objectContaining({ actor_user_id: USER_ID }),
     );
   });
@@ -158,6 +169,34 @@ describe('AlertRulesController — HTTP guards and validation', () => {
         condition_config: { operator: 'gt', threshold: 500 },
       })
       .expect(400);
+  });
+
+  it('returns 400 for queue metrics without a queue', async () => {
+    app = await createApp({ canActivate: () => true });
+
+    await request(app.getHttpServer())
+      .post('/v1/admin/alerts/rules')
+      .send({
+        ...RULE_BODY,
+        metric: 'queue_depth',
+        condition_config: { operator: 'gt', threshold: 100 },
+      })
+      .expect(400);
+  });
+
+  it('toggles a rule through the dedicated endpoint', async () => {
+    app = await createApp({ canActivate: () => true });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/admin/alerts/rules/${RULE_ID}/toggle`)
+      .send({ is_enabled: false })
+      .expect(200);
+
+    expect(mockService.toggle).toHaveBeenCalledWith(
+      RULE_ID,
+      false,
+      expect.objectContaining({ actor_user_id: USER_ID }),
+    );
   });
 
   it('returns 403 when platform owner guard rejects access', async () => {

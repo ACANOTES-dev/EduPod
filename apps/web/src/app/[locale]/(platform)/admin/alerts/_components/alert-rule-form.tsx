@@ -4,7 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import { createAlertRuleSchema, type CreateAlertRuleDto } from '@school/shared';
+import {
+  ALERT_METRICS,
+  ALERT_OPERATORS,
+  ALERT_SEVERITIES,
+  PLATFORM_ALERT_QUEUE_NAMES,
+  createAlertRuleSchema,
+  type CreateAlertRuleDto,
+} from '@school/shared';
 import {
   Button,
   Checkbox,
@@ -28,17 +35,24 @@ interface AlertRuleFormProps {
   onSubmit: (data: CreateAlertRuleDto) => void;
 }
 
-const METRICS: Array<{ value: CreateAlertRuleDto['metric']; label: string }> = [
-  { value: 'health_status', label: 'Overall health status' },
-  { value: 'component_latency', label: 'Component latency' },
-  { value: 'component_status', label: 'Component status' },
-  { value: 'disk_free_gb', label: 'Disk free GB' },
-  { value: 'bullmq_stuck_jobs', label: 'BullMQ stuck jobs' },
-];
-
 const COMPONENTS = ['postgresql', 'redis', 'meilisearch', 'bullmq', 'disk'] as const;
-const OPERATORS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq'] as const;
-const SEVERITIES = ['info', 'warning', 'critical'] as const;
+const CHANNEL_PLACEHOLDERS = ['Email', 'Telegram', 'WhatsApp', 'Browser Push'] as const;
+const METRIC_LABELS: Record<(typeof ALERT_METRICS)[number], string> = {
+  api_latency_p95: 'API latency p95',
+  disk_usage_percent: 'Disk usage percent',
+  error_rate_5m: '5-minute error rate',
+  health_status: 'Health component status',
+  queue_depth: 'Queue depth',
+  queue_failure_rate: 'Queue failure rate',
+  stuck_jobs: 'Stuck jobs',
+};
+const OPERATOR_LABELS: Record<(typeof ALERT_OPERATORS)[number], string> = {
+  eq: 'Equal to',
+  gt: 'Greater than',
+  gte: 'Greater than or equal',
+  lt: 'Less than',
+  lte: 'Less than or equal',
+};
 
 function splitEmails(value: string): string[] {
   return value
@@ -47,21 +61,34 @@ function splitEmails(value: string): string[] {
     .filter(Boolean);
 }
 
+function isPlatformAlertQueueName(
+  value: string | undefined,
+): value is NonNullable<CreateAlertRuleDto['condition_config']['queue']> {
+  return PLATFORM_ALERT_QUEUE_NAMES.some((queueName) => queueName === value);
+}
+
 function buildDefaults(initialData?: PlatformAlertRule | null): CreateAlertRuleDto {
+  const queue = isPlatformAlertQueueName(initialData?.condition_config.queue)
+    ? initialData.condition_config.queue
+    : undefined;
+
   return {
     name: initialData?.name ?? '',
-    metric: initialData?.metric ?? 'component_latency',
+    metric: initialData?.metric ?? 'health_status',
     condition_config: {
       component: initialData?.condition_config.component ?? 'postgresql',
       operator: initialData?.condition_config.operator ?? 'gt',
-      threshold: initialData?.condition_config.threshold ?? 500,
+      threshold: initialData?.condition_config.threshold ?? 1,
       duration_minutes: initialData?.condition_config.duration_minutes,
+      queue,
+      tenant_id: initialData?.condition_config.tenant_id,
     },
     severity: initialData?.severity ?? 'warning',
     cooldown_minutes: initialData?.cooldown_minutes ?? 15,
     is_enabled: initialData?.is_enabled ?? true,
     is_security_critical: initialData?.is_security_critical ?? false,
     notify_emails: initialData?.notify_emails ?? [],
+    channel_ids: [],
   };
 }
 
@@ -80,7 +107,11 @@ export function AlertRuleForm({
   });
 
   const metric = form.watch('metric');
-  const isComponentMetric = metric === 'component_latency' || metric === 'component_status';
+  const requiresComponent =
+    metric === 'health_status' || metric === 'component_latency' || metric === 'component_status';
+  const requiresQueue = metric === 'queue_depth' || metric === 'queue_failure_rate';
+  const showsQueue = requiresQueue || metric === 'stuck_jobs';
+  const showsTenant = metric === 'error_rate_5m';
   const errors = form.formState.errors;
 
   React.useEffect(() => {
@@ -89,12 +120,16 @@ export function AlertRuleForm({
   }, [form, initialData]);
 
   function submit(values: CreateAlertRuleDto) {
+    const queue = showsQueue ? values.condition_config.queue : undefined;
+    const tenantId = showsTenant ? values.condition_config.tenant_id : undefined;
     onSubmit({
       ...values,
       notify_emails: splitEmails(emailsInput),
       condition_config: {
         ...values.condition_config,
-        component: isComponentMetric ? values.condition_config.component : undefined,
+        component: requiresComponent ? values.condition_config.component : undefined,
+        queue,
+        tenant_id: tenantId === '' ? undefined : tenantId,
       },
     });
   }
@@ -128,16 +163,16 @@ export function AlertRuleForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {METRICS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
+              {ALERT_METRICS.map((metricKey) => (
+                <SelectItem key={metricKey} value={metricKey}>
+                  {METRIC_LABELS[metricKey]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {isComponentMetric ? (
+        {requiresComponent ? (
           <div>
             <Label htmlFor="alert-component">Component</Label>
             <Select
@@ -164,6 +199,65 @@ export function AlertRuleForm({
                 ))}
               </SelectContent>
             </Select>
+            {errors.condition_config?.component ? (
+              <p className="mt-1 text-xs text-danger-text">
+                {errors.condition_config.component.message}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showsQueue ? (
+          <div>
+            <Label htmlFor="alert-queue">Queue{requiresQueue ? '' : ' (optional)'}</Label>
+            <Select
+              value={form.watch('condition_config.queue') ?? ''}
+              onValueChange={(value) => {
+                form.setValue(
+                  'condition_config.queue',
+                  value as NonNullable<CreateAlertRuleDto['condition_config']['queue']>,
+                  {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  },
+                );
+              }}
+            >
+              <SelectTrigger id="alert-queue" className="mt-1">
+                <SelectValue placeholder={requiresQueue ? 'Select queue' : 'All queues'} />
+              </SelectTrigger>
+              <SelectContent>
+                {PLATFORM_ALERT_QUEUE_NAMES.map((queueName) => (
+                  <SelectItem key={queueName} value={queueName}>
+                    {queueName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.condition_config?.queue ? (
+              <p className="mt-1 text-xs text-danger-text">
+                {errors.condition_config.queue.message}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showsTenant ? (
+          <div>
+            <Label htmlFor="alert-tenant">Tenant UUID (optional)</Label>
+            <Input
+              id="alert-tenant"
+              className="mt-1"
+              placeholder="All tenants"
+              {...form.register('condition_config.tenant_id', {
+                setValueAs: (value) => (value === '' ? undefined : value),
+              })}
+            />
+            {errors.condition_config?.tenant_id ? (
+              <p className="mt-1 text-xs text-danger-text">
+                {errors.condition_config.tenant_id.message}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -186,9 +280,9 @@ export function AlertRuleForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {OPERATORS.map((operator) => (
+              {ALERT_OPERATORS.map((operator) => (
                 <SelectItem key={operator} value={operator}>
-                  {operator}
+                  {OPERATOR_LABELS[operator]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -204,6 +298,11 @@ export function AlertRuleForm({
             step="0.01"
             {...form.register('condition_config.threshold', { valueAsNumber: true })}
           />
+          {errors.condition_config?.threshold ? (
+            <p className="mt-1 text-xs text-danger-text">
+              {errors.condition_config.threshold.message}
+            </p>
+          ) : null}
         </div>
 
         <div>
@@ -211,8 +310,8 @@ export function AlertRuleForm({
           <Input
             id="alert-duration"
             className="mt-1"
-            min={1}
-            max={60}
+            min={0}
+            max={1440}
             placeholder="Optional"
             type="number"
             {...form.register('condition_config.duration_minutes', {
@@ -245,7 +344,7 @@ export function AlertRuleForm({
               });
             }}
           >
-            {SEVERITIES.map((severity) => (
+            {ALERT_SEVERITIES.map((severity) => (
               <Label
                 key={severity}
                 className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm"
@@ -276,6 +375,22 @@ export function AlertRuleForm({
           {errors.notify_emails ? (
             <p className="mt-1 text-xs text-danger-text">Enter valid email addresses.</p>
           ) : null}
+        </div>
+
+        <div className="md:col-span-2 rounded-lg border border-border bg-surface-secondary p-3">
+          <Label>Delivery channels</Label>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {CHANNEL_PLACEHOLDERS.map((channel) => (
+              <Label
+                key={channel}
+                className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-text-tertiary"
+              >
+                <Checkbox disabled checked={false} />
+                {channel}
+              </Label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-text-tertiary">No configured delivery channels.</p>
         </div>
 
         <Label className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm">

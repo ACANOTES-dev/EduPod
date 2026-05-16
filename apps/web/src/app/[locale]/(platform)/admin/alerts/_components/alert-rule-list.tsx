@@ -1,22 +1,20 @@
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 
+import type { CreateAlertRuleDto } from '@school/shared';
 import { Button, Skeleton, Switch } from '@school/ui';
 
 import { AlertSeverityBadge, type AlertSeverity } from './alert-severity-badge';
+import { ConditionDisplay } from './condition-display';
 
-export type AlertMetric =
-  | 'health_status'
-  | 'component_latency'
-  | 'component_status'
-  | 'disk_free_gb'
-  | 'bullmq_stuck_jobs';
+export type AlertMetric = CreateAlertRuleDto['metric'];
 
 export interface AlertConditionConfig {
-  operator: 'gt' | 'lt' | 'eq' | 'gte' | 'lte' | 'neq';
+  operator: CreateAlertRuleDto['condition_config']['operator'];
   threshold: number;
   duration_minutes?: number;
-  component?: 'postgresql' | 'redis' | 'meilisearch' | 'bullmq' | 'disk';
+  component?: CreateAlertRuleDto['condition_config']['component'];
   queue?: string;
+  tenant_id?: string;
 }
 
 export interface PlatformAlertRule {
@@ -40,30 +38,6 @@ interface AlertRuleListProps {
   onEdit: (rule: PlatformAlertRule) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
-}
-
-const OPERATOR_LABELS: Record<AlertConditionConfig['operator'], string> = {
-  eq: '=',
-  gt: '>',
-  gte: '>=',
-  lt: '<',
-  lte: '<=',
-  neq: '!=',
-};
-
-const METRIC_LABELS: Record<AlertMetric, string> = {
-  bullmq_stuck_jobs: 'BullMQ stuck jobs',
-  component_latency: 'Component latency',
-  component_status: 'Component status',
-  disk_free_gb: 'Disk free GB',
-  health_status: 'Health status',
-};
-
-function describeCondition(rule: PlatformAlertRule): string {
-  const config = rule.condition_config;
-  const component = config.component ? `${config.component} ` : '';
-  const duration = config.duration_minutes ? ` for ${config.duration_minutes} min` : '';
-  return `${component}${METRIC_LABELS[rule.metric]} ${OPERATOR_LABELS[config.operator]} ${config.threshold}${duration}`;
 }
 
 export function AlertRuleList({
@@ -118,7 +92,9 @@ export function AlertRuleList({
                     </h3>
                     <AlertSeverityBadge severity={rule.severity} />
                   </div>
-                  <p className="mt-1 text-sm text-text-secondary">{describeCondition(rule)}</p>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    <ConditionDisplay rule={rule} />
+                  </p>
                   <p className="mt-1 text-xs text-text-tertiary">
                     Cooldown {rule.cooldown_minutes} min · {rule.notify_emails.length} email
                     recipient{rule.notify_emails.length === 1 ? '' : 's'}

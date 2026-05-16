@@ -93,6 +93,9 @@ function buildMockPrisma() {
     platformAlertRule: {
       findMany: jest.fn(),
     },
+    platformErrorLog: {
+      count: jest.fn(),
+    },
   };
 }
 
@@ -158,7 +161,6 @@ describe('AlertEvaluationService', () => {
     expect(service.checkCondition(2, 'eq', 2)).toBe(true);
     expect(service.checkCondition(2, 'gte', 2)).toBe(true);
     expect(service.checkCondition(2, 'lte', 2)).toBe(true);
-    expect(service.checkCondition(2, 'neq', 3)).toBe(true);
   });
 
   it('fires alerts when a rule condition is met', async () => {
@@ -241,9 +243,79 @@ describe('AlertEvaluationService', () => {
     const metrics = service.extractMetrics(HEALTH_RESULT);
 
     expect(metrics.get('health_status')).toBe(0);
+    expect(metrics.get('health_status:postgresql')).toBe(0);
     expect(metrics.get('component_latency:postgresql')).toBe(600);
     expect(metrics.get('component_status:postgresql')).toBe(0);
     expect(metrics.get('bullmq_stuck_jobs')).toBe(0);
     expect(metrics.get('disk_free_gb')).toBe(25);
+    expect(metrics.get('disk_usage_percent')).toBe(68.8);
+    expect(metrics.get('queue_depth:notifications')).toBe(0);
+    expect(metrics.get('queue_failure_rate:notifications')).toBe(0);
+    expect(metrics.get('stuck_jobs')).toBe(0);
+    expect(metrics.get('api_latency_p95')).toBe(600);
+  });
+
+  it('fires queue depth alerts from condition_config.queue', async () => {
+    mockPrisma.platformAlertRule.findMany.mockResolvedValueOnce([
+      {
+        ...BASE_RULE,
+        metric: 'queue_depth',
+        condition_config: { queue: 'notifications', operator: 'gte', threshold: 0 },
+      },
+    ]);
+
+    await service.evaluate();
+
+    expect(mockPrisma.platformAlertHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metric_value: new Prisma.Decimal(0),
+        rule_id: RULE_ID,
+        status: 'fired',
+      }),
+    });
+  });
+
+  it('counts recent platform errors for error_rate_5m rules', async () => {
+    mockPrisma.platformAlertRule.findMany.mockResolvedValueOnce([
+      {
+        ...BASE_RULE,
+        metric: 'error_rate_5m',
+        condition_config: {
+          operator: 'gt',
+          threshold: 1,
+          tenant_id: '44444444-4444-4444-8444-444444444444',
+        },
+      },
+    ]);
+    mockPrisma.platformErrorLog.count.mockResolvedValueOnce(3);
+
+    await service.evaluate();
+
+    expect(mockPrisma.platformErrorLog.count).toHaveBeenCalledWith({
+      where: {
+        level: 'error',
+        occurred_at: { gte: new Date('2026-05-15T09:55:00.000Z') },
+        tenant_id_redacted: '44444444-4444-4444-8444-444444444444',
+      },
+    });
+    expect(mockPrisma.platformAlertHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metric_value: new Prisma.Decimal(3),
+        status: 'fired',
+      }),
+    });
+  });
+
+  it('skips invalid stored rule conditions without blocking evaluation', async () => {
+    mockPrisma.platformAlertRule.findMany.mockResolvedValueOnce([
+      {
+        ...BASE_RULE,
+        condition_config: { operator: 'neq', threshold: 500 },
+      },
+    ]);
+
+    await service.evaluate();
+
+    expect(mockPrisma.platformAlertHistory.create).not.toHaveBeenCalled();
   });
 });

@@ -12,9 +12,20 @@ import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
 const ALERT_EVALUATION_INTERVAL_MS = 30_000;
+const ERROR_RATE_WINDOW_MS = 5 * 60 * 1000;
 
 type MetricMap = Map<string, number>;
 type Operator = AlertConditionConfig['operator'];
+type QueueMetrics =
+  FullHealthResult['checks']['bullmq']['queues'][keyof FullHealthResult['checks']['bullmq']['queues']];
+
+function statusToMetricValue(status: 'up' | 'down'): number {
+  return status === 'up' ? 0 : 2;
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 10) / 10;
+}
 
 @Injectable()
 export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
@@ -75,6 +86,12 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     };
 
     metrics.set('health_status', statusValue[health.status]);
+    metrics.set('health_status:postgresql', statusToMetricValue(health.checks.postgresql.status));
+    metrics.set('health_status:redis', statusToMetricValue(health.checks.redis.status));
+    metrics.set('health_status:meilisearch', statusToMetricValue(health.checks.meilisearch.status));
+    metrics.set('health_status:bullmq', statusToMetricValue(health.checks.bullmq.status));
+    metrics.set('health_status:disk', statusToMetricValue(health.checks.disk.status));
+
     metrics.set('component_latency:postgresql', health.checks.postgresql.latency_ms);
     metrics.set('component_latency:redis', health.checks.redis.latency_ms);
     metrics.set('component_latency:meilisearch', health.checks.meilisearch.latency_ms);
@@ -87,7 +104,39 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     metrics.set('component_status:bullmq', health.checks.bullmq.status === 'down' ? 1 : 0);
     metrics.set('component_status:disk', health.checks.disk.status === 'down' ? 1 : 0);
     metrics.set('bullmq_stuck_jobs', health.checks.bullmq.stuck_jobs);
+    metrics.set('stuck_jobs', health.checks.bullmq.stuck_jobs);
     metrics.set('disk_free_gb', health.checks.disk.free_gb);
+    metrics.set(
+      'disk_usage_percent',
+      health.checks.disk.total_gb > 0
+        ? roundMetric(
+            ((health.checks.disk.total_gb - health.checks.disk.free_gb) /
+              health.checks.disk.total_gb) *
+              100,
+          )
+        : 0,
+    );
+    metrics.set(
+      'api_latency_p95',
+      Math.max(
+        health.checks.postgresql.latency_ms,
+        health.checks.redis.latency_ms,
+        health.checks.meilisearch.latency_ms,
+      ),
+    );
+
+    const queueEntries = Object.entries(health.checks.bullmq.queues) as Array<
+      [string, QueueMetrics]
+    >;
+    for (const [queueName, queue] of queueEntries) {
+      const visibleTotal = queue.waiting + queue.active + queue.delayed + queue.failed;
+      metrics.set(`queue_depth:${queueName}`, queue.waiting + queue.active);
+      metrics.set(
+        `queue_failure_rate:${queueName}`,
+        visibleTotal > 0 ? roundMetric((queue.failed / visibleTotal) * 100) : 0,
+      );
+      metrics.set(`stuck_jobs:${queueName}`, queue.stuck_jobs);
+    }
 
     return metrics;
   }
@@ -104,15 +153,18 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
         return value < threshold;
       case 'lte':
         return value <= threshold;
-      case 'neq':
-        return value !== threshold;
     }
   }
 
   private async evaluateRule(rule: PlatformAlertRule, metrics: MetricMap): Promise<void> {
-    const config = alertConditionConfigSchema.parse(rule.condition_config);
-    const metricKey = this.resolveMetricKey(rule.metric, config);
-    const currentValue = metrics.get(metricKey);
+    const parsed = alertConditionConfigSchema.safeParse(rule.condition_config);
+    if (!parsed.success) {
+      this.logger.warn(`Skipping alert rule ${rule.id}: invalid condition_config`);
+      return;
+    }
+
+    const config = parsed.data;
+    const currentValue = await this.resolveMetricValue(rule.metric, config, metrics);
     if (currentValue === undefined) {
       return;
     }
@@ -147,10 +199,43 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
   }
 
   private resolveMetricKey(metric: string, config: AlertConditionConfig): string {
+    if (metric === 'health_status' && config.component) {
+      return `${metric}:${config.component}`;
+    }
+    if ((metric === 'queue_depth' || metric === 'queue_failure_rate') && config.queue) {
+      return `${metric}:${config.queue}`;
+    }
+    if (metric === 'stuck_jobs' && config.queue) {
+      return `${metric}:${config.queue}`;
+    }
     if (config.component && (metric === 'component_latency' || metric === 'component_status')) {
       return `${metric}:${config.component}`;
     }
     return metric;
+  }
+
+  private async resolveMetricValue(
+    metric: string,
+    config: AlertConditionConfig,
+    metrics: MetricMap,
+  ): Promise<number | undefined> {
+    if (metric === 'error_rate_5m') {
+      return this.countRecentErrors(config.tenant_id);
+    }
+
+    return metrics.get(this.resolveMetricKey(metric, config));
+  }
+
+  private async countRecentErrors(tenantId?: string): Promise<number> {
+    const since = new Date(Date.now() - ERROR_RATE_WINDOW_MS);
+    const where: Prisma.PlatformErrorLogWhereInput = {
+      level: 'error',
+      occurred_at: { gte: since },
+    };
+    if (tenantId) {
+      where.tenant_id_redacted = tenantId;
+    }
+    return this.prisma.platformErrorLog.count({ where });
   }
 
   private async isInCooldown(rule: PlatformAlertRule): Promise<boolean> {

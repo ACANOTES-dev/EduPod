@@ -149,13 +149,63 @@ export const alertComponentSchema = z.enum([
   'disk',
 ]);
 
+export const ALERT_OPERATORS = ['gt', 'lt', 'eq', 'gte', 'lte'] as const;
+
+export const ALERT_METRICS = [
+  'health_status',
+  'queue_depth',
+  'queue_failure_rate',
+  'error_rate_5m',
+  'stuck_jobs',
+  'disk_usage_percent',
+  'api_latency_p95',
+] as const;
+
+export const ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const;
+
+export const PLATFORM_ALERT_QUEUE_NAMES = [
+  'admissions',
+  'approvals',
+  'attendance',
+  'audit-log',
+  'behaviour',
+  'budgeting',
+  'compliance',
+  'early-warning',
+  'engagement',
+  'finance',
+  'gradebook',
+  'homework',
+  'imports',
+  'notifications',
+  'pastoral',
+  'payroll',
+  'pdf-rendering',
+  'regulatory',
+  'reports',
+  'safeguarding',
+  'scheduling',
+  'exam-scheduling',
+  'search-sync',
+  'security',
+  'wellbeing',
+] as const;
+
+const legacyAlertMetricSchema = z.enum([
+  'component_latency',
+  'component_status',
+  'disk_free_gb',
+  'bullmq_stuck_jobs',
+]);
+
 export const alertConditionConfigSchema = z
   .object({
-    operator: z.enum(['gt', 'lt', 'eq', 'gte', 'lte', 'neq']),
+    operator: z.enum(ALERT_OPERATORS),
     threshold: z.coerce.number(),
-    duration_minutes: z.coerce.number().int().min(1).max(60).optional(),
+    duration_minutes: z.coerce.number().int().min(0).max(1440).optional(),
     component: alertComponentSchema.optional(),
-    queue: z.string().min(1).optional(),
+    queue: z.enum(PLATFORM_ALERT_QUEUE_NAMES).optional(),
+    tenant_id: z.string().uuid().optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -175,15 +225,9 @@ export const alertConditionConfigSchema = z
 
 export type AlertConditionConfig = z.infer<typeof alertConditionConfigSchema>;
 
-export const alertMetricSchema = z.enum([
-  'health_status',
-  'component_latency',
-  'component_status',
-  'disk_free_gb',
-  'bullmq_stuck_jobs',
-]);
+export const alertMetricSchema = z.union([z.enum(ALERT_METRICS), legacyAlertMetricSchema]);
 
-export const alertSeveritySchema = z.enum(['info', 'warning', 'critical']);
+export const alertSeveritySchema = z.enum(ALERT_SEVERITIES);
 
 export const alertStatusSchema = z.enum(['fired', 'acknowledged', 'resolved']);
 
@@ -191,14 +235,44 @@ const alertRuleBaseSchema = z.object({
   name: z.string().trim().min(1).max(255),
   metric: alertMetricSchema,
   condition_config: alertConditionConfigSchema,
-  severity: alertSeveritySchema,
+  severity: alertSeveritySchema.default('warning'),
   cooldown_minutes: z.coerce.number().int().min(1).max(1440).default(15),
   is_enabled: z.boolean().default(true),
   is_security_critical: z.boolean().default(false),
   notify_emails: z.array(z.string().trim().email()).default([]),
+  channel_ids: z.array(z.string().uuid()).default([]),
 });
 
-export const createAlertRuleSchema = alertRuleBaseSchema.superRefine((value, ctx) => {
+function validateAlertRuleCondition(
+  value: {
+    metric?: z.infer<typeof alertMetricSchema>;
+    condition_config?: AlertConditionConfig;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (!value.metric || !value.condition_config) {
+    return;
+  }
+
+  if (
+    (value.metric === 'queue_depth' || value.metric === 'queue_failure_rate') &&
+    !value.condition_config.queue
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Queue metrics require a queue name in condition_config',
+      path: ['condition_config', 'queue'],
+    });
+  }
+
+  if (value.metric === 'health_status' && !value.condition_config.component) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Health status metric requires a component in condition_config',
+      path: ['condition_config', 'component'],
+    });
+  }
+
   if (
     (value.metric === 'component_latency' || value.metric === 'component_status') &&
     !value.condition_config.component
@@ -209,26 +283,25 @@ export const createAlertRuleSchema = alertRuleBaseSchema.superRefine((value, ctx
       path: ['condition_config', 'component'],
     });
   }
+}
+
+export const createAlertRuleSchema = alertRuleBaseSchema.superRefine((value, ctx) => {
+  validateAlertRuleCondition(value, ctx);
 });
 
 export type CreateAlertRuleDto = z.infer<typeof createAlertRuleSchema>;
 
 export const updateAlertRuleSchema = alertRuleBaseSchema.partial().superRefine((value, ctx) => {
-  if (value.condition_config) {
-    if (
-      (value.metric === 'component_latency' || value.metric === 'component_status') &&
-      !value.condition_config.component
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Component is required for component metrics',
-        path: ['condition_config', 'component'],
-      });
-    }
-  }
+  validateAlertRuleCondition(value, ctx);
 });
 
 export type UpdateAlertRuleDto = z.infer<typeof updateAlertRuleSchema>;
+
+export const toggleAlertRuleSchema = z.object({
+  is_enabled: z.boolean(),
+});
+
+export type ToggleAlertRuleDto = z.infer<typeof toggleAlertRuleSchema>;
 
 export const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
