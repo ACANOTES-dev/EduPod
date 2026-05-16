@@ -892,20 +892,28 @@ it('should allow platform-owner to CRUD channels');
 
 ## 8. Acceptance Criteria
 
-- [ ] `platform_alert_channels` table created with migration
-- [ ] `platform_alert_rule_channels` join table created with migration
-- [ ] Channel CRUD endpoints work for all 4 types (email, telegram, whatsapp, push)
-- [ ] Creating a channel validates type-specific config (email requires recipients, telegram requires bot_token + chat_id, etc.)
-- [ ] Test alert endpoint sends to each channel type and returns success/failure
-- [ ] Telegram dispatcher sends MarkdownV2 formatted message with severity emoji
-- [ ] WhatsApp dispatcher sends via Twilio API with correct auth
-- [ ] Push dispatcher sends via web-push with VAPID authentication
-- [ ] Alert evaluation service dispatches to all channels linked to a rule
-- [ ] Channels that fail dispatch do not prevent other channels from being notified
-- [ ] `channels_notified` array in `platform_alert_history` records which channels were used
-- [ ] Frontend channel configuration page lists all channels with type, status, and test button
-- [ ] Create/edit dialog shows type-specific config fields
-- [ ] Push subscription flow requests browser permission and extracts subscription data
-- [ ] Rule form channel checkboxes are functional (link channels to rules)
-- [ ] All dispatchers have unit tests with mocked HTTP calls
-- [ ] `turbo lint` and `turbo type-check` pass with zero errors
+- [x] `platform_alert_channels` table created with migration
+- [x] `platform_alert_rule_channels` join table created with migration
+- [x] Channel CRUD endpoints work for all 4 types (email, telegram, whatsapp, push)
+- [x] Creating a channel validates type-specific config (email requires recipients, telegram requires bot_token + chat_id, etc.)
+- [x] Test alert endpoint sends to each channel type and returns success/failure
+- [x] Telegram dispatcher sends MarkdownV2 formatted message with severity emoji
+- [x] WhatsApp dispatcher sends via Twilio API with correct auth
+- [x] Push dispatcher sends via web-push with VAPID authentication
+- [x] Alert evaluation service dispatches to all channels linked to a rule
+- [x] Channels that fail dispatch do not prevent other channels from being notified
+- [x] `channels_notified` array in `platform_alert_history` records which channels were used
+- [x] Frontend channel configuration page lists all channels with type, status, and test button
+- [x] Create/edit dialog shows type-specific config fields
+- [x] Push subscription flow requests browser permission and extracts subscription data
+- [x] Rule form channel checkboxes are functional (link channels to rules)
+- [x] All dispatchers have unit tests with mocked HTTP calls
+- [x] `turbo lint` and `turbo type-check` pass with zero errors
+
+## 9. Commits / CI / Notes
+
+- Implementation commit: `7f02b2c1f7c0692a924cf3c3e197887290b30255` (`feat(platform): add alert channel delivery`)
+- CI run: [main CI / Deploy 25968936433](https://github.com/ACANOTES-dev/EduPod/actions/runs/25968936433) -- passed, including deployment.
+- Production smoke: May 16, 2026 (Europe/Dublin) -- passed on `https://dua.edupod.app`.
+- Smoke coverage: platform admin login, dashboard, alert channels page, channel validation for email/Telegram/WhatsApp/push, safe create/edit/toggle/delete of test channels, rule-channel join persistence, rule form channel checkbox rendering, alert history `channels_notified` field shape, alert rules/silences/maintenance pages, tenant list/detail onboarding, health, platform users, permissions, platform audit ledger, error log, and redaction rules.
+- Operational note: production test-send buttons were not fired against real external services during smoke; channel dispatch behavior is covered by mocked unit tests, and production smoke used safe non-delivery CRUD/config validation.
