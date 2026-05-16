@@ -906,23 +906,23 @@ const tenantsWithOnboarding = await Promise.all(
 
 ## Acceptance Criteria
 
-- [ ] `tenant_onboarding_steps` table exists in the database
-- [ ] `billing_status` column exists on `tenants` table with default `active`
-- [ ] Tenant creation automatically seeds 15 default onboarding steps
-- [ ] GET `/v1/admin/tenants/:id/onboarding` returns steps grouped by phase with summary
-- [ ] PATCH `/v1/admin/tenants/:id/onboarding/:stepId` updates step status
-- [ ] Step completion validates `blocked_by` dependencies and rejects if blockers are incomplete
-- [ ] POST `/v1/admin/tenants/:id/onboarding/reset` resets all steps to pending
-- [ ] `domain_configured` auto-completes when a domain is created for the tenant
-- [ ] `ssl_verified` auto-completes when domain SSL status becomes `active`
-- [ ] `owner_account_created` auto-completes when a school_principal membership exists
-- [ ] Onboarding tracker renders on the tenant detail page with phase-grouped steps
-- [ ] Step cards show correct visual state (completed, in-progress, pending, blocked, skipped)
-- [ ] Manual step actions (complete, in-progress, skip) work from the UI
-- [ ] Onboarding progress shows in the tenant list
-- [ ] Real-time updates via WebSocket reflect step changes without page refresh
-- [ ] All tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
+- [x] `tenant_onboarding_steps` table exists in the database
+- [x] `billing_status` column exists on `tenants` table with default `active`
+- [x] Tenant creation automatically seeds 15 default onboarding steps
+- [x] GET `/v1/admin/tenants/:id/onboarding` returns steps grouped by phase with summary
+- [x] PATCH `/v1/admin/tenants/:id/onboarding/:stepId` updates step status
+- [x] Step completion validates `blocked_by` dependencies and rejects if blockers are incomplete
+- [x] POST `/v1/admin/tenants/:id/onboarding/reset` resets all steps to pending
+- [x] `domain_configured` auto-completes when a domain is created for the tenant
+- [x] `ssl_verified` auto-completes when domain SSL status becomes `active`
+- [x] `owner_account_created` auto-completes when a school_principal membership exists
+- [x] Onboarding tracker renders on the tenant detail page with phase-grouped steps
+- [x] Step cards show correct visual state (completed, in-progress, pending, blocked, skipped)
+- [x] Manual step actions (complete, in-progress, skip) work from the UI
+- [x] Onboarding progress shows in the tenant list
+- [x] Real-time updates via WebSocket reflect step changes without page refresh
+- [x] All tests pass
+- [x] `turbo lint` and `turbo type-check` pass
 
 ---
 
@@ -953,3 +953,19 @@ const tenantsWithOnboarding = await Promise.all(
 | `packages/shared/src/schemas/platform.ts`                          | Add updateOnboardingStepSchema                                                                                               |
 | `packages/shared/src/index.ts`                                     | Export new schema                                                                                                            |
 | `packages/prisma/prisma/schema.prisma`                             | Add TenantOnboardingStep model, OnboardingPhase/OnboardingStepStatus/BillingStatus enums, billing_status on Tenant, relation |
+
+---
+
+## Commits / CI / Notes
+
+- Commits:
+  - `c61d23bae9b0db4e68cd180b9c869d2d79695c5d` - `feat(platform): add tenant onboarding tracker`
+  - `5ab4beff0299f9b5a97fe2b9c59e4783540ebe47` - `fix(platform): scope tenant admin relation reads`
+  - `8244698ed2c130e86a7bba383c0d41991c27e140` - `fix(platform): reduce tenant relation type inference`
+  - `c9fb6c3ffc2e6c8a8cc2aba72e871c459356b3aa` - `fix(platform): scope onboarding owner checks`
+- CI:
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/25947155831 - passed and deployed initial Session 1D implementation.
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/25947856941 - failed on API type-check memory pressure; superseded by the next fix-forward commit.
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/25948529791 - passed and deployed tenant relation scoping/type-inference fixes.
+  - https://github.com/ACANOTES-dev/EduPod/actions/runs/25949001834 - passed and deployed onboarding owner check scoping fix.
+- Production smoke, 2026-05-16: Passed. Verified platform-admin login, platform dashboard, tenant list, tenant detail onboarding tracker, health dashboard, alerts page, onboarding API summary, and WebSocket `onboarding:update` delivery on `https://dua.edupod.app`.
