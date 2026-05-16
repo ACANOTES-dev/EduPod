@@ -1,4 +1,3 @@
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
@@ -7,6 +6,7 @@ import { ConfigurationModule } from '../configuration/configuration.module';
 import { HealthModule } from '../health/health.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
+import { QueueAdminModule } from '../queue-admin/queue-admin.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { AlertChannelsController } from './alert-channels.controller';
@@ -38,7 +38,6 @@ import { PlatformGateway } from './platform.gateway';
 @Module({
   imports: [
     AuthModule,
-    BullModule.registerQueue({ name: 'gradebook' }, { name: 'notifications' }),
     CommunicationsModule,
     ConfigurationModule,
     HealthModule,
@@ -46,6 +45,7 @@ import { PlatformGateway } from './platform.gateway';
     PlatformOnboardingModule,
     PlatformRealtimeModule,
     PlatformUsersModule,
+    QueueAdminModule,
     TenantsModule,
   ],
   controllers: [

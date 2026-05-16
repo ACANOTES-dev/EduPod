@@ -241,7 +241,7 @@ function PlatformSidebarNav({
     },
     {
       icon: Workflow,
-      label: 'Queues',
+      label: 'Queue Manager',
       href: `/${locale}/admin/queues`,
       permission: 'platform.queues.view',
     },

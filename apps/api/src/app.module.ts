@@ -61,7 +61,6 @@ import { PlatformUsersModule } from './modules/platform-users/platform-users.mod
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { PublicHouseholdsModule } from './modules/public-households/public-households.module';
-import { QueueAdminModule } from './modules/queue-admin/queue-admin.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { RegistrationModule } from './modules/registration/registration.module';
@@ -119,7 +118,6 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
     BullModule.registerQueue({ name: 'pastoral' }),
     BullModule.registerQueue({ name: 'budgeting' }),
     PrismaModule,
-    QueueAdminModule,
     RedisModule,
     CommonModule,
     ReadFacadesModule,

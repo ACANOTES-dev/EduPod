@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { paginationQuerySchema } from './pagination.schema';
+
 // ─── Platform Health History ─────────────────────────────────────────────────
 
 export const healthHistoryQuerySchema = z.object({
@@ -167,7 +169,7 @@ export const ALERT_METRICS = [
 
 export const ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const;
 
-export const PLATFORM_ALERT_QUEUE_NAMES = [
+export const PLATFORM_QUEUE_NAMES = [
   'admissions',
   'approvals',
   'attendance',
@@ -194,6 +196,8 @@ export const PLATFORM_ALERT_QUEUE_NAMES = [
   'security',
   'wellbeing',
 ] as const;
+
+export const PLATFORM_ALERT_QUEUE_NAMES = PLATFORM_QUEUE_NAMES;
 
 const legacyAlertMetricSchema = z.enum([
   'component_latency',
@@ -393,6 +397,33 @@ export const alertHistoryQuerySchema = z.object({
 });
 
 export type AlertHistoryQuery = z.infer<typeof alertHistoryQuerySchema>;
+
+// ─── Queue Management ────────────────────────────────────────────────────────
+
+export const JOB_STATUSES = [
+  'waiting',
+  'active',
+  'completed',
+  'failed',
+  'delayed',
+  'paused',
+] as const;
+
+export type QueueJobStatusDto = (typeof JOB_STATUSES)[number];
+
+export const listQueueJobsQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(JOB_STATUSES).optional(),
+});
+
+export type ListQueueJobsQuery = z.infer<typeof listQueueJobsQuerySchema>;
+
+export const cleanQueueSchema = z.object({
+  status: z.enum(['completed', 'failed']),
+  grace_ms: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(1000).default(1000),
+});
+
+export type CleanQueueDto = z.infer<typeof cleanQueueSchema>;
 
 // ─── Owner Confirmation + Alert Silencing ───────────────────────────────────
 

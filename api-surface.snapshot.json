@@ -365,6 +365,55 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/queues",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/queues/:name/clean",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.clean"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/queues/:name/jobs",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/queues/:name/jobs/:id",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/queues/:name/jobs/:id/retry",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.retry"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/queues/:name/pause",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.pause"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/queues/:name/resume",
+    "controller": "QueueAdminController",
+    "module": "queue-admin",
+    "permission": "platform.queues.pause"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/queues/:queueName/failed",
     "controller": "QueueAdminController",
     "module": "queue-admin",

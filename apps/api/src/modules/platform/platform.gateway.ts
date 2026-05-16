@@ -21,6 +21,7 @@ const CHANNEL_EVENT_MAP: Record<string, string> = {
   'platform:alerts': 'alert:new',
   'platform:health': 'health:update',
   'platform:onboarding': 'onboarding:update',
+  'platform:queues': 'queue_metrics',
 };
 
 interface PlatformGatewayClient {

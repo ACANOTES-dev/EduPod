@@ -1,4 +1,3 @@
-import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { PlatformAuditAction } from '@prisma/client';
@@ -6,6 +5,7 @@ import type { PlatformAuditAction } from '@prisma/client';
 import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PlatformUsersService } from '../platform-users/platform-users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { QueueManagementService } from '../queue-admin/queue-management.service';
 import { RedisService } from '../redis/redis.service';
 import { TenantsService } from '../tenants/tenants.service';
 
@@ -58,9 +58,9 @@ describe('OwnerActionConfirmationService', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockPlatformUsers: { hasPermission: jest.Mock<Promise<boolean>, [string, string]> };
   let mockAudit: { log: jest.Mock<Promise<void>, [Record<string, unknown>]> };
-  let mockGradebookQueue: {
-    clean: jest.Mock;
-    getJob: jest.Mock;
+  let mockQueueManagementService: {
+    cleanQueue: jest.Mock;
+    removeJob: jest.Mock;
   };
   let mockRedisClient: {
     del: jest.Mock;
@@ -71,11 +71,6 @@ describe('OwnerActionConfirmationService', () => {
   let mockTenantsService: {
     archiveTenant: jest.Mock;
   };
-  let mockJob: {
-    getState: jest.Mock<Promise<string>, []>;
-    name: string;
-    remove: jest.Mock<Promise<void>, []>;
-  };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -85,14 +80,14 @@ describe('OwnerActionConfirmationService', () => {
     mockPrisma.platformOwnerActionConfirmation.update.mockResolvedValue({});
     mockPlatformUsers = { hasPermission: jest.fn().mockResolvedValue(true) };
     mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
-    mockJob = {
-      getState: jest.fn().mockResolvedValue('failed'),
-      name: 'test:job',
-      remove: jest.fn().mockResolvedValue(undefined),
-    };
-    mockGradebookQueue = {
-      clean: jest.fn().mockResolvedValue([]),
-      getJob: jest.fn().mockResolvedValue(mockJob),
+    mockQueueManagementService = {
+      cleanQueue: jest.fn().mockResolvedValue({ cleaned: 0, job_ids: [] }),
+      removeJob: jest.fn().mockResolvedValue({
+        attempts_made: 3,
+        failed_reason: 'boom',
+        job_name: 'test:job',
+        previous_state: 'failed',
+      }),
     };
     mockRedisClient = {
       del: jest.fn().mockResolvedValue(1),
@@ -118,11 +113,7 @@ describe('OwnerActionConfirmationService', () => {
         { provide: PlatformAuditService, useValue: mockAudit },
         { provide: RedisService, useValue: { getClient: jest.fn(() => mockRedisClient) } },
         { provide: TenantsService, useValue: mockTenantsService },
-        { provide: getQueueToken('gradebook'), useValue: mockGradebookQueue },
-        {
-          provide: getQueueToken('notifications'),
-          useValue: { clean: jest.fn(), getJob: jest.fn() },
-        },
+        { provide: QueueManagementService, useValue: mockQueueManagementService },
       ],
     }).compile();
 
@@ -190,7 +181,7 @@ describe('OwnerActionConfirmationService', () => {
         reason: 'Removing a poison failed job after inspection.',
       }),
     );
-    expect(mockJob.remove).toHaveBeenCalledTimes(1);
+    expect(mockQueueManagementService.removeJob).toHaveBeenCalledWith('gradebook', JOB_ID);
     expect(mockPrisma.platformOwnerActionConfirmation.update).toHaveBeenCalledWith({
       where: { id: CONFIRMATION_ID },
       data: expect.objectContaining({ execution_status: 'executed' }),
@@ -198,7 +189,7 @@ describe('OwnerActionConfirmationService', () => {
   });
 
   it('captures executor failures on the confirmation row', async () => {
-    mockJob.remove.mockRejectedValueOnce(new Error('remove failed'));
+    mockQueueManagementService.removeJob.mockRejectedValueOnce(new Error('remove failed'));
 
     const result = await service.confirmAndExecute(buildDto(), ACTOR_USER_ID, auditContext);
 
@@ -210,7 +201,10 @@ describe('OwnerActionConfirmationService', () => {
   });
 
   it('cleans a queue with bounded owner-confirmed payload values', async () => {
-    mockGradebookQueue.clean.mockResolvedValueOnce(['job-1', 'job-2']);
+    mockQueueManagementService.cleanQueue.mockResolvedValueOnce({
+      cleaned: 2,
+      job_ids: ['job-1', 'job-2'],
+    });
 
     const result = await service.confirmAndExecute(
       {
@@ -226,7 +220,11 @@ describe('OwnerActionConfirmationService', () => {
     );
 
     expect(result).toEqual({ confirmation_id: CONFIRMATION_ID, execution_status: 'executed' });
-    expect(mockGradebookQueue.clean).toHaveBeenCalledWith(500, 1000, 'completed');
+    expect(mockQueueManagementService.cleanQueue).toHaveBeenCalledWith('gradebook', {
+      grace_ms: 500,
+      limit: 1000,
+      status: 'completed',
+    });
   });
 
   it('marks unsupported queue clean states as failed executions', async () => {
@@ -247,7 +245,7 @@ describe('OwnerActionConfirmationService', () => {
     expect(mockPrisma.platformOwnerActionConfirmation.update).toHaveBeenCalledWith({
       where: { id: CONFIRMATION_ID },
       data: expect.objectContaining({
-        execution_result: { error: 'Queue clean state "unknown" is not supported.' },
+        execution_result: { error: 'Queue clean status "unknown" is not supported.' },
         execution_status: 'failed',
       }),
     });

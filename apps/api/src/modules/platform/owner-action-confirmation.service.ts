@@ -1,7 +1,5 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, type PlatformAuditAction } from '@prisma/client';
-import type { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 
 import {
@@ -17,6 +15,7 @@ import {
 } from '../platform-audit/platform-audit.service';
 import { PlatformUsersService } from '../platform-users/platform-users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { QueueManagementService } from '../queue-admin/queue-management.service';
 import { RedisService } from '../redis/redis.service';
 import { TenantsService } from '../tenants/tenants.service';
 
@@ -44,7 +43,6 @@ export type OwnerActionConfirmationRow = Prisma.PlatformOwnerActionConfirmationG
 
 @Injectable()
 export class OwnerActionConfirmationService {
-  private readonly queues: Map<string, Queue>;
   private readonly executors: Partial<Record<PlatformAuditAction, Executor>>;
 
   constructor(
@@ -53,13 +51,8 @@ export class OwnerActionConfirmationService {
     private readonly platformAuditService: PlatformAuditService,
     private readonly redisService: RedisService,
     private readonly tenantsService: TenantsService,
-    @InjectQueue('gradebook') gradebookQueue: Queue,
-    @InjectQueue('notifications') notificationsQueue: Queue,
+    private readonly queueManagementService: QueueManagementService,
   ) {
-    this.queues = new Map([
-      ['gradebook', gradebookQueue],
-      ['notifications', notificationsQueue],
-    ]);
     this.executors = {
       cache_flushed_global: (input) => this.flushGlobalCache(input),
       job_removed: (input) => this.removeQueueJob(input),
@@ -210,12 +203,15 @@ export class OwnerActionConfirmationService {
         message: 'Queue name is required.',
       });
     }
-    const queue = this.resolveQueue(queueName);
-    const state = readQueueCleanState(payload);
+    const status = readQueueCleanStatus(payload);
     const graceMs = readNumber(payload, 'grace_ms') ?? 0;
     const limit = Math.min(1000, Math.max(1, readNumber(payload, 'limit') ?? 100));
-    const cleaned = await queue.clean(graceMs, limit, state);
-    return { queue: queueName, state, cleaned_job_ids: cleaned };
+    const cleaned = await this.queueManagementService.cleanQueue(queueName, {
+      grace_ms: graceMs,
+      limit,
+      status,
+    });
+    return { queue: queueName, status, cleaned_job_ids: cleaned.job_ids };
   }
 
   private async removeQueueJob(input: ExecutorInput): Promise<Record<string, unknown>> {
@@ -228,17 +224,8 @@ export class OwnerActionConfirmationService {
         message: 'Queue name and job id are required.',
       });
     }
-    const queue = this.resolveQueue(queueName);
-    const job = await queue.getJob(jobId);
-    if (!job) {
-      throw new BadRequestException({
-        code: 'JOB_NOT_FOUND',
-        message: `Job "${jobId}" not found in queue "${queueName}".`,
-      });
-    }
-    const state = await job.getState();
-    await job.remove();
-    return { queue: queueName, job_id: jobId, job_name: job.name, previous_state: state };
+    const removed = await this.queueManagementService.removeJob(queueName, jobId);
+    return { queue: queueName, job_id: jobId, ...removed };
   }
 
   private async archiveTenant(input: ExecutorInput): Promise<Record<string, unknown>> {
@@ -336,17 +323,6 @@ export class OwnerActionConfirmationService {
 
     return { tenant_id: tenantId, from_user_id: fromUserId, to_user_id: toUserId };
   }
-
-  private resolveQueue(name: string): Queue {
-    const queue = this.queues.get(name);
-    if (!queue) {
-      throw new BadRequestException({
-        code: 'QUEUE_NOT_FOUND',
-        message: `Queue "${name}" is not registered for owner-confirmed actions.`,
-      });
-    }
-    return queue;
-  }
 }
 
 function toJson(value: unknown): Prisma.InputJsonValue {
@@ -373,23 +349,16 @@ function readNumber(record: Record<string, unknown>, key: string): number | unde
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-type QueueCleanState = 'completed' | 'delayed' | 'failed' | 'paused' | 'prioritized' | 'wait';
+type QueueCleanStatus = 'completed' | 'failed';
 
-function readQueueCleanState(record: Record<string, unknown>): QueueCleanState {
-  const value = readString(record, 'state') ?? 'failed';
-  if (
-    value === 'completed' ||
-    value === 'delayed' ||
-    value === 'failed' ||
-    value === 'paused' ||
-    value === 'prioritized' ||
-    value === 'wait'
-  ) {
+function readQueueCleanStatus(record: Record<string, unknown>): QueueCleanStatus {
+  const value = readString(record, 'status') ?? readString(record, 'state') ?? 'failed';
+  if (value === 'completed' || value === 'failed') {
     return value;
   }
   throw new BadRequestException({
     code: 'INVALID_QUEUE_CLEAN_STATE',
-    message: `Queue clean state "${value}" is not supported.`,
+    message: `Queue clean status "${value}" is not supported.`,
   });
 }
 

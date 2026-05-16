@@ -153,4 +153,21 @@ describe('PlatformGateway', () => {
     expect(to).toHaveBeenCalledWith(PLATFORM_ADMINS_ROOM);
     expect(emit).toHaveBeenCalledWith('health:update', { status: 'healthy' });
   });
+
+  it('should broadcast Redis queue metrics to Socket.IO clients', () => {
+    const emit = jest.fn<void, [string, Record<string, unknown>]>();
+    const to = jest.fn<{ emit: typeof emit }, [string]>().mockReturnValue({ emit });
+    const server = { to };
+
+    gateway.afterInit(server);
+    const callback = redisCallbacks.get('platform:queues');
+    if (!callback) {
+      throw new Error('platform:queues callback was not registered');
+    }
+
+    callback({ type: 'queue_metrics', queues: [] });
+
+    expect(to).toHaveBeenCalledWith(PLATFORM_ADMINS_ROOM);
+    expect(emit).toHaveBeenCalledWith('queue_metrics', { type: 'queue_metrics', queues: [] });
+  });
 });
