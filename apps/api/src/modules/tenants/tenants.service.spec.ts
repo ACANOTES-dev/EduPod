@@ -127,8 +127,14 @@ const mockPrisma = {
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn(),
   },
+  membershipRole: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
   tenantOnboardingStep: {
     findMany: jest.fn().mockResolvedValue([]),
+  },
+  platformSupportAuditAction: {
+    create: jest.fn(),
   },
   user: {
     count: jest.fn(),
@@ -286,6 +292,7 @@ describe('TenantsService', () => {
         sequence_type: t,
         current_value: 0,
       })),
+      owner_user: null,
       _count: { memberships: 0 },
     };
 
@@ -777,6 +784,7 @@ describe('TenantsService', () => {
         modules: [],
         domains: [],
         sequences: [],
+        owner_user: null,
         _count: { memberships: 5 },
       });
       expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith(
@@ -1336,6 +1344,14 @@ describe('TenantsService', () => {
         'admin_reset',
         USER_ID,
       );
+      expect(mockPrisma.platformSupportAuditAction.create).toHaveBeenCalledWith({
+        data: {
+          action_type: 'mfa_reset',
+          actor_id: USER_ID,
+          target_user_id: TARGET_USER_ID,
+          metadata: { email: 'user@school.com' },
+        },
+      });
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

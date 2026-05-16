@@ -212,6 +212,13 @@ interface TenantDetailRelations {
   modules: TenantModuleRelation[];
   domains: TenantDomainRelation[];
   sequences: TenantSequenceRelation[];
+  owner_user: {
+    id: string;
+    email: string;
+    first_name: string;
+    global_status: string;
+    last_name: string;
+  } | null;
   _count: { memberships: number };
 }
 
@@ -901,6 +908,16 @@ export class TenantsService {
     });
 
     await this.securityAuditService.logMfaDisable(userId, null, 'admin_reset', actorUserId);
+    if (actorUserId) {
+      await this.prisma.platformSupportAuditAction.create({
+        data: {
+          actor_id: actorUserId,
+          action_type: 'mfa_reset',
+          target_user_id: userId,
+          metadata: { email: user.email },
+        },
+      });
+    }
     if (audit) {
       await this.platformAuditService.log({
         ...audit,
@@ -1046,6 +1063,24 @@ export class TenantsService {
       const domains = await db.tenantDomain.findMany({ where: { tenant_id: tenantId } });
       const sequences = await db.tenantSequence.findMany({ where: { tenant_id: tenantId } });
       const memberships = await db.tenantMembership.count({ where: { tenant_id: tenantId } });
+      const ownerRole = await db.membershipRole.findFirst({
+        where: { tenant_id: tenantId, role: { role_key: 'school_owner' } },
+        include: {
+          membership: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  first_name: true,
+                  global_status: true,
+                  id: true,
+                  last_name: true,
+                },
+              },
+            },
+          },
+        },
+      });
 
       return {
         branding,
@@ -1053,6 +1088,7 @@ export class TenantsService {
         modules,
         domains,
         sequences,
+        owner_user: ownerRole?.membership.user ?? null,
         _count: { memberships },
       };
     });

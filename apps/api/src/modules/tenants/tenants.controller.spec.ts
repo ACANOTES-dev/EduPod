@@ -6,6 +6,7 @@ import type { JwtPayload } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
+import { PlatformSupportService } from './platform-support.service';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
@@ -42,6 +43,17 @@ describe('TenantsController', () => {
     listModules: jest.Mock;
     toggleModule: jest.Mock;
   };
+  let mockSupportService: {
+    disableUser: jest.Mock;
+    enableUser: jest.Mock;
+    getUser: jest.Mock;
+    listAuditActions: jest.Mock;
+    listUsers: jest.Mock;
+    resendInvite: jest.Mock;
+    resetPassword: jest.Mock;
+    transferOwnership: jest.Mock;
+    unlockAccount: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockService = {
@@ -59,10 +71,24 @@ describe('TenantsController', () => {
       listModules: jest.fn(),
       toggleModule: jest.fn(),
     };
+    mockSupportService = {
+      disableUser: jest.fn(),
+      enableUser: jest.fn(),
+      getUser: jest.fn(),
+      listAuditActions: jest.fn(),
+      listUsers: jest.fn(),
+      resendInvite: jest.fn(),
+      resetPassword: jest.fn(),
+      transferOwnership: jest.fn(),
+      unlockAccount: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenantsController],
-      providers: [{ provide: TenantsService, useValue: mockService }],
+      providers: [
+        { provide: TenantsService, useValue: mockService },
+        { provide: PlatformSupportService, useValue: mockSupportService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue(alwaysAllowGuard)
@@ -221,6 +247,112 @@ describe('TenantsController', () => {
       ip_address: undefined,
       user_agent: undefined,
     });
+  });
+
+  it('should delegate listUsers to the support service', async () => {
+    const response = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    const query = { page: 1, pageSize: 20, order: 'desc' as const };
+    mockSupportService.listUsers.mockResolvedValueOnce(response);
+
+    const result = await controller.listUsers(query);
+    expect(result).toEqual(response);
+    expect(mockSupportService.listUsers).toHaveBeenCalledWith(query);
+  });
+
+  it('should delegate getUser to the support service', async () => {
+    const response = { id: USER_ID, email: 'user@example.com' };
+    mockSupportService.getUser.mockResolvedValueOnce(response);
+
+    const result = await controller.getUser(USER_ID);
+    expect(result).toEqual(response);
+    expect(mockSupportService.getUser).toHaveBeenCalledWith(USER_ID);
+  });
+
+  it('should delegate resetUserPassword to the support service', async () => {
+    mockSupportService.resetPassword.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.resetUserPassword(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.resetPassword).toHaveBeenCalledWith(USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate resendUserInvite to the support service', async () => {
+    mockSupportService.resendInvite.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.resendUserInvite(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.resendInvite).toHaveBeenCalledWith(USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate unlockUser to the support service', async () => {
+    mockSupportService.unlockAccount.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.unlockUser(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.unlockAccount).toHaveBeenCalledWith(USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate disableUser to the support service', async () => {
+    mockSupportService.disableUser.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.disableUser(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.disableUser).toHaveBeenCalledWith(USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate enableUser to the support service', async () => {
+    mockSupportService.enableUser.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.enableUser(USER_ID, mockUser, mockRequest);
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.enableUser).toHaveBeenCalledWith(USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate transferOwnership to the support service', async () => {
+    mockSupportService.transferOwnership.mockResolvedValueOnce({ message: 'ok' });
+
+    const result = await controller.transferOwnership(
+      TENANT_ID,
+      { new_owner_user_id: USER_ID },
+      mockUser,
+      mockRequest,
+    );
+    expect(result).toEqual({ message: 'ok' });
+    expect(mockSupportService.transferOwnership).toHaveBeenCalledWith(TENANT_ID, USER_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
+  });
+
+  it('should delegate listAuditActions to the support service', async () => {
+    const response = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    const query = { page: 1, pageSize: 20, order: 'desc' as const };
+    mockSupportService.listAuditActions.mockResolvedValueOnce(response);
+
+    const result = await controller.listAuditActions(query);
+    expect(result).toEqual(response);
+    expect(mockSupportService.listAuditActions).toHaveBeenCalledWith(query);
   });
 
   it('should delegate listModules to the service', async () => {

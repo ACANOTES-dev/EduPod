@@ -152,6 +152,16 @@ enum PlatformAuditAction {
   @@map("platform_audit_action")
 }
 
+enum PlatformAuditActionType {
+  password_reset
+  mfa_reset
+  resend_invite
+  unlock_account
+  transfer_ownership
+  disable_user
+  enable_user
+}
+
 enum PlatformAlertSilenceScope {
   single_rule
   component
@@ -662,6 +672,7 @@ model Tenant {
   user_ui_preferences     UserUiPreference[]
   onboarding_steps        TenantOnboardingStep[]
   platform_tenant_metrics PlatformTenantMetric[]
+  platform_support_audit_actions PlatformSupportAuditAction[]
 
   // P2 Relations
   households                   Household[]
@@ -1782,6 +1793,8 @@ model User {
   platform_roles_granted                 PlatformUserRole[]                @relation("platform_role_granted_by")
   platform_alerts_acknowledged           PlatformAlertHistory[]            @relation("platform_alert_acknowledger")
   platform_audit_logs                    PlatformAuditLog[]                @relation("platform_audit_actor")
+  support_audit_actions_performed        PlatformSupportAuditAction[]      @relation("support_audit_actor")
+  support_audit_actions_received         PlatformSupportAuditAction[]      @relation("support_audit_target_user")
   platform_error_redaction_rules         PlatformErrorRedactionRule[]      @relation("platform_error_redaction_rule_creator")
   platform_action_confirmations          PlatformOwnerActionConfirmation[] @relation("owner_action_confirmation_actor")
   platform_alert_silences_created        PlatformAlertSilence[]            @relation("platform_alert_silence_creator")
@@ -12122,6 +12135,27 @@ model PlatformAuditLog {
   @@index([target_tenant_id, created_at(sort: Desc)], map: "idx_platform_audit_target_tenant")
   @@index([created_at(sort: Desc)], map: "idx_platform_audit_created")
   @@map("platform_audit_logs")
+}
+
+/// Platform-level table -- NOT tenant-scoped, no RLS
+model PlatformSupportAuditAction {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id         String                  @db.Uuid
+  action_type      PlatformAuditActionType
+  target_user_id   String?                 @db.Uuid
+  target_tenant_id String?                 @db.Uuid
+  metadata         Json?                   @db.JsonB
+  created_at       DateTime                @default(now()) @db.Timestamptz()
+
+  actor         User    @relation("support_audit_actor", fields: [actor_id], references: [id], onDelete: Cascade)
+  target_user   User?   @relation("support_audit_target_user", fields: [target_user_id], references: [id], onDelete: SetNull)
+  target_tenant Tenant? @relation(fields: [target_tenant_id], references: [id], onDelete: SetNull)
+
+  @@index([actor_id], map: "idx_platform_audit_actions_actor")
+  @@index([target_user_id], map: "idx_platform_audit_actions_target_user")
+  @@index([target_tenant_id], map: "idx_platform_audit_actions_target_tenant")
+  @@index([action_type, created_at], map: "idx_platform_audit_actions_type_date")
+  @@map("platform_audit_actions")
 }
 
 model PlatformErrorLog {

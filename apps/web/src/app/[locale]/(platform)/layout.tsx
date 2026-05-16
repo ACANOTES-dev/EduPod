@@ -243,9 +243,9 @@ function PlatformSidebarNav({
     },
     {
       icon: Users,
-      label: 'Platform Users',
+      label: 'Users',
       href: `/${locale}/admin/users`,
-      permission: 'platform.platform_users.view',
+      permission: 'platform.users.reset_password',
     },
     {
       icon: ShieldCheck,

@@ -18,12 +18,15 @@ import { z } from 'zod';
 
 import {
   createTenantSchema,
+  listAuditActionsQuerySchema,
+  listUsersQuerySchema,
   paginationQuerySchema,
   toggleModuleSchema,
+  transferOwnershipSchema,
   updateSupportedLocalesSchema,
   updateTenantSchema,
 } from '@school/shared';
-import type { JwtPayload } from '@school/shared';
+import type { JwtPayload, ListAuditActionsQuery, ListUsersQuery } from '@school/shared';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
@@ -34,7 +37,9 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
 import type { CreateTenantDto } from './dto/create-tenant.dto';
+import type { TransferOwnershipDto } from './dto/transfer-ownership.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import { PlatformSupportService } from './platform-support.service';
 import { TenantsService } from './tenants.service';
 
 const impersonateSchema = z.object({
@@ -52,7 +57,10 @@ const listTenantsQuerySchema = paginationQuerySchema.extend({
 @Controller('v1/admin')
 @UseGuards(AuthGuard, PlatformRoleGuard)
 export class TenantsController {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly platformSupportService: PlatformSupportService,
+  ) {}
 
   @Post('tenants')
   @RequiresPlatformPermission('platform.tenants.create')
@@ -151,6 +159,26 @@ export class TenantsController {
     return this.tenantsService.getDashboard();
   }
 
+  @Get('users')
+  @RequiresPlatformPermission('platform.users.reset_password')
+  async listUsers(@Query(new ZodValidationPipe(listUsersQuerySchema)) query: ListUsersQuery) {
+    return this.platformSupportService.listUsers(query);
+  }
+
+  @Get('users/:id')
+  @RequiresPlatformPermission('platform.users.reset_password')
+  async getUser(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platformSupportService.getUser(id);
+  }
+
+  @Get('audit-actions')
+  @RequiresPlatformPermission('platform.audit_log.view')
+  async listAuditActions(
+    @Query(new ZodValidationPipe(listAuditActionsQuerySchema)) query: ListAuditActionsQuery,
+  ) {
+    return this.platformSupportService.listAuditActions(query);
+  }
+
   @Post('impersonate')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.tenants.impersonate')
@@ -180,6 +208,98 @@ export class TenantsController {
     @Req() request: Request,
   ) {
     return this.tenantsService.resetUserMfa(id, user.sub, auditContextFromRequest(user, request));
+  }
+
+  @Post('users/:id/reset-password')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.reset_password')
+  async resetUserPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.resetPassword(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Post('users/:id/resend-invite')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.resend_invite')
+  async resendUserInvite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.resendInvite(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Post('users/:id/unlock')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.unlock_account')
+  async unlockUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.unlockAccount(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Post('users/:id/disable')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.disable')
+  async disableUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.disableUser(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Post('users/:id/enable')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.disable')
+  async enableUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.enableUser(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
+  }
+
+  @Post('tenants/:id/transfer-ownership')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.users.transfer_ownership')
+  async transferOwnership(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(transferOwnershipSchema)) dto: TransferOwnershipDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformSupportService.transferOwnership(
+      id,
+      dto.new_owner_user_id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   @Get('tenants/:id/modules')

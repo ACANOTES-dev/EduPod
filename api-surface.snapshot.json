@@ -239,6 +239,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/audit-actions",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/audit-logs",
     "controller": "PlatformAuditLogController",
     "module": "audit-log",
@@ -609,6 +616,13 @@
     "permission": "platform.tenants.suspend"
   },
   {
+    "method": "POST",
+    "path": "/v1/admin/tenants/:id/transfer-ownership",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.transfer_ownership"
+  },
+  {
     "method": "GET",
     "path": "/v1/admin/tenants/:tenantId/domains",
     "controller": "DomainsController",
@@ -644,11 +658,60 @@
     "permission": "platform.tenants.view"
   },
   {
+    "method": "GET",
+    "path": "/v1/admin/users",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.reset_password"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/users/:id",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.reset_password"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/users/:id/disable",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.disable"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/users/:id/enable",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.disable"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/users/:id/resend-invite",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.resend_invite"
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/users/:id/reset-mfa",
     "controller": "TenantsController",
     "module": "tenants",
     "permission": "platform.users.reset_mfa"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/users/:id/reset-password",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.reset_password"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/users/:id/unlock",
+    "controller": "TenantsController",
+    "module": "tenants",
+    "permission": "platform.users.unlock_account"
   },
   {
     "method": "GET",

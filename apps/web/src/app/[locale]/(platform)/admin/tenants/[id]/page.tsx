@@ -34,6 +34,9 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { AuditActionsTable } from '../../_components/audit-actions-table';
+import { SupportActionsPanel } from '../../_components/support-actions-panel';
+
 import { AnalyticsTab } from './_components/analytics-tab';
 import { ErrorsTab } from './_components/errors-tab';
 import { OnboardingTracker } from './_components/onboarding-tracker';
@@ -67,6 +70,13 @@ interface TenantDetail {
   updated_at: string;
   domains: TenantDomain[];
   modules: TenantModule[];
+  owner_user: {
+    email: string;
+    first_name: string;
+    global_status: string;
+    id: string;
+    last_name: string;
+  } | null;
 }
 
 type TabKey = 'overview' | 'domains' | 'modules' | 'onboarding' | 'analytics' | 'errors';
@@ -212,6 +222,28 @@ export default function TenantDetailPage() {
         {activeTab === 'onboarding' && <OnboardingTracker tenantId={tenant.id} />}
         {activeTab === 'analytics' && <AnalyticsTab tenantId={tenant.id} />}
         {activeTab === 'errors' && <ErrorsTab tenantId={tenant.id} tenantName={tenant.name} />}
+      </div>
+
+      <div className="mt-6 grid gap-6">
+        {tenant.owner_user ? (
+          <SupportActionsPanel
+            isOwner
+            onActionComplete={fetchTenant}
+            tenantId={tenant.id}
+            tenantName={tenant.name}
+            userEmail={tenant.owner_user.email}
+            userId={tenant.owner_user.id}
+            userStatus={tenant.owner_user.global_status}
+          />
+        ) : (
+          <section className="rounded-lg border border-border bg-surface p-5">
+            <h2 className="text-sm font-semibold text-text-primary">Support actions</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              No current school owner was found for this tenant.
+            </p>
+          </section>
+        )}
+        <AuditActionsTable targetTenantId={tenant.id} />
       </div>
     </div>
   );
