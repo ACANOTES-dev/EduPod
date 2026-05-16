@@ -644,23 +644,24 @@ model Tenant {
   updated_at                DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  domains               TenantDomain[]
-  modules               TenantModule[]
-  branding              TenantBranding?
-  settings              TenantSetting?
-  module_settings       TenantModuleSetting[]
-  notification_settings TenantNotificationSetting[]
-  sequences             TenantSequence[]
-  stripe_config         TenantStripeConfig?
-  memberships           TenantMembership[]
-  roles                 Role[]
-  role_permissions      RolePermission[]
-  membership_roles      MembershipRole[]
-  invitations           Invitation[]
-  approval_workflows    ApprovalWorkflow[]
-  approval_requests     ApprovalRequest[]
-  user_ui_preferences   UserUiPreference[]
-  onboarding_steps      TenantOnboardingStep[]
+  domains                 TenantDomain[]
+  modules                 TenantModule[]
+  branding                TenantBranding?
+  settings                TenantSetting?
+  module_settings         TenantModuleSetting[]
+  notification_settings   TenantNotificationSetting[]
+  sequences               TenantSequence[]
+  stripe_config           TenantStripeConfig?
+  memberships             TenantMembership[]
+  roles                   Role[]
+  role_permissions        RolePermission[]
+  membership_roles        MembershipRole[]
+  invitations             Invitation[]
+  approval_workflows      ApprovalWorkflow[]
+  approval_requests       ApprovalRequest[]
+  user_ui_preferences     UserUiPreference[]
+  onboarding_steps        TenantOnboardingStep[]
+  platform_tenant_metrics PlatformTenantMetric[]
 
   // P2 Relations
   households                   Household[]
@@ -12128,14 +12129,18 @@ model PlatformErrorLog {
   occurred_at        DateTime @default(now()) @db.Timestamptz()
   source             String   @db.VarChar(40)
   level              String   @db.VarChar(20)
+  error_code         String?  @db.VarChar(100)
   message_redacted   String   @db.Text
   stack_redacted     String?  @db.Text
+  endpoint           String?  @db.VarChar(500)
+  http_status        Int?     @db.SmallInt
   fingerprint        String   @db.VarChar(64)
   count              Int      @default(1)
   first_seen_at      DateTime @default(now()) @db.Timestamptz()
   last_seen_at       DateTime @default(now()) @db.Timestamptz()
   redaction_metadata Json     @db.JsonB
   tenant_id_redacted String?  @db.Uuid
+  user_id_redacted   String?  @db.Uuid
   correlation_id     String?  @db.VarChar(64)
   sentry_event_id    String?  @db.VarChar(64)
   created_at         DateTime @default(now()) @db.Timestamptz()
@@ -12143,7 +12148,24 @@ model PlatformErrorLog {
   @@index([fingerprint, last_seen_at(sort: Desc)], map: "idx_platform_error_fingerprint_seen")
   @@index([occurred_at(sort: Desc)], map: "idx_platform_error_occurred")
   @@index([source, level, occurred_at(sort: Desc)], map: "idx_platform_error_source_level")
+  @@index([tenant_id_redacted, last_seen_at(sort: Desc)], map: "idx_platform_error_tenant_seen")
+  @@index([endpoint, last_seen_at(sort: Desc)], map: "idx_platform_error_endpoint_seen")
+  @@index([http_status, last_seen_at(sort: Desc)], map: "idx_platform_error_status_seen")
   @@map("platform_error_log")
+}
+
+model PlatformTenantMetric {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  snapshot_date DateTime @db.Date
+  metrics       Json     @db.JsonB
+  created_at    DateTime @default(now()) @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, snapshot_date], map: "platform_tenant_metrics_tenant_id_snapshot_date_key")
+  @@index([tenant_id, snapshot_date(sort: Desc)], map: "idx_platform_tenant_metrics_tenant_date")
+  @@map("platform_tenant_metrics")
 }
 
 model PlatformErrorRedactionRule {

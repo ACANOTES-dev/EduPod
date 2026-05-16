@@ -445,6 +445,26 @@ export class AttendanceReadFacade {
     return groups;
   }
 
+  /**
+   * Group all daily attendance summaries by derived_status for a tenant/period.
+   * Used by platform tenant analytics snapshots.
+   */
+  async groupTenantSummariesByStatus(
+    tenantId: string,
+    sinceDate: Date,
+  ): Promise<Array<{ derived_status: DailyAttendanceStatus; _count: { _all: number } }>> {
+    const groups = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['derived_status'],
+      where: {
+        tenant_id: tenantId,
+        summary_date: { gte: sinceDate },
+      },
+      _count: { _all: true },
+    });
+
+    return groups;
+  }
+
   // ─── Pattern Alert ──────────────────────────────────────────────────────
 
   /**

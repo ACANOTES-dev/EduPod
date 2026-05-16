@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BarChart3,
   Bell,
   BellOff,
   BellRing,
@@ -13,6 +14,7 @@ import {
   ListChecks,
   Menu,
   ScanText,
+  SearchCode,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -60,6 +62,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     }
     if (href === `/${locale}/admin/alerts`) {
       return pathname === href;
+    }
+    if (href === `/${locale}/admin/tenants`) {
+      return (
+        (pathname ?? '').startsWith(href) &&
+        !(pathname ?? '').startsWith(`/${locale}/admin/tenants/compare`)
+      );
     }
     return (pathname ?? '').startsWith(href);
   };
@@ -191,6 +199,12 @@ function PlatformSidebarNav({
       permission: 'platform.tenants.view',
     },
     {
+      icon: BarChart3,
+      label: 'Tenant Compare',
+      href: `/${locale}/admin/tenants/compare`,
+      permission: 'platform.tenants.view',
+    },
+    {
       icon: Activity,
       label: healthLabel,
       href: `/${locale}/admin/health`,
@@ -261,6 +275,12 @@ function PlatformSidebarNav({
       icon: ScanText,
       label: 'Error Log',
       href: `/${locale}/admin/error-log`,
+      permission: 'platform.audit_log.view',
+    },
+    {
+      icon: SearchCode,
+      label: 'Error Diagnostics',
+      href: `/${locale}/admin/errors`,
       permission: 'platform.audit_log.view',
     },
     {

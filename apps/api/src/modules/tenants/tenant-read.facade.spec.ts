@@ -15,6 +15,7 @@ const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const mockPrisma = {
   tenant: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
   },
   tenantBranding: {
     findUnique: jest.fn(),
@@ -90,6 +91,38 @@ describe('TenantReadFacade', () => {
       const result = await facade.findById(TENANT_ID);
 
       expect(result).toBeNull();
+    });
+  });
+
+  // ─── TenantReadFacade — platform summaries ────────────────────────────────
+
+  describe('TenantReadFacade — platform summaries', () => {
+    it('should return active platform summaries ordered by name', async () => {
+      const rows = [{ id: TENANT_ID, name: 'Test School' }];
+      mockPrisma.tenant.findMany.mockResolvedValueOnce(rows);
+
+      await expect(facade.findActivePlatformSummaries()).resolves.toEqual(rows);
+      expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith({
+        where: { status: 'active' },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      });
+    });
+
+    it('should return summaries for selected tenant IDs', async () => {
+      const rows = [{ id: TENANT_ID, name: 'Test School' }];
+      mockPrisma.tenant.findMany.mockResolvedValueOnce(rows);
+
+      await expect(facade.findPlatformSummariesByIds([TENANT_ID])).resolves.toEqual(rows);
+      expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [TENANT_ID] } },
+        select: { id: true, name: true },
+      });
+    });
+
+    it('should skip the query when summary IDs are empty', async () => {
+      await expect(facade.findPlatformSummariesByIds([])).resolves.toEqual([]);
+      expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
     });
   });
 

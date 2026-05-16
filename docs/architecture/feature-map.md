@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-05-13 (Module Gating Wave W1 documentation pass — Quick Reference Gateable column plus per-domain Gateable annotations; i18n expansion sweep — per-locale PDF template bundles (en, ar, fr, es, de, ga, it, ro), notification message catalogue with dotted-key resolver, dual-language household notification fanout in `NotificationsService`, tenant-gated locale controls + new platform admin route `/admin/tenants/[id]/locales`. Quick Reference table now reflects the actual module count (73 modules under `apps/api/src/modules/`) and adds the previously-missing Budgeting & Analysis row. New §42 (Infrastructure & Cross-Cutting Modules) catalogues the platform-level modules that aren't product features. `sequence` references corrected from the earlier `sequences` plural typo.); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added platform tenant analytics snapshots, tenant comparison, and redacted error diagnostics surfaces); previously: 2026-05-13 (Module Gating Wave W1 documentation pass — Quick Reference Gateable column plus per-domain Gateable annotations; i18n expansion sweep — per-locale PDF template bundles (en, ar, fr, es, de, ga, it, ro), notification message catalogue with dotted-key resolver, dual-language household notification fanout in `NotificationsService`, tenant-gated locale controls + new platform admin route `/admin/tenants/[id]/locales`. Quick Reference table now reflects the actual module count (73 modules under `apps/api/src/modules/`) and adds the previously-missing Budgeting & Analysis row. New §42 (Infrastructure & Cross-Cutting Modules) catalogues the platform-level modules that aren't product features. `sequence` references corrected from the earlier `sequences` plural typo.); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -1001,6 +1001,7 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 - `apps/api/src/modules/audit-log/`
 - `apps/api/src/modules/security-incidents/`
 - `apps/api/src/modules/health/`
+- `apps/api/src/modules/platform-error-log/`
 
 **Frontend**:
 
@@ -1008,7 +1009,11 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 - `/admin/tenants`
 - `/admin/tenants/new`
 - `/admin/tenants/[id]`
+- `/admin/tenants/[id]` analytics tab — daily tenant metrics snapshots from `platform_tenant_metrics`
+- `/admin/tenants/[id]` errors tab — tenant-filtered redacted diagnostics from `platform_error_log`
 - `/admin/tenants/[id]/locales` — per-tenant locale gating: shows the global `LOCALE_REGISTRY` (en, ar, fr, es, de, ga, it, ro, …) with active-only entries enabled; admin toggles which locales the tenant can serve. Backed by `PATCH /v1/admin/tenants/:id/supported-locales`.
+- `/admin/tenants/compare` — side-by-side tenant metrics comparison
+- `/admin/errors` — platform error diagnostics over the redacted `platform_error_log` table
 - `/admin/audit-log`
 - `/admin/security-incidents`
 - `/admin/security-incidents/[id]`

@@ -1,12 +1,19 @@
 import { Module } from '@nestjs/common';
 
+import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { FinanceModule } from '../finance/finance.module';
 import { HealthModule } from '../health/health.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
+import { PlatformErrorLogModule } from '../platform-error-log/platform-error-log.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
 import { QueueAdminModule } from '../queue-admin/queue-admin.module';
+import { RbacModule } from '../rbac/rbac.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { AlertChannelsController } from './alert-channels.controller';
@@ -34,18 +41,27 @@ import { OwnerActionConfirmationsController } from './owner-action-confirmations
 import { PlatformOnboardingModule } from './platform-onboarding.module';
 import { PlatformRealtimeModule } from './platform-realtime.module';
 import { PlatformGateway } from './platform.gateway';
+import { TenantMetricsController } from './tenant-metrics.controller';
+import { TenantMetricsService } from './tenant-metrics.service';
 
 @Module({
   imports: [
+    AttendanceModule,
     AuthModule,
     CommunicationsModule,
     ConfigurationModule,
+    FinanceModule,
     HealthModule,
+    ParentsModule,
     PlatformAuditModule,
+    PlatformErrorLogModule,
     PlatformOnboardingModule,
     PlatformRealtimeModule,
     PlatformUsersModule,
     QueueAdminModule,
+    RbacModule,
+    StaffProfilesModule,
+    StudentsModule,
     TenantsModule,
   ],
   controllers: [
@@ -57,6 +73,7 @@ import { PlatformGateway } from './platform.gateway';
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
     OnboardingController,
+    TenantMetricsController,
   ],
   providers: [
     PlatformGateway,
@@ -70,6 +87,7 @@ import { PlatformGateway } from './platform.gateway';
     AlertEvaluationService,
     AlertDispatchService,
     ChannelDispatchService,
+    TenantMetricsService,
     EmailAlertDispatcher,
     TelegramAlertDispatcher,
     WhatsAppAlertDispatcher,

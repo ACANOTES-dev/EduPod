@@ -23,6 +23,10 @@ export interface CapturePlatformErrorInput {
   message: string;
   stack?: string;
   tenant_id?: string;
+  user_id?: string;
+  endpoint?: string;
+  http_status?: number;
+  error_code?: string;
   correlation_id?: string;
   sentry_event_id?: string;
 }
@@ -58,6 +62,11 @@ export class PlatformErrorLogService {
           data: {
             count: { increment: 1 },
             last_seen_at: now,
+            error_code: input.error_code ?? existing.error_code,
+            endpoint: input.endpoint ?? existing.endpoint,
+            http_status: input.http_status ?? existing.http_status,
+            tenant_id_redacted: input.tenant_id ?? existing.tenant_id_redacted,
+            user_id_redacted: input.user_id ?? existing.user_id_redacted,
             sentry_event_id: input.sentry_event_id ?? existing.sentry_event_id,
             correlation_id: input.correlation_id ?? existing.correlation_id,
           },
@@ -72,11 +81,15 @@ export class PlatformErrorLogService {
           level: input.level,
           message_redacted: message.redacted,
           stack_redacted: stack?.redacted,
+          error_code: input.error_code,
+          endpoint: input.endpoint,
+          http_status: input.http_status,
           fingerprint,
           first_seen_at: now,
           last_seen_at: now,
           redaction_metadata: toJson(metadata),
           tenant_id_redacted: input.tenant_id,
+          user_id_redacted: input.user_id,
           correlation_id: input.correlation_id,
           sentry_event_id: input.sentry_event_id,
         },
@@ -92,6 +105,20 @@ export class PlatformErrorLogService {
     if (query.source) where.source = query.source;
     if (query.level) where.level = query.level;
     if (query.fingerprint) where.fingerprint = query.fingerprint;
+    if (query.tenant_id) where.tenant_id_redacted = query.tenant_id;
+    if (query.platform_level) where.tenant_id_redacted = null;
+    if (query.endpoint) where.endpoint = { contains: query.endpoint, mode: 'insensitive' };
+    if (query.http_status) where.http_status = query.http_status;
+    if (query.error_code) where.error_code = { contains: query.error_code, mode: 'insensitive' };
+    if (query.message) {
+      where.message_redacted = { contains: query.message, mode: 'insensitive' };
+    }
+    if (query.from || query.to) {
+      const lastSeenFilter: Prisma.DateTimeFilter = {};
+      if (query.from) lastSeenFilter.gte = query.from;
+      if (query.to) lastSeenFilter.lte = query.to;
+      where.last_seen_at = lastSeenFilter;
+    }
 
     const skip = (query.page - 1) * query.pageSize;
     const [data, total] = await Promise.all([
@@ -105,6 +132,17 @@ export class PlatformErrorLogService {
     ]);
 
     return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
+  }
+
+  async getRedacted(id: string): Promise<PlatformErrorLog> {
+    const error = await this.prisma.platformErrorLog.findUnique({ where: { id } });
+    if (!error) {
+      throw new NotFoundException({
+        code: 'PLATFORM_ERROR_LOG_NOT_FOUND',
+        message: `Platform error log entry with id "${id}" not found`,
+      });
+    }
+    return error;
   }
 
   async listRules(): Promise<{

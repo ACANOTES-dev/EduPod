@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isModuleKey, type ModuleKey } from '../modules';
+
 import { paginationQuerySchema } from './pagination.schema';
 
 // ─── Platform Health History ─────────────────────────────────────────────────
@@ -116,9 +118,63 @@ export const platformErrorLogQuerySchema = z.object({
   source: z.enum(['api', 'worker', 'web-ssr', 'web-csr', 'cron']).optional(),
   level: z.enum(['error', 'warn']).optional(),
   fingerprint: z.string().trim().min(1).max(64).optional(),
+  tenant_id: z.string().uuid().optional(),
+  platform_level: z.coerce.boolean().optional(),
+  endpoint: z.string().trim().min(1).max(500).optional(),
+  http_status: z.coerce.number().int().min(100).max(599).optional(),
+  error_code: z.string().trim().min(1).max(100).optional(),
+  message: z.string().trim().min(1).max(500).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
 });
 
 export type PlatformErrorLogQuery = z.infer<typeof platformErrorLogQuerySchema>;
+
+// ─── Tenant Metrics ─────────────────────────────────────────────────────────
+
+const moduleKeySchema = z.custom<ModuleKey>(
+  (value): value is ModuleKey => typeof value === 'string' && isModuleKey(value),
+);
+
+export const tenantMetricsSnapshotSchema = z.object({
+  students_count: z.number().int().min(0),
+  staff_count: z.number().int().min(0),
+  parents_count: z.number().int().min(0),
+  active_users_24h: z.number().int().min(0),
+  active_users_7d: z.number().int().min(0),
+  invoices_total: z.number().int().min(0),
+  invoices_overdue: z.number().int().min(0),
+  attendance_rate_avg: z.number().min(0).max(100),
+  api_requests_24h: z.number().int().min(0),
+  errors_24h: z.number().int().min(0),
+  storage_mb: z.number().min(0),
+  enabled_modules: z.array(moduleKeySchema),
+  disabled_modules: z.array(moduleKeySchema),
+  last_login_at: z.string().datetime().nullable(),
+});
+
+export type TenantMetricsSnapshot = z.infer<typeof tenantMetricsSnapshotSchema>;
+
+export const tenantMetricsQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+});
+
+export type TenantMetricsQuery = z.infer<typeof tenantMetricsQuerySchema>;
+
+export const tenantMetricsCompareQuerySchema = z.object({
+  tenant_ids: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return value;
+  }, z.array(z.string().uuid()).min(2).max(10)),
+  days: z.coerce.number().int().min(1).max(90).default(30),
+});
+
+export type TenantMetricsCompareQuery = z.infer<typeof tenantMetricsCompareQuerySchema>;
 
 export const createPlatformErrorRedactionRuleSchema = z.object({
   name: z.string().trim().min(1).max(100),

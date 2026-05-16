@@ -98,6 +98,11 @@ export interface TenantModuleRow {
   is_enabled: boolean;
 }
 
+export interface TenantPlatformSummaryRow {
+  id: string;
+  name: string;
+}
+
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -144,6 +149,29 @@ export class TenantReadFacade {
   async findAllIds(): Promise<Array<{ id: string }>> {
     return this.prisma.tenant.findMany({
       select: { id: true },
+    });
+  }
+
+  /**
+   * Active tenants with display names for platform aggregate jobs.
+   */
+  async findActivePlatformSummaries(): Promise<TenantPlatformSummaryRow[]> {
+    return this.prisma.tenant.findMany({
+      where: { status: 'active' },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Tenant names for platform comparison/reporting views.
+   */
+  async findPlatformSummariesByIds(tenantIds: string[]): Promise<TenantPlatformSummaryRow[]> {
+    if (tenantIds.length === 0) return [];
+
+    return this.prisma.tenant.findMany({
+      where: { id: { in: tenantIds } },
+      select: { id: true, name: true },
     });
   }
 

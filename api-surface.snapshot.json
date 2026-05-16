@@ -253,6 +253,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/errors",
+    "controller": "TenantMetricsController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/errors/:id",
+    "controller": "TenantMetricsController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/health",
     "controller": "AdminHealthController",
     "module": "health",
@@ -526,6 +540,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/tenants/:id/errors",
+    "controller": "TenantMetricsController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/tenants/:id/metrics",
+    "controller": "TenantMetricsController",
+    "module": "platform",
+    "permission": "platform.tenants.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/tenants/:id/modules",
     "controller": "TenantsController",
     "module": "tenants",
@@ -607,6 +635,13 @@
     "controller": "DomainsController",
     "module": "tenants",
     "permission": "platform.tenants.create"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/tenants/metrics/compare",
+    "controller": "TenantMetricsController",
+    "module": "platform",
+    "permission": "platform.tenants.view"
   },
   {
     "method": "POST",

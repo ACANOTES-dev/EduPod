@@ -24,6 +24,7 @@ function buildMockPrisma() {
       platformErrorLog: {
         count: jest.fn(),
         deleteMany: jest.fn(),
+        findUnique: jest.fn(),
         findMany: jest.fn(),
       },
       platformErrorRedactionRule: {
@@ -122,14 +123,53 @@ describe('PlatformErrorLogService', () => {
         source: 'api',
         level: 'error',
         fingerprint: 'fingerprint-1',
+        tenant_id: '22222222-2222-4222-8222-222222222222',
+        endpoint: 'GET /api/v1/students',
+        http_status: 500,
+        error_code: 'INTERNAL_ERROR',
+        message: 'failure',
+        from: new Date('2026-05-15T00:00:00.000Z'),
+        to: new Date('2026-05-16T00:00:00.000Z'),
       }),
     ).resolves.toEqual({ data: [row], meta: { page: 3, pageSize: 15, total: 1 } });
 
     expect(mock.prisma.platformErrorLog.findMany).toHaveBeenCalledWith({
-      where: { source: 'api', level: 'error', fingerprint: 'fingerprint-1' },
+      where: {
+        source: 'api',
+        level: 'error',
+        fingerprint: 'fingerprint-1',
+        tenant_id_redacted: '22222222-2222-4222-8222-222222222222',
+        endpoint: { contains: 'GET /api/v1/students', mode: 'insensitive' },
+        http_status: 500,
+        error_code: { contains: 'INTERNAL_ERROR', mode: 'insensitive' },
+        message_redacted: { contains: 'failure', mode: 'insensitive' },
+        last_seen_at: {
+          gte: new Date('2026-05-15T00:00:00.000Z'),
+          lte: new Date('2026-05-16T00:00:00.000Z'),
+        },
+      },
       orderBy: { last_seen_at: 'desc' },
       skip: 30,
       take: 15,
+    });
+  });
+
+  it('returns a single redacted error log entry', async () => {
+    const row = { id: 'error-1' };
+    mock.prisma.platformErrorLog.findUnique.mockResolvedValueOnce(row);
+
+    await expect(service.getRedacted('error-1')).resolves.toBe(row);
+
+    expect(mock.prisma.platformErrorLog.findUnique).toHaveBeenCalledWith({
+      where: { id: 'error-1' },
+    });
+  });
+
+  it('throws when a redacted error log entry is missing', async () => {
+    mock.prisma.platformErrorLog.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.getRedacted('missing')).rejects.toMatchObject({
+      response: { code: 'PLATFORM_ERROR_LOG_NOT_FOUND' },
     });
   });
 

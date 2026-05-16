@@ -221,6 +221,48 @@ describe('RbacReadFacade', () => {
     });
   });
 
+  describe('countActiveMembershipsWithLoginSince', () => {
+    it('should count active memberships with a recent user login', async () => {
+      const since = new Date('2026-05-15T00:00:00.000Z');
+      mockPrisma.tenantMembership.count.mockResolvedValue(4);
+
+      const result = await facade.countActiveMembershipsWithLoginSince(TENANT_ID, since);
+
+      expect(result).toBe(4);
+      expect(mockPrisma.tenantMembership.count).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          membership_status: 'active',
+          user: { last_login_at: { gte: since } },
+        },
+      });
+    });
+  });
+
+  describe('findLastActiveMembershipLogin', () => {
+    it('should return the newest active membership login', async () => {
+      const lastLogin = new Date('2026-05-16T01:00:00.000Z');
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+        user: { last_login_at: lastLogin },
+      });
+
+      const result = await facade.findLastActiveMembershipLogin(TENANT_ID);
+
+      expect(result).toBe(lastLogin);
+      expect(mockPrisma.tenantMembership.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { user: { last_login_at: 'desc' } },
+        }),
+      );
+    });
+
+    it('should return null when no login exists', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+
+      await expect(facade.findLastActiveMembershipLogin(TENANT_ID)).resolves.toBeNull();
+    });
+  });
+
   describe('findFirstActiveMembershipUserId', () => {
     it('should return user_id of the oldest active membership', async () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue({ user_id: USER_ID });

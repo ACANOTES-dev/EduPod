@@ -25,6 +25,7 @@
  * - Batch methods return arrays (empty = nothing found).
  */
 import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentReadFacade } from '../students/student-read.facade';
@@ -180,6 +181,16 @@ export class ParentReadFacade {
       select: { id: true },
     });
     return parents.map((p) => p.id);
+  }
+
+  /**
+   * Count parents matching a filter.
+   * Used by platform tenant analytics and reporting aggregates.
+   */
+  async count(tenantId: string, where?: Prisma.ParentWhereInput): Promise<number> {
+    return this.prisma.parent.count({
+      where: { tenant_id: tenantId, ...where },
+    });
   }
 
   /**

@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1647,6 +1647,18 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 **Mitigation**: `OwnerActionConfirmationService` validates platform RBAC through `PlatformUsersService`, persists the confirmation payload/reason, writes a blocking platform audit entry, and then executes the registered action. The UI uses `<OwnerActionConfirmDialog>` for destructive surfaces so the friction is explicit and auditable.
 
 **Regression coverage**: `apps/api/src/modules/platform/owner-action-confirmation.service.spec.ts` covers phrase mismatch, missing reason, permission checks, audit-before-execute, registered executor coverage, and executor failure capture.
+
+## DZ-PA-5: Error Diagnostics Must Stay Redacted and Additive
+
+**Risk**: Platform error diagnostics are a convenience view over `platform_error_log`, not the raw incident store. Capturing extra request context can leak sensitive data if it bypasses the 1.5B redactor, and replacing the Sentry exception path would reduce incident visibility.
+**Location**: `apps/api/src/common/filters/all-exceptions.filter.ts`, `apps/api/src/modules/platform-error-log/`, `apps/api/src/modules/platform/tenant-metrics.service.ts`, `apps/web/src/app/[locale]/(platform)/admin/errors/`
+**Status**: ACTIVE (Platform Dashboard Layer 2 Session 2D, 2026-05-16)
+
+**Rule**: API exception capture may only add sanitized metadata (`endpoint`, status, error code, tenant/user identifiers, correlation ID) by calling `PlatformErrorLogService.capture()`. Do not persist request bodies, headers, raw tokens, or unredacted user-entered payloads. Keep `@SentryExceptionCaptured()` active on the global exception filter; platform diagnostics must be additive to Sentry, not a replacement.
+
+**Mitigation**: `AllExceptionsFilter` records only 5xx exceptions after the normal API response is sent and delegates redaction/grouping to `PlatformErrorLogService`. Session 2D endpoints read the existing redacted table through platform-admin RBAC permissions. Tenant analytics uses only aggregate error counts from the same redacted table.
+
+**Regression coverage**: `apps/api/src/modules/platform-error-log/platform-error-log.service.spec.ts` verifies metadata capture and redacted reads; `apps/api/src/modules/platform/tenant-metrics.controller.spec.ts` verifies platform RBAC on diagnostics routes.
 
 ---
 

@@ -38,6 +38,7 @@ const parentSummary = {
 function buildMockPrisma() {
   return {
     parent: {
+      count: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
@@ -296,6 +297,36 @@ describe('ParentReadFacade — findAllActiveIds', () => {
     const result = await facade.findAllActiveIds(TENANT_ID);
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('ParentReadFacade — count', () => {
+  let facade: ParentReadFacade;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ParentReadFacade,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: buildMockStudentReadFacade() },
+      ],
+    }).compile();
+
+    facade = module.get<ParentReadFacade>(ParentReadFacade);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should count parents matching a tenant-scoped filter', async () => {
+    mockPrisma.parent.count.mockResolvedValueOnce(7);
+
+    await expect(facade.count(TENANT_ID, { status: 'active' })).resolves.toBe(7);
+    expect(mockPrisma.parent.count).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID, status: 'active' },
+    });
   });
 });
 

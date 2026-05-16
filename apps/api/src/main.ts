@@ -13,6 +13,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
 import { StructuredLoggerService } from './common/services/logger.service';
 import { validateEnv } from './modules/config/env.validation';
+import { PlatformErrorLogService } from './modules/platform-error-log/platform-error-log.service';
 
 // ─── Pre-bootstrap env validation ─────────────────────────────────────────────
 // Runs before NestFactory.create() — exits immediately if any required var is
@@ -74,7 +75,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Global filters and interceptors
-  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(
+    new AllExceptionsFilter(app.get(PlatformErrorLogService, { strict: false })),
+  );
   app.useGlobalInterceptors(new ResponseTransformInterceptor());
 
   // Swagger (disabled in production)

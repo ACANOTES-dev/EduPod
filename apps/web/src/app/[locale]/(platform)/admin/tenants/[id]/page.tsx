@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  AlertTriangle,
   ArrowLeft,
+  BarChart3,
   ClipboardCheck,
   Globe,
   Loader2,
@@ -32,6 +34,8 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { AnalyticsTab } from './_components/analytics-tab';
+import { ErrorsTab } from './_components/errors-tab';
 import { OnboardingTracker } from './_components/onboarding-tracker';
 
 // ---------- Types ----------
@@ -65,7 +69,7 @@ interface TenantDetail {
   modules: TenantModule[];
 }
 
-type TabKey = 'overview' | 'domains' | 'modules' | 'onboarding';
+type TabKey = 'overview' | 'domains' | 'modules' | 'onboarding' | 'analytics' | 'errors';
 
 const statusVariantMap: Record<TenantDetail['status'], 'success' | 'warning' | 'neutral'> = {
   active: 'success',
@@ -152,6 +156,8 @@ export default function TenantDetailPage() {
       { key: 'domains', label: 'Domains', icon: Globe },
       { key: 'modules', label: 'Modules', icon: Settings },
       { key: 'onboarding', label: 'Onboarding', icon: ClipboardCheck },
+      { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+      { key: 'errors', label: 'Errors', icon: AlertTriangle },
     ];
 
   return (
@@ -204,6 +210,8 @@ export default function TenantDetailPage() {
         {activeTab === 'domains' && <DomainsTab tenant={tenant} onUpdate={fetchTenant} />}
         {activeTab === 'modules' && <ModulesTab tenant={tenant} onUpdate={fetchTenant} />}
         {activeTab === 'onboarding' && <OnboardingTracker tenantId={tenant.id} />}
+        {activeTab === 'analytics' && <AnalyticsTab tenantId={tenant.id} />}
+        {activeTab === 'errors' && <ErrorsTab tenantId={tenant.id} tenantName={tenant.name} />}
       </div>
     </div>
   );

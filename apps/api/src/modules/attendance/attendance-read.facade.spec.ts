@@ -474,6 +474,31 @@ describe('AttendanceReadFacade', () => {
     });
   });
 
+  // ─── groupTenantSummariesByStatus ────────────────────────────────────────
+
+  describe('AttendanceReadFacade — groupTenantSummariesByStatus', () => {
+    it('should group all tenant summaries by status since a cutoff date', async () => {
+      const sinceDate = new Date('2026-05-01');
+      const groups = [
+        { derived_status: 'present', _count: { _all: 12 } },
+        { derived_status: 'absent', _count: { _all: 2 } },
+      ];
+      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue(groups);
+
+      const result = await facade.groupTenantSummariesByStatus(TENANT_ID, sinceDate);
+
+      expect(result).toEqual(groups);
+      expect(mockPrisma.dailyAttendanceSummary.groupBy).toHaveBeenCalledWith({
+        by: ['derived_status'],
+        where: {
+          tenant_id: TENANT_ID,
+          summary_date: { gte: sinceDate },
+        },
+        _count: { _all: true },
+      });
+    });
+  });
+
   // ─── findActivePatternAlerts ───────────────────────────────────────────
 
   describe('AttendanceReadFacade — findActivePatternAlerts', () => {

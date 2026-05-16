@@ -236,6 +236,37 @@ export class RbacReadFacade {
   }
 
   /**
+   * Count active tenant memberships whose user logged in since a cutoff.
+   * Used by platform tenant analytics snapshots.
+   */
+  async countActiveMembershipsWithLoginSince(tenantId: string, since: Date): Promise<number> {
+    return this.prisma.tenantMembership.count({
+      where: {
+        tenant_id: tenantId,
+        membership_status: 'active',
+        user: { last_login_at: { gte: since } },
+      },
+    });
+  }
+
+  /**
+   * Most recent login timestamp across active tenant memberships.
+   * Used by platform tenant analytics snapshots.
+   */
+  async findLastActiveMembershipLogin(tenantId: string): Promise<Date | null> {
+    const membership = await this.prisma.tenantMembership.findFirst({
+      where: {
+        tenant_id: tenantId,
+        membership_status: 'active',
+        user: { last_login_at: { not: null } },
+      },
+      orderBy: { user: { last_login_at: 'desc' } },
+      select: { user: { select: { last_login_at: true } } },
+    });
+    return membership?.user.last_login_at ?? null;
+  }
+
+  /**
    * Find the user_id of the oldest active membership for a tenant.
    * Used by recurring invoices to attribute system-generated invoices.
    */
