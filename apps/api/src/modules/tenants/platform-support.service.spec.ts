@@ -29,9 +29,18 @@ const userRow = {
 
 function buildMockPrisma() {
   const tx = {
+    invitation: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     membershipRole: {
+      findFirst: jest.fn(),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       upsert: jest.fn().mockResolvedValue({}),
+    },
+    tenantMembership: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
   };
 
@@ -52,9 +61,11 @@ function buildMockPrisma() {
         findMany: jest.fn(),
       },
       tenant: {
+        findMany: jest.fn(),
         findUnique: jest.fn(),
       },
       tenantMembership: {
+        findMany: jest.fn(),
         findUnique: jest.fn(),
       },
       user: {
@@ -136,17 +147,19 @@ describe('PlatformSupportService', () => {
 
   it('resendInvite regenerates token, queues notification, and audits', async () => {
     mock.prisma.user.findUnique.mockResolvedValueOnce(userRow);
-    mock.prisma.invitation.findFirst.mockResolvedValueOnce({
+    mock.prisma.tenant.findMany.mockResolvedValueOnce([{ id: TENANT_ID }]);
+    mock.tx.invitation.findFirst.mockResolvedValueOnce({
+      created_at: new Date('2026-01-01T00:00:00.000Z'),
       id: 'invitation-1',
       tenant_id: TENANT_ID,
     });
-    mock.prisma.invitation.update.mockResolvedValueOnce({});
+    mock.tx.invitation.update.mockResolvedValueOnce({});
 
     await expect(service.resendInvite(USER_ID, ACTOR_ID)).resolves.toEqual({
       message: 'Invitation re-sent',
     });
 
-    expect(mock.prisma.invitation.update).toHaveBeenCalledWith({
+    expect(mock.tx.invitation.update).toHaveBeenCalledWith({
       where: { id: 'invitation-1' },
       data: {
         expires_at: expect.any(Date),
@@ -165,7 +178,8 @@ describe('PlatformSupportService', () => {
 
   it('resendInvite rejects users without a pending invitation', async () => {
     mock.prisma.user.findUnique.mockResolvedValueOnce(userRow);
-    mock.prisma.invitation.findFirst.mockResolvedValueOnce(null);
+    mock.prisma.tenant.findMany.mockResolvedValueOnce([{ id: TENANT_ID }]);
+    mock.tx.invitation.findFirst.mockResolvedValueOnce(null);
 
     await expect(service.resendInvite(USER_ID, ACTOR_ID)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'NO_PENDING_INVITATION' }),
@@ -236,11 +250,11 @@ describe('PlatformSupportService', () => {
 
   it('transferOwnership validates membership and moves school_owner role', async () => {
     mock.prisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID, name: 'School' });
-    mock.prisma.membershipRole.findFirst.mockResolvedValueOnce({
+    mock.tx.membershipRole.findFirst.mockResolvedValueOnce({
       membership: { id: 'old-membership', user_id: 'old-user' },
       role: { id: ROLE_ID },
     });
-    mock.prisma.tenantMembership.findUnique.mockResolvedValueOnce({
+    mock.tx.tenantMembership.findUnique.mockResolvedValueOnce({
       id: MEMBERSHIP_ID,
       membership_status: 'active',
     });
@@ -266,17 +280,17 @@ describe('PlatformSupportService', () => {
 
   it('transferOwnership rejects missing current owner or inactive new owner', async () => {
     mock.prisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, name: 'School' });
-    mock.prisma.membershipRole.findFirst.mockResolvedValueOnce(null);
+    mock.tx.membershipRole.findFirst.mockResolvedValueOnce(null);
 
     await expect(service.transferOwnership(TENANT_ID, USER_ID, ACTOR_ID)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'NO_CURRENT_OWNER' }),
     });
 
-    mock.prisma.membershipRole.findFirst.mockResolvedValueOnce({
+    mock.tx.membershipRole.findFirst.mockResolvedValueOnce({
       membership: { id: 'old-membership', user_id: 'old-user' },
       role: { id: ROLE_ID },
     });
-    mock.prisma.tenantMembership.findUnique.mockResolvedValueOnce({
+    mock.tx.tenantMembership.findUnique.mockResolvedValueOnce({
       id: MEMBERSHIP_ID,
       membership_status: 'suspended',
     });
@@ -292,7 +306,7 @@ describe('PlatformSupportService', () => {
     await expect(service.transferOwnership(TENANT_ID, USER_ID, ACTOR_ID)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'TENANT_NOT_FOUND' }),
     });
-    expect(mock.prisma.membershipRole.findFirst).not.toHaveBeenCalled();
+    expect(mock.tx.membershipRole.findFirst).not.toHaveBeenCalled();
   });
 
   it('listAuditActions applies filters and pagination', async () => {
@@ -325,15 +339,25 @@ describe('PlatformSupportService', () => {
   });
 
   it('listUsers applies search, tenant, status, and pagination filters', async () => {
+    const membership = {
+      id: MEMBERSHIP_ID,
+      membership_roles: [],
+      membership_status: 'active',
+      tenant: { id: TENANT_ID, name: 'School', slug: 'school', status: 'active' },
+      tenant_id: TENANT_ID,
+      user_id: USER_ID,
+    };
     const data = [
       {
         ...userRow,
         created_at: new Date('2026-01-01T00:00:00.000Z'),
         last_login_at: null,
         locked_until: null,
-        memberships: [],
       },
     ];
+    mock.tx.tenantMembership.findMany
+      .mockResolvedValueOnce([{ user_id: USER_ID }])
+      .mockResolvedValueOnce([membership]);
     mock.prisma.user.findMany.mockResolvedValueOnce(data);
     mock.prisma.user.count.mockResolvedValueOnce(1);
 
@@ -345,14 +369,17 @@ describe('PlatformSupportService', () => {
       tenant_id: TENANT_ID,
     });
 
-    expect(result).toEqual({ data, meta: { page: 3, pageSize: 10, total: 1 } });
+    expect(result).toEqual({
+      data: [{ ...data[0], memberships: [membership] }],
+      meta: { page: 3, pageSize: 10, total: 1 },
+    });
     expect(mock.prisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         skip: 20,
         take: 10,
         where: {
           global_status: 'active',
-          memberships: { some: { tenant_id: TENANT_ID } },
+          id: { in: [USER_ID] },
           OR: [
             { email: { contains: 'Example', mode: 'insensitive' } },
             { first_name: { contains: 'Example', mode: 'insensitive' } },
@@ -364,6 +391,14 @@ describe('PlatformSupportService', () => {
   });
 
   it('getUser returns detailed support profile and rejects missing users', async () => {
+    const membership = {
+      id: MEMBERSHIP_ID,
+      membership_roles: [],
+      membership_status: 'active',
+      tenant: { id: TENANT_ID, name: 'School', slug: 'school', status: 'active' },
+      tenant_id: TENANT_ID,
+      user_id: USER_ID,
+    };
     const detail = {
       ...userRow,
       created_at: new Date('2026-01-01T00:00:00.000Z'),
@@ -371,11 +406,15 @@ describe('PlatformSupportService', () => {
       failed_login_attempts: 0,
       last_login_at: null,
       locked_until: null,
-      memberships: [],
     };
     mock.prisma.user.findUnique.mockResolvedValueOnce(detail);
+    mock.prisma.tenant.findMany.mockResolvedValueOnce([{ id: TENANT_ID }]);
+    mock.tx.tenantMembership.findMany.mockResolvedValueOnce([membership]);
 
-    await expect(service.getUser(USER_ID)).resolves.toBe(detail);
+    await expect(service.getUser(USER_ID)).resolves.toEqual({
+      ...detail,
+      memberships: [membership],
+    });
     expect(mock.prisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: USER_ID } }),
     );

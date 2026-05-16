@@ -5,6 +5,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma, type PlatformAuditActionType } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { ListAuditActionsQuery, ListUsersQuery } from '@school/shared';
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
@@ -66,11 +67,7 @@ export class PlatformSupportService {
     audit?: PlatformAuditContext,
   ): Promise<{ message: string }> {
     const user = await this.findUserOrThrow(targetUserId);
-    // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support needs the latest pending invitation for a global user; no owning facade exposes token regeneration.
-    const invitation = await this.prisma.invitation.findFirst({
-      where: { email: user.email, status: 'pending' },
-      orderBy: { created_at: 'desc' },
-    });
+    const invitation = await this.findLatestPendingInvitation(user.email);
 
     if (!invitation) {
       throw new BadRequestException({
@@ -83,11 +80,17 @@ export class PlatformSupportService {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-    // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support regenerates an existing pending invite token and records the action in the support audit trail.
-    await this.prisma.invitation.update({
-      where: { id: invitation.id },
-      data: { token_hash: tokenHash, expires_at: expiresAt },
-    });
+    await runWithRlsContext(
+      this.prisma,
+      { tenant_id: invitation.tenant_id, user_id: actorId },
+      async (tx) => {
+        // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support regenerates an existing pending invite token inside the invite tenant's RLS context.
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { token_hash: tokenHash, expires_at: expiresAt },
+        });
+      },
+    );
 
     await this.notificationsQueue.add(
       'communications:send-invitation',
@@ -217,69 +220,75 @@ export class PlatformSupportService {
       });
     }
 
-    // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support ownership transfer needs the current school owner role before entering the RLS-aware mutation.
-    const currentOwner = await this.prisma.membershipRole.findFirst({
-      where: {
-        tenant_id: tenantId,
-        role: { role_key: 'school_owner' },
-      },
-      include: {
-        membership: {
-          select: { id: true, user_id: true },
-        },
-        role: { select: { id: true } },
-      },
-    });
+    const transfer = await runWithRlsContext(
+      this.prisma,
+      { tenant_id: tenantId, user_id: actorId },
+      async (tx) => {
+        // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support ownership transfer must inspect tenant roles inside the tenant's RLS context.
+        const currentOwner = await tx.membershipRole.findFirst({
+          where: {
+            tenant_id: tenantId,
+            role: { role_key: 'school_owner' },
+          },
+          include: {
+            membership: {
+              select: { id: true, user_id: true },
+            },
+            role: { select: { id: true } },
+          },
+        });
 
-    if (!currentOwner) {
-      throw new BadRequestException({
-        code: 'NO_CURRENT_OWNER',
-        message: 'No current school owner was found for this tenant.',
-      });
-    }
+        if (!currentOwner) {
+          throw new BadRequestException({
+            code: 'NO_CURRENT_OWNER',
+            message: 'No current school owner was found for this tenant.',
+          });
+        }
 
-    // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support validates the proposed owner membership before the RLS-aware ownership mutation.
-    const newOwnerMembership = await this.prisma.tenantMembership.findUnique({
-      where: {
-        idx_tenant_memberships_tenant_user: {
-          tenant_id: tenantId,
-          user_id: newOwnerUserId,
-        },
-      },
-      select: { id: true, membership_status: true },
-    });
+        // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support validates the proposed owner membership inside the tenant's RLS context.
+        const newOwnerMembership = await tx.tenantMembership.findUnique({
+          where: {
+            idx_tenant_memberships_tenant_user: {
+              tenant_id: tenantId,
+              user_id: newOwnerUserId,
+            },
+          },
+          select: { id: true, membership_status: true },
+        });
 
-    if (!newOwnerMembership || newOwnerMembership.membership_status !== 'active') {
-      throw new BadRequestException({
-        code: 'NEW_OWNER_NOT_MEMBER',
-        message: 'The new owner must have an active membership at this tenant.',
-      });
-    }
+        if (!newOwnerMembership || newOwnerMembership.membership_status !== 'active') {
+          throw new BadRequestException({
+            code: 'NEW_OWNER_NOT_MEMBER',
+            message: 'The new owner must have an active membership at this tenant.',
+          });
+        }
 
-    await runWithRlsContext(this.prisma, { tenant_id: tenantId, user_id: actorId }, async (tx) => {
-      await tx.membershipRole.upsert({
-        where: {
-          membership_id_role_id: {
+        await tx.membershipRole.upsert({
+          where: {
+            membership_id_role_id: {
+              membership_id: newOwnerMembership.id,
+              role_id: currentOwner.role.id,
+            },
+          },
+          update: {},
+          create: {
             membership_id: newOwnerMembership.id,
             role_id: currentOwner.role.id,
+            tenant_id: tenantId,
           },
-        },
-        update: {},
-        create: {
-          membership_id: newOwnerMembership.id,
-          role_id: currentOwner.role.id,
-          tenant_id: tenantId,
-        },
-      });
+        });
 
-      await tx.membershipRole.deleteMany({
-        where: {
-          membership_id: currentOwner.membership.id,
-          role_id: currentOwner.role.id,
-          tenant_id: tenantId,
-        },
-      });
-    });
+        await tx.membershipRole.deleteMany({
+          where: {
+            membership_id: currentOwner.membership.id,
+            role_id: currentOwner.role.id,
+            tenant_id: tenantId,
+          },
+        });
+
+        return { previousOwnerUserId: currentOwner.membership.user_id };
+      },
+    );
 
     await this.writeSupportAudit({
       actionType: 'transfer_ownership',
@@ -288,7 +297,7 @@ export class PlatformSupportService {
       targetTenantId: tenantId,
       targetUserId: newOwnerUserId,
       metadata: {
-        previous_owner_user_id: currentOwner.membership.user_id,
+        previous_owner_user_id: transfer.previousOwnerUserId,
         new_owner_user_id: newOwnerUserId,
         tenant_name: tenant.name,
       },
@@ -327,7 +336,11 @@ export class PlatformSupportService {
     const where: Prisma.UserWhereInput = {};
     if (query.global_status) where.global_status = query.global_status;
     if (query.tenant_id) {
-      where.memberships = { some: { tenant_id: query.tenant_id } };
+      const tenantUserIds = await this.findTenantUserIds(query.tenant_id);
+      if (tenantUserIds.length === 0) {
+        return { data: [], meta: { page: query.page, pageSize: query.pageSize, total: 0 } };
+      }
+      where.id = { in: tenantUserIds };
     }
     if (query.search) {
       where.OR = [
@@ -345,24 +358,24 @@ export class PlatformSupportService {
         orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
         skip,
         take: query.pageSize,
-        select: {
-          ...userSelect,
-          created_at: true,
-          global_status: true,
-          last_login_at: true,
-          locked_until: true,
-          mfa_enabled: true,
-          memberships: {
-            select: membershipSelect,
-            orderBy: { created_at: 'desc' },
-          },
-        },
+        select: supportUserListSelect,
       }),
       // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support user search is a guarded cross-tenant operator workflow backed by support audit actions.
       this.prisma.user.count({ where }),
     ]);
 
-    return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
+    const membershipsByUserId = await this.loadMembershipsForUsers(
+      data.map((user) => user.id),
+      query.tenant_id,
+    );
+
+    return {
+      data: data.map((user) => ({
+        ...user,
+        memberships: membershipsByUserId.get(user.id) ?? [],
+      })),
+      meta: { page: query.page, pageSize: query.pageSize, total },
+    };
   }
 
   async getUser(userId: string) {
@@ -378,10 +391,6 @@ export class PlatformSupportService {
         last_login_at: true,
         locked_until: true,
         mfa_enabled: true,
-        memberships: {
-          select: membershipSelect,
-          orderBy: { created_at: 'desc' },
-        },
       },
     });
 
@@ -392,7 +401,9 @@ export class PlatformSupportService {
       });
     }
 
-    return user;
+    const membershipsByUserId = await this.loadMembershipsForUsers([user.id]);
+
+    return { ...user, memberships: membershipsByUserId.get(user.id) ?? [] };
   }
 
   private async findUserOrThrow(userId: string) {
@@ -449,6 +460,90 @@ export class PlatformSupportService {
       });
     }
   }
+
+  private async findLatestPendingInvitation(email: string) {
+    const tenantIds = await this.listTenantIds();
+    const invitations = await Promise.all(
+      tenantIds.map((tenantId) =>
+        runWithRlsContext(
+          this.prisma,
+          { tenant_id: tenantId, user_id: SYSTEM_USER_SENTINEL },
+          async (tx) => {
+            // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support must inspect tenant invites one tenant at a time under RLS.
+            return tx.invitation.findFirst({
+              where: { email, status: 'pending', tenant_id: tenantId },
+              orderBy: { created_at: 'desc' },
+              select: { created_at: true, id: true, tenant_id: true },
+            });
+          },
+        ),
+      ),
+    );
+
+    return invitations
+      .filter((invitation): invitation is NonNullable<(typeof invitations)[number]> =>
+        Boolean(invitation),
+      )
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())[0];
+  }
+
+  private async findTenantUserIds(tenantId: string): Promise<string[]> {
+    return runWithRlsContext(
+      this.prisma,
+      { tenant_id: tenantId, user_id: SYSTEM_USER_SENTINEL },
+      async (tx) => {
+        // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support filters tenant users inside the tenant's RLS context.
+        const memberships = await tx.tenantMembership.findMany({
+          where: { tenant_id: tenantId },
+          select: { user_id: true },
+        });
+        return memberships.map((membership) => membership.user_id);
+      },
+    );
+  }
+
+  private async loadMembershipsForUsers(
+    userIds: string[],
+    tenantId?: string,
+  ): Promise<Map<string, MembershipRow[]>> {
+    const membershipsByUserId = new Map<string, MembershipRow[]>();
+    if (userIds.length === 0) return membershipsByUserId;
+
+    const tenantIds = tenantId ? [tenantId] : await this.listTenantIds();
+    const memberships = await Promise.all(
+      tenantIds.map((id) =>
+        runWithRlsContext(
+          this.prisma,
+          { tenant_id: id, user_id: SYSTEM_USER_SENTINEL },
+          async (tx) => {
+            // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform support reads tenant memberships one tenant at a time under RLS.
+            return tx.tenantMembership.findMany({
+              where: { tenant_id: id, user_id: { in: userIds } },
+              orderBy: { created_at: 'desc' },
+              select: membershipSelect,
+            });
+          },
+        ),
+      ),
+    );
+
+    for (const membership of memberships.flat()) {
+      const existing = membershipsByUserId.get(membership.user_id) ?? [];
+      existing.push(membership);
+      membershipsByUserId.set(membership.user_id, existing);
+    }
+
+    return membershipsByUserId;
+  }
+
+  private async listTenantIds(): Promise<string[]> {
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- Tenants are platform-level rows; support workflows then enter RLS for tenant-scoped data.
+    const tenants = await this.prisma.tenant.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true },
+    });
+    return tenants.map((tenant) => tenant.id);
+  }
 }
 
 const userSelect = {
@@ -456,6 +551,15 @@ const userSelect = {
   first_name: true,
   id: true,
   last_name: true,
+} satisfies Prisma.UserSelect;
+
+const supportUserListSelect = {
+  ...userSelect,
+  created_at: true,
+  global_status: true,
+  last_login_at: true,
+  locked_until: true,
+  mfa_enabled: true,
 } satisfies Prisma.UserSelect;
 
 const membershipSelect = {
@@ -471,6 +575,8 @@ const membershipSelect = {
     },
   },
 } satisfies Prisma.TenantMembershipSelect;
+
+type MembershipRow = Prisma.TenantMembershipGetPayload<{ select: typeof membershipSelect }>;
 
 function toJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value ?? {}, jsonReplacer)) as Prisma.InputJsonValue;
