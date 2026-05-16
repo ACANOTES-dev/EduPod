@@ -484,7 +484,7 @@ In the platform admin morph-shell sub-strip:
   - `3ca347bb` — `ci(api): type-check production sources`
   - `945dd8ba` — `fix(platform): verify platform RBAC backfill`
   - `2d266fd7` — `fix(platform): count dashboard memberships through RLS`
-  - `67b94e93` — `docs(platform): close session 1.5A`
+  - `490d36ae` — `docs(platform): close session 1.5A`
 - CI:
   - Failed, superseded: https://github.com/ACANOTES-dev/EduPod/actions/runs/25955681081 (`cee1979c`; API type-check worker OOM)
   - Failed, superseded: https://github.com/ACANOTES-dev/EduPod/actions/runs/25955992396 (`af625d31`; API type-check worker OOM)
