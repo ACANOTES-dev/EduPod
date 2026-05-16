@@ -219,16 +219,16 @@ It renders:
 
 ## Acceptance
 
-- [ ] No two-person/second-approver requirement exists in this session.
-- [ ] `requires_owner_confirmation` is the permission flag for high-blast actions.
-- [ ] `PlatformOwnerActionConfirmationService` exists with executor registry.
-- [ ] `<OwnerActionConfirmDialog>` exists and is used by at least one existing destructive UI.
-- [ ] At least 5 action executors registered: global cache flush, queue clean, ownership transfer, tenant-wide force logout, tenant archive.
-- [ ] `PlatformAlertSilenceService` exists and integrates with 1C's alert evaluation cron.
-- [ ] `PlatformMaintenanceWindowService` exists for alert-suppression windows; active window suppresses non-security-critical alerts; security-critical rules exempt.
-- [ ] Platform alert maintenance endpoints use `/v1/admin/alert-maintenance-windows`, not `/v1/admin/maintenance-windows`.
-- [ ] All owner-confirmed actions emit platform audit entries with reason and target.
-- [ ] `docs/architecture/danger-zones.md` gains DZ-PA-4: solo-owner confirmations must never require fake second accounts.
+- [x] No two-person/second-approver requirement exists in this session.
+- [x] `requires_owner_confirmation` is the permission flag for high-blast actions.
+- [x] `PlatformOwnerActionConfirmationService` exists with executor registry.
+- [x] `<OwnerActionConfirmDialog>` exists and is used by at least one existing destructive UI.
+- [x] At least 5 action executors registered: global cache flush, queue clean, ownership transfer, tenant-wide force logout, tenant archive.
+- [x] `PlatformAlertSilenceService` exists and integrates with 1C's alert evaluation cron.
+- [x] `PlatformMaintenanceWindowService` exists for alert-suppression windows; active window suppresses non-security-critical alerts; security-critical rules exempt.
+- [x] Platform alert maintenance endpoints use `/v1/admin/alert-maintenance-windows`, not `/v1/admin/maintenance-windows`.
+- [x] All owner-confirmed actions emit platform audit entries with reason and target.
+- [x] `docs/architecture/danger-zones.md` gains DZ-PA-4: solo-owner confirmations must never require fake second accounts.
 
 ---
 
@@ -237,3 +237,17 @@ It renders:
 - This is intentionally solo-operator friendly. If EduPod later has a real ops team, add multi-approver policy as a new session/feature flag instead of smuggling it into the solo phase.
 - The confirmation phrase is not a security boundary by itself; it prevents accidental clicks and forces the owner to look at the exact target. Authorization still comes from RBAC.
 - Layer 4D AI actions reuse this exact owner confirmation path. The AI proposes; Ram confirms; the executor runs. No autonomous execution and no fake second account.
+
+## Commits / CI / Notes
+
+- Commits:
+  - `c003e7b8` - `feat(platform): add owner confirmations and alert silencing`
+  - `af90b5c9` - `test(platform): cover alert suppression controllers`
+- CI:
+  - Initial run `25964040691`: failed in `unit-tests-merge` because API line coverage was `88.80%` against the `89%` threshold.
+  - Fix-forward/deploy run `25964354027`: passed and deployed via CI (`https://github.com/ACANOTES-dev/EduPod/actions/runs/25964354027`).
+- Production smoke: 2026-05-16 passed on `https://dua.edupod.app`.
+  - Confirmed platform dashboard, tenant list/detail, tenant onboarding tracker, health, alerts, alert silences, alert maintenance banner/page, platform users, permissions, queue owner-confirmation dialog, tenant audit, platform audit ledger, error log, and redaction rules loaded.
+  - Confirmed owner confirmation UX on queue failed-job delete without executing a production delete.
+  - Created and removed a test alert silence, scheduled and cancelled a test maintenance window, and confirmed corresponding platform audit ledger entries.
+  - Confirmed no active smoke alert silences or maintenance windows remained after cleanup.
