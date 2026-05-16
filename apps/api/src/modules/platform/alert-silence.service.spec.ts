@@ -93,6 +93,60 @@ describe('AlertSilenceService', () => {
     );
   });
 
+  it('lists active and recently removed silences by default', async () => {
+    mockPrisma.platformAlertSilence.findMany.mockResolvedValueOnce([]);
+
+    await service.list({ include_expired: false });
+
+    expect(mockPrisma.platformAlertSilence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { removed_at: null, ends_at: { gte: new Date('2026-05-16T10:00:00.000Z') } },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('removes and audits an active silence', async () => {
+    const existing = { id: SILENCE_ID, removed_at: null };
+    const updated = { id: SILENCE_ID, removed_at: new Date('2026-05-16T10:01:00.000Z') };
+    mockPrisma.platformAlertSilence.findUnique.mockResolvedValueOnce(existing);
+    mockPrisma.platformAlertSilence.update.mockResolvedValueOnce(updated);
+
+    await service.remove(
+      SILENCE_ID,
+      { reason: 'Noise has cleared and alerting can resume.' },
+      USER_ID,
+      { actor_user_id: USER_ID },
+    );
+
+    expect(mockPrisma.platformAlertSilence.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: SILENCE_ID },
+        data: expect.objectContaining({ removed_by_user_id: USER_ID }),
+      }),
+    );
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'alert_silenced',
+        payload: { before: existing, after: updated, extra: { removed: true } },
+      }),
+    );
+  });
+
+  it('rejects removal of an already removed silence', async () => {
+    mockPrisma.platformAlertSilence.findUnique.mockResolvedValueOnce({
+      id: SILENCE_ID,
+      removed_at: new Date('2026-05-16T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.remove(SILENCE_ID, { reason: 'Duplicate removal attempt from the page.' }, USER_ID),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('rejects silence windows whose end is before the start', async () => {
     await expect(
       service.create(

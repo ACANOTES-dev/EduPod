@@ -83,6 +83,65 @@ describe('MaintenanceWindowService', () => {
     );
   });
 
+  it('lists future windows by default', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-16T10:00:00.000Z'));
+    mockPrisma.platformMaintenanceWindow.findMany.mockResolvedValueOnce([]);
+
+    await service.list({ include_past: false });
+
+    expect(mockPrisma.platformMaintenanceWindow.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { ends_at: { gte: new Date('2026-05-16T10:00:00.000Z') } },
+        orderBy: [{ cancelled_at: 'asc' }, { starts_at: 'asc' }],
+      }),
+    );
+
+    jest.useRealTimers();
+  });
+
+  it('cancels and audits an active maintenance window', async () => {
+    const existing = { id: WINDOW_ID, cancelled_at: null };
+    const updated = { id: WINDOW_ID, cancelled_at: new Date('2026-05-16T10:30:00.000Z') };
+    mockPrisma.platformMaintenanceWindow.findUnique.mockResolvedValueOnce(existing);
+    mockPrisma.platformMaintenanceWindow.update.mockResolvedValueOnce(updated);
+
+    await service.cancel(
+      WINDOW_ID,
+      { reason: 'Maintenance completed and alerts can resume.' },
+      USER_ID,
+      { actor_user_id: USER_ID },
+    );
+
+    expect(mockPrisma.platformMaintenanceWindow.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: WINDOW_ID },
+        data: expect.objectContaining({ cancelled_by_user_id: USER_ID }),
+      }),
+    );
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'maintenance_window_cancelled',
+        payload: { before: existing, after: updated, extra: expect.any(Object) },
+      }),
+    );
+  });
+
+  it('rejects cancellation of an already cancelled maintenance window', async () => {
+    mockPrisma.platformMaintenanceWindow.findUnique.mockResolvedValueOnce({
+      id: WINDOW_ID,
+      cancelled_at: new Date('2026-05-16T09:00:00.000Z'),
+    });
+
+    await expect(
+      service.cancel(
+        WINDOW_ID,
+        { reason: 'Duplicate cancellation attempt from the page.' },
+        USER_ID,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('rejects invalid windows', async () => {
     await expect(
       service.create(

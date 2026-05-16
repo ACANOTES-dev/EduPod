@@ -35,14 +35,18 @@ function buildMockPrisma() {
 function buildDto(
   overrides: Partial<{
     action: PlatformAuditAction;
+    payload: unknown;
+    target_resource_id: string;
+    target_tenant_id: string;
     typed_confirmation: string;
   }> = {},
 ) {
   return {
     action: overrides.action ?? 'job_removed',
     target_resource_type: 'queue_job',
-    target_resource_id: JOB_ID,
-    payload: { queue: 'gradebook', job_id: JOB_ID },
+    target_resource_id: overrides.target_resource_id ?? JOB_ID,
+    target_tenant_id: overrides.target_tenant_id,
+    payload: overrides.payload ?? { queue: 'gradebook', job_id: JOB_ID },
     confirmation_phrase: `DELETE JOB ${JOB_ID}`,
     typed_confirmation: overrides.typed_confirmation ?? `DELETE JOB ${JOB_ID}`,
     reason: 'Removing a poison failed job after inspection.',
@@ -57,6 +61,15 @@ describe('OwnerActionConfirmationService', () => {
   let mockGradebookQueue: {
     clean: jest.Mock;
     getJob: jest.Mock;
+  };
+  let mockRedisClient: {
+    del: jest.Mock;
+    get: jest.Mock;
+    scan: jest.Mock;
+    srem: jest.Mock;
+  };
+  let mockTenantsService: {
+    archiveTenant: jest.Mock;
   };
   let mockJob: {
     getState: jest.Mock<Promise<string>, []>;
@@ -81,6 +94,21 @@ describe('OwnerActionConfirmationService', () => {
       clean: jest.fn().mockResolvedValue([]),
       getJob: jest.fn().mockResolvedValue(mockJob),
     };
+    mockRedisClient = {
+      del: jest.fn().mockResolvedValue(1),
+      get: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          session_id: 'session-1',
+          user_id: 'user-1',
+          tenant_id: 'tenant-1',
+        }),
+      ),
+      scan: jest.fn().mockResolvedValue(['0', []]),
+      srem: jest.fn().mockResolvedValue(1),
+    };
+    mockTenantsService = {
+      archiveTenant: jest.fn().mockResolvedValue({ id: 'tenant-1', status: 'archived' }),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -88,8 +116,8 @@ describe('OwnerActionConfirmationService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlatformUsersService, useValue: mockPlatformUsers },
         { provide: PlatformAuditService, useValue: mockAudit },
-        { provide: RedisService, useValue: { getClient: jest.fn() } },
-        { provide: TenantsService, useValue: { archiveTenant: jest.fn() } },
+        { provide: RedisService, useValue: { getClient: jest.fn(() => mockRedisClient) } },
+        { provide: TenantsService, useValue: mockTenantsService },
         { provide: getQueueToken('gradebook'), useValue: mockGradebookQueue },
         {
           provide: getQueueToken('notifications'),
@@ -112,6 +140,23 @@ describe('OwnerActionConfirmationService', () => {
         'session_force_logged_out_tenant',
         'tenant_archive',
       ]),
+    );
+  });
+
+  it('paginates confirmation history', async () => {
+    mockPrisma.platformOwnerActionConfirmation.findMany.mockResolvedValueOnce([
+      { id: CONFIRMATION_ID },
+    ]);
+    mockPrisma.platformOwnerActionConfirmation.count.mockResolvedValueOnce(1);
+
+    const result = await service.list({ page: 2, pageSize: 25 });
+
+    expect(result).toEqual({
+      data: [{ id: CONFIRMATION_ID }],
+      meta: { page: 2, pageSize: 25, total: 1 },
+    });
+    expect(mockPrisma.platformOwnerActionConfirmation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 25, take: 25 }),
     );
   });
 
@@ -162,5 +207,108 @@ describe('OwnerActionConfirmationService', () => {
       where: { id: CONFIRMATION_ID },
       data: expect.objectContaining({ execution_status: 'failed' }),
     });
+  });
+
+  it('cleans a queue with bounded owner-confirmed payload values', async () => {
+    mockGradebookQueue.clean.mockResolvedValueOnce(['job-1', 'job-2']);
+
+    const result = await service.confirmAndExecute(
+      {
+        ...buildDto({
+          action: 'queue_cleaned',
+          payload: { queue: 'gradebook', state: 'completed', grace_ms: 500, limit: 5000 },
+        }),
+        confirmation_phrase: 'CLEAN QUEUE gradebook',
+        typed_confirmation: 'CLEAN QUEUE gradebook',
+      },
+      ACTOR_USER_ID,
+      auditContext,
+    );
+
+    expect(result).toEqual({ confirmation_id: CONFIRMATION_ID, execution_status: 'executed' });
+    expect(mockGradebookQueue.clean).toHaveBeenCalledWith(500, 1000, 'completed');
+  });
+
+  it('marks unsupported queue clean states as failed executions', async () => {
+    const result = await service.confirmAndExecute(
+      {
+        ...buildDto({
+          action: 'queue_cleaned',
+          payload: { queue: 'gradebook', state: 'unknown' },
+        }),
+        confirmation_phrase: 'CLEAN QUEUE gradebook',
+        typed_confirmation: 'CLEAN QUEUE gradebook',
+      },
+      ACTOR_USER_ID,
+      auditContext,
+    );
+
+    expect(result).toEqual({ confirmation_id: CONFIRMATION_ID, execution_status: 'failed' });
+    expect(mockPrisma.platformOwnerActionConfirmation.update).toHaveBeenCalledWith({
+      where: { id: CONFIRMATION_ID },
+      data: expect.objectContaining({
+        execution_result: { error: 'Queue clean state "unknown" is not supported.' },
+        execution_status: 'failed',
+      }),
+    });
+  });
+
+  it('flushes global cache patterns from Redis', async () => {
+    mockRedisClient.scan
+      .mockResolvedValueOnce(['0', ['analytics:school']])
+      .mockResolvedValue(['0', []]);
+
+    await service.confirmAndExecute(
+      {
+        ...buildDto({ action: 'cache_flushed_global', payload: {} }),
+        confirmation_phrase: 'FLUSH PLATFORM CACHE',
+        typed_confirmation: 'FLUSH PLATFORM CACHE',
+      },
+      ACTOR_USER_ID,
+      auditContext,
+    );
+
+    expect(mockRedisClient.del).toHaveBeenCalledWith('analytics:school');
+  });
+
+  it('force logs out tenant sessions matching Redis metadata', async () => {
+    mockRedisClient.scan.mockResolvedValueOnce(['0', ['session:1']]);
+
+    await service.confirmAndExecute(
+      {
+        ...buildDto({
+          action: 'session_force_logged_out_tenant',
+          payload: {},
+          target_resource_id: 'tenant-1',
+          target_tenant_id: 'tenant-1',
+        }),
+        confirmation_phrase: 'LOG OUT TENANT tenant-1',
+        typed_confirmation: 'LOG OUT TENANT tenant-1',
+      },
+      ACTOR_USER_ID,
+      auditContext,
+    );
+
+    expect(mockRedisClient.del).toHaveBeenCalledWith('session:1');
+    expect(mockRedisClient.srem).toHaveBeenCalledWith('user_sessions:user-1', 'session-1');
+  });
+
+  it('archives a tenant through the tenant service', async () => {
+    await service.confirmAndExecute(
+      {
+        ...buildDto({
+          action: 'tenant_archive',
+          payload: {},
+          target_resource_id: 'tenant-1',
+          target_tenant_id: 'tenant-1',
+        }),
+        confirmation_phrase: 'ARCHIVE TENANT tenant-1',
+        typed_confirmation: 'ARCHIVE TENANT tenant-1',
+      },
+      ACTOR_USER_ID,
+      auditContext,
+    );
+
+    expect(mockTenantsService.archiveTenant).toHaveBeenCalledWith('tenant-1', ACTOR_USER_ID);
   });
 });
