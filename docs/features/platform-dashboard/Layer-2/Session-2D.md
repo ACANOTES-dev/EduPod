@@ -982,32 +982,48 @@ describe('TenantMetricsController', () => {
 
 ### Tenant Analytics
 
-- [ ] `platform_tenant_metrics` table created with migration
-- [ ] Daily cron collects metrics for all active tenants at 2 AM
-- [ ] Metrics include: students_count, staff_count, parents_count, active_users_24h, active_users_7d, invoices_total, invoices_overdue, errors_24h, enabled_modules (typed `ModuleKey[]`), disabled_modules (complement within the canonical 20-key registry), last_login_at
-- [ ] Upsert prevents duplicate snapshots for the same tenant+date
-- [ ] `GET /v1/admin/tenants/:id/metrics` returns latest snapshot + history
-- [ ] `GET /v1/admin/tenants/metrics/compare` returns side-by-side metrics for 2+ tenants
-- [ ] Tenant detail page has "Analytics" tab with stat cards and trend chart (Recharts)
-- [ ] Comparison page allows selecting multiple tenants and viewing metrics side-by-side
+- [x] `platform_tenant_metrics` table created with migration
+- [x] Daily cron collects metrics for all active tenants at 2 AM
+- [x] Metrics include: students_count, staff_count, parents_count, active_users_24h, active_users_7d, invoices_total, invoices_overdue, errors_24h, enabled_modules (typed `ModuleKey[]`), disabled_modules (complement within the canonical 20-key registry), last_login_at
+- [x] Upsert prevents duplicate snapshots for the same tenant+date
+- [x] `GET /v1/admin/tenants/:id/metrics` returns latest snapshot + history
+- [x] `GET /v1/admin/tenants/metrics/compare` returns side-by-side metrics for 2+ tenants
+- [x] Tenant detail page has "Analytics" tab with stat cards and trend chart (Recharts)
+- [x] Comparison page allows selecting multiple tenants and viewing metrics side-by-side
 
 ### Error Diagnostics
 
-- [ ] `platform_error_log` table created with migration
-- [ ] Additive exception filter logs 5xx errors without disrupting normal error handling
-- [ ] Error log includes tenant_id (from request context), request_id (from correlation middleware)
-- [ ] `GET /v1/admin/errors` returns paginated, filterable platform-wide error log
-- [ ] `GET /v1/admin/tenants/:id/errors` returns errors filtered to a tenant
-- [ ] `GET /v1/admin/errors/:id` returns single error with full stack trace
-- [ ] Cleanup cron removes errors older than 30 days at 3 AM
-- [ ] Error diagnostics page shows grouped errors with expandable stack traces
-- [ ] Filters work: tenant, endpoint, HTTP status, date range
-- [ ] Tenant detail page has "Errors" tab showing tenant-specific errors
+- [x] Existing Session 1.5B `platform_error_log` table reused and additively extended with Session 2D fields/indexes
+- [x] Additive exception filter logs 5xx errors without disrupting normal error handling
+- [x] Error log includes tenant_id (from request context), request_id (from correlation middleware)
+- [x] `GET /v1/admin/errors` returns paginated, filterable platform-wide error log
+- [x] `GET /v1/admin/tenants/:id/errors` returns errors filtered to a tenant
+- [x] `GET /v1/admin/errors/:id` returns single error with full stack trace
+- [x] Existing Session 1.5B retention primitive reused (90-day retention); no duplicate Session 2D cleanup job added
+- [x] Error diagnostics page shows grouped errors with expandable stack traces
+- [x] Filters work: tenant, endpoint, HTTP status, date range
+- [x] Tenant detail page has "Errors" tab showing tenant-specific errors
 
 ### Cross-Cutting
 
-- [ ] All endpoints guarded by `PlatformOwnerGuard`
-- [ ] All tests pass: `turbo test --filter=api`
-- [ ] `turbo lint` and `turbo type-check` pass with zero errors
-- [ ] Error log filter does not interfere with existing SentryGlobalFilter
-- [ ] Static route `/tenants/metrics/compare` resolves correctly before `/tenants/:id`
+- [x] All endpoints guarded by Session 1.5A platform RBAC guard and platform permissions
+- [x] All tests pass: `turbo test --filter=api`
+- [x] `turbo lint` and `turbo type-check` pass with zero errors
+- [x] Error log filter does not interfere with existing SentryGlobalFilter
+- [x] Static route `/tenants/metrics/compare` resolves correctly before `/tenants/:id`
+
+---
+
+## 9. Commits / CI / Notes
+
+- Commits:
+  - `77c112c57c3b05d95d855710a2798f5591fe5ba9` -- `feat(platform): add tenant analytics diagnostics`
+  - `17b1c5858ed51b0a94a56b941cef076db056f5f6` -- `chore(prisma): document platform metrics rls exception`
+- CI:
+  - [GitHub Actions run 25971203925](https://github.com/ACANOTES-dev/EduPod/actions/runs/25971203925) -- passed, including production deploy.
+- Production smoke:
+  - 2026-05-16 -- passed on `https://dua.edupod.app`.
+  - Verified platform dashboard, tenant analytics tab, tenant comparison, error diagnostics, endpoint filter interaction, tenant-specific errors tab, existing error-log/redaction-rules pages, tenant list/detail/onboarding, health dashboard, alerts/history/rules/channels/silences/maintenance windows, platform users, permissions, platform audit log, queue dashboard, and queue detail.
+- Notes:
+  - Session 2D intentionally reuses the Session 1.5B `platform_error_log`, redaction, and retention primitives. The existing 90-day retention behavior remains in place; no duplicate 30-day cleanup job was added.
+  - Production tenant analytics page currently renders the empty-state until the next daily metrics collection snapshot is written.
