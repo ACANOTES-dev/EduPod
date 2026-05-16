@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -17,6 +17,8 @@
 
 - `platform:health-snapshot` -> every `60s` in the API process via `HealthSnapshotService` (Session 1B). Calls `HealthService.check()`, persists `platform_health_snapshots`, publishes `platform:health` snapshot/state-change messages through `RedisPubSubService`, and prunes snapshots older than 7 days. This is intentionally not a BullMQ worker job because it monitors the API process's own dependencies and WebSocket-facing health state.
 - `platform:alert-evaluation` -> every `30s` in the API process via `AlertEvaluationService` (Session 1C). Reads enabled `platform_alert_rules`, evaluates them against the current `HealthService.check()` result, writes `platform_alert_history`, sends configured email notifications through the existing tenant-scoped Resend provider when `PLATFORM_ALERT_EMAIL_TENANT_ID` is configured, publishes `platform:alerts` fired/resolved messages through `RedisPubSubService`, respects cooldown windows, tracks sustained conditions in API-process memory, and auto-resolves open alerts when conditions clear.
+- `platform:error-log-retention` -> hourly API-process check in `PlatformErrorLogMaintenanceService`; executes once per UTC day after `04:00` when an active `platform_owner` actor can be resolved. Deletes `platform_error_log` rows where `last_seen_at` is older than 90 days and writes a blocking `platform_error_retention_purged` audit entry with the cutoff and purge count.
+- `platform:audit-chain-verification` -> same hourly API-process maintenance loop; executes once per UTC day after `04:00`. Calls `PlatformAuditService.verifyChainIntegrity()` and publishes a critical `platform:alerts` message with `type='audit_integrity_broken'` if the append-only hash chain has a broken link.
 
 ### Core rules
 

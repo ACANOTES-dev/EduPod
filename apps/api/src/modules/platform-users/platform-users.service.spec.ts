@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PlatformUsersService } from './platform-users.service';
@@ -83,13 +84,16 @@ function buildMockPrisma() {
 describe('PlatformUsersService', () => {
   let service: PlatformUsersService;
   let mock: ReturnType<typeof buildMockPrisma>;
+  let mockAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     mock = buildMockPrisma();
+    mockAuditService = { log: jest.fn().mockResolvedValue(undefined) };
     const module = await Test.createTestingModule({
       providers: [
         PlatformUsersService,
         { provide: PrismaService, useValue: mock.prisma },
+        { provide: PlatformAuditService, useValue: mockAuditService },
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('https://dua.edupod.app') },

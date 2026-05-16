@@ -1,8 +1,9 @@
-import { ForbiddenException, type INestApplication } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Request } from 'express';
 import request from 'supertest';
 
-import type { CreateAlertRuleDto } from '@school/shared';
+import type { CreateAlertRuleDto, JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
@@ -11,6 +12,7 @@ import { AlertRulesController } from './alert-rules.controller';
 import { AlertRulesService } from './alert-rules.service';
 
 const RULE_ID = '11111111-1111-4111-8111-111111111111';
+const USER_ID = '33333333-3333-4333-8333-333333333333';
 const RULE_BODY: CreateAlertRuleDto = {
   name: 'PostgreSQL latency',
   metric: 'component_latency',
@@ -20,6 +22,26 @@ const RULE_BODY: CreateAlertRuleDto = {
   is_enabled: true,
   notify_emails: ['ops@example.com'],
 };
+const mockUser: JwtPayload = {
+  sub: USER_ID,
+  email: 'owner@example.com',
+  tenant_id: null,
+  membership_id: null,
+  type: 'access',
+  iat: 0,
+  exp: 0,
+};
+const mockRequest = { headers: {} } as Request;
+
+function buildAuthGuard() {
+  return {
+    canActivate: (context: ExecutionContext) => {
+      const requestObject = context.switchToHttp().getRequest<{ currentUser?: JwtPayload }>();
+      requestObject.currentUser = mockUser;
+      return true;
+    },
+  };
+}
 
 function buildMockService() {
   return {
@@ -42,7 +64,7 @@ describe('AlertRulesController', () => {
       providers: [{ provide: AlertRulesService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue(buildAuthGuard())
       .overrideGuard(PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -59,15 +81,27 @@ describe('AlertRulesController', () => {
   });
 
   it('delegates create to the service', async () => {
-    await controller.create(RULE_BODY);
+    await controller.create(RULE_BODY, mockUser, mockRequest);
 
-    expect(mockService.create).toHaveBeenCalledWith(RULE_BODY);
+    expect(mockService.create).toHaveBeenCalledWith(RULE_BODY, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('delegates update to the service', async () => {
-    await controller.update(RULE_ID, { is_enabled: false });
+    await controller.update(RULE_ID, { is_enabled: false }, mockUser, mockRequest);
 
-    expect(mockService.update).toHaveBeenCalledWith(RULE_ID, { is_enabled: false });
+    expect(mockService.update).toHaveBeenCalledWith(
+      RULE_ID,
+      { is_enabled: false },
+      {
+        actor_user_id: USER_ID,
+        ip_address: undefined,
+        user_agent: undefined,
+      },
+    );
   });
 });
 
@@ -85,7 +119,7 @@ describe('AlertRulesController — HTTP guards and validation', () => {
       providers: [{ provide: AlertRulesService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue(buildAuthGuard())
       .overrideGuard(PlatformRoleGuard)
       .useValue(platformGuard)
       .compile();
@@ -107,7 +141,10 @@ describe('AlertRulesController — HTTP guards and validation', () => {
 
     await request(app.getHttpServer()).post('/v1/admin/alerts/rules').send(RULE_BODY).expect(201);
 
-    expect(mockService.create).toHaveBeenCalledWith(RULE_BODY);
+    expect(mockService.create).toHaveBeenCalledWith(
+      RULE_BODY,
+      expect.objectContaining({ actor_user_id: USER_ID }),
+    );
   });
 
   it('returns 400 for invalid component metric payloads', async () => {

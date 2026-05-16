@@ -9,8 +9,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import {
   invitePlatformUserSchema,
@@ -25,6 +27,7 @@ import { RequiresPlatformPermission } from '../../common/decorators/requires-pla
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
 import { PlatformUsersService } from './platform-users.service';
 
@@ -53,8 +56,9 @@ export class PlatformUsersController {
   async invite(
     @Body(new ZodValidationPipe(invitePlatformUserSchema)) dto: InvitePlatformUserDto,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.platformUsersService.invite(dto, user.sub);
+    return this.platformUsersService.invite(dto, user.sub, auditContextFromRequest(user, request));
   }
 
   // PATCH /v1/admin/platform-users/:id/roles
@@ -64,16 +68,26 @@ export class PlatformUsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updatePlatformUserRolesSchema)) dto: UpdatePlatformUserRolesDto,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.platformUsersService.updateRoles(id, dto, user.sub);
+    return this.platformUsersService.updateRoles(
+      id,
+      dto,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   // DELETE /v1/admin/platform-users/:id
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequiresPlatformPermission('platform.platform_users.revoke')
-  async revoke(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-    await this.platformUsersService.revoke(id, user.sub);
+  async revoke(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    await this.platformUsersService.revoke(id, user.sub, auditContextFromRequest(user, request));
   }
 }
 

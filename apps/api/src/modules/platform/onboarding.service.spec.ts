@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
@@ -69,6 +70,7 @@ describe('OnboardingService', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedisPubSub: { publish: jest.Mock };
   let mockTenantReadFacade: { existsOrThrow: jest.Mock };
+  let mockPlatformAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -76,6 +78,7 @@ describe('OnboardingService', () => {
     mockTenantReadFacade = {
       existsOrThrow: jest.fn().mockResolvedValue(undefined),
     };
+    mockPlatformAuditService = { log: jest.fn().mockResolvedValue(undefined) };
     mockCreateRlsClient.mockReturnValue({
       $transaction: jest.fn((callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma)),
     });
@@ -86,6 +89,7 @@ describe('OnboardingService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisPubSubService, useValue: mockRedisPubSub },
         { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+        { provide: PlatformAuditService, useValue: mockPlatformAuditService },
       ],
     }).compile();
 

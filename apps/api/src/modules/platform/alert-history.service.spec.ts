@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertHistoryService } from './alert-history.service';
@@ -39,14 +40,20 @@ function buildMockPrisma() {
 describe('AlertHistoryService', () => {
   let service: AlertHistoryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockPlatformAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-05-15T10:05:00.000Z'));
     mockPrisma = buildMockPrisma();
+    mockPlatformAuditService = { log: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AlertHistoryService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        AlertHistoryService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PlatformAuditService, useValue: mockPlatformAuditService },
+      ],
     }).compile();
 
     service = module.get<AlertHistoryService>(AlertHistoryService);

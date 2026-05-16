@@ -55,6 +55,8 @@ import { PdfRenderingModule } from './modules/pdf-rendering/pdf-rendering.module
 import { PeopleDashboardModule } from './modules/people-dashboard/people-dashboard.module';
 import { PeriodGridModule } from './modules/period-grid/period-grid.module';
 import { PlatformModule } from './modules/platform/platform.module';
+import { PlatformAuditModule } from './modules/platform-audit/platform-audit.module';
+import { PlatformErrorLogModule } from './modules/platform-error-log/platform-error-log.module';
 import { PlatformUsersModule } from './modules/platform-users/platform-users.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -123,6 +125,8 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
     ReadFacadesModule,
     HealthModule,
     PlatformUsersModule,
+    PlatformAuditModule,
+    PlatformErrorLogModule,
     PlatformModule,
     AuthModule,
     S3Module,

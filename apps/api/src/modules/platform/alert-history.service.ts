@@ -3,6 +3,10 @@ import { Prisma, type PlatformAlertHistory } from '@prisma/client';
 
 import type { AlertHistoryQuery } from '@school/shared';
 
+import {
+  PlatformAuditService,
+  type PlatformAuditContext,
+} from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type AlertHistoryRow = PlatformAlertHistory & {
@@ -11,7 +15,10 @@ export type AlertHistoryRow = PlatformAlertHistory & {
 
 @Injectable()
 export class AlertHistoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformAuditService: PlatformAuditService,
+  ) {}
 
   async list(query: AlertHistoryQuery): Promise<{
     data: AlertHistoryRow[];
@@ -38,7 +45,11 @@ export class AlertHistoryService {
     return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
   }
 
-  async acknowledge(id: string, userId: string): Promise<PlatformAlertHistory> {
+  async acknowledge(
+    id: string,
+    userId: string,
+    audit?: PlatformAuditContext,
+  ): Promise<PlatformAlertHistory> {
     const alert = await this.prisma.platformAlertHistory.findUnique({ where: { id } });
     if (!alert) {
       throw new NotFoundException({
@@ -53,7 +64,7 @@ export class AlertHistoryService {
       });
     }
 
-    return this.prisma.platformAlertHistory.update({
+    const updated = await this.prisma.platformAlertHistory.update({
       where: { id },
       data: {
         status: 'acknowledged',
@@ -61,5 +72,15 @@ export class AlertHistoryService {
         acknowledged_by: userId,
       },
     });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'alert_acknowledged',
+        target_resource_type: 'alert_history',
+        target_resource_id: id,
+        payload: { before: alert, after: updated },
+      });
+    }
+    return updated;
   }
 }

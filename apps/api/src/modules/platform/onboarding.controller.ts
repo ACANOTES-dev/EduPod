@@ -8,9 +8,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import type { TenantOnboardingStep } from '@prisma/client';
+import type { Request } from 'express';
 
 import {
   updateOnboardingStepSchema,
@@ -23,6 +25,7 @@ import { RequiresPlatformPermission } from '../../common/decorators/requires-pla
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
 import { OnboardingService, type OnboardingTrackerResponse } from './onboarding.service';
 
@@ -46,16 +49,27 @@ export class OnboardingController {
     @Param('stepId', ParseUUIDPipe) stepId: string,
     @Body(new ZodValidationPipe(updateOnboardingStepSchema)) dto: UpdateOnboardingStepDto,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<TenantOnboardingStep> {
-    return this.onboardingService.updateStep(tenantId, stepId, dto, user.sub);
+    return this.onboardingService.updateStep(
+      tenantId,
+      stepId,
+      dto,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   // POST /v1/admin/tenants/:id/onboarding/reset
   @Post(':id/onboarding/reset')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.tenants.create')
-  async reset(@Param('id', ParseUUIDPipe) tenantId: string): Promise<{ message: string }> {
-    await this.onboardingService.resetForTenant(tenantId);
+  async reset(
+    @Param('id', ParseUUIDPipe) tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<{ message: string }> {
+    await this.onboardingService.resetForTenant(tenantId, auditContextFromRequest(user, request));
     return { message: 'Onboarding tracker reset successfully' };
   }
 }

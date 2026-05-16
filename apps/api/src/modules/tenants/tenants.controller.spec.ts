@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Request } from 'express';
 
 import type { JwtPayload } from '@school/shared';
 
@@ -22,6 +23,7 @@ const mockUser: JwtPayload = {
   iat: 0,
   exp: 0,
 };
+const mockRequest = { headers: {} } as Request;
 
 describe('TenantsController', () => {
   let controller: TenantsController;
@@ -78,9 +80,13 @@ describe('TenantsController', () => {
     const created = { id: TENANT_ID, ...dto };
     mockService.createTenant.mockResolvedValueOnce(created);
 
-    const result = await controller.createTenant(dto as never);
+    const result = await controller.createTenant(dto as never, mockUser, mockRequest);
     expect(result).toEqual(created);
-    expect(mockService.createTenant).toHaveBeenCalledWith(dto);
+    expect(mockService.createTenant).toHaveBeenCalledWith(dto, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate listTenants with pagination and filters', async () => {
@@ -116,45 +122,70 @@ describe('TenantsController', () => {
     const updated = { id: TENANT_ID, name: 'Updated School' };
     mockService.updateTenant.mockResolvedValueOnce(updated);
 
-    const result = await controller.updateTenant(TENANT_ID, dto as never);
+    const result = await controller.updateTenant(TENANT_ID, dto as never, mockUser, mockRequest);
     expect(result).toEqual(updated);
-    expect(mockService.updateTenant).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockService.updateTenant).toHaveBeenCalledWith(TENANT_ID, dto, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate supported locale updates to the service', async () => {
     const updated = { id: TENANT_ID, supported_locales: ['en', 'ar'] };
     mockService.updateSupportedLocales.mockResolvedValueOnce(updated);
 
-    const result = await controller.updateSupportedLocales(TENANT_ID, {
-      supported_locales: ['en', 'ar'],
-    });
+    const result = await controller.updateSupportedLocales(
+      TENANT_ID,
+      {
+        supported_locales: ['en', 'ar'],
+      },
+      mockUser,
+      mockRequest,
+    );
 
     expect(result).toEqual(updated);
-    expect(mockService.updateSupportedLocales).toHaveBeenCalledWith(TENANT_ID, ['en', 'ar']);
+    expect(mockService.updateSupportedLocales).toHaveBeenCalledWith(TENANT_ID, ['en', 'ar'], {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate suspendTenant to the service with actor user ID', async () => {
     mockService.suspendTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'suspended' });
 
-    const result = await controller.suspendTenant(TENANT_ID, mockUser);
+    const result = await controller.suspendTenant(TENANT_ID, mockUser, mockRequest);
     expect(result).toEqual({ id: TENANT_ID, status: 'suspended' });
-    expect(mockService.suspendTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(mockService.suspendTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate reactivateTenant to the service with actor user ID', async () => {
     mockService.reactivateTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'active' });
 
-    const result = await controller.reactivateTenant(TENANT_ID, mockUser);
+    const result = await controller.reactivateTenant(TENANT_ID, mockUser, mockRequest);
     expect(result).toEqual({ id: TENANT_ID, status: 'active' });
-    expect(mockService.reactivateTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(mockService.reactivateTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate archiveTenant to the service with actor user ID', async () => {
     mockService.archiveTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
 
-    const result = await controller.archiveTenant(TENANT_ID, mockUser);
+    const result = await controller.archiveTenant(TENANT_ID, mockUser, mockRequest);
     expect(result).toEqual({ id: TENANT_ID, status: 'archived' });
-    expect(mockService.archiveTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(mockService.archiveTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate getDashboard to the service', async () => {
@@ -171,17 +202,25 @@ describe('TenantsController', () => {
     const token = { access_token: 'mock-token' };
     mockService.impersonate.mockResolvedValueOnce(token);
 
-    const result = await controller.impersonate(dto, mockUser);
+    const result = await controller.impersonate(dto, mockUser, mockRequest);
     expect(result).toEqual(token);
-    expect(mockService.impersonate).toHaveBeenCalledWith(TENANT_ID, USER_ID, mockUser.sub);
+    expect(mockService.impersonate).toHaveBeenCalledWith(TENANT_ID, USER_ID, mockUser.sub, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate resetUserMfa to the service', async () => {
     mockService.resetUserMfa.mockResolvedValueOnce({ success: true });
 
-    const result = await controller.resetUserMfa(USER_ID, mockUser);
+    const result = await controller.resetUserMfa(USER_ID, mockUser, mockRequest);
     expect(result).toEqual({ success: true });
-    expect(mockService.resetUserMfa).toHaveBeenCalledWith(USER_ID, mockUser.sub);
+    expect(mockService.resetUserMfa).toHaveBeenCalledWith(USER_ID, mockUser.sub, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate listModules to the service', async () => {
@@ -197,10 +236,14 @@ describe('TenantsController', () => {
     const updated = { key: 'finance', is_enabled: false };
     mockService.toggleModule.mockResolvedValueOnce(updated);
 
-    const result = await controller.toggleModule(TENANT_ID, 'finance', mockUser, {
+    const result = await controller.toggleModule(TENANT_ID, 'finance', mockUser, mockRequest, {
       is_enabled: false,
     });
     expect(result).toEqual(updated);
-    expect(mockService.toggleModule).toHaveBeenCalledWith(TENANT_ID, 'finance', false, USER_ID);
+    expect(mockService.toggleModule).toHaveBeenCalledWith(TENANT_ID, 'finance', false, USER_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 });

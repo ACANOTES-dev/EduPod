@@ -90,6 +90,72 @@ enum PlatformRoleKey {
   @@map("platform_role_key")
 }
 
+enum PlatformAuditAction {
+  tenant_create
+  tenant_update
+  tenant_supported_locales_update
+  tenant_suspend
+  tenant_reactivate
+  tenant_archive
+  tenant_impersonation_started
+  tenant_domain_created
+  tenant_domain_updated
+  tenant_domain_removed
+  tenant_onboarding_step_updated
+  tenant_onboarding_reset
+  user_password_reset_triggered
+  user_mfa_reset
+  user_account_unlocked
+  user_disabled
+  user_enabled
+  tenant_ownership_transferred
+  module_toggled
+  cache_flushed_tenant
+  cache_flushed_global
+  queue_paused
+  queue_resumed
+  queue_cleaned
+  job_retried
+  job_removed
+  maintenance_mode_entered
+  maintenance_mode_exited
+  maintenance_window_scheduled
+  maintenance_window_cancelled
+  session_force_logged_out_user
+  session_force_logged_out_tenant
+  platform_user_invited
+  platform_user_revoked
+  platform_role_granted
+  platform_role_revoked
+  alert_acknowledged
+  alert_resolved
+  alert_silenced
+  alert_rule_created
+  alert_rule_updated
+  alert_rule_disabled
+  alert_rule_deleted
+  platform_error_redaction_rule_created
+  platform_error_redaction_rule_deleted
+  platform_error_retention_purged
+  two_person_request_initiated
+  two_person_request_approved
+  two_person_request_rejected
+  ai_action_proposed
+  ai_action_approved
+  ai_action_executed
+  ai_action_rejected
+
+  @@map("platform_audit_action")
+}
+
+enum PlatformErrorRedactionMode {
+  none
+  pii
+  pii_plus_secrets
+
+  @@map("platform_error_redaction_mode")
+}
+
 enum InvitationStatus {
   pending
   accepted
@@ -1694,15 +1760,17 @@ model User {
   ai_ask_ai_history           AiAskAiHistory[]             @relation("ai_ask_ai_history")
 
   // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
-  financial_models_created            FinancialModel[]         @relation("financial_model_creator")
-  financial_model_snapshots_published FinancialModelSnapshot[] @relation("financial_model_snapshot_publisher")
-  event_budgets_created               EventBudget[]            @relation("event_budget_creator")
-  shareable_links_created             ShareableLink[]          @relation("shareable_link_creator")
+  financial_models_created            FinancialModel[]             @relation("financial_model_creator")
+  financial_model_snapshots_published FinancialModelSnapshot[]     @relation("financial_model_snapshot_publisher")
+  event_budgets_created               EventBudget[]                @relation("event_budget_creator")
+  shareable_links_created             ShareableLink[]              @relation("shareable_link_creator")
   platform_user                       PlatformUser?
-  platform_users_invited              PlatformUser[]           @relation("platform_user_invited_by")
-  platform_roles_granted              PlatformUserRole[]       @relation("platform_role_granted_by")
-  platform_alerts_acknowledged        PlatformAlertHistory[]   @relation("platform_alert_acknowledger")
-  onboarding_steps_completed          TenantOnboardingStep[]   @relation("onboarding_completer")
+  platform_users_invited              PlatformUser[]               @relation("platform_user_invited_by")
+  platform_roles_granted              PlatformUserRole[]           @relation("platform_role_granted_by")
+  platform_alerts_acknowledged        PlatformAlertHistory[]       @relation("platform_alert_acknowledger")
+  platform_audit_logs                 PlatformAuditLog[]           @relation("platform_audit_actor")
+  platform_error_redaction_rules      PlatformErrorRedactionRule[] @relation("platform_error_redaction_rule_creator")
+  onboarding_steps_completed          TenantOnboardingStep[]       @relation("onboarding_completer")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -11900,6 +11968,71 @@ model PlatformAlertHistory {
   @@index([status], map: "idx_platform_alert_history_status")
   @@index([rule_id], map: "idx_platform_alert_history_rule_id")
   @@map("platform_alert_history")
+}
+
+model PlatformAuditLog {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id        String              @db.Uuid
+  action               PlatformAuditAction
+  target_resource_type String              @db.VarChar(60)
+  target_resource_id   String?             @db.VarChar(255)
+  target_tenant_id     String?             @db.Uuid
+  payload              Json                @db.JsonB
+  reason               String?             @db.Text
+  ip_address           String?             @db.VarChar(45)
+  user_agent           String?             @db.VarChar(500)
+  prev_hash            String?             @db.VarChar(64)
+  row_hash             String              @db.VarChar(64)
+  created_at           DateTime            @default(now()) @db.Timestamptz()
+
+  actor User @relation("platform_audit_actor", fields: [actor_user_id], references: [id], onDelete: Restrict)
+
+  @@index([actor_user_id, created_at(sort: Desc)], map: "idx_platform_audit_actor_created")
+  @@index([action, created_at(sort: Desc)], map: "idx_platform_audit_action_created")
+  @@index([target_tenant_id, created_at(sort: Desc)], map: "idx_platform_audit_target_tenant")
+  @@index([created_at(sort: Desc)], map: "idx_platform_audit_created")
+  @@map("platform_audit_logs")
+}
+
+model PlatformErrorLog {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  occurred_at        DateTime @default(now()) @db.Timestamptz()
+  source             String   @db.VarChar(40)
+  level              String   @db.VarChar(20)
+  message_redacted   String   @db.Text
+  stack_redacted     String?  @db.Text
+  fingerprint        String   @db.VarChar(64)
+  count              Int      @default(1)
+  first_seen_at      DateTime @default(now()) @db.Timestamptz()
+  last_seen_at       DateTime @default(now()) @db.Timestamptz()
+  redaction_metadata Json     @db.JsonB
+  tenant_id_redacted String?  @db.Uuid
+  correlation_id     String?  @db.VarChar(64)
+  sentry_event_id    String?  @db.VarChar(64)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+
+  @@index([fingerprint, last_seen_at(sort: Desc)], map: "idx_platform_error_fingerprint_seen")
+  @@index([occurred_at(sort: Desc)], map: "idx_platform_error_occurred")
+  @@index([source, level, occurred_at(sort: Desc)], map: "idx_platform_error_source_level")
+  @@map("platform_error_log")
+}
+
+model PlatformErrorRedactionRule {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String   @db.VarChar(100)
+  pattern            String   @db.Text
+  pattern_flags      String   @default("g") @db.VarChar(10)
+  replacement        String   @default("[REDACTED]") @db.VarChar(60)
+  severity           String   @db.VarChar(10)
+  is_enabled         Boolean  @default(true)
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  created_by User @relation("platform_error_redaction_rule_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([is_enabled], map: "idx_platform_error_redaction_rules_enabled")
+  @@map("platform_error_redaction_rules")
 }
 
 model TenantOnboardingStep {

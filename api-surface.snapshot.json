@@ -102,322 +102,371 @@
     "path": "/v1/admin/alerts/history",
     "controller": "AlertHistoryController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/alerts/history/:id/acknowledge",
     "controller": "AlertHistoryController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.acknowledge"
   },
   {
     "method": "GET",
     "path": "/v1/admin/alerts/rules",
     "controller": "AlertRulesController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/alerts/rules",
     "controller": "AlertRulesController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.silence"
   },
   {
     "method": "DELETE",
     "path": "/v1/admin/alerts/rules/:id",
     "controller": "AlertRulesController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.silence"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/alerts/rules/:id",
     "controller": "AlertRulesController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.silence"
   },
   {
     "method": "GET",
     "path": "/v1/admin/audit-logs",
     "controller": "PlatformAuditLogController",
     "module": "audit-log",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/dashboard",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/health",
     "controller": "AdminHealthController",
     "module": "health",
-    "permission": null
+    "permission": "platform.alerts.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/health/history",
     "controller": "HealthHistoryController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.alerts.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/impersonate",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.impersonate"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-audit-logs",
+    "controller": "PlatformAuditController",
+    "module": "platform-audit",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-audit-logs/:id",
+    "controller": "PlatformAuditController",
+    "module": "platform-audit",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-error-log",
+    "controller": "PlatformErrorLogController",
+    "module": "platform-error-log",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-error-log/redaction-rules",
+    "controller": "PlatformErrorLogController",
+    "module": "platform-error-log",
+    "permission": "platform.platform_users.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/platform-error-log/redaction-rules",
+    "controller": "PlatformErrorLogController",
+    "module": "platform-error-log",
+    "permission": "platform.platform_users.assign_roles"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/platform-error-log/redaction-rules/:id",
+    "controller": "PlatformErrorLogController",
+    "module": "platform-error-log",
+    "permission": "platform.platform_users.assign_roles"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/platform-error-log/redaction-rules/preview",
+    "controller": "PlatformErrorLogController",
+    "module": "platform-error-log",
+    "permission": "platform.platform_users.assign_roles"
   },
   {
     "method": "GET",
     "path": "/v1/admin/platform-permissions",
     "controller": "PlatformPermissionsController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/platform-users",
     "controller": "PlatformUsersController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.view"
   },
   {
     "method": "DELETE",
     "path": "/v1/admin/platform-users/:id",
     "controller": "PlatformUsersController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.revoke"
   },
   {
     "method": "GET",
     "path": "/v1/admin/platform-users/:id",
     "controller": "PlatformUsersController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/platform-users/:id/roles",
     "controller": "PlatformUsersController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.assign_roles"
   },
   {
     "method": "POST",
     "path": "/v1/admin/platform-users/invite",
     "controller": "PlatformUsersController",
     "module": "platform-users",
-    "permission": null
+    "permission": "platform.platform_users.invite"
   },
   {
     "method": "GET",
     "path": "/v1/admin/queues/:queueName/failed",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": null
+    "permission": "platform.queues.view"
   },
   {
     "method": "DELETE",
     "path": "/v1/admin/queues/:queueName/failed/:jobId",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": null
+    "permission": "platform.queues.clean"
   },
   {
     "method": "POST",
     "path": "/v1/admin/queues/:queueName/failed/:jobId/retry",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": null
+    "permission": "platform.queues.retry"
   },
   {
     "method": "GET",
     "path": "/v1/admin/queues/failed",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": null
+    "permission": "platform.queues.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/security-incidents",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/security-incidents",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/security-incidents/:id",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/security-incidents/:id",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/security-incidents/:id/events",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/security-incidents/:id/notify-controllers",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/security-incidents/:id/notify-dpc",
     "controller": "SecurityIncidentsController",
     "module": "security-incidents",
-    "permission": null
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "GET",
     "path": "/v1/admin/tenants",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "GET",
     "path": "/v1/admin/tenants/:id",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/tenants/:id",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/archive",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.archive"
   },
   {
     "method": "GET",
     "path": "/v1/admin/tenants/:id/modules",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/tenants/:id/modules/:key",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.modules.toggle"
   },
   {
     "method": "GET",
     "path": "/v1/admin/tenants/:id/onboarding",
     "controller": "OnboardingController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/tenants/:id/onboarding/:stepId",
     "controller": "OnboardingController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/onboarding/reset",
     "controller": "OnboardingController",
     "module": "platform",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/reactivate",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.suspend"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/tenants/:id/supported-locales",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants/:id/suspend",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.suspend"
   },
   {
     "method": "GET",
     "path": "/v1/admin/tenants/:tenantId/domains",
     "controller": "DomainsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.view"
   },
   {
     "method": "POST",
     "path": "/v1/admin/tenants/:tenantId/domains",
     "controller": "DomainsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "DELETE",
     "path": "/v1/admin/tenants/:tenantId/domains/:domainId",
     "controller": "DomainsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "PATCH",
     "path": "/v1/admin/tenants/:tenantId/domains/:domainId",
     "controller": "DomainsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.tenants.create"
   },
   {
     "method": "POST",
     "path": "/v1/admin/users/:id/reset-mfa",
     "controller": "TenantsController",
     "module": "tenants",
-    "permission": null
+    "permission": "platform.users.reset_mfa"
   },
   {
     "method": "GET",

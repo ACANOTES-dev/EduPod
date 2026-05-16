@@ -1,4 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Request } from 'express';
+
+import type { JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
@@ -8,8 +11,19 @@ import { DomainsService } from './domains.service';
 
 const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const DOMAIN_ID = '11111111-2222-3333-4444-555555555555';
+const USER_ID = '22222222-3333-4444-5555-666666666666';
 
 const alwaysAllowGuard = { canActivate: () => true };
+const mockUser: JwtPayload = {
+  sub: USER_ID,
+  email: 'admin@example.com',
+  tenant_id: null,
+  membership_id: null,
+  type: 'access',
+  iat: 0,
+  exp: 0,
+};
+const mockRequest = { headers: {} } as Request;
 
 describe('DomainsController', () => {
   let controller: DomainsController;
@@ -57,9 +71,13 @@ describe('DomainsController', () => {
     const created = { id: DOMAIN_ID, ...dto };
     mockService.addDomain.mockResolvedValueOnce(created);
 
-    const result = await controller.addDomain(TENANT_ID, dto);
+    const result = await controller.addDomain(TENANT_ID, dto, mockUser, mockRequest);
     expect(result).toEqual(created);
-    expect(mockService.addDomain).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockService.addDomain).toHaveBeenCalledWith(TENANT_ID, dto, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate updateDomain to the service', async () => {
@@ -67,16 +85,24 @@ describe('DomainsController', () => {
     const updated = { id: DOMAIN_ID, is_primary: true };
     mockService.updateDomain.mockResolvedValueOnce(updated);
 
-    const result = await controller.updateDomain(TENANT_ID, DOMAIN_ID, dto);
+    const result = await controller.updateDomain(TENANT_ID, DOMAIN_ID, dto, mockUser, mockRequest);
     expect(result).toEqual(updated);
-    expect(mockService.updateDomain).toHaveBeenCalledWith(TENANT_ID, DOMAIN_ID, dto);
+    expect(mockService.updateDomain).toHaveBeenCalledWith(TENANT_ID, DOMAIN_ID, dto, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 
   it('should delegate removeDomain to the service', async () => {
     mockService.removeDomain.mockResolvedValueOnce({ deleted: true });
 
-    const result = await controller.removeDomain(TENANT_ID, DOMAIN_ID);
+    const result = await controller.removeDomain(TENANT_ID, DOMAIN_ID, mockUser, mockRequest);
     expect(result).toEqual({ deleted: true });
-    expect(mockService.removeDomain).toHaveBeenCalledWith(TENANT_ID, DOMAIN_ID);
+    expect(mockService.removeDomain).toHaveBeenCalledWith(TENANT_ID, DOMAIN_ID, {
+      actor_user_id: USER_ID,
+      ip_address: undefined,
+      user_agent: undefined,
+    });
   });
 });

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { TokenService } from '../auth/auth-token.service';
 import { PlatformOnboardingModule } from '../platform/platform-onboarding.module';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { S3Module } from '../s3/s3.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
@@ -15,7 +16,7 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
-  imports: [PlatformOnboardingModule, S3Module, SequenceModule],
+  imports: [PlatformAuditModule, PlatformOnboardingModule, S3Module, SequenceModule],
   controllers: [
     TenantsController,
     DomainsController,

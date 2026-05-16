@@ -29,6 +29,10 @@ import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
 import { backfillInboxPermissionsForTenant } from '../inbox/inbox-permissions.init';
 import { OnboardingService } from '../platform/onboarding.service';
+import {
+  PlatformAuditService,
+  type PlatformAuditContext,
+} from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
@@ -225,13 +229,14 @@ export class TenantsService {
     private readonly tenantModuleService: TenantModuleService,
     private readonly tenantModuleCacheBusService: TenantModuleCacheBusService,
     private readonly onboardingService: OnboardingService,
+    private readonly platformAuditService: PlatformAuditService,
   ) {}
 
   /**
    * Create a new tenant with all defaults (domain, branding, settings,
    * modules, notification settings, sequences, system roles + permissions).
    */
-  async createTenant(data: CreateTenantDto) {
+  async createTenant(data: CreateTenantDto, audit?: PlatformAuditContext) {
     // Check slug uniqueness
     const existing = await this.prisma.tenant.findUnique({
       where: { slug: data.slug },
@@ -394,8 +399,19 @@ export class TenantsService {
       );
     }
 
-    // Return tenant with related data
-    return this.getTenant(tenant.id);
+    const created = await this.getTenant(tenant.id);
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_create',
+        target_resource_type: 'tenant',
+        target_resource_id: tenant.id,
+        target_tenant_id: tenant.id,
+        payload: { after: created },
+      });
+    }
+
+    return created;
   }
 
   /**
@@ -488,7 +504,7 @@ export class TenantsService {
   /**
    * Update a tenant. Slug is immutable.
    */
-  async updateTenant(id: string, data: UpdateTenantDto) {
+  async updateTenant(id: string, data: UpdateTenantDto, audit?: PlatformAuditContext) {
     // Verify tenant exists
     const existing = await this.prisma.tenant.findUnique({ where: { id } });
     if (!existing) {
@@ -506,10 +522,25 @@ export class TenantsService {
     // Invalidate tenant domain caches so new settings take effect
     await this.invalidateTenantDomainCaches(id);
 
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_update',
+        target_resource_type: 'tenant',
+        target_resource_id: id,
+        target_tenant_id: id,
+        payload: { before: existing, after: updated },
+      });
+    }
+
     return updated;
   }
 
-  async updateSupportedLocales(id: string, supportedLocales: string[]) {
+  async updateSupportedLocales(
+    id: string,
+    supportedLocales: string[],
+    audit?: PlatformAuditContext,
+  ) {
     const existing = await this.prisma.tenant.findUnique({
       where: { id },
       select: { id: true, default_locale: true, supported_locales: true },
@@ -559,13 +590,24 @@ export class TenantsService {
 
     await this.invalidateTenantDomainCaches(id);
 
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_supported_locales_update',
+        target_resource_type: 'tenant',
+        target_resource_id: id,
+        target_tenant_id: id,
+        payload: { before: existing, after: updated },
+      });
+    }
+
     return updated;
   }
 
   /**
    * Suspend a tenant. Invalidates all sessions and caches.
    */
-  async suspendTenant(id: string, actorUserId?: string) {
+  async suspendTenant(id: string, actorUserId?: string, audit?: PlatformAuditContext) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -610,6 +652,16 @@ export class TenantsService {
         tenant.status,
       );
     }
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_suspend',
+        target_resource_type: 'tenant',
+        target_resource_id: id,
+        target_tenant_id: id,
+        payload: { before: tenant, after: updated },
+      });
+    }
 
     return updated;
   }
@@ -617,7 +669,7 @@ export class TenantsService {
   /**
    * Reactivate a suspended tenant.
    */
-  async reactivateTenant(id: string, actorUserId?: string) {
+  async reactivateTenant(id: string, actorUserId?: string, audit?: PlatformAuditContext) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -647,6 +699,16 @@ export class TenantsService {
     if (actorUserId) {
       await this.securityAuditService.logTenantStatusChange(id, actorUserId, 'active', 'suspended');
     }
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_reactivate',
+        target_resource_type: 'tenant',
+        target_resource_id: id,
+        target_tenant_id: id,
+        payload: { before: tenant, after: updated },
+      });
+    }
 
     return updated;
   }
@@ -654,7 +716,7 @@ export class TenantsService {
   /**
    * Archive a tenant. Invalidates all sessions and caches.
    */
-  async archiveTenant(id: string, actorUserId?: string) {
+  async archiveTenant(id: string, actorUserId?: string, audit?: PlatformAuditContext) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -692,6 +754,16 @@ export class TenantsService {
         tenant.status,
       );
     }
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_archive',
+        target_resource_type: 'tenant',
+        target_resource_id: id,
+        target_tenant_id: id,
+        payload: { before: tenant, after: updated },
+      });
+    }
 
     return updated;
   }
@@ -726,7 +798,12 @@ export class TenantsService {
   /**
    * Impersonate a user at a specific tenant. Returns a read-only JWT.
    */
-  async impersonate(targetTenantId: string, targetUserId: string, platformUserId: string) {
+  async impersonate(
+    targetTenantId: string,
+    targetUserId: string,
+    platformUserId: string,
+    audit?: PlatformAuditContext,
+  ) {
     // Verify the target tenant exists and is active
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: targetTenantId },
@@ -759,7 +836,7 @@ export class TenantsService {
       membership_id: membership.id,
     });
 
-    return {
+    const result = {
       access_token: accessToken,
       impersonating: true,
       impersonator_id: platformUserId,
@@ -775,12 +852,30 @@ export class TenantsService {
         slug: tenant.slug,
       },
     };
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_impersonation_started',
+        target_resource_type: 'user',
+        target_resource_id: targetUserId,
+        target_tenant_id: targetTenantId,
+        payload: {
+          extra: {
+            impersonator_id: platformUserId,
+            target_user_id: targetUserId,
+            target_tenant_id: targetTenantId,
+          },
+        },
+      });
+    }
+
+    return result;
   }
 
   /**
    * Reset MFA for a user. Disables MFA and deletes recovery codes.
    */
-  async resetUserMfa(userId: string, actorUserId?: string) {
+  async resetUserMfa(userId: string, actorUserId?: string, audit?: PlatformAuditContext) {
     const user = await this.authReadFacade.findUserById('', userId);
 
     if (!user) {
@@ -806,6 +901,15 @@ export class TenantsService {
     });
 
     await this.securityAuditService.logMfaDisable(userId, null, 'admin_reset', actorUserId);
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'user_mfa_reset',
+        target_resource_type: 'user',
+        target_resource_id: userId,
+        payload: { before: { mfa_enabled: user.mfa_enabled }, after: { mfa_enabled: false } },
+      });
+    }
 
     return {
       user_id: userId,
@@ -838,6 +942,7 @@ export class TenantsService {
     moduleKey: string,
     isEnabled: boolean,
     actorUserId?: string,
+    audit?: PlatformAuditContext,
   ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -878,6 +983,16 @@ export class TenantsService {
     }
     await this.tenantModuleService.invalidateCache(tenantId);
     await this.tenantModuleCacheBusService.publishInvalidation(tenantId, moduleKey, isEnabled);
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'module_toggled',
+        target_resource_type: 'module_toggle',
+        target_resource_id: moduleKey,
+        target_tenant_id: tenantId,
+        payload: { before: existing, after: result },
+      });
+    }
 
     return result;
   }

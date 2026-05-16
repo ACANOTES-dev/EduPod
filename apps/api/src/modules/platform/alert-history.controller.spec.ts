@@ -126,7 +126,11 @@ describe('AlertHistoryController — HTTP guards and validation', () => {
       .patch(`/v1/admin/alerts/history/${ALERT_ID}/acknowledge`)
       .expect(200);
 
-    expect(mockService.acknowledge).toHaveBeenCalledWith(ALERT_ID, USER_ID);
+    expect(mockService.acknowledge).toHaveBeenCalledWith(
+      ALERT_ID,
+      USER_ID,
+      expect.objectContaining({ actor_user_id: USER_ID }),
+    );
   });
 
   it('returns 400 for invalid filters', async () => {

@@ -3,6 +3,10 @@ import { Prisma, type PlatformAlertRule } from '@prisma/client';
 
 import type { CreateAlertRuleDto, UpdateAlertRuleDto } from '@school/shared';
 
+import {
+  PlatformAuditService,
+  type PlatformAuditContext,
+} from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 function toJsonValue(value: CreateAlertRuleDto['condition_config']): Prisma.InputJsonValue {
@@ -11,7 +15,10 @@ function toJsonValue(value: CreateAlertRuleDto['condition_config']): Prisma.Inpu
 
 @Injectable()
 export class AlertRulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformAuditService: PlatformAuditService,
+  ) {}
 
   async list(): Promise<PlatformAlertRule[]> {
     return this.prisma.platformAlertRule.findMany({
@@ -19,8 +26,8 @@ export class AlertRulesService {
     });
   }
 
-  async create(dto: CreateAlertRuleDto): Promise<PlatformAlertRule> {
-    return this.prisma.platformAlertRule.create({
+  async create(dto: CreateAlertRuleDto, audit?: PlatformAuditContext): Promise<PlatformAlertRule> {
+    const created = await this.prisma.platformAlertRule.create({
       data: {
         name: dto.name,
         metric: dto.metric,
@@ -31,9 +38,23 @@ export class AlertRulesService {
         notify_emails: dto.notify_emails,
       },
     });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'alert_rule_created',
+        target_resource_type: 'alert_rule',
+        target_resource_id: created.id,
+        payload: { after: created },
+      });
+    }
+    return created;
   }
 
-  async update(id: string, dto: UpdateAlertRuleDto): Promise<PlatformAlertRule> {
+  async update(
+    id: string,
+    dto: UpdateAlertRuleDto,
+    audit?: PlatformAuditContext,
+  ): Promise<PlatformAlertRule> {
     const existing = await this.prisma.platformAlertRule.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException({
@@ -52,13 +73,23 @@ export class AlertRulesService {
     if (dto.is_enabled !== undefined) data.is_enabled = dto.is_enabled;
     if (dto.notify_emails !== undefined) data.notify_emails = dto.notify_emails;
 
-    return this.prisma.platformAlertRule.update({
+    const updated = await this.prisma.platformAlertRule.update({
       where: { id },
       data,
     });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: dto.is_enabled === false ? 'alert_rule_disabled' : 'alert_rule_updated',
+        target_resource_type: 'alert_rule',
+        target_resource_id: id,
+        payload: { before: existing, after: updated },
+      });
+    }
+    return updated;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, audit?: PlatformAuditContext): Promise<void> {
     const existing = await this.prisma.platformAlertRule.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException({
@@ -68,5 +99,14 @@ export class AlertRulesService {
     }
 
     await this.prisma.platformAlertRule.delete({ where: { id } });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'alert_rule_deleted',
+        target_resource_type: 'alert_rule',
+        target_resource_id: id,
+        payload: { before: existing },
+      });
+    }
   }
 }

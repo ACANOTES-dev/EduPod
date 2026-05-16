@@ -9,9 +9,11 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { z } from 'zod';
 
 import {
@@ -29,6 +31,7 @@ import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-acce
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -54,8 +57,12 @@ export class TenantsController {
   @Post('tenants')
   @RequiresPlatformPermission('platform.tenants.create')
   @UsePipes(new ZodValidationPipe(createTenantSchema))
-  async createTenant(@Body() dto: CreateTenantDto) {
-    return this.tenantsService.createTenant(dto);
+  async createTenant(
+    @Body() dto: CreateTenantDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.tenantsService.createTenant(dto, auditContextFromRequest(user, request));
   }
 
   @Get('tenants')
@@ -79,8 +86,10 @@ export class TenantsController {
   async updateTenant(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateTenantSchema)) dto: UpdateTenantDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.tenantsService.updateTenant(id, dto);
+    return this.tenantsService.updateTenant(id, dto, auditContextFromRequest(user, request));
   }
 
   @Patch('tenants/:id/supported-locales')
@@ -89,29 +98,51 @@ export class TenantsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateSupportedLocalesSchema))
     dto: { supported_locales: string[] },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.tenantsService.updateSupportedLocales(id, dto.supported_locales);
+    return this.tenantsService.updateSupportedLocales(
+      id,
+      dto.supported_locales,
+      auditContextFromRequest(user, request),
+    );
   }
 
   @Post('tenants/:id/suspend')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.tenants.suspend')
-  async suspendTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-    return this.tenantsService.suspendTenant(id, user.sub);
+  async suspendTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.tenantsService.suspendTenant(id, user.sub, auditContextFromRequest(user, request));
   }
 
   @Post('tenants/:id/reactivate')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.tenants.suspend')
-  async reactivateTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-    return this.tenantsService.reactivateTenant(id, user.sub);
+  async reactivateTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.tenantsService.reactivateTenant(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   @Post('tenants/:id/archive')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.tenants.archive')
-  async archiveTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-    return this.tenantsService.archiveTenant(id, user.sub);
+  async archiveTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.tenantsService.archiveTenant(id, user.sub, auditContextFromRequest(user, request));
   }
 
   @Get('dashboard')
@@ -130,15 +161,25 @@ export class TenantsController {
   async impersonate(
     @Body(new ZodValidationPipe(impersonateSchema)) dto: ImpersonateDto,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.tenantsService.impersonate(dto.tenant_id, dto.user_id, user.sub);
+    return this.tenantsService.impersonate(
+      dto.tenant_id,
+      dto.user_id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   @Post('users/:id/reset-mfa')
   @HttpCode(HttpStatus.OK)
   @RequiresPlatformPermission('platform.users.reset_mfa')
-  async resetUserMfa(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-    return this.tenantsService.resetUserMfa(id, user.sub);
+  async resetUserMfa(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.tenantsService.resetUserMfa(id, user.sub, auditContextFromRequest(user, request));
   }
 
   @Get('tenants/:id/modules')
@@ -153,8 +194,15 @@ export class TenantsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('key') key: string,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
     @Body(new ZodValidationPipe(toggleModuleSchema)) dto: { is_enabled: boolean },
   ) {
-    return this.tenantsService.toggleModule(id, key, dto.is_enabled, user.sub);
+    return this.tenantsService.toggleModule(
+      id,
+      key,
+      dto.is_enabled,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 }

@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { HealthModule } from '../health/health.module';
+import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
 
 import { AlertDispatchService } from './alert-dispatch.service';
@@ -23,6 +24,7 @@ import { PlatformGateway } from './platform.gateway';
     AuthModule,
     CommunicationsModule,
     HealthModule,
+    PlatformAuditModule,
     PlatformOnboardingModule,
     PlatformRealtimeModule,
     PlatformUsersModule,

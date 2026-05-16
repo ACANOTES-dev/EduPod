@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1605,6 +1605,34 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 **Mitigation**: Deploys that introduce or modify platform RBAC must seed platform roles/permissions, run the Redis-to-relational backfill before restarting the API, and smoke-test the existing platform owner on `https://dua.edupod.app`. Every `/v1/admin/*` controller must use `PlatformRoleGuard` and method-level `@RequiresPlatformPermission(...)`.
 
 **Regression coverage**: `apps/api/src/common/guards/platform-role.guard.spec.ts`, `apps/api/src/common/guards/platform-permission-coverage.spec.ts`, `apps/api/src/modules/platform-users/platform-users.service.spec.ts`, and platform-auth regression tests cover default-deny and the relational permission path.
+
+---
+
+## DZ-PA-2: Platform Audit Logs Are Append-Only
+
+**Risk**: Platform audit rows are the cross-tenant accountability ledger. Updating, deleting, or "fixing" an audit row destroys the evidence chain and can hide operator actions. Even harmless-looking cleanup breaks the hash chain and undermines incident reconstruction.
+**Location**: `packages/prisma/schema.prisma` (`PlatformAuditLog`), `packages/prisma/migrations/20260516150000_add_platform_audit_error_logs/post_migrate.sql`, `apps/api/src/modules/platform-audit/`
+**Status**: ACTIVE (Platform Dashboard Layer 1.5 Session 1.5B, 2026-05-16)
+
+**Rule**: Never add UPDATE, DELETE, soft-delete, or redaction-in-place behavior for `platform_audit_logs`. A correction must be a new audit entry that references the prior row. Platform audit writes are synchronous and blocking for audited platform mutations; if `PlatformAuditService.log()` fails, the mutation must fail loudly instead of continuing unaudited.
+
+**Mitigation**: Post-migrate triggers block UPDATE/DELETE on `platform_audit_logs`, `PlatformAuditService` computes a `prev_hash` / `row_hash` chain, and the API maintenance interval verifies the chain daily after 04:00 UTC. Any broken link publishes a critical `platform:alerts` message.
+
+**Regression coverage**: `apps/api/src/modules/platform-audit/platform-audit.service.spec.ts` validates hash-chain computation and break detection. `apps/api/src/modules/platform-audit/audit-trigger.spec.ts` locks the append-only trigger migration in place. `apps/api/src/modules/platform-audit/audit-coverage.spec.ts` scans platform-permission mutations for audit coverage or an explicit `@SkipPlatformAudit(...)` reason.
+
+---
+
+## DZ-PA-3: Platform Error Redaction Is Destructive
+
+**Risk**: `platform_error_log` is the dashboard/AI-safe error view, not the raw incident store. Redaction happens before persistence, so the original error message and stack are intentionally gone once the row is written. Bypassing the redactor would leak PII into the platform dashboard; trying to reconstruct raw errors from this table later will fail by design.
+**Location**: `apps/api/src/modules/platform-error-log/`, `packages/prisma/schema.prisma` (`PlatformErrorLog`, `PlatformErrorRedactionRule`)
+**Status**: ACTIVE (Platform Dashboard Layer 1.5 Session 1.5B, 2026-05-16)
+
+**Rule**: All writes to `platform_error_log` must go through `PlatformErrorLogService.capture()`. Do not persist raw request bodies, exception messages, stacks, tokens, or user-entered text directly to the table. Custom redaction rules must be previewed before creation because over-broad regexes can hide operationally useful context.
+
+**Mitigation**: Built-in rules redact email, phone, JWT, Stripe secret keys, AWS access keys, Irish PPS numbers, and Irish IBANs. Custom enabled DB rules are layered after the built-ins. Retention purges rows older than 90 days and writes a blocking platform audit entry with the purge count and cutoff.
+
+**Regression coverage**: `apps/api/src/modules/platform-error-log/error-redactor.service.spec.ts` covers the synthetic PII corpus. `apps/api/src/modules/platform-error-log/platform-error-log.service.spec.ts` verifies redaction-before-persistence and audited retention purges. `apps/api/src/modules/platform-error-log/platform-error-log-maintenance.service.spec.ts` verifies the daily retention/hash-check cadence and critical alert publish on a broken audit chain.
 
 ---
 

@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { CreateAlertRuleDto } from '@school/shared';
 
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertRulesService } from './alert-rules.service';
@@ -46,12 +47,18 @@ function buildMockPrisma() {
 describe('AlertRulesService', () => {
   let service: AlertRulesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockPlatformAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockPlatformAuditService = { log: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AlertRulesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        AlertRulesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PlatformAuditService, useValue: mockPlatformAuditService },
+      ],
     }).compile();
 
     service = module.get<AlertRulesService>(AlertRulesService);

@@ -20,6 +20,7 @@ import {
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
+import { SkipPlatformAudit } from '../../common/decorators/skip-platform-audit.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -52,6 +53,7 @@ export class SecurityIncidentsController {
   // POST /v1/admin/security-incidents
   @Post()
   @RequiresPlatformPermission('platform.audit_log.view')
+  @SkipPlatformAudit('Security incidents maintain their own incident event ledger.')
   async create(
     @Body(new ZodValidationPipe(createSecurityIncidentSchema))
     dto: CreateSecurityIncidentDto,
@@ -70,6 +72,7 @@ export class SecurityIncidentsController {
   // PATCH /v1/admin/security-incidents/:id
   @Patch(':id')
   @RequiresPlatformPermission('platform.audit_log.view')
+  @SkipPlatformAudit('Security incidents maintain their own incident event ledger.')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateSecurityIncidentSchema))
@@ -82,6 +85,7 @@ export class SecurityIncidentsController {
   // POST /v1/admin/security-incidents/:id/events
   @Post(':id/events')
   @RequiresPlatformPermission('platform.audit_log.view')
+  @SkipPlatformAudit('Security incidents maintain their own incident event ledger.')
   async addEvent(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(createIncidentEventSchema))
@@ -94,6 +98,7 @@ export class SecurityIncidentsController {
   // POST /v1/admin/security-incidents/:id/notify-controllers
   @Post(':id/notify-controllers')
   @RequiresPlatformPermission('platform.audit_log.view')
+  @SkipPlatformAudit('Security incidents maintain their own incident event ledger.')
   async notifyControllers(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(notifyControllersSchema))
@@ -106,6 +111,7 @@ export class SecurityIncidentsController {
   // POST /v1/admin/security-incidents/:id/notify-dpc
   @Post(':id/notify-dpc')
   @RequiresPlatformPermission('platform.audit_log.view')
+  @SkipPlatformAudit('Security incidents maintain their own incident event ledger.')
   async notifyDpc(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(notifyDpcSchema))

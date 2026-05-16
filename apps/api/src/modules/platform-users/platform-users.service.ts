@@ -7,6 +7,10 @@ import { hash } from 'bcryptjs';
 
 import type { InvitePlatformUserDto, UpdatePlatformUserRolesDto } from '@school/shared';
 
+import {
+  PlatformAuditService,
+  type PlatformAuditContext,
+} from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type PlatformPermissionKey = string;
@@ -77,6 +81,7 @@ export class PlatformUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly platformAuditService: PlatformAuditService,
   ) {}
 
   async isMember(userId: string): Promise<boolean> {
@@ -212,7 +217,7 @@ export class PlatformUsersService {
     return row;
   }
 
-  async invite(dto: InvitePlatformUserDto, actorUserId: string) {
+  async invite(dto: InvitePlatformUserDto, actorUserId: string, audit?: PlatformAuditContext) {
     const roles = await this.getRolesOrThrow(dto.role_keys);
     // eslint-disable-next-line school/no-cross-module-prisma-access -- Platform RBAC invitations must attach to or create the platform-level users row atomically with the platform_users row; no auth write facade exists for this admin workflow.
     const existingUser = await this.prisma.user.findUnique({
@@ -281,8 +286,19 @@ export class PlatformUsersService {
       return platformUser;
     });
 
+    const platformUser = await this.getUser(result.id);
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'platform_user_invited',
+        target_resource_type: 'platform_user',
+        target_resource_id: result.id,
+        payload: { after: platformUser },
+      });
+    }
+
     return {
-      platform_user: await this.getUser(result.id),
+      platform_user: platformUser,
       setup_url: this.buildSetupUrl(rawSetupToken),
     };
   }
@@ -291,6 +307,7 @@ export class PlatformUsersService {
     id: string,
     dto: UpdatePlatformUserRolesDto,
     actorUserId: string,
+    audit?: PlatformAuditContext,
   ): Promise<PlatformUserListRow> {
     const platformUser = await this.getUser(id);
     const roles = await this.getRolesOrThrow(dto.role_keys);
@@ -339,10 +356,27 @@ export class PlatformUsersService {
       }
     });
 
-    return this.getUser(id);
+    const updated = await this.getUser(id);
+    if (audit) {
+      const removedRoles = currentRoleKeys.filter((role) => !dto.role_keys.includes(role));
+      const addedRoles = dto.role_keys.filter((role) => !currentRoleKeys.includes(role));
+      await this.platformAuditService.log({
+        ...audit,
+        action: addedRoles.length > 0 ? 'platform_role_granted' : 'platform_role_revoked',
+        target_resource_type: 'platform_user',
+        target_resource_id: id,
+        payload: {
+          before: platformUser,
+          after: updated,
+          extra: { added_roles: addedRoles, removed_roles: removedRoles },
+        },
+      });
+    }
+
+    return updated;
   }
 
-  async revoke(id: string, actorUserId: string): Promise<void> {
+  async revoke(id: string, actorUserId: string, audit?: PlatformAuditContext): Promise<void> {
     const platformUser = await this.getUser(id);
     const roleKeys = platformUser.roles.map((role) => role.role.role_key);
     if (platformUser.user_id === actorUserId && roleKeys.includes('platform_owner')) {
@@ -359,6 +393,15 @@ export class PlatformUsersService {
         data: { revoked_at: new Date() },
       });
     });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'platform_user_revoked',
+        target_resource_type: 'platform_user',
+        target_resource_id: id,
+        payload: { before: platformUser },
+      });
+    }
   }
 
   async listPermissions(): Promise<PlatformPermissionMatrix> {

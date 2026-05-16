@@ -9,9 +9,11 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import type { Request } from 'express';
 
 import type { JwtPayload } from '@school/shared';
 
@@ -19,6 +21,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
+import { auditContextFromRequest } from '../platform-audit/audit-request-context';
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 
 // ─── Controller ─────────────────────────────────────────────────────────────
 
@@ -30,6 +34,7 @@ export class QueueAdminController {
   constructor(
     @InjectQueue('gradebook') private readonly gradebookQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    private readonly platformAuditService: PlatformAuditService,
   ) {
     // Register all injected queues by name for dynamic lookup
     this.queues = new Map<string, Queue>([
@@ -88,6 +93,7 @@ export class QueueAdminController {
     @Param('queueName') queueName: string,
     @Param('jobId') jobId: string,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     const queue = this.resolveQueue(queueName);
     const job = await queue.getJob(jobId);
@@ -112,6 +118,20 @@ export class QueueAdminController {
     }
 
     await job.retry(state);
+    await this.platformAuditService.log({
+      ...auditContextFromRequest(user, request),
+      action: 'job_retried',
+      target_resource_type: 'queue_job',
+      target_resource_id: jobId,
+      payload: {
+        extra: {
+          queue: queueName,
+          job_name: job.name,
+          failed_reason: job.failedReason,
+          attempts_made: job.attemptsMade,
+        },
+      },
+    });
 
     return {
       replayed: true,
@@ -125,7 +145,12 @@ export class QueueAdminController {
   @Delete(':queueName/failed/:jobId')
   @RequiresPlatformPermission('platform.queues.clean')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async discardFailedJob(@Param('queueName') queueName: string, @Param('jobId') jobId: string) {
+  async discardFailedJob(
+    @Param('queueName') queueName: string,
+    @Param('jobId') jobId: string,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
     const queue = this.resolveQueue(queueName);
     const job = await queue.getJob(jobId);
 
@@ -139,6 +164,20 @@ export class QueueAdminController {
     }
 
     await job.remove();
+    await this.platformAuditService.log({
+      ...auditContextFromRequest(user, request),
+      action: 'job_removed',
+      target_resource_type: 'queue_job',
+      target_resource_id: jobId,
+      payload: {
+        extra: {
+          queue: queueName,
+          job_name: job.name,
+          failed_reason: job.failedReason,
+          attempts_made: job.attemptsMade,
+        },
+      },
+    });
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

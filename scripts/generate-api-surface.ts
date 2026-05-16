@@ -113,7 +113,7 @@ function splitControllerBlocks(content: string): ControllerBlock[] {
  */
 function findPermissionInMethodBlock(methodBlock: string): string | string[] | null {
   const permRegex =
-    /@RequiresPermission\(\s*((?:'[^']*'(?:\s*,\s*'[^']*')*)|(?:"[^"]*"(?:\s*,\s*"[^"]*")*))\s*\)/;
+    /@Requires(?:Platform)?Permission\(\s*((?:'[^']*'(?:\s*,\s*'[^']*')*)|(?:"[^"]*"(?:\s*,\s*"[^"]*")*))\s*\)/;
   const match = permRegex.exec(methodBlock);
 
   if (!match) return null;

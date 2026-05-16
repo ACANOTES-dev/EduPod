@@ -1,5 +1,15 @@
-import { Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { PlatformAlertHistory } from '@prisma/client';
+import type { Request } from 'express';
 
 import { alertHistoryQuerySchema, type AlertHistoryQuery, type JwtPayload } from '@school/shared';
 
@@ -8,6 +18,7 @@ import { RequiresPlatformPermission } from '../../common/decorators/requires-pla
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
 import { AlertHistoryService, type AlertHistoryRow } from './alert-history.service';
 
@@ -34,7 +45,12 @@ export class AlertHistoryController {
   async acknowledge(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<PlatformAlertHistory> {
-    return this.alertHistoryService.acknowledge(id, user.sub);
+    return this.alertHistoryService.acknowledge(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 }

@@ -5,10 +5,13 @@ import {
   Bell,
   Building2,
   ClipboardList,
+  FileSearch,
   LayoutDashboard,
   Menu,
+  ScanText,
   ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   Workflow,
   X,
@@ -47,6 +50,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const isActive = (href: string) => {
     if (href === `/${locale}/admin`) {
       return pathname === `/${locale}/admin`;
+    }
+    if (href === `/${locale}/admin/audit-log`) {
+      return pathname === href;
     }
     return (pathname ?? '').startsWith(href);
   };
@@ -210,9 +216,27 @@ function PlatformSidebarNav({
     },
     {
       icon: ClipboardList,
-      label: auditLogLabel,
+      label: 'Tenant Audit',
       href: `/${locale}/admin/audit-log`,
       permission: 'platform.audit_log.view',
+    },
+    {
+      icon: FileSearch,
+      label: auditLogLabel,
+      href: `/${locale}/admin/audit-log/platform`,
+      permission: 'platform.audit_log.view',
+    },
+    {
+      icon: ScanText,
+      label: 'Error Log',
+      href: `/${locale}/admin/error-log`,
+      permission: 'platform.audit_log.view',
+    },
+    {
+      icon: SlidersHorizontal,
+      label: 'Redaction Rules',
+      href: `/${locale}/admin/settings/redaction-rules`,
+      permission: 'platform.platform_users.view',
     },
     {
       icon: ShieldAlert,

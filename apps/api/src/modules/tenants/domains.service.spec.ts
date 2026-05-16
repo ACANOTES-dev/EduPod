@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException, BadRequestException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { OnboardingService } from '../platform/onboarding.service';
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -37,6 +38,10 @@ const mockOnboardingService = {
   autoCompleteStep: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockPlatformAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('DomainsService', () => {
   let service: DomainsService;
 
@@ -47,6 +52,7 @@ describe('DomainsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: OnboardingService, useValue: mockOnboardingService },
+        { provide: PlatformAuditService, useValue: mockPlatformAuditService },
       ],
     }).compile();
 

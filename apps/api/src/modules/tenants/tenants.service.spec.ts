@@ -10,6 +10,7 @@ import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
 import { OnboardingService } from '../platform/onboarding.service';
+import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
@@ -68,6 +69,10 @@ const mockTenantModuleCacheBusService = {
 
 const mockOnboardingService = {
   seedDefaultSteps: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockPlatformAuditService = {
+  log: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPrisma = {
@@ -207,6 +212,7 @@ describe('TenantsService', () => {
         { provide: TenantModuleCacheBusService, useValue: mockTenantModuleCacheBusService },
         { provide: TenantModuleService, useValue: mockTenantModuleService },
         { provide: OnboardingService, useValue: mockOnboardingService },
+        { provide: PlatformAuditService, useValue: mockPlatformAuditService },
       ],
     }).compile();
 

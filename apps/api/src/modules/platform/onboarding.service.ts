@@ -4,6 +4,10 @@ import { Prisma, type TenantOnboardingStep } from '@prisma/client';
 import type { UpdateOnboardingStepDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import {
+  PlatformAuditService,
+  type PlatformAuditContext,
+} from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
@@ -200,6 +204,7 @@ export class OnboardingService {
     private readonly prisma: PrismaService,
     private readonly redisPubSub: RedisPubSubService,
     private readonly tenantReadFacade: TenantReadFacade,
+    private readonly platformAuditService: PlatformAuditService,
   ) {}
 
   async seedDefaultSteps(tenantId: string): Promise<void> {
@@ -236,6 +241,7 @@ export class OnboardingService {
     stepId: string,
     dto: UpdateOnboardingStepDto,
     actorUserId: string,
+    audit?: PlatformAuditContext,
   ): Promise<TenantOnboardingStep> {
     const step = await this.prisma.tenantOnboardingStep.findFirst({
       where: { id: stepId, tenant_id: tenantId },
@@ -277,11 +283,23 @@ export class OnboardingService {
       );
     }
 
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_onboarding_step_updated',
+        target_resource_type: 'tenant_onboarding_step',
+        target_resource_id: stepId,
+        target_tenant_id: tenantId,
+        payload: { before: step, after: updated },
+      });
+    }
+
     return updated;
   }
 
-  async resetForTenant(tenantId: string): Promise<void> {
+  async resetForTenant(tenantId: string, audit?: PlatformAuditContext): Promise<void> {
     await this.ensureTenantExists(tenantId);
+    const before = await this.fetchSteps(tenantId);
     await this.prisma.tenantOnboardingStep.updateMany({
       where: { tenant_id: tenantId },
       data: {
@@ -296,6 +314,16 @@ export class OnboardingService {
       type: 'tracker_reset',
       tenant_id: tenantId,
     });
+    if (audit) {
+      await this.platformAuditService.log({
+        ...audit,
+        action: 'tenant_onboarding_reset',
+        target_resource_type: 'tenant_onboarding_tracker',
+        target_resource_id: tenantId,
+        target_tenant_id: tenantId,
+        payload: { before, after: await this.fetchSteps(tenantId) },
+      });
+    }
   }
 
   async autoCompleteStep(
