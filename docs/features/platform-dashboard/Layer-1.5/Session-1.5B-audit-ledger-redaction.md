@@ -391,16 +391,16 @@ POST   /v1/admin/platform-error-log/redaction-rules/preview -> dry-run a new rul
 
 ## Acceptance
 
-- [ ] `platform_audit_logs` exists with append-only triggers; UPDATE/DELETE raises.
-- [ ] Hash chain populated on every write; verification cron runs daily and alerts on break.
-- [ ] Every existing platform-side mutation endpoint writes an audit entry (verified by static-analysis test).
-- [ ] `platform_error_log` exists; redaction pipeline applied at write time.
-- [ ] Built-in redaction rules cover: email, phone, JWT, Stripe SK, AWS access key, Irish PPS, IBAN-IE.
-- [ ] Retention cron purges rows older than 90 days; purge audited.
-- [ ] Frontend pages: `/admin/audit-log/platform`, `/admin/error-log`, `/admin/settings/redaction-rules` all functional.
-- [ ] Redaction round-trip test passes for the synthetic PII corpus.
-- [ ] `docs/architecture/danger-zones.md` gains DZ-PA-2 (audit append-only) and DZ-PA-3 (redaction is destructive).
-- [ ] `docs/architecture/event-job-catalog.md` gains the daily hash-chain verification cron and the daily retention cron.
+- [x] `platform_audit_logs` exists with append-only triggers; UPDATE/DELETE raises.
+- [x] Hash chain populated on every write; verification cron runs daily and alerts on break.
+- [x] Every existing platform-side mutation endpoint writes an audit entry (verified by static-analysis test).
+- [x] `platform_error_log` exists; redaction pipeline applied at write time.
+- [x] Built-in redaction rules cover: email, phone, JWT, Stripe SK, AWS access key, Irish PPS, IBAN-IE.
+- [x] Retention cron purges rows older than 90 days; purge audited.
+- [x] Frontend pages: `/admin/audit-log/platform`, `/admin/error-log`, `/admin/settings/redaction-rules` all functional.
+- [x] Redaction round-trip test passes for the synthetic PII corpus.
+- [x] `docs/architecture/danger-zones.md` gains DZ-PA-2 (audit append-only) and DZ-PA-3 (redaction is destructive).
+- [x] `docs/architecture/event-job-catalog.md` gains the daily hash-chain verification cron and the daily retention cron.
 
 ---
 
@@ -411,3 +411,11 @@ POST   /v1/admin/platform-error-log/redaction-rules/preview -> dry-run a new rul
 - Custom redaction rules are owner-only by default because a malicious or careless support user could add a rule that hides their own actions. Permission `platform.platform_users.assign_roles` was chosen as the proxy — same blast surface as adding a role.
 - Layer 4 (AI Copilot) reads the redacted log via the same `/admin/platform-error-log` endpoint. No separate AI-only data path. The AI sees what the operator sees.
 - The hash-chain alert on integrity break is a P1 incident — the runbook (added in Layer 4A) escalates to direct operator notification regardless of normal alert routing.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `d54287eb9cbee85533ff377050e888a6932302ff` (`feat(platform): add audit ledger and error redaction`).
+- CI/deploy run: <https://github.com/ACANOTES-dev/EduPod/actions/runs/25958456127> — passed and deployed through CI on 2026-05-16.
+- Production smoke: passed on 2026-05-16 against `https://dua.edupod.app`; verified login, platform dashboard, platform audit ledger, redacted error log, redaction rules, tenant list/detail, health, alerts, onboarding tracker, platform users, and permissions pages.
