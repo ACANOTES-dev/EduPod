@@ -93,6 +93,8 @@ function historyRowFromEvent(event: AlertFiredEvent): PlatformAlertHistory {
     acknowledged_at: null,
     resolved_at: null,
     acknowledged_by: null,
+    suppressed_by_silence_id: null,
+    suppressed_by_maintenance_window_id: null,
     rule: { name: event.rule_name },
   };
 }

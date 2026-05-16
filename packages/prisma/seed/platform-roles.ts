@@ -4,7 +4,7 @@ type PlatformPermissionSeed = {
   display_name: string;
   is_destructive?: boolean;
   key: string;
-  requires_two_person?: boolean;
+  requires_owner_confirmation?: boolean;
 };
 
 export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
@@ -33,7 +33,7 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Archive tenants',
     description: 'Archive tenant records.',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.tenants.impersonate',
@@ -72,7 +72,7 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Transfer tenant ownership',
     description: 'Transfer tenant ownership to another user.',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.modules.toggle',
@@ -92,7 +92,7 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Flush global cache',
     description: 'Flush platform-wide cached data.',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.queues.view',
@@ -118,7 +118,7 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Clean a queue (delete jobs)',
     description: 'Delete queued or failed jobs.',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.maintenance.toggle',
@@ -139,7 +139,7 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Force-logout an entire tenant',
     description: 'Force logout every session for a tenant.',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.platform_users.view',

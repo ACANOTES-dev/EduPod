@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-05-16 (Session 1D platform onboarding tracker: documented `BillingStatus` and `OnboardingStepStatus`). Previously: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: documented owner confirmation execution status plus alert silence and maintenance-window lifecycle fields). Previously: 2026-05-16 (Session 1D platform onboarding tracker: documented `BillingStatus` and `OnboardingStepStatus`). Previously: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -702,6 +702,43 @@ skipped     -> [pending, in_progress, completed]
 - **Guarded by**: `OnboardingService.updateStep()` validates blockers before allowing `completed` unless the update is an auto-complete event.
 - **Side effects**: Every update publishes a `platform:onboarding` Redis pub/sub payload consumed by the platform WebSocket gateway as `onboarding:update`.
 - **Scope**: Platform-level, no tenant RLS. The rows are tenant-associated by `tenant_id`, but the controller is guarded by platform-owner access only.
+
+### PlatformOwnerActionConfirmation.execution_status
+
+```
+pending -> [executed, failed]
+executed*
+failed*
+```
+
+- **Guarded by**: `OwnerActionConfirmationService.confirmAndExecute()` creates the confirmation row as `pending`, writes the blocking platform audit entry, then updates to `executed` or `failed` after the registered executor returns.
+- **Side effects**: The confirmation record stores action, target, payload summary, typed phrase, reason, actor, execution timestamp, and execution result. The confirmation phrase is friction, not authorization; platform RBAC remains the authorization boundary.
+- **Scope**: Platform-level, no tenant RLS. The owner-confirmed action may target a tenant, but the confirmation row itself belongs to the platform audit/control plane.
+
+### PlatformAlertSilence lifecycle
+
+```
+active/pending -> [removed, expired]
+removed*
+expired*
+```
+
+- **Storage model**: This is a timestamp-derived lifecycle, not a Prisma enum. A silence is active when `removed_at IS NULL`, `starts_at <= now`, and `ends_at > now`; pending when the start time is in the future; expired when `ends_at <= now`; removed when `removed_at` is set.
+- **Guarded by**: `AlertSilenceService.create()` validates scope-specific targets and bounded time windows. `remove()` requires a reason and records actor/removal metadata.
+- **Side effects**: Active matching silences cause `AlertEvaluationService` to write suppressed alert history with `suppressed_by_silence_id` and publish an alert-suppressed platform realtime event. Global silences do not suppress security-critical rules.
+
+### PlatformMaintenanceWindow lifecycle
+
+```
+scheduled -> [active, cancelled, expired]
+active    -> [cancelled, expired]
+cancelled*
+expired*
+```
+
+- **Storage model**: This is timestamp-derived plus `cancelled_at`, not a Prisma enum. A window is active when `cancelled_at IS NULL`, `starts_at <= now`, and `ends_at > now`.
+- **Guarded by**: `MaintenanceWindowService.create()` validates the time bounds. `cancel()` requires a reason and records actor/cancellation metadata.
+- **Side effects**: Active windows cause `AlertEvaluationService` to write suppressed alert history with `suppressed_by_maintenance_window_id` and publish an alert-suppressed platform realtime event. Security-critical alert rules are always exempt.
 
 ### MembershipStatus
 

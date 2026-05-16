@@ -3,7 +3,9 @@
 import {
   Activity,
   Bell,
+  BellOff,
   Building2,
+  CalendarClock,
   ClipboardList,
   FileSearch,
   LayoutDashboard,
@@ -52,6 +54,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
       return pathname === `/${locale}/admin`;
     }
     if (href === `/${locale}/admin/audit-log`) {
+      return pathname === href;
+    }
+    if (href === `/${locale}/admin/alerts`) {
       return pathname === href;
     }
     return (pathname ?? '').startsWith(href);
@@ -194,6 +199,18 @@ function PlatformSidebarNav({
       label: 'Alerts',
       href: `/${locale}/admin/alerts`,
       badge: unacknowledgedAlertCount,
+      permission: 'platform.alerts.view',
+    },
+    {
+      icon: BellOff,
+      label: 'Alert Silences',
+      href: `/${locale}/admin/alerts/silences`,
+      permission: 'platform.alerts.view',
+    },
+    {
+      icon: CalendarClock,
+      label: 'Alert Maintenance',
+      href: `/${locale}/admin/maintenance`,
       permission: 'platform.alerts.view',
     },
     {
@@ -352,12 +369,100 @@ function PlatformShell({
             <h1 className="truncate text-lg font-semibold text-text-primary lg:text-sm">{title}</h1>
           </div>
         </header>
+        <ActiveSuppressionBanner />
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">
           <ErrorBoundary resetKeys={[pathname]}>
             <div className="mx-auto max-w-content">{children}</div>
           </ErrorBoundary>
         </main>
       </div>
+    </div>
+  );
+}
+
+interface PlatformAlertSilenceSummary {
+  id: string;
+  scope: 'single_rule' | 'component' | 'global';
+  component: string | null;
+  ends_at: string;
+  removed_at: string | null;
+  alert_rule?: { name: string } | null;
+}
+
+interface PlatformMaintenanceWindowSummary {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  cancelled_at: string | null;
+}
+
+function ActiveSuppressionBanner() {
+  const [activeSilences, setActiveSilences] = React.useState<PlatformAlertSilenceSummary[]>([]);
+  const [activeWindows, setActiveWindows] = React.useState<PlatformMaintenanceWindowSummary[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [silences, windows] = await Promise.all([
+          apiClient<PlatformAlertSilenceSummary[]>('/api/v1/admin/alert-silences', {
+            silent: true,
+          }),
+          apiClient<PlatformMaintenanceWindowSummary[]>('/api/v1/admin/alert-maintenance-windows', {
+            silent: true,
+          }),
+        ]);
+        if (cancelled) return;
+        const now = Date.now();
+        setActiveSilences(
+          silences.filter(
+            (silence) => !silence.removed_at && new Date(silence.ends_at).getTime() > now,
+          ),
+        );
+        setActiveWindows(
+          windows.filter(
+            (windowRow) =>
+              !windowRow.cancelled_at &&
+              new Date(windowRow.starts_at).getTime() <= now &&
+              new Date(windowRow.ends_at).getTime() > now,
+          ),
+        );
+      } catch (err: unknown) {
+        console.error('[ActiveSuppressionBanner.load]', err);
+      }
+    }
+
+    void load();
+    const interval = setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (activeSilences.length === 0 && activeWindows.length === 0) {
+    return null;
+  }
+
+  const firstWindow = activeWindows[0];
+  const firstSilence = activeSilences[0];
+  const label = firstWindow
+    ? `Maintenance active: ${firstWindow.title}`
+    : firstSilence
+      ? `Alert silence active: ${
+          firstSilence.scope === 'single_rule'
+            ? (firstSilence.alert_rule?.name ?? 'single rule')
+            : firstSilence.scope === 'component'
+              ? firstSilence.component
+              : 'global'
+        }`
+      : 'Alert suppression active';
+
+  return (
+    <div className="border-b border-warning-200 bg-warning-bg px-6 py-2 text-xs font-medium text-warning-text">
+      {label}
     </div>
   );
 }

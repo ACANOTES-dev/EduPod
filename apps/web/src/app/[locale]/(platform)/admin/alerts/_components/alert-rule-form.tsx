@@ -60,6 +60,7 @@ function buildDefaults(initialData?: PlatformAlertRule | null): CreateAlertRuleD
     severity: initialData?.severity ?? 'warning',
     cooldown_minutes: initialData?.cooldown_minutes ?? 15,
     is_enabled: initialData?.is_enabled ?? true,
+    is_security_critical: initialData?.is_security_critical ?? false,
     notify_emails: initialData?.notify_emails ?? [],
   };
 }
@@ -288,6 +289,19 @@ export function AlertRuleForm({
             }}
           />
           Enabled
+        </Label>
+
+        <Label className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm">
+          <Checkbox
+            checked={form.watch('is_security_critical')}
+            onCheckedChange={(checked) => {
+              form.setValue('is_security_critical', checked === true, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+          />
+          Security critical
         </Label>
       </div>
 

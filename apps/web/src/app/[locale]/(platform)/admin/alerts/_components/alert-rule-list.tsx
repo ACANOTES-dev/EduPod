@@ -27,6 +27,7 @@ export interface PlatformAlertRule {
   severity: AlertSeverity;
   cooldown_minutes: number;
   is_enabled: boolean;
+  is_security_critical: boolean;
   notify_emails: string[];
   created_at: string;
   updated_at: string;
@@ -121,6 +122,7 @@ export function AlertRuleList({
                   <p className="mt-1 text-xs text-text-tertiary">
                     Cooldown {rule.cooldown_minutes} min · {rule.notify_emails.length} email
                     recipient{rule.notify_emails.length === 1 ? '' : 's'}
+                    {rule.is_security_critical ? ' · security critical' : ''}
                   </p>
                 </div>
 

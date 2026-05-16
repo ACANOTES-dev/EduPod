@@ -7,6 +7,8 @@ import { HealthService, type FullHealthResult } from '../health/health.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertDispatchService } from './alert-dispatch.service';
+import { AlertSilenceService } from './alert-silence.service';
+import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
 const ALERT_EVALUATION_INTERVAL_MS = 30_000;
@@ -25,6 +27,8 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     private readonly healthService: HealthService,
     private readonly redisPubSub: RedisPubSubService,
     private readonly alertDispatchService: AlertDispatchService,
+    private readonly alertSilenceService: AlertSilenceService,
+    private readonly maintenanceWindowService: MaintenanceWindowService,
   ) {}
 
   onModuleInit(): void {
@@ -168,6 +172,39 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     metricValue: number,
   ): Promise<void> {
     const message = `[${rule.severity.toUpperCase()}] ${rule.name}: metric value ${metricValue} ${config.operator} ${config.threshold}`;
+    const now = new Date();
+    const [activeSilence, activeWindow] = await Promise.all([
+      this.alertSilenceService.findActiveSilenceForRule(rule, now),
+      this.maintenanceWindowService.findActiveWindowForRule(rule, now),
+    ]);
+
+    if (activeSilence || activeWindow) {
+      const alert = await this.prisma.platformAlertHistory.create({
+        data: {
+          rule_id: rule.id,
+          severity: rule.severity,
+          message,
+          metric_value: new Prisma.Decimal(metricValue),
+          channels_notified: [],
+          status: 'resolved',
+          resolved_at: now,
+          suppressed_by_silence_id: activeSilence?.id,
+          suppressed_by_maintenance_window_id: activeWindow?.id,
+        },
+      });
+
+      await this.redisPubSub.publish('platform:alerts', {
+        type: 'alert_suppressed',
+        alert_id: alert.id,
+        rule_id: rule.id,
+        rule_name: rule.name,
+        severity: rule.severity,
+        suppressed_by_silence_id: activeSilence?.id ?? null,
+        suppressed_by_maintenance_window_id: activeWindow?.id ?? null,
+        fired_at: alert.fired_at.toISOString(),
+      });
+      return;
+    }
 
     const alert = await this.prisma.platformAlertHistory.create({
       data: {

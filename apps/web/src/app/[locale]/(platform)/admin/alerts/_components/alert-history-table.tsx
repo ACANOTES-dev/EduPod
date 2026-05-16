@@ -19,6 +19,8 @@ export interface PlatformAlertHistory {
   acknowledged_at: string | null;
   resolved_at: string | null;
   acknowledged_by: string | null;
+  suppressed_by_silence_id: string | null;
+  suppressed_by_maintenance_window_id: string | null;
   rule?: { name: string };
 }
 

@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
+import { AlertSilenceService } from './alert-silence.service';
+import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
 const RULE_ID = '11111111-1111-4111-8111-111111111111';
@@ -59,6 +61,7 @@ const BASE_RULE = {
   severity: 'critical',
   cooldown_minutes: 15,
   is_enabled: true,
+  is_security_critical: false,
   notify_emails: ['ops@example.com'],
   created_at: new Date('2026-05-15T09:00:00.000Z'),
   updated_at: new Date('2026-05-15T09:00:00.000Z'),
@@ -76,6 +79,8 @@ const FIRED_ALERT = {
   acknowledged_at: null,
   resolved_at: null,
   acknowledged_by: null,
+  suppressed_by_silence_id: null,
+  suppressed_by_maintenance_window_id: null,
 };
 
 function buildMockPrisma() {
@@ -99,6 +104,8 @@ describe('AlertEvaluationService', () => {
   let mockDispatch: {
     sendEmail: jest.Mock<Promise<string[]>, [typeof BASE_RULE, typeof FIRED_ALERT, number]>;
   };
+  let mockAlertSilenceService: { findActiveSilenceForRule: jest.Mock };
+  let mockMaintenanceWindowService: { findActiveWindowForRule: jest.Mock };
 
   beforeEach(async () => {
     jest.useFakeTimers();
@@ -118,6 +125,12 @@ describe('AlertEvaluationService', () => {
     mockDispatch = {
       sendEmail: jest.fn().mockResolvedValue(['email']),
     };
+    mockAlertSilenceService = {
+      findActiveSilenceForRule: jest.fn().mockResolvedValue(null),
+    };
+    mockMaintenanceWindowService = {
+      findActiveWindowForRule: jest.fn().mockResolvedValue(null),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -126,6 +139,8 @@ describe('AlertEvaluationService', () => {
         { provide: HealthService, useValue: mockHealthService },
         { provide: RedisPubSubService, useValue: mockRedisPubSub },
         { provide: AlertDispatchService, useValue: mockDispatch },
+        { provide: AlertSilenceService, useValue: mockAlertSilenceService },
+        { provide: MaintenanceWindowService, useValue: mockMaintenanceWindowService },
       ],
     }).compile();
 

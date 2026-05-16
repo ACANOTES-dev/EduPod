@@ -38,7 +38,7 @@ export interface PlatformPermission {
   description: string;
   category: string;
   is_destructive: boolean;
-  requires_two_person: boolean;
+  requires_owner_confirmation: boolean;
 }
 
 export interface PlatformPermissionsResponse {

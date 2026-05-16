@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1633,6 +1633,20 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 **Mitigation**: Built-in rules redact email, phone, JWT, Stripe secret keys, AWS access keys, Irish PPS numbers, and Irish IBANs. Custom enabled DB rules are layered after the built-ins. Retention purges rows older than 90 days and writes a blocking platform audit entry with the purge count and cutoff.
 
 **Regression coverage**: `apps/api/src/modules/platform-error-log/error-redactor.service.spec.ts` covers the synthetic PII corpus. `apps/api/src/modules/platform-error-log/platform-error-log.service.spec.ts` verifies redaction-before-persistence and audited retention purges. `apps/api/src/modules/platform-error-log/platform-error-log-maintenance.service.spec.ts` verifies the daily retention/hash-check cadence and critical alert publish on a broken audit chain.
+
+---
+
+## DZ-PA-4: Solo-Owner Confirmations Must Not Require Fake Second Accounts
+
+**Risk**: EduPod's current platform-admin operating model has one human platform owner. Adding mandatory second-approver gates to high-blast platform actions would force the operator to create another account and approve their own action, adding delay and ritual without improving safety.
+**Location**: `apps/api/src/modules/platform/owner-action-confirmation.service.ts`, `apps/web/src/components/platform/owner-action-confirm-dialog.tsx`, `packages/prisma/schema.prisma` (`PlatformOwnerActionConfirmation`, `PlatformPermission.requires_owner_confirmation`)
+**Status**: ACTIVE (Platform Dashboard Layer 1.5 Session 1.5C, 2026-05-16)
+
+**Rule**: High-blast platform actions may require the signed-in platform owner to review the target, type the exact confirmation phrase, provide a reason, and pass RBAC. They must not require a second platform user, a fake approval queue, or any `requires_two_person` flag in the solo-operator phase. Future true multi-approver policy must ship as a separate feature flag/session, not as hidden friction in this confirmation primitive.
+
+**Mitigation**: `OwnerActionConfirmationService` validates platform RBAC through `PlatformUsersService`, persists the confirmation payload/reason, writes a blocking platform audit entry, and then executes the registered action. The UI uses `<OwnerActionConfirmDialog>` for destructive surfaces so the friction is explicit and auditable.
+
+**Regression coverage**: `apps/api/src/modules/platform/owner-action-confirmation.service.spec.ts` covers phrase mismatch, missing reason, permission checks, audit-before-execute, registered executor coverage, and executor failure capture.
 
 ---
 

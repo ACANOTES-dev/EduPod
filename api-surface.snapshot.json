@@ -99,6 +99,62 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/action-confirmations",
+    "controller": "OwnerActionConfirmationsController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/action-confirmations",
+    "controller": "OwnerActionConfirmationsController",
+    "module": "platform",
+    "permission": "platform.tenants.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/alert-maintenance-windows",
+    "controller": "MaintenanceWindowsController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alert-maintenance-windows",
+    "controller": "MaintenanceWindowsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alert-maintenance-windows/:id",
+    "controller": "MaintenanceWindowsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/alert-silences",
+    "controller": "AlertSilencesController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alert-silences",
+    "controller": "AlertSilencesController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alert-silences/:id",
+    "controller": "AlertSilencesController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/alerts/history",
     "controller": "AlertHistoryController",
     "module": "platform",

@@ -194,6 +194,7 @@ const alertRuleBaseSchema = z.object({
   severity: alertSeveritySchema,
   cooldown_minutes: z.coerce.number().int().min(1).max(1440).default(15),
   is_enabled: z.boolean().default(true),
+  is_security_critical: z.boolean().default(false),
   notify_emails: z.array(z.string().trim().email()).default([]),
 });
 
@@ -238,6 +239,118 @@ export const alertHistoryQuerySchema = z.object({
 });
 
 export type AlertHistoryQuery = z.infer<typeof alertHistoryQuerySchema>;
+
+// ─── Owner Confirmation + Alert Silencing ───────────────────────────────────
+
+export const ownerActionConfirmationSchema = z.object({
+  action: platformAuditActionSchema,
+  target_resource_type: z.string().trim().min(1).max(60),
+  target_resource_id: z.string().trim().min(1).max(255).optional(),
+  target_tenant_id: z.string().uuid().optional(),
+  payload: z.unknown().default({}),
+  confirmation_phrase: z.string().trim().min(1).max(200),
+  typed_confirmation: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(12).max(4000),
+});
+
+export type OwnerActionConfirmationDto = z.infer<typeof ownerActionConfirmationSchema>;
+
+export const ownerActionConfirmationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type OwnerActionConfirmationQuery = z.infer<typeof ownerActionConfirmationQuerySchema>;
+
+export const alertSilenceScopeSchema = z.enum(['single_rule', 'component', 'global']);
+
+export type AlertSilenceScopeDto = z.infer<typeof alertSilenceScopeSchema>;
+
+export const createAlertSilenceSchema = z
+  .object({
+    scope: alertSilenceScopeSchema,
+    alert_rule_id: z.string().uuid().optional(),
+    component: alertComponentSchema.optional(),
+    reason: z.string().trim().min(12).max(4000),
+    starts_at: z.coerce.date().optional(),
+    ends_at: z.coerce.date(),
+  })
+  .superRefine((value, ctx) => {
+    const startsAt = value.starts_at ?? new Date();
+    if (value.ends_at <= startsAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'End time must be after start time',
+        path: ['ends_at'],
+      });
+    }
+    if (value.scope === 'single_rule' && !value.alert_rule_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Alert rule is required for single-rule silences',
+        path: ['alert_rule_id'],
+      });
+    }
+    if (value.scope === 'component' && !value.component) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Component is required for component silences',
+        path: ['component'],
+      });
+    }
+    if (value.scope === 'global' && (value.alert_rule_id || value.component)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Global silences cannot target a rule or component',
+        path: ['scope'],
+      });
+    }
+  });
+
+export type CreateAlertSilenceDto = z.infer<typeof createAlertSilenceSchema>;
+
+export const removeAlertSilenceSchema = z.object({
+  reason: z.string().trim().min(12).max(4000),
+});
+
+export type RemoveAlertSilenceDto = z.infer<typeof removeAlertSilenceSchema>;
+
+export const alertSilenceQuerySchema = z.object({
+  include_expired: z.coerce.boolean().default(false),
+});
+
+export type AlertSilenceQuery = z.infer<typeof alertSilenceQuerySchema>;
+
+export const createAlertMaintenanceWindowSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(4000).optional(),
+    starts_at: z.coerce.date(),
+    ends_at: z.coerce.date(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.ends_at <= value.starts_at) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'End time must be after start time',
+        path: ['ends_at'],
+      });
+    }
+  });
+
+export type CreateAlertMaintenanceWindowDto = z.infer<typeof createAlertMaintenanceWindowSchema>;
+
+export const cancelAlertMaintenanceWindowSchema = z.object({
+  reason: z.string().trim().min(12).max(4000),
+});
+
+export type CancelAlertMaintenanceWindowDto = z.infer<typeof cancelAlertMaintenanceWindowSchema>;
+
+export const alertMaintenanceWindowQuerySchema = z.object({
+  include_past: z.coerce.boolean().default(false),
+});
+
+export type AlertMaintenanceWindowQuery = z.infer<typeof alertMaintenanceWindowQuerySchema>;
 
 // ─── Tenant Onboarding ───────────────────────────────────────────────────────
 

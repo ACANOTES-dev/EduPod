@@ -148,6 +148,14 @@ enum PlatformAuditAction {
   @@map("platform_audit_action")
 }
 
+enum PlatformAlertSilenceScope {
+  single_rule
+  component
+  global
+
+  @@map("platform_alert_silence_scope")
+}
+
 enum PlatformErrorRedactionMode {
   none
   pii
@@ -1760,17 +1768,22 @@ model User {
   ai_ask_ai_history           AiAskAiHistory[]             @relation("ai_ask_ai_history")
 
   // Budgeting & Analysis ("Modeling") Foundation Relations (Impl 01)
-  financial_models_created            FinancialModel[]             @relation("financial_model_creator")
-  financial_model_snapshots_published FinancialModelSnapshot[]     @relation("financial_model_snapshot_publisher")
-  event_budgets_created               EventBudget[]                @relation("event_budget_creator")
-  shareable_links_created             ShareableLink[]              @relation("shareable_link_creator")
-  platform_user                       PlatformUser?
-  platform_users_invited              PlatformUser[]               @relation("platform_user_invited_by")
-  platform_roles_granted              PlatformUserRole[]           @relation("platform_role_granted_by")
-  platform_alerts_acknowledged        PlatformAlertHistory[]       @relation("platform_alert_acknowledger")
-  platform_audit_logs                 PlatformAuditLog[]           @relation("platform_audit_actor")
-  platform_error_redaction_rules      PlatformErrorRedactionRule[] @relation("platform_error_redaction_rule_creator")
-  onboarding_steps_completed          TenantOnboardingStep[]       @relation("onboarding_completer")
+  financial_models_created               FinancialModel[]                  @relation("financial_model_creator")
+  financial_model_snapshots_published    FinancialModelSnapshot[]          @relation("financial_model_snapshot_publisher")
+  event_budgets_created                  EventBudget[]                     @relation("event_budget_creator")
+  shareable_links_created                ShareableLink[]                   @relation("shareable_link_creator")
+  platform_user                          PlatformUser?
+  platform_users_invited                 PlatformUser[]                    @relation("platform_user_invited_by")
+  platform_roles_granted                 PlatformUserRole[]                @relation("platform_role_granted_by")
+  platform_alerts_acknowledged           PlatformAlertHistory[]            @relation("platform_alert_acknowledger")
+  platform_audit_logs                    PlatformAuditLog[]                @relation("platform_audit_actor")
+  platform_error_redaction_rules         PlatformErrorRedactionRule[]      @relation("platform_error_redaction_rule_creator")
+  platform_action_confirmations          PlatformOwnerActionConfirmation[] @relation("owner_action_confirmation_actor")
+  platform_alert_silences_created        PlatformAlertSilence[]            @relation("platform_alert_silence_creator")
+  platform_alert_silences_removed        PlatformAlertSilence[]            @relation("platform_alert_silence_remover")
+  platform_maintenance_windows_created   PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_creator")
+  platform_maintenance_windows_cancelled PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_canceller")
+  onboarding_steps_completed             TenantOnboardingStep[]            @relation("onboarding_completer")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -11905,14 +11918,15 @@ model PlatformUserRole {
 }
 
 model PlatformPermission {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  permission_key      String   @unique @db.VarChar(120)
-  display_name        String   @db.VarChar(100)
-  description         String   @db.Text
-  category            String   @db.VarChar(60)
-  is_destructive      Boolean  @default(false)
-  requires_two_person Boolean  @default(false)
-  created_at          DateTime @default(now()) @db.Timestamptz()
+  id                          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  permission_key              String   @unique @db.VarChar(120)
+  display_name                String   @db.VarChar(100)
+  description                 String   @db.Text
+  category                    String   @db.VarChar(60)
+  is_destructive              Boolean  @default(false)
+  requires_owner_confirmation Boolean  @default(false)
+  requires_two_person         Boolean  @default(false) @ignore
+  created_at                  DateTime @default(now()) @db.Timestamptz()
 
   roles PlatformRolePermission[]
 
@@ -11932,42 +11946,117 @@ model PlatformRolePermission {
 }
 
 model PlatformAlertRule {
-  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String                @db.VarChar(255)
-  metric           String                @db.VarChar(100)
-  condition_config Json                  @db.JsonB
-  severity         PlatformAlertSeverity
-  cooldown_minutes Int                   @default(15)
-  is_enabled       Boolean               @default(true)
-  notify_emails    String[]              @default([])
-  created_at       DateTime              @default(now()) @db.Timestamptz()
-  updated_at       DateTime              @default(now()) @updatedAt @db.Timestamptz()
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String                @db.VarChar(255)
+  metric               String                @db.VarChar(100)
+  condition_config     Json                  @db.JsonB
+  severity             PlatformAlertSeverity
+  cooldown_minutes     Int                   @default(15)
+  is_enabled           Boolean               @default(true)
+  is_security_critical Boolean               @default(false)
+  notify_emails        String[]              @default([])
+  created_at           DateTime              @default(now()) @db.Timestamptz()
+  updated_at           DateTime              @default(now()) @updatedAt @db.Timestamptz()
 
-  alerts PlatformAlertHistory[]
+  alerts   PlatformAlertHistory[]
+  silences PlatformAlertSilence[]
 
   @@map("platform_alert_rules")
 }
 
 model PlatformAlertHistory {
-  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  rule_id           String                @db.Uuid
-  severity          PlatformAlertSeverity
-  message           String                @db.Text
-  metric_value      Decimal               @db.Decimal(12, 2)
-  channels_notified String[]              @default([])
-  status            PlatformAlertStatus   @default(fired)
-  fired_at          DateTime              @default(now()) @db.Timestamptz()
-  acknowledged_at   DateTime?             @db.Timestamptz()
-  resolved_at       DateTime?             @db.Timestamptz()
-  acknowledged_by   String?               @db.Uuid
+  id                                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rule_id                             String                @db.Uuid
+  severity                            PlatformAlertSeverity
+  message                             String                @db.Text
+  metric_value                        Decimal               @db.Decimal(12, 2)
+  channels_notified                   String[]              @default([])
+  status                              PlatformAlertStatus   @default(fired)
+  fired_at                            DateTime              @default(now()) @db.Timestamptz()
+  acknowledged_at                     DateTime?             @db.Timestamptz()
+  resolved_at                         DateTime?             @db.Timestamptz()
+  acknowledged_by                     String?               @db.Uuid
+  suppressed_by_silence_id            String?               @db.Uuid
+  suppressed_by_maintenance_window_id String?               @db.Uuid
 
-  acknowledger User?             @relation("platform_alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
-  rule         PlatformAlertRule @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+  acknowledger       User?                      @relation("platform_alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+  maintenance_window PlatformMaintenanceWindow? @relation(fields: [suppressed_by_maintenance_window_id], references: [id], onDelete: SetNull)
+  rule               PlatformAlertRule          @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+  silence            PlatformAlertSilence?      @relation(fields: [suppressed_by_silence_id], references: [id], onDelete: SetNull)
 
   @@index([fired_at(sort: Desc)], map: "idx_platform_alert_history_fired_at")
   @@index([status], map: "idx_platform_alert_history_status")
   @@index([rule_id], map: "idx_platform_alert_history_rule_id")
+  @@index([suppressed_by_silence_id], map: "idx_platform_alert_history_silence")
+  @@index([suppressed_by_maintenance_window_id], map: "idx_platform_alert_history_window")
   @@map("platform_alert_history")
+}
+
+model PlatformOwnerActionConfirmation {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id        String              @db.Uuid
+  action               PlatformAuditAction
+  target_resource_type String              @db.VarChar(60)
+  target_resource_id   String?             @db.VarChar(255)
+  target_tenant_id     String?             @db.Uuid
+  payload_summary      Json                @db.JsonB
+  confirmation_phrase  String              @db.VarChar(200)
+  reason               String              @db.Text
+  confirmed_at         DateTime            @default(now()) @db.Timestamptz()
+  executed_at          DateTime?           @db.Timestamptz()
+  execution_status     String              @default("pending") @db.VarChar(30)
+  execution_result     Json?
+
+  actor User @relation("owner_action_confirmation_actor", fields: [actor_user_id], references: [id], onDelete: Restrict)
+
+  @@index([actor_user_id, confirmed_at(sort: Desc)], map: "idx_owner_confirmations_actor_confirmed")
+  @@index([action, confirmed_at(sort: Desc)], map: "idx_owner_confirmations_action_confirmed")
+  @@index([target_tenant_id, confirmed_at(sort: Desc)], map: "idx_owner_confirmations_tenant_confirmed")
+  @@map("platform_owner_action_confirmations")
+}
+
+model PlatformAlertSilence {
+  id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope              PlatformAlertSilenceScope
+  alert_rule_id      String?                   @db.Uuid
+  component          String?                   @db.VarChar(40)
+  reason             String                    @db.Text
+  starts_at          DateTime                  @default(now()) @db.Timestamptz()
+  ends_at            DateTime                  @db.Timestamptz()
+  created_by_user_id String                    @db.Uuid
+  created_at         DateTime                  @default(now()) @db.Timestamptz()
+  removed_at         DateTime?                 @db.Timestamptz()
+  removed_by_user_id String?                   @db.Uuid
+  removed_reason     String?                   @db.Text
+
+  alert_rule        PlatformAlertRule?     @relation(fields: [alert_rule_id], references: [id], onDelete: Cascade)
+  created_by        User                   @relation("platform_alert_silence_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  removed_by        User?                  @relation("platform_alert_silence_remover", fields: [removed_by_user_id], references: [id], onDelete: SetNull)
+  suppressed_alerts PlatformAlertHistory[]
+
+  @@index([starts_at, ends_at], map: "idx_platform_alert_silences_window")
+  @@index([alert_rule_id], map: "idx_platform_alert_silences_rule")
+  @@index([component], map: "idx_platform_alert_silences_component")
+  @@map("platform_alert_silences")
+}
+
+model PlatformMaintenanceWindow {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                String    @db.VarChar(200)
+  description          String?   @db.Text
+  starts_at            DateTime  @db.Timestamptz()
+  ends_at              DateTime  @db.Timestamptz()
+  created_by_user_id   String    @db.Uuid
+  cancelled_at         DateTime? @db.Timestamptz()
+  cancelled_by_user_id String?   @db.Uuid
+  created_at           DateTime  @default(now()) @db.Timestamptz()
+
+  cancelled_by      User?                  @relation("platform_maintenance_window_canceller", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
+  created_by        User                   @relation("platform_maintenance_window_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  suppressed_alerts PlatformAlertHistory[]
+
+  @@index([starts_at, ends_at], map: "idx_platform_maintenance_windows_window")
+  @@map("platform_maintenance_windows")
 }
 
 model PlatformAuditLog {

@@ -35,7 +35,7 @@ type PlatformPermissionRow = {
   id: string;
   is_destructive: boolean;
   permission_key: string;
-  requires_two_person: boolean;
+  requires_owner_confirmation: boolean;
 };
 
 export type PlatformUserListRow = {
@@ -426,7 +426,7 @@ export class PlatformUsersService {
                   id: true,
                   is_destructive: true,
                   permission_key: true,
-                  requires_two_person: true,
+                  requires_owner_confirmation: true,
                 },
               },
             },
@@ -445,7 +445,7 @@ export class PlatformUsersService {
           id: true,
           is_destructive: true,
           permission_key: true,
-          requires_two_person: true,
+          requires_owner_confirmation: true,
         },
       }),
     ]);

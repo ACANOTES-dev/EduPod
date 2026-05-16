@@ -107,8 +107,10 @@ export default function PlatformPermissionsPage() {
                             {permission.is_destructive ? (
                               <Badge className="bg-danger-bg text-danger-text">Destructive</Badge>
                             ) : null}
-                            {permission.requires_two_person ? (
-                              <Badge className="bg-warning-bg text-warning-text">Two person</Badge>
+                            {permission.requires_owner_confirmation ? (
+                              <Badge className="bg-warning-bg text-warning-text">
+                                Owner confirmation
+                              </Badge>
                             ) : null}
                           </div>
                         </td>

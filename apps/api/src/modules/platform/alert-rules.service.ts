@@ -35,6 +35,7 @@ export class AlertRulesService {
         severity: dto.severity,
         cooldown_minutes: dto.cooldown_minutes,
         is_enabled: dto.is_enabled,
+        is_security_critical: dto.is_security_critical,
         notify_emails: dto.notify_emails,
       },
     });
@@ -71,6 +72,8 @@ export class AlertRulesService {
     if (dto.severity !== undefined) data.severity = dto.severity;
     if (dto.cooldown_minutes !== undefined) data.cooldown_minutes = dto.cooldown_minutes;
     if (dto.is_enabled !== undefined) data.is_enabled = dto.is_enabled;
+    if (dto.is_security_critical !== undefined)
+      data.is_security_critical = dto.is_security_critical;
     if (dto.notify_emails !== undefined) data.notify_emails = dto.notify_emails;
 
     const updated = await this.prisma.platformAlertRule.update({

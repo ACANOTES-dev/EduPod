@@ -20,6 +20,7 @@ const RULE_BODY: CreateAlertRuleDto = {
   severity: 'critical',
   cooldown_minutes: 15,
   is_enabled: true,
+  is_security_critical: false,
   notify_emails: ['ops@example.com'],
 };
 const mockUser: JwtPayload = {

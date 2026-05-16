@@ -18,6 +18,7 @@ import * as React from 'react';
 import { Button, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { OwnerActionConfirmDialog } from '@/components/platform/owner-action-confirm-dialog';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -157,32 +158,6 @@ export default function QueueAdminPage() {
         console.error('[QueueAdmin.retryJob]', err);
         const e = err as { error?: { message?: string } };
         toast.error(e?.error?.message ?? 'Could not retry job.');
-      } finally {
-        setBusyJob(null);
-      }
-    },
-    [loadQueue, pagesByQueue],
-  );
-
-  // ── Delete ───────────────────────────────────────────────────────────────
-  const deleteJob = React.useCallback(
-    async (queue: string, jobId: string | number) => {
-      const confirmed = window.confirm(
-        `Delete failed job "${jobId}" from queue "${queue}"? This cannot be undone.`,
-      );
-      if (!confirmed) return;
-      setBusyJob(String(jobId));
-      try {
-        await apiClient(`/api/v1/admin/queues/${encodeURIComponent(queue)}/failed/${jobId}`, {
-          method: 'DELETE',
-        });
-        toast.success('Job deleted.');
-        await loadQueue(queue, pagesByQueue[queue] ?? 1);
-        setReloadKey((k) => k + 1);
-      } catch (err) {
-        console.error('[QueueAdmin.deleteJob]', err);
-        const e = err as { error?: { message?: string } };
-        toast.error(e?.error?.message ?? 'Could not delete job.');
       } finally {
         setBusyJob(null);
       }
@@ -380,16 +355,30 @@ export default function QueueAdminPage() {
                                     <RotateCcw className="me-1.5 h-3.5 w-3.5" />
                                     Retry
                                   </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="destructive"
-                                    disabled={busyJob === String(job.id)}
-                                    onClick={() => void deleteJob(row.queue, job.id)}
+                                  <OwnerActionConfirmDialog
+                                    action="job_removed"
+                                    confirmationPhrase={`DELETE JOB ${String(job.id)}`}
+                                    payload={{ queue: row.queue, job_id: String(job.id) }}
+                                    summary="This permanently discards the failed job from BullMQ."
+                                    targetLabel={`${row.queue} / ${String(job.id)}`}
+                                    targetResourceId={String(job.id)}
+                                    targetResourceType="queue_job"
+                                    title="Delete failed job"
+                                    onExecuted={async () => {
+                                      await loadQueue(row.queue, pagesByQueue[row.queue] ?? 1);
+                                      setReloadKey((k) => k + 1);
+                                    }}
                                   >
-                                    <Trash2 className="me-1.5 h-3.5 w-3.5" />
-                                    Delete
-                                  </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={busyJob === String(job.id)}
+                                    >
+                                      <Trash2 className="me-1.5 h-3.5 w-3.5" />
+                                      Delete
+                                    </Button>
+                                  </OwnerActionConfirmDialog>
                                 </div>
                               </div>
                             </li>

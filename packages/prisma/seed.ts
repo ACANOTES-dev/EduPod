@@ -195,7 +195,7 @@ async function main() {
           display_name: perm.display_name,
           description: perm.description,
           is_destructive: perm.is_destructive ?? false,
-          requires_two_person: perm.requires_two_person ?? false,
+          requires_owner_confirmation: perm.requires_owner_confirmation ?? false,
         },
         create: {
           permission_key: perm.key,
@@ -203,7 +203,7 @@ async function main() {
           display_name: perm.display_name,
           description: perm.description,
           is_destructive: perm.is_destructive ?? false,
-          requires_two_person: perm.requires_two_person ?? false,
+          requires_owner_confirmation: perm.requires_owner_confirmation ?? false,
         },
       });
       platformPermissionIds.set(perm.key, permission.id);
