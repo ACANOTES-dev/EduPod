@@ -461,18 +461,37 @@ In the platform admin morph-shell sub-strip:
 
 ## Acceptance
 
-- [ ] Migration runs in dev + paralleltest + production. Backfill creates one `platform_users` row per existing Redis set member.
-- [ ] `platform_roles` seeded with `platform_owner` and `platform_support`. Permissions seeded per the catalogue above.
-- [ ] `PlatformRoleGuard` exists and replaces `PlatformOwnerGuard` everywhere.
-- [ ] Static-analysis test passes (zero violations).
-- [ ] Session 0 auth check uses the new tables; existing platform_owner can still log in at `dua.edupod.app/login`.
-- [ ] Solo-owner flow works end-to-end with only Ram's platform_owner account; no second platform account is required.
-- [ ] Platform_support invitation flow is implemented if already in scope, but the dashboard does not depend on it for any approval or execution path.
-- [ ] `platform_owner` cannot revoke their own owner role; clean error in the UI.
-- [ ] Frontend: `/admin/users`, `/admin/users/[id]`, `/admin/permissions` pages render and respect role-based visibility.
-- [ ] All Layer 1 functionality continues to work for the existing operator (Ram). No regressions.
-- [ ] `docs/architecture/danger-zones.md` gains DZ-PA-1 (default-deny on missing platform_users / role row).
-- [ ] `docs/architecture/feature-map.md` gains a "Platform Users + RBAC" entry under §29 (Platform Admin & Operations).
+- [x] Migration runs in dev + paralleltest + production. Backfill creates one `platform_users` row per existing Redis set member.
+- [x] `platform_roles` seeded with `platform_owner` and `platform_support`. Permissions seeded per the catalogue above.
+- [x] `PlatformRoleGuard` exists and replaces `PlatformOwnerGuard` everywhere.
+- [x] Static-analysis test passes (zero violations).
+- [x] Session 0 auth check uses the new tables; existing platform_owner can still log in at `dua.edupod.app/login`.
+- [x] Solo-owner flow works end-to-end with only Ram's platform_owner account; no second platform account is required.
+- [x] Platform_support invitation flow is implemented if already in scope, but the dashboard does not depend on it for any approval or execution path.
+- [x] `platform_owner` cannot revoke their own owner role; clean error in the UI.
+- [x] Frontend: `/admin/users`, `/admin/users/[id]`, `/admin/permissions` pages render and respect role-based visibility.
+- [x] All Layer 1 functionality continues to work for the existing operator (Ram). No regressions.
+- [x] `docs/architecture/danger-zones.md` gains DZ-PA-1 (default-deny on missing platform_users / role row).
+- [x] `docs/architecture/feature-map.md` gains a "Platform Users + RBAC" entry under §29 (Platform Admin & Operations).
+
+---
+
+## Commits / CI / Notes
+
+- Commits:
+  - `cee1979c` — `feat(platform): add relational platform RBAC`
+  - `af625d31` — `ci: serialize type checks`
+  - `3ca347bb` — `ci(api): type-check production sources`
+  - `945dd8ba` — `fix(platform): verify platform RBAC backfill`
+  - `2d266fd7` — `fix(platform): count dashboard memberships through RLS`
+  - `67b94e93` — `docs(platform): close session 1.5A`
+- CI:
+  - Failed, superseded: https://github.com/ACANOTES-dev/EduPod/actions/runs/25955681081 (`cee1979c`; API type-check worker OOM)
+  - Failed, superseded: https://github.com/ACANOTES-dev/EduPod/actions/runs/25955992396 (`af625d31`; API type-check worker OOM)
+  - Green/deployed: https://github.com/ACANOTES-dev/EduPod/actions/runs/25956262655 (`3ca347bb`)
+  - Green/deployed: https://github.com/ACANOTES-dev/EduPod/actions/runs/25956648003 (`945dd8ba`)
+  - Green/deployed: https://github.com/ACANOTES-dev/EduPod/actions/runs/25956933809 (`2d266fd7`)
+- Production smoke: 2026-05-16 passed on `https://dua.edupod.app`. Verified platform-admin login, `platform_owner` role and permission hydration, dashboard, tenant list/detail, tenant onboarding, health, alerts, platform users, and permissions. Browser smoke also verified `/en/admin`, `/en/admin/users`, `/en/admin/permissions`, `/en/admin/tenants`, a tenant detail page with onboarding, `/en/admin/health`, and `/en/admin/alerts`.
 
 ---
 
