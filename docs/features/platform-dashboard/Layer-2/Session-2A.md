@@ -528,15 +528,25 @@ describe('AlertEvaluationService — evaluateCondition', () => {
 
 ## 8. Acceptance Criteria
 
-- [ ] `platform_alert_rules` table has `condition_config`, `severity`, `cooldown_minutes` columns
-- [ ] Creating a rule with `metric: 'queue_depth'` without `condition_config.queue` returns 400
-- [ ] Creating a rule with `metric: 'health_status'` without `condition_config.component` returns 400
-- [ ] All CRUD operations work: create, list, update, delete, toggle
-- [ ] Evaluation loop reads `condition_config` and applies operator/threshold correctly
-- [ ] Cooldown is respected -- rule does not re-fire within cooldown window
-- [ ] Frontend rules page lists all rules with severity badges and human-readable conditions
-- [ ] Create/edit dialog shows conditional fields (queue dropdown for queue metrics, component dropdown for health metrics)
-- [ ] Form validation matches Zod schema -- frontend prevents invalid submissions
-- [ ] Channel assignment checkboxes are visible (greyed out if no channels configured yet -- full functionality in 2B)
-- [ ] All tests pass: `turbo test --filter=api`
-- [ ] `turbo lint` and `turbo type-check` pass with zero errors
+- [x] `platform_alert_rules` table has `condition_config`, `severity`, `cooldown_minutes` columns
+- [x] Creating a rule with `metric: 'queue_depth'` without `condition_config.queue` returns 400
+- [x] Creating a rule with `metric: 'health_status'` without `condition_config.component` returns 400
+- [x] All CRUD operations work: create, list, update, delete, toggle
+- [x] Evaluation loop reads `condition_config` and applies operator/threshold correctly
+- [x] Cooldown is respected -- rule does not re-fire within cooldown window
+- [x] Frontend rules page lists all rules with severity badges and human-readable conditions
+- [x] Create/edit dialog shows conditional fields (queue dropdown for queue metrics, component dropdown for health metrics)
+- [x] Form validation matches Zod schema -- frontend prevents invalid submissions
+- [x] Channel assignment checkboxes are visible (greyed out if no channels configured yet -- full functionality in 2B)
+- [x] All tests pass: `turbo test --filter=api`
+- [x] `turbo lint` and `turbo type-check` pass with zero errors
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `84837f12a2b1f142c6d72c657a140191357248d4`
+- CI/deploy run: https://github.com/ACANOTES-dev/EduPod/actions/runs/25965717542
+- Production smoke: 2026-05-16, passed on https://dua.edupod.app after CI deploy.
+- Verification notes: local targeted alert-rule/evaluation/silence/maintenance tests passed, broad platform regression tests passed, `pnpm test`, `pnpm validate:fast`, and `pnpm build` passed. Lint/type-check completed with no errors; lint retained existing warnings only.
+- Schema note: `condition_config`, `severity`, and `cooldown_minutes` were already present from accepted prior platform dashboard sessions, so Session 2A reused the existing migration state rather than adding a duplicate migration.
