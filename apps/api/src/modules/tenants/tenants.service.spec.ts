@@ -16,6 +16,11 @@ import { RedisService } from '../redis/redis.service';
 
 import { TenantsService } from './tenants.service';
 
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn((prisma) => prisma),
+  runWithRlsContext: jest.fn((prisma, _context, fn) => prisma.$transaction(fn)),
+}));
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -79,9 +84,11 @@ const mockPrisma = {
   },
   tenantBranding: {
     create: jest.fn(),
+    findUnique: jest.fn(),
   },
   tenantSetting: {
     create: jest.fn(),
+    findUnique: jest.fn(),
   },
   tenantModule: {
     create: jest.fn(),
@@ -94,6 +101,7 @@ const mockPrisma = {
   },
   tenantSequence: {
     create: jest.fn(),
+    findMany: jest.fn(),
   },
   role: {
     create: jest.fn(),
@@ -180,6 +188,13 @@ describe('TenantsService', () => {
     mockPipelineInstance.del.mockReturnThis();
     mockPipelineInstance.exec.mockResolvedValue([]);
     mockRedisClient.pipeline.mockReturnValue(mockPipelineInstance);
+    mockPrisma.tenantDomain.findMany.mockResolvedValue([]);
+    mockPrisma.tenantBranding.findUnique.mockResolvedValue(null);
+    mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+    mockPrisma.tenantModule.findMany.mockResolvedValue([]);
+    mockPrisma.tenantSequence.findMany.mockResolvedValue([]);
+    mockPrisma.tenantMembership.count.mockResolvedValue(0);
+    mockPrisma.tenantOnboardingStep.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -275,11 +290,16 @@ describe('TenantsService', () => {
 
       mockPrisma.tenant.create.mockResolvedValue(createdTenant);
       mockPrisma.tenantDomain.create.mockResolvedValue({});
+      mockPrisma.tenantDomain.findMany.mockResolvedValueOnce(fullTenantWithIncludes.domains);
       mockPrisma.tenantBranding.create.mockResolvedValue({});
+      mockPrisma.tenantBranding.findUnique.mockResolvedValueOnce(fullTenantWithIncludes.branding);
       mockPrisma.tenantSetting.create.mockResolvedValue({});
+      mockPrisma.tenantSetting.findUnique.mockResolvedValueOnce(fullTenantWithIncludes.settings);
       mockPrisma.tenantModule.create.mockResolvedValue({});
+      mockPrisma.tenantModule.findMany.mockResolvedValueOnce(fullTenantWithIncludes.modules);
       mockPrisma.tenantNotificationSetting.create.mockResolvedValue({});
       mockPrisma.tenantSequence.create.mockResolvedValue({});
+      mockPrisma.tenantSequence.findMany.mockResolvedValueOnce(fullTenantWithIncludes.sequences);
       mockPrisma.role.create.mockResolvedValue({ id: 'role-id' });
       mockPrisma.rolePermission.create.mockResolvedValue({});
       mockPrisma.permission.findMany.mockResolvedValue([]);
@@ -595,7 +615,17 @@ describe('TenantsService', () => {
       const result = await service.listTenants({ page: 1, pageSize: 20 });
 
       expect(result).toEqual({
-        data: [{ id: TENANT_ID, name: 'School A', status: 'active', onboarding: null }],
+        data: [
+          {
+            id: TENANT_ID,
+            name: 'School A',
+            status: 'active',
+            domains: [],
+            branding: null,
+            _count: { memberships: 0 },
+            onboarding: null,
+          },
+        ],
         meta: { page: 1, pageSize: 20, total: 1 },
       });
       expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith(
@@ -724,29 +754,27 @@ describe('TenantsService', () => {
       const tenant = {
         id: TENANT_ID,
         name: 'School',
-        branding: {},
-        settings: {},
+      };
+      const branding = { tenant_id: TENANT_ID, school_name_display: 'School' };
+      const settings = { tenant_id: TENANT_ID, settings: {} };
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
+      mockPrisma.tenantBranding.findUnique.mockResolvedValueOnce(branding);
+      mockPrisma.tenantSetting.findUnique.mockResolvedValueOnce(settings);
+      mockPrisma.tenantMembership.count.mockResolvedValueOnce(5);
+
+      const result = await service.getTenant(TENANT_ID);
+
+      expect(result).toEqual({
+        ...tenant,
+        branding,
+        settings,
         modules: [],
         domains: [],
         sequences: [],
         _count: { memberships: 5 },
-      };
-      mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
-
-      const result = await service.getTenant(TENANT_ID);
-
-      expect(result).toEqual(tenant);
+      });
       expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: TENANT_ID },
-          include: expect.objectContaining({
-            branding: true,
-            settings: true,
-            modules: true,
-            domains: true,
-            sequences: true,
-          }),
-        }),
+        expect.objectContaining({ where: { id: TENANT_ID } }),
       );
     });
 

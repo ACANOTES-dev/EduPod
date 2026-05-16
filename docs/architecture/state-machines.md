@@ -682,7 +682,6 @@ archived*
 ### BillingStatus
 
 ```
-trial      -> [active, past_due, cancelled]
 active     -> [past_due, cancelled]
 past_due   -> [active, cancelled]
 cancelled*

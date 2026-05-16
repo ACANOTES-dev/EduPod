@@ -21,6 +21,7 @@ import {
   type RoleTier,
 } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { TenantModuleCacheBusService } from '../../common/services/tenant-module-cache-bus.service';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
@@ -349,28 +350,24 @@ export class TenantsService {
     const sortField = sort || 'created_at';
     orderBy[sortField] = order || 'desc';
 
-    const [data, total] = await Promise.all([
+    const [tenants, total] = await Promise.all([
       this.prisma.tenant.findMany({
         where,
         skip,
         take: pageSize,
         orderBy,
-        include: {
-          domains: true,
-          branding: true,
-          _count: {
-            select: { memberships: true },
-          },
-        },
       }),
       this.prisma.tenant.count({ where }),
     ]);
 
     const tenantsWithOnboarding = await Promise.all(
-      data.map(async (tenant) => ({
-        ...tenant,
-        onboarding: await this.getOnboardingSummary(tenant.id),
-      })),
+      tenants.map(async (tenant) => {
+        const relations = await this.getTenantListRelations(tenant.id);
+        return {
+          ...tenant,
+          ...relations,
+        };
+      }),
     );
 
     return {
@@ -385,16 +382,6 @@ export class TenantsService {
   async getTenant(id: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id },
-      include: {
-        branding: true,
-        settings: true,
-        modules: true,
-        domains: true,
-        sequences: true,
-        _count: {
-          select: { memberships: true },
-        },
-      },
     });
 
     if (!tenant) {
@@ -404,7 +391,8 @@ export class TenantsService {
       });
     }
 
-    return tenant;
+    const relations = await this.getTenantDetailRelations(id);
+    return { ...tenant, ...relations };
   }
 
   async getTenantLocaleConfig(id: string): Promise<{
@@ -826,11 +814,9 @@ export class TenantsService {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  private async getOnboardingSummary(tenantId: string): Promise<TenantOnboardingSummary | null> {
-    const steps = await this.prisma.tenantOnboardingStep.findMany({
-      where: { tenant_id: tenantId },
-      select: { status: true },
-    });
+  private summarizeOnboardingSteps(
+    steps: Array<{ status: string }>,
+  ): TenantOnboardingSummary | null {
     const total = steps.length;
     if (total === 0) return null;
 
@@ -840,6 +826,55 @@ export class TenantsService {
       completed,
       percent_complete: Math.round((completed / total) * 100),
     };
+  }
+
+  private async getTenantListRelations(tenantId: string) {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      const [domains, branding, memberships, onboardingSteps] = await Promise.all([
+        db.tenantDomain.findMany({ where: { tenant_id: tenantId } }),
+        db.tenantBranding.findUnique({ where: { tenant_id: tenantId } }),
+        db.tenantMembership.count({ where: { tenant_id: tenantId } }),
+        db.tenantOnboardingStep.findMany({
+          where: { tenant_id: tenantId },
+          select: { status: true },
+        }),
+      ]);
+
+      return {
+        domains,
+        branding,
+        _count: { memberships },
+        onboarding: this.summarizeOnboardingSteps(onboardingSteps),
+      };
+    });
+  }
+
+  private async getTenantDetailRelations(tenantId: string) {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      const [branding, settings, modules, domains, sequences, memberships] = await Promise.all([
+        db.tenantBranding.findUnique({ where: { tenant_id: tenantId } }),
+        db.tenantSetting.findUnique({ where: { tenant_id: tenantId } }),
+        db.tenantModule.findMany({ where: { tenant_id: tenantId } }),
+        db.tenantDomain.findMany({ where: { tenant_id: tenantId } }),
+        db.tenantSequence.findMany({ where: { tenant_id: tenantId } }),
+        db.tenantMembership.count({ where: { tenant_id: tenantId } }),
+      ]);
+
+      return {
+        branding,
+        settings,
+        modules,
+        domains,
+        sequences,
+        _count: { memberships },
+      };
+    });
   }
 
   /**
