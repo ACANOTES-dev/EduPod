@@ -3,8 +3,8 @@ import { Prisma, type TenantOnboardingStep } from '@prisma/client';
 
 import type { UpdateOnboardingStepDto } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { RedisPubSubService } from './redis-pubsub.service';
@@ -199,7 +199,6 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisPubSub: RedisPubSubService,
-    private readonly rbacReadFacade: RbacReadFacade,
     private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
@@ -362,13 +361,24 @@ export class OnboardingService {
     });
     if (!ownerStep) return;
 
-    const [principalUserIds, ownerUserIds] = await Promise.all([
-      this.rbacReadFacade.findActiveUserIdsByRoleKey(tenantId, 'school_principal'),
-      this.rbacReadFacade.findActiveUserIdsByRoleKey(tenantId, 'school_owner'),
-    ]);
-    if (principalUserIds.length > 0 || ownerUserIds.length > 0) {
+    if (await this.tenantHasActiveOwnerMembership(tenantId)) {
       await this.autoCompleteStep(tenantId, 'owner_account_created');
     }
+  }
+
+  private async tenantHasActiveOwnerMembership(tenantId: string): Promise<boolean> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const membershipRole = await tx.membershipRole.findFirst({
+        where: {
+          tenant_id: tenantId,
+          role: { role_key: { in: ['school_principal', 'school_owner'] } },
+          membership: { membership_status: 'active' },
+        },
+        select: { membership_id: true },
+      });
+      return membershipRole !== null;
+    });
   }
 
   private buildSummary(steps: TenantOnboardingStep[]): OnboardingSummary {

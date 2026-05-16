@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import {
@@ -12,9 +12,14 @@ import {
 } from './onboarding.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn(),
+}));
+
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 const STEP_ID = '22222222-2222-4222-8222-222222222222';
 const USER_ID = '33333333-3333-4333-8333-333333333333';
+const mockCreateRlsClient = createRlsClient as jest.Mock;
 
 function buildStep(
   overrides: Partial<OnboardingStepWithCompleter> = {},
@@ -53,6 +58,9 @@ function buildMockPrisma() {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    membershipRole: {
+      findFirst: jest.fn(),
+    },
   };
 }
 
@@ -60,25 +68,23 @@ describe('OnboardingService', () => {
   let service: OnboardingService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedisPubSub: { publish: jest.Mock };
-  let mockRbacReadFacade: { findActiveUserIdsByRoleKey: jest.Mock };
   let mockTenantReadFacade: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedisPubSub = { publish: jest.fn().mockResolvedValue(undefined) };
-    mockRbacReadFacade = {
-      findActiveUserIdsByRoleKey: jest.fn().mockResolvedValue([]),
-    };
     mockTenantReadFacade = {
       existsOrThrow: jest.fn().mockResolvedValue(undefined),
     };
+    mockCreateRlsClient.mockReturnValue({
+      $transaction: jest.fn((callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma)),
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OnboardingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisPubSubService, useValue: mockRedisPubSub },
-        { provide: RbacReadFacade, useValue: mockRbacReadFacade },
         { provide: TenantReadFacade, useValue: mockTenantReadFacade },
       ],
     }).compile();
@@ -232,9 +238,7 @@ describe('OnboardingService', () => {
     mockPrisma.tenantOnboardingStep.findFirst
       .mockResolvedValueOnce({ id: STEP_ID })
       .mockResolvedValueOnce(buildStep({ step_key: 'owner_account_created', is_auto: true }));
-    mockRbacReadFacade.findActiveUserIdsByRoleKey
-      .mockResolvedValueOnce([USER_ID])
-      .mockResolvedValueOnce([]);
+    mockPrisma.membershipRole.findFirst.mockResolvedValueOnce({ membership_id: 'membership-1' });
     mockPrisma.tenantOnboardingStep.update.mockResolvedValueOnce(
       buildStep({ step_key: 'owner_account_created', status: 'completed' }),
     );
@@ -244,9 +248,14 @@ describe('OnboardingService', () => {
 
     await service.getForTenant(TENANT_ID);
 
-    expect(mockRbacReadFacade.findActiveUserIdsByRoleKey).toHaveBeenCalledWith(
-      TENANT_ID,
-      'school_principal',
+    expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
+    expect(mockPrisma.membershipRole.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          role: { role_key: { in: ['school_principal', 'school_owner'] } },
+        }),
+      }),
     );
     expect(mockPrisma.tenantOnboardingStep.update).toHaveBeenCalledWith(
       expect.objectContaining({
