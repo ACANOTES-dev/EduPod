@@ -27,6 +27,7 @@ export interface PlatformAlertRule {
   is_enabled: boolean;
   is_security_critical: boolean;
   notify_emails: string[];
+  channel_ids: string[];
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +99,11 @@ export function AlertRuleList({
                   <p className="mt-1 text-xs text-text-tertiary">
                     Cooldown {rule.cooldown_minutes} min · {rule.notify_emails.length} email
                     recipient{rule.notify_emails.length === 1 ? '' : 's'}
+                    {rule.channel_ids.length > 0
+                      ? ` · ${rule.channel_ids.length} channel${
+                          rule.channel_ids.length === 1 ? '' : 's'
+                        }`
+                      : ''}
                     {rule.is_security_critical ? ' · security critical' : ''}
                   </p>
                 </div>

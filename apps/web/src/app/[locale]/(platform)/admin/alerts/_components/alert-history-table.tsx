@@ -60,12 +60,13 @@ export function AlertHistoryTable({
   return (
     <div className="rounded-lg border border-border bg-surface">
       <div className="overflow-x-auto">
-        <table className="min-w-[860px] w-full text-sm">
+        <table className="min-w-[980px] w-full text-sm">
           <thead className="border-b border-border bg-surface-secondary text-xs uppercase text-text-tertiary">
             <tr>
               <th className="px-4 py-3 text-start font-semibold">Severity</th>
               <th className="px-4 py-3 text-start font-semibold">Rule</th>
               <th className="px-4 py-3 text-start font-semibold">Message</th>
+              <th className="px-4 py-3 text-start font-semibold">Channels</th>
               <th className="px-4 py-3 text-start font-semibold">Fired</th>
               <th className="px-4 py-3 text-start font-semibold">Status</th>
               <th className="px-4 py-3 text-end font-semibold">Actions</th>
@@ -75,14 +76,14 @@ export function AlertHistoryTable({
             {loading ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <tr key={index} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3" colSpan={6}>
+                  <td className="px-4 py-3" colSpan={7}>
                     <Skeleton className="h-8 w-full rounded-md" />
                   </td>
                 </tr>
               ))
             ) : alerts.length === 0 ? (
               <tr>
-                <td className="px-4 py-10 text-center text-sm text-text-secondary" colSpan={6}>
+                <td className="px-4 py-10 text-center text-sm text-text-secondary" colSpan={7}>
                   No alerts have fired yet.
                 </td>
               </tr>
@@ -100,6 +101,22 @@ export function AlertHistoryTable({
                     <span className="block truncate" title={alert.message}>
                       {alert.message}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {alert.channels_notified.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {alert.channels_notified.map((channel, index) => (
+                          <span
+                            key={`${alert.id}-${channel}-${index}`}
+                            className="rounded-full bg-surface-secondary px-2 py-1 text-xs capitalize text-text-secondary"
+                          >
+                            {channel}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-text-tertiary">None</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-text-secondary">
                     <time dateTime={alert.fired_at}>{formatRelativeTime(alert.fired_at)}</time>

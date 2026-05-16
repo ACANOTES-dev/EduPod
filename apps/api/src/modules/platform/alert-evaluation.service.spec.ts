@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
 import { AlertSilenceService } from './alert-silence.service';
+import { ChannelDispatchService } from './channel-dispatch.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
@@ -83,6 +84,16 @@ const FIRED_ALERT = {
   suppressed_by_maintenance_window_id: null,
 };
 
+const EMAIL_CHANNEL = {
+  id: '33333333-3333-4333-8333-333333333333',
+  name: 'Ops email',
+  type: 'email',
+  config: { recipients: ['ops@example.com'] },
+  is_enabled: true,
+  created_at: new Date('2026-05-15T09:00:00.000Z'),
+  updated_at: new Date('2026-05-15T09:00:00.000Z'),
+};
+
 function buildMockPrisma() {
   return {
     platformAlertHistory: {
@@ -91,6 +102,9 @@ function buildMockPrisma() {
       update: jest.fn(),
     },
     platformAlertRule: {
+      findMany: jest.fn(),
+    },
+    platformAlertRuleChannel: {
       findMany: jest.fn(),
     },
     platformErrorLog: {
@@ -107,6 +121,7 @@ describe('AlertEvaluationService', () => {
   let mockDispatch: {
     sendEmail: jest.Mock<Promise<string[]>, [typeof BASE_RULE, typeof FIRED_ALERT, number]>;
   };
+  let mockChannelDispatch: { dispatchAlert: jest.Mock };
   let mockAlertSilenceService: { findActiveSilenceForRule: jest.Mock };
   let mockMaintenanceWindowService: { findActiveWindowForRule: jest.Mock };
 
@@ -119,6 +134,7 @@ describe('AlertEvaluationService', () => {
     mockPrisma.platformAlertHistory.findFirst.mockResolvedValue(null);
     mockPrisma.platformAlertHistory.create.mockResolvedValue(FIRED_ALERT);
     mockPrisma.platformAlertHistory.update.mockResolvedValue(FIRED_ALERT);
+    mockPrisma.platformAlertRuleChannel.findMany.mockResolvedValue([]);
     mockHealthService = {
       check: jest.fn<Promise<FullHealthResult>, []>().mockResolvedValue(HEALTH_RESULT),
     };
@@ -127,6 +143,9 @@ describe('AlertEvaluationService', () => {
     };
     mockDispatch = {
       sendEmail: jest.fn().mockResolvedValue(['email']),
+    };
+    mockChannelDispatch = {
+      dispatchAlert: jest.fn().mockResolvedValue(['email']),
     };
     mockAlertSilenceService = {
       findActiveSilenceForRule: jest.fn().mockResolvedValue(null),
@@ -142,6 +161,7 @@ describe('AlertEvaluationService', () => {
         { provide: HealthService, useValue: mockHealthService },
         { provide: RedisPubSubService, useValue: mockRedisPubSub },
         { provide: AlertDispatchService, useValue: mockDispatch },
+        { provide: ChannelDispatchService, useValue: mockChannelDispatch },
         { provide: AlertSilenceService, useValue: mockAlertSilenceService },
         { provide: MaintenanceWindowService, useValue: mockMaintenanceWindowService },
       ],
@@ -182,6 +202,28 @@ describe('AlertEvaluationService', () => {
       'platform:alerts',
       expect.objectContaining({ type: 'alert_fired', alert_id: ALERT_ID }),
     );
+  });
+
+  it('dispatches through linked alert channels when configured', async () => {
+    mockPrisma.platformAlertRuleChannel.findMany.mockResolvedValueOnce([
+      { rule_id: RULE_ID, channel_id: EMAIL_CHANNEL.id, channel: EMAIL_CHANNEL },
+    ]);
+
+    await service.evaluate();
+
+    expect(mockChannelDispatch.dispatchAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metric_value: 600,
+        rule_name: BASE_RULE.name,
+        severity: BASE_RULE.severity,
+      }),
+      [EMAIL_CHANNEL],
+    );
+    expect(mockDispatch.sendEmail).not.toHaveBeenCalled();
+    expect(mockPrisma.platformAlertHistory.update).toHaveBeenCalledWith({
+      where: { id: ALERT_ID },
+      data: { channels_notified: ['email'] },
+    });
   });
 
   it('respects cooldown periods', async () => {

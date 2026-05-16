@@ -4,6 +4,7 @@ import {
   Activity,
   Bell,
   BellOff,
+  BellRing,
   Building2,
   CalendarClock,
   ClipboardList,
@@ -206,6 +207,12 @@ function PlatformSidebarNav({
       icon: ListChecks,
       label: 'Alert Rules',
       href: `/${locale}/admin/alerts/rules`,
+      permission: 'platform.alerts.view',
+    },
+    {
+      icon: BellRing,
+      label: 'Alert Channels',
+      href: `/${locale}/admin/alerts/channels`,
       permission: 'platform.alerts.view',
     },
     {

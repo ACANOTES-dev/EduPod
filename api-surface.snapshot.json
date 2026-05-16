@@ -155,6 +155,41 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/alerts/channels",
+    "controller": "AlertChannelsController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/channels",
+    "controller": "AlertChannelsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alerts/channels/:id",
+    "controller": "AlertChannelsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/channels/:id",
+    "controller": "AlertChannelsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/channels/:id/test",
+    "controller": "AlertChannelsController",
+    "module": "platform",
+    "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/alerts/history",
     "controller": "AlertHistoryController",
     "module": "platform",

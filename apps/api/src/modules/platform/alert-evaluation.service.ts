@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertSilenceService } from './alert-silence.service';
+import { ChannelDispatchService } from './channel-dispatch.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
@@ -38,6 +39,7 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     private readonly healthService: HealthService,
     private readonly redisPubSub: RedisPubSubService,
     private readonly alertDispatchService: AlertDispatchService,
+    private readonly channelDispatchService: ChannelDispatchService,
     private readonly alertSilenceService: AlertSilenceService,
     private readonly maintenanceWindowService: MaintenanceWindowService,
   ) {}
@@ -302,7 +304,22 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    const channelsNotified = await this.alertDispatchService.sendEmail(rule, alert, metricValue);
+    const ruleChannels = await this.prisma.platformAlertRuleChannel.findMany({
+      where: { rule_id: rule.id },
+      include: { channel: true },
+    });
+    const channelsNotified =
+      ruleChannels.length > 0
+        ? await this.channelDispatchService.dispatchAlert(
+            {
+              message,
+              metric_value: metricValue,
+              rule_name: rule.name,
+              severity: rule.severity,
+            },
+            ruleChannels.map((ruleChannel) => ruleChannel.channel),
+          )
+        : await this.alertDispatchService.sendEmail(rule, alert, metricValue);
     if (channelsNotified.length > 0) {
       await this.prisma.platformAlertHistory.update({
         where: { id: alert.id },
@@ -318,6 +335,7 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
       severity: rule.severity,
       message,
       metric_value: metricValue,
+      channels_notified: channelsNotified,
       fired_at: alert.fired_at.toISOString(),
     });
 

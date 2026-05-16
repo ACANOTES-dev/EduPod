@@ -77,6 +77,10 @@ export const platformAuditActionSchema = z.enum([
   'alert_rule_updated',
   'alert_rule_disabled',
   'alert_rule_deleted',
+  'alert_channel_created',
+  'alert_channel_updated',
+  'alert_channel_deleted',
+  'alert_channel_tested',
   'platform_error_redaction_rule_created',
   'platform_error_redaction_rule_deleted',
   'platform_error_retention_purged',
@@ -302,6 +306,83 @@ export const toggleAlertRuleSchema = z.object({
 });
 
 export type ToggleAlertRuleDto = z.infer<typeof toggleAlertRuleSchema>;
+
+// ─── Platform Alert Channels ────────────────────────────────────────────────
+
+export const ALERT_CHANNEL_TYPES = ['email', 'telegram', 'whatsapp', 'push'] as const;
+
+export const alertChannelTypeSchema = z.enum(ALERT_CHANNEL_TYPES);
+
+export type AlertChannelTypeDto = z.infer<typeof alertChannelTypeSchema>;
+
+export const emailAlertChannelConfigSchema = z.object({
+  recipients: z.array(z.string().trim().email()).min(1).max(10),
+});
+
+export type EmailAlertChannelConfig = z.infer<typeof emailAlertChannelConfigSchema>;
+
+export const telegramAlertChannelConfigSchema = z.object({
+  bot_token: z.string().trim().min(1),
+  chat_id: z.string().trim().min(1).max(255),
+});
+
+export type TelegramAlertChannelConfig = z.infer<typeof telegramAlertChannelConfigSchema>;
+
+export const whatsappAlertChannelConfigSchema = z.object({
+  to_number: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Must be E.164 format'),
+});
+
+export type WhatsAppAlertChannelConfig = z.infer<typeof whatsappAlertChannelConfigSchema>;
+
+export const pushAlertChannelConfigSchema = z.object({
+  endpoint: z.string().trim().url(),
+  keys: z.object({
+    p256dh: z.string().trim().min(1),
+    auth: z.string().trim().min(1),
+  }),
+});
+
+export type PushAlertChannelConfig = z.infer<typeof pushAlertChannelConfigSchema>;
+
+export const createAlertChannelSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('email'),
+    name: z.string().trim().min(1).max(255),
+    config: emailAlertChannelConfigSchema,
+    is_enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal('telegram'),
+    name: z.string().trim().min(1).max(255),
+    config: telegramAlertChannelConfigSchema,
+    is_enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal('whatsapp'),
+    name: z.string().trim().min(1).max(255),
+    config: whatsappAlertChannelConfigSchema,
+    is_enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal('push'),
+    name: z.string().trim().min(1).max(255),
+    config: pushAlertChannelConfigSchema,
+    is_enabled: z.boolean().default(true),
+  }),
+]);
+
+export type CreateAlertChannelDto = z.infer<typeof createAlertChannelSchema>;
+
+export const updateAlertChannelSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  config: z.record(z.unknown()).optional(),
+  is_enabled: z.boolean().optional(),
+});
+
+export type UpdateAlertChannelDto = z.infer<typeof updateAlertChannelSchema>;
 
 export const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

@@ -3,11 +3,14 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { HealthModule } from '../health/health.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { AlertChannelsController } from './alert-channels.controller';
+import { AlertChannelsService } from './alert-channels.service';
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
 import { AlertHistoryController } from './alert-history.controller';
@@ -16,6 +19,11 @@ import { AlertRulesController } from './alert-rules.controller';
 import { AlertRulesService } from './alert-rules.service';
 import { AlertSilenceService } from './alert-silence.service';
 import { AlertSilencesController } from './alert-silences.controller';
+import { ChannelDispatchService } from './channel-dispatch.service';
+import { EmailAlertDispatcher } from './dispatchers/email-alert.dispatcher';
+import { PushAlertDispatcher } from './dispatchers/push-alert.dispatcher';
+import { TelegramAlertDispatcher } from './dispatchers/telegram-alert.dispatcher';
+import { WhatsAppAlertDispatcher } from './dispatchers/whatsapp-alert.dispatcher';
 import { HealthHistoryController } from './health-history.controller';
 import { HealthSnapshotService } from './health-snapshot.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
@@ -32,6 +40,7 @@ import { PlatformGateway } from './platform.gateway';
     AuthModule,
     BullModule.registerQueue({ name: 'gradebook' }, { name: 'notifications' }),
     CommunicationsModule,
+    ConfigurationModule,
     HealthModule,
     PlatformAuditModule,
     PlatformOnboardingModule,
@@ -41,6 +50,7 @@ import { PlatformGateway } from './platform.gateway';
   ],
   controllers: [
     HealthHistoryController,
+    AlertChannelsController,
     AlertRulesController,
     AlertHistoryController,
     AlertSilencesController,
@@ -51,6 +61,7 @@ import { PlatformGateway } from './platform.gateway';
   providers: [
     PlatformGateway,
     HealthSnapshotService,
+    AlertChannelsService,
     AlertRulesService,
     AlertHistoryService,
     AlertSilenceService,
@@ -58,6 +69,11 @@ import { PlatformGateway } from './platform.gateway';
     OwnerActionConfirmationService,
     AlertEvaluationService,
     AlertDispatchService,
+    ChannelDispatchService,
+    EmailAlertDispatcher,
+    TelegramAlertDispatcher,
+    WhatsAppAlertDispatcher,
+    PushAlertDispatcher,
   ],
   exports: [PlatformOnboardingModule, PlatformRealtimeModule],
 })

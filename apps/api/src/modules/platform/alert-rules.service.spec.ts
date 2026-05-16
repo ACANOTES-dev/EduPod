@@ -40,17 +40,30 @@ const ALERT_RULE = {
   created_at: new Date('2026-05-15T10:00:00.000Z'),
   updated_at: new Date('2026-05-15T10:00:00.000Z'),
 };
+const ALERT_RULE_WITH_CHANNELS = { ...ALERT_RULE, channels: [] };
+const ALERT_RULE_RESPONSE = { ...ALERT_RULE, channel_ids: [] };
 
 function buildMockPrisma() {
-  return {
+  const mock = {
+    $transaction: jest.fn(),
+    platformAlertChannel: {
+      findMany: jest.fn(),
+    },
     platformAlertRule: {
       create: jest.fn(),
       delete: jest.fn(),
       findMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    platformAlertRuleChannel: {
+      createMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
+  mock.$transaction.mockImplementation((callback: (tx: typeof mock) => unknown) => callback(mock));
+  return mock;
 }
 
 describe('AlertRulesService', () => {
@@ -76,19 +89,21 @@ describe('AlertRulesService', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('lists alert rules newest first', async () => {
-    mockPrisma.platformAlertRule.findMany.mockResolvedValueOnce([ALERT_RULE]);
+    mockPrisma.platformAlertRule.findMany.mockResolvedValueOnce([ALERT_RULE_WITH_CHANNELS]);
 
-    await expect(service.list()).resolves.toEqual([ALERT_RULE]);
+    await expect(service.list()).resolves.toEqual([ALERT_RULE_RESPONSE]);
 
     expect(mockPrisma.platformAlertRule.findMany).toHaveBeenCalledWith({
+      include: { channels: { select: { channel_id: true } } },
       orderBy: { created_at: 'desc' },
     });
   });
 
   it('creates an alert rule', async () => {
     mockPrisma.platformAlertRule.create.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.findUniqueOrThrow.mockResolvedValueOnce(ALERT_RULE_WITH_CHANNELS);
 
-    await expect(service.create(CREATE_DTO)).resolves.toEqual(ALERT_RULE);
+    await expect(service.create(CREATE_DTO)).resolves.toEqual(ALERT_RULE_RESPONSE);
 
     expect(mockPrisma.platformAlertRule.create).toHaveBeenCalledWith({
       data: {
@@ -134,6 +149,10 @@ describe('AlertRulesService', () => {
       notify_emails: [],
     };
     mockPrisma.platformAlertRule.create.mockResolvedValueOnce(ruleWithDefaults);
+    mockPrisma.platformAlertRule.findUniqueOrThrow.mockResolvedValueOnce({
+      ...ruleWithDefaults,
+      channels: [],
+    });
 
     await expect(
       service.create({
@@ -141,7 +160,7 @@ describe('AlertRulesService', () => {
         metric: 'health_status',
         condition_config: { component: 'redis', operator: 'gte', threshold: 1 },
       } as CreateAlertRuleDto),
-    ).resolves.toEqual(ruleWithDefaults);
+    ).resolves.toEqual({ ...ruleWithDefaults, channel_ids: [] });
 
     expect(mockPrisma.platformAlertRule.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -155,9 +174,13 @@ describe('AlertRulesService', () => {
   });
 
   it('updates an existing alert rule', async () => {
-    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE_WITH_CHANNELS);
     mockPrisma.platformAlertRule.update.mockResolvedValueOnce({
       ...ALERT_RULE,
+      is_enabled: false,
+    });
+    mockPrisma.platformAlertRule.findUniqueOrThrow.mockResolvedValueOnce({
+      ...ALERT_RULE_WITH_CHANNELS,
       is_enabled: false,
     });
 
@@ -172,7 +195,7 @@ describe('AlertRulesService', () => {
   });
 
   it('rejects updates that would leave queue metrics without a queue', async () => {
-    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE_WITH_CHANNELS);
 
     await expect(service.update(RULE_ID, { metric: 'queue_depth' })).rejects.toBeInstanceOf(
       BadRequestException,
@@ -188,9 +211,13 @@ describe('AlertRulesService', () => {
   });
 
   it('toggles an existing alert rule', async () => {
-    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE_WITH_CHANNELS);
     mockPrisma.platformAlertRule.update.mockResolvedValueOnce({
       ...ALERT_RULE,
+      is_enabled: false,
+    });
+    mockPrisma.platformAlertRule.findUniqueOrThrow.mockResolvedValueOnce({
+      ...ALERT_RULE_WITH_CHANNELS,
       is_enabled: false,
     });
 
@@ -205,7 +232,7 @@ describe('AlertRulesService', () => {
   });
 
   it('deletes an existing alert rule', async () => {
-    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE);
+    mockPrisma.platformAlertRule.findUnique.mockResolvedValueOnce(ALERT_RULE_WITH_CHANNELS);
     mockPrisma.platformAlertRule.delete.mockResolvedValueOnce(ALERT_RULE);
 
     await expect(service.remove(RULE_ID)).resolves.toBeUndefined();

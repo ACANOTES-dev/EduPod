@@ -27,6 +27,7 @@ interface AlertFiredEvent {
   severity: PlatformAlertHistory['severity'];
   message: string;
   metric_value: number;
+  channels_notified?: string[];
   fired_at: string;
 }
 
@@ -85,7 +86,7 @@ function historyRowFromEvent(event: AlertFiredEvent): PlatformAlertHistory {
     severity: event.severity,
     message: event.message,
     metric_value: event.metric_value,
-    channels_notified: [],
+    channels_notified: event.channels_notified ?? [],
     status: 'fired',
     fired_at: event.fired_at,
     acknowledged_at: null,

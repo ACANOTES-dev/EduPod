@@ -134,6 +134,10 @@ enum PlatformAuditAction {
   alert_rule_updated
   alert_rule_disabled
   alert_rule_deleted
+  alert_channel_created
+  alert_channel_updated
+  alert_channel_deleted
+  alert_channel_tested
   platform_error_redaction_rule_created
   platform_error_redaction_rule_deleted
   platform_error_retention_purged
@@ -7464,6 +7468,15 @@ enum PlatformAlertStatus {
   @@map("alert_status")
 }
 
+enum PlatformAlertChannelType {
+  email
+  telegram
+  whatsapp
+  push
+
+  @@map("platform_alert_channel_type")
+}
+
 enum AlertRecipientStatus {
   unseen
   seen
@@ -11959,9 +11972,36 @@ model PlatformAlertRule {
   updated_at           DateTime              @default(now()) @updatedAt @db.Timestamptz()
 
   alerts   PlatformAlertHistory[]
+  channels PlatformAlertRuleChannel[]
   silences PlatformAlertSilence[]
 
   @@map("platform_alert_rules")
+}
+
+model PlatformAlertChannel {
+  id         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String                   @db.VarChar(255)
+  type       PlatformAlertChannelType
+  config     Json                     @db.JsonB
+  is_enabled Boolean                  @default(true)
+  created_at DateTime                 @default(now()) @db.Timestamptz()
+  updated_at DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+
+  rules PlatformAlertRuleChannel[]
+
+  @@map("platform_alert_channels")
+}
+
+model PlatformAlertRuleChannel {
+  rule_id    String @db.Uuid
+  channel_id String @db.Uuid
+
+  channel PlatformAlertChannel @relation(fields: [channel_id], references: [id], onDelete: Cascade)
+  rule    PlatformAlertRule    @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+
+  @@id([rule_id, channel_id])
+  @@index([channel_id], map: "idx_platform_alert_rule_channels_channel")
+  @@map("platform_alert_rule_channels")
 }
 
 model PlatformAlertHistory {

@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import type { PlatformAlertRule } from './alert-rule-list';
 
 interface AlertRuleFormProps {
@@ -36,7 +38,6 @@ interface AlertRuleFormProps {
 }
 
 const COMPONENTS = ['postgresql', 'redis', 'meilisearch', 'bullmq', 'disk'] as const;
-const CHANNEL_PLACEHOLDERS = ['Email', 'Telegram', 'WhatsApp', 'Browser Push'] as const;
 const METRIC_LABELS: Record<(typeof ALERT_METRICS)[number], string> = {
   api_latency_p95: 'API latency p95',
   disk_usage_percent: 'Disk usage percent',
@@ -46,6 +47,13 @@ const METRIC_LABELS: Record<(typeof ALERT_METRICS)[number], string> = {
   queue_failure_rate: 'Queue failure rate',
   stuck_jobs: 'Stuck jobs',
 };
+
+interface AlertChannelOption {
+  id: string;
+  name: string;
+  type: 'email' | 'telegram' | 'whatsapp' | 'push';
+  is_enabled: boolean;
+}
 const OPERATOR_LABELS: Record<(typeof ALERT_OPERATORS)[number], string> = {
   eq: 'Equal to',
   gt: 'Greater than',
@@ -88,7 +96,7 @@ function buildDefaults(initialData?: PlatformAlertRule | null): CreateAlertRuleD
     is_enabled: initialData?.is_enabled ?? true,
     is_security_critical: initialData?.is_security_critical ?? false,
     notify_emails: initialData?.notify_emails ?? [],
-    channel_ids: [],
+    channel_ids: initialData?.channel_ids ?? [],
   };
 }
 
@@ -101,6 +109,8 @@ export function AlertRuleForm({
   const [emailsInput, setEmailsInput] = React.useState(
     (initialData?.notify_emails ?? []).join(', '),
   );
+  const [channels, setChannels] = React.useState<AlertChannelOption[]>([]);
+  const [channelsLoading, setChannelsLoading] = React.useState(true);
   const form = useForm<CreateAlertRuleDto>({
     resolver: zodResolver(createAlertRuleSchema),
     defaultValues: buildDefaults(initialData),
@@ -119,18 +129,59 @@ export function AlertRuleForm({
     setEmailsInput((initialData?.notify_emails ?? []).join(', '));
   }, [form, initialData]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadChannels() {
+      try {
+        setChannelsLoading(true);
+        const result = await apiClient<AlertChannelOption[]>('/api/v1/admin/alerts/channels', {
+          silent: true,
+        });
+        if (!cancelled) {
+          setChannels(result.filter((channel) => channel.is_enabled));
+        }
+      } catch (err: unknown) {
+        console.error('[AlertRuleForm.loadChannels]', err);
+      } finally {
+        if (!cancelled) {
+          setChannelsLoading(false);
+        }
+      }
+    }
+
+    void loadChannels();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function submit(values: CreateAlertRuleDto) {
     const queue = showsQueue ? values.condition_config.queue : undefined;
     const tenantId = showsTenant ? values.condition_config.tenant_id : undefined;
     onSubmit({
       ...values,
       notify_emails: splitEmails(emailsInput),
+      channel_ids: values.channel_ids,
       condition_config: {
         ...values.condition_config,
         component: requiresComponent ? values.condition_config.component : undefined,
         queue,
         tenant_id: tenantId === '' ? undefined : tenantId,
       },
+    });
+  }
+
+  function toggleChannel(channelId: string, checked: boolean) {
+    const selected = new Set(form.getValues('channel_ids'));
+    if (checked) {
+      selected.add(channelId);
+    } else {
+      selected.delete(channelId);
+    }
+    form.setValue('channel_ids', Array.from(selected), {
+      shouldDirty: true,
+      shouldValidate: true,
     });
   }
 
@@ -379,18 +430,31 @@ export function AlertRuleForm({
 
         <div className="md:col-span-2 rounded-lg border border-border bg-surface-secondary p-3">
           <Label>Delivery channels</Label>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {CHANNEL_PLACEHOLDERS.map((channel) => (
-              <Label
-                key={channel}
-                className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-text-tertiary"
-              >
-                <Checkbox disabled checked={false} />
-                {channel}
-              </Label>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-text-tertiary">No configured delivery channels.</p>
+          {channels.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {channels.map((channel) => {
+                const selected = form.watch('channel_ids').includes(channel.id);
+                return (
+                  <Label
+                    key={channel.id}
+                    className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary"
+                  >
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={(checked) => toggleChannel(channel.id, checked === true)}
+                    />
+                    <span className="min-w-0 truncate">
+                      {channel.name} · {channel.type}
+                    </span>
+                  </Label>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-text-tertiary">
+              {channelsLoading ? 'Loading channels...' : 'No configured delivery channels.'}
+            </p>
+          )}
         </div>
 
         <Label className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm">

@@ -12,7 +12,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { PlatformAlertRule } from '@prisma/client';
 import type { Request } from 'express';
 
 import {
@@ -32,7 +31,7 @@ import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { auditContextFromRequest } from '../platform-audit/audit-request-context';
 
-import { AlertRulesService } from './alert-rules.service';
+import { AlertRulesService, type AlertRuleResponse } from './alert-rules.service';
 
 @Controller('v1/admin/alerts/rules')
 @UseGuards(AuthGuard, PlatformRoleGuard)
@@ -42,7 +41,7 @@ export class AlertRulesController {
   // GET /v1/admin/alerts/rules
   @Get()
   @RequiresPlatformPermission('platform.alerts.view')
-  async list(): Promise<PlatformAlertRule[]> {
+  async list(): Promise<AlertRuleResponse[]> {
     return this.alertRulesService.list();
   }
 
@@ -53,7 +52,7 @@ export class AlertRulesController {
     @Body(new ZodValidationPipe(createAlertRuleSchema)) dto: CreateAlertRuleDto,
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
-  ): Promise<PlatformAlertRule> {
+  ): Promise<AlertRuleResponse> {
     return this.alertRulesService.create(dto, auditContextFromRequest(user, request));
   }
 
@@ -65,7 +64,7 @@ export class AlertRulesController {
     @Body(new ZodValidationPipe(toggleAlertRuleSchema)) dto: ToggleAlertRuleDto,
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
-  ): Promise<PlatformAlertRule> {
+  ): Promise<AlertRuleResponse> {
     return this.alertRulesService.toggle(
       id,
       dto.is_enabled,
@@ -81,7 +80,7 @@ export class AlertRulesController {
     @Body(new ZodValidationPipe(updateAlertRuleSchema)) dto: UpdateAlertRuleDto,
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
-  ): Promise<PlatformAlertRule> {
+  ): Promise<AlertRuleResponse> {
     return this.alertRulesService.update(id, dto, auditContextFromRequest(user, request));
   }
 

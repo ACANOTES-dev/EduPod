@@ -19,12 +19,13 @@ const envSchema = z
     S3_BUCKET_NAME: z.string().optional(),
     S3_ENDPOINT: z.string().optional(),
 
-    // Communications credentials live on per-tenant config rows:
+    // Tenant communications credentials live on per-tenant config rows:
     //   tenant_email_configs / tenant_sms_configs / tenant_whatsapp_configs
     // Impl 05 of the comms overhaul deleted RESEND_API_KEY, RESEND_FROM_EMAIL,
     // RESEND_WEBHOOK_SECRET, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
-    // TWILIO_SMS_FROM, TWILIO_WHATSAPP_FROM. Tenant config is now the only
-    // path to dispatch.
+    // TWILIO_SMS_FROM, TWILIO_WHATSAPP_FROM. Tenant config remains the normal
+    // tenant-facing dispatch path; Session 2B platform alerts may use optional
+    // platform-scoped WhatsApp credentials declared below.
 
     // Optional -- Sentry
     SENTRY_DSN_BACKEND: z.string().optional(),
@@ -49,6 +50,12 @@ const envSchema = z
     // Optional -- Platform
     PLATFORM_DOMAIN: z.string().default('edupod.app'),
     PLATFORM_ALERT_EMAIL_TENANT_ID: z.string().uuid().optional(),
+    TWILIO_ACCOUNT_SID: z.string().optional(),
+    TWILIO_AUTH_TOKEN: z.string().optional(),
+    TWILIO_WHATSAPP_FROM: z.string().optional(),
+    VAPID_EMAIL: z.string().optional(),
+    VAPID_PRIVATE_KEY: z.string().optional(),
+    VAPID_PUBLIC_KEY: z.string().optional(),
     MFA_ISSUER: z.string().default('SchoolOS'),
   })
   .superRefine((data, ctx) => {
