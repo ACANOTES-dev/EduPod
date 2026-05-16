@@ -12,6 +12,7 @@
 --   survey_responses         — anonymity by design (DZ-27)
 --   survey_participation_tokens — anonymity by design (DZ-27)
 --   gdpr_export_policies     — platform-level, no tenant_id
+--   platform_tenant_metrics  — platform-admin analytics; tenant_id is correlation only
 --   tenant_onboarding_steps  — platform-admin tracker; tenant_id is an integrity FK, not RLS
 -- =============================================================
 

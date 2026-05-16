@@ -31,6 +31,8 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   survey_participation_tokens:
     'Anonymity by design — tokens are not tenant-isolated to preserve survey anonymity.',
   gdpr_export_policies: 'Platform-level configuration, not tenant-scoped.',
+  platform_tenant_metrics:
+    'Platform-admin analytics snapshots; tenant_id is a correlation FK, not an RLS boundary.',
   tenant_onboarding_steps:
     'Platform-admin onboarding tracker; tenant_id is a data-integrity FK, not an RLS boundary.',
 };
