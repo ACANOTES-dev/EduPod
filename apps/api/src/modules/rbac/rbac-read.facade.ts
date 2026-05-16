@@ -10,14 +10,17 @@
  *
  * CONVENTIONS:
  * - Every method starts with `tenantId: string` as the first parameter.
- * - No RLS transaction needed for reads — `tenant_id` is in every `where` clause.
+ * - Tenant-scoped direct reads include `tenant_id`; platform aggregates iterate
+ *   tenants and pin RLS context per tenant before touching RLS-protected tables.
  * - Returns `null` when a single record is not found — callers decide whether to throw.
  * - Permission checks return the full role→permission chain for callers to evaluate.
  */
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 // ─── Common select shapes ─────────────────────────────────────────────────────
 
@@ -96,7 +99,10 @@ export interface MembershipSummaryRow {
 
 @Injectable()
 export class RbacReadFacade {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantReadFacade: TenantReadFacade,
+  ) {}
 
   // ─── Memberships ────────────────────────────────────────────────────────────
 
@@ -333,9 +339,21 @@ export class RbacReadFacade {
    * Used by platform admin dashboard.
    */
   async countAllActiveMemberships(): Promise<number> {
-    return this.prisma.tenantMembership.count({
-      where: { membership_status: 'active' },
-    });
+    const tenants = await this.tenantReadFacade.findAllIds();
+
+    let total = 0;
+    for (const tenant of tenants) {
+      const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenant.id });
+      const count = await prismaWithRls.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+        return db.tenantMembership.count({
+          where: { tenant_id: tenant.id, membership_status: 'active' },
+        });
+      });
+      total += count;
+    }
+
+    return total;
   }
 
   /**

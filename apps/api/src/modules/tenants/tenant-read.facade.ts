@@ -138,6 +138,16 @@ export class TenantReadFacade {
   }
 
   /**
+   * List tenant IDs for platform-level aggregate jobs that must iterate tenants
+   * and pin RLS context before reading tenant-scoped tables.
+   */
+  async findAllIds(): Promise<Array<{ id: string }>> {
+    return this.prisma.tenant.findMany({
+      select: { id: true },
+    });
+  }
+
+  /**
    * Find tenant name by ID. Returns null if not found.
    * Used by PDF generators and display contexts that only need the name.
    */

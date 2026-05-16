@@ -1,10 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { RbacReadFacade } from './rbac-read.facade';
 
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn(),
+}));
+
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const OTHER_TENANT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const MEMBERSHIP_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const ROLE_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -26,6 +33,10 @@ const mockPrisma = {
   },
 };
 
+const mockTenantReadFacade = {
+  findAllIds: jest.fn(),
+};
+
 describe('RbacReadFacade', () => {
   let facade: RbacReadFacade;
 
@@ -33,7 +44,11 @@ describe('RbacReadFacade', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RbacReadFacade, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        RbacReadFacade,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+      ],
     }).compile();
 
     facade = module.get<RbacReadFacade>(RbacReadFacade);
@@ -302,15 +317,49 @@ describe('RbacReadFacade', () => {
   });
 
   describe('countAllActiveMemberships', () => {
-    it('should count all active memberships across all tenants', async () => {
-      mockPrisma.tenantMembership.count.mockResolvedValue(100);
+    it('should count active memberships across tenants inside tenant-pinned RLS transactions', async () => {
+      mockTenantReadFacade.findAllIds.mockResolvedValue([
+        { id: TENANT_ID },
+        { id: OTHER_TENANT_ID },
+      ]);
+      const tenantCounts = new Map([
+        [TENANT_ID, 40],
+        [OTHER_TENANT_ID, 60],
+      ]);
+      const transactionMock = jest.fn(
+        async (
+          callback: (tx: {
+            tenantMembership: { count: jest.Mock<Promise<number>, [unknown]> };
+          }) => Promise<number>,
+        ) => {
+          const context = (createRlsClient as jest.Mock).mock.calls[
+            (createRlsClient as jest.Mock).mock.calls.length - 1
+          ]?.[1] as { tenant_id: string };
+          return callback({
+            tenantMembership: {
+              count: jest.fn().mockResolvedValue(tenantCounts.get(context.tenant_id) ?? 0),
+            },
+          });
+        },
+      );
+      (createRlsClient as jest.Mock).mockReturnValue({ $transaction: transactionMock });
 
       const result = await facade.countAllActiveMemberships();
 
       expect(result).toBe(100);
-      expect(mockPrisma.tenantMembership.count).toHaveBeenCalledWith({
-        where: { membership_status: 'active' },
-      });
+      expect(mockTenantReadFacade.findAllIds).toHaveBeenCalledWith();
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: OTHER_TENANT_ID });
+    });
+
+    it('should return zero when there are no tenants to aggregate', async () => {
+      mockTenantReadFacade.findAllIds.mockResolvedValue([]);
+
+      const result = await facade.countAllActiveMemberships();
+
+      expect(result).toBe(0);
+      expect(createRlsClient).not.toHaveBeenCalled();
+      expect(mockPrisma.tenantMembership.count).not.toHaveBeenCalled();
     });
   });
 
