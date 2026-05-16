@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
 import { HealthHistoryController } from './health-history.controller';
 import { HealthSnapshotService } from './health-snapshot.service';
@@ -23,7 +23,7 @@ describe('HealthHistoryController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -56,7 +56,7 @@ describe('HealthHistoryController — HTTP guards and validation', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue(platformGuard)
       .compile();
 

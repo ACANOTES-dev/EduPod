@@ -40,6 +40,12 @@
 - [ ] Am I writing `tenant_modules.is_enabled` anywhere? -> Call `TenantModuleService.invalidateCache` and publish `tenant_modules:invalidated` in the same flow (DZ-MG-2)
 - [ ] Am I adding a provider webhook controller? -> Use an inline `TenantModuleService.isEnabled` check and return 200/no-op when disabled; do not decorate webhook routes with `@ModuleEnabled` (DZ-MG-3)
 
+### 2d. Platform RBAC Check (if touching platform-admin auth, navigation, or `/v1/admin/*`)
+
+- [ ] Am I adding a platform-admin endpoint? -> Use `AuthGuard`, `PlatformRoleGuard`, and `@RequiresPlatformPermission(...)`; run `apps/api/src/common/guards/platform-permission-coverage.spec.ts`.
+- [ ] Am I changing platform login, `/auth/me`, platform WebSockets, or platform navigation? -> Missing `platform_users` / role / permission rows must default-deny (DZ-PA-1), while the Redis `platform_owner_user_ids` set remains only a migration/backfill source.
+- [ ] Am I adding or renaming a platform permission key? -> Seed it in Prisma migration/post-migrate and update the platform permission matrix UI.
+
 ### 3. State Machine Check (if touching status/lifecycle)
 
 - [ ] Open `architecture/state-machines.md` and verify the transition I'm adding/modifying is documented

@@ -15,6 +15,7 @@ import {
 import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
 import { LEAVE_TYPE_SEEDS } from './seed/leave-types';
 import { PERMISSION_SEEDS } from './seed/permissions';
+import { PLATFORM_PERMISSIONS, PLATFORM_ROLE_PERMISSIONS } from './seed/platform-roles';
 import { SYSTEM_ROLES } from './seed/system-roles';
 import { seedInboxDefaultsForTenant } from './src/inbox-defaults';
 import { seedReportsDefaultsForTenant } from './src/reports-defaults';
@@ -183,6 +184,89 @@ async function main() {
       });
     }
     console.log(`  ${PERMISSION_SEEDS.length} permissions seeded.`);
+
+    console.log('Seed: Step 3a — Platform RBAC permissions and roles');
+    const platformPermissionIds = new Map<string, string>();
+    for (const perm of PLATFORM_PERMISSIONS) {
+      const permission = await prisma.platformPermission.upsert({
+        where: { permission_key: perm.key },
+        update: {
+          category: perm.category,
+          display_name: perm.display_name,
+          description: perm.description,
+          is_destructive: perm.is_destructive ?? false,
+          requires_two_person: perm.requires_two_person ?? false,
+        },
+        create: {
+          permission_key: perm.key,
+          category: perm.category,
+          display_name: perm.display_name,
+          description: perm.description,
+          is_destructive: perm.is_destructive ?? false,
+          requires_two_person: perm.requires_two_person ?? false,
+        },
+      });
+      platformPermissionIds.set(perm.key, permission.id);
+    }
+
+    const platformRoles = {
+      platform_owner: await prisma.platformRole.upsert({
+        where: { role_key: 'platform_owner' },
+        update: {
+          display_name: 'Platform owner',
+          description: 'Full platform owner access across all platform operations.',
+          is_system: true,
+        },
+        create: {
+          role_key: 'platform_owner',
+          display_name: 'Platform owner',
+          description: 'Full platform owner access across all platform operations.',
+          is_system: true,
+        },
+      }),
+      platform_support: await prisma.platformRole.upsert({
+        where: { role_key: 'platform_support' },
+        update: {
+          display_name: 'Platform support',
+          description:
+            'Limited operational support access for non-destructive platform support tasks.',
+          is_system: true,
+        },
+        create: {
+          role_key: 'platform_support',
+          display_name: 'Platform support',
+          description:
+            'Limited operational support access for non-destructive platform support tasks.',
+          is_system: true,
+        },
+      }),
+    };
+
+    for (const [roleKey, permissionList] of Object.entries(PLATFORM_ROLE_PERMISSIONS)) {
+      const role = platformRoles[roleKey as keyof typeof platformRoles];
+      const permissionKeys =
+        permissionList === 'ALL'
+          ? PLATFORM_PERMISSIONS.map((permission) => permission.key)
+          : permissionList;
+      for (const permissionKey of permissionKeys) {
+        const permissionId = platformPermissionIds.get(permissionKey);
+        if (!permissionId) continue;
+        await prisma.platformRolePermission.upsert({
+          where: {
+            role_id_permission_id: {
+              role_id: role.id,
+              permission_id: permissionId,
+            },
+          },
+          update: {},
+          create: {
+            role_id: role.id,
+            permission_id: permissionId,
+          },
+        });
+      }
+    }
+    console.log(`  ${PLATFORM_PERMISSIONS.length} platform permissions seeded.`);
 
     // Step 3b: Seed GDPR export policies (platform-level, no tenant)
     console.log('Seed: Step 3b — GDPR export policies');
@@ -515,6 +599,29 @@ async function main() {
         preferred_locale: DEV_PLATFORM_USER.preferred_locale,
         global_status: 'active',
         email_verified_at: new Date(),
+      },
+    });
+    const platformUserOverlay = await prisma.platformUser.upsert({
+      where: { user_id: platformUser.id },
+      update: { revoked_at: null, activated_at: new Date() },
+      create: {
+        user_id: platformUser.id,
+        activated_at: new Date(),
+        notes: 'Seeded local platform owner',
+      },
+    });
+    await prisma.platformUserRole.upsert({
+      where: {
+        platform_user_id_role_id: {
+          platform_user_id: platformUserOverlay.id,
+          role_id: platformRoles.platform_owner.id,
+        },
+      },
+      update: {},
+      create: {
+        platform_user_id: platformUserOverlay.id,
+        role_id: platformRoles.platform_owner.id,
+        granted_by_user_id: platformUser.id,
       },
     });
     console.log(`  Platform admin: ${platformUser.email}`);

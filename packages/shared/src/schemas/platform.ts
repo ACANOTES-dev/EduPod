@@ -9,6 +9,28 @@ export const healthHistoryQuerySchema = z.object({
 
 export type HealthHistoryQuery = z.infer<typeof healthHistoryQuerySchema>;
 
+// ─── Platform Users + RBAC ───────────────────────────────────────────────────
+
+export const platformRoleKeySchema = z.enum(['platform_owner', 'platform_support']);
+
+export type PlatformRoleKeyDto = z.infer<typeof platformRoleKeySchema>;
+
+export const invitePlatformUserSchema = z.object({
+  email: z.string().trim().email().max(255),
+  first_name: z.string().trim().min(1).max(100),
+  last_name: z.string().trim().min(1).max(100),
+  role_keys: z.array(platformRoleKeySchema).min(1),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export type InvitePlatformUserDto = z.infer<typeof invitePlatformUserSchema>;
+
+export const updatePlatformUserRolesSchema = z.object({
+  role_keys: z.array(platformRoleKeySchema).min(1),
+});
+
+export type UpdatePlatformUserRolesDto = z.infer<typeof updatePlatformUserRolesSchema>;
+
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 
 export const alertComponentSchema = z.enum([

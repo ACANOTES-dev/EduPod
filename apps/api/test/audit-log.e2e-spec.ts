@@ -158,9 +158,9 @@ describe('Audit Logs (e2e)', () => {
       await request(app.getHttpServer()).get('/api/v1/admin/audit-logs').expect(401);
     });
 
-    it('should return 403 when non-platform-owner accesses admin audit logs', async () => {
-      // PlatformOwnerGuard rejects tenant owners — they are not platform owners
-      await authGet(app, '/api/v1/admin/audit-logs', ownerToken, fixture.domainName).expect(403);
+    it('should default-deny when non-platform caller accesses admin audit logs', async () => {
+      // Platform RBAC hides platform-admin routes unless the caller has a platform role row.
+      await authGet(app, '/api/v1/admin/audit-logs', ownerToken, fixture.domainName).expect(404);
     });
 
     it('should filter by tenant_id query param', async () => {

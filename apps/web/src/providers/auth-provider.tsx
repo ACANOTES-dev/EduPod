@@ -25,6 +25,8 @@ export interface AuthUser {
     tenant?: { id: string; name: string; slug: string };
     roles?: Array<{ id: string; role_key: string; display_name: string }>;
   }>;
+  platform_roles?: Array<{ role_key: string; display_name: string }>;
+  platform_permissions?: string[];
 }
 
 export interface LoginResult {
@@ -82,11 +84,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             membership_status: string;
             roles: Array<{ role_id: string; role_key: string; display_name: string }>;
           }>;
+          platform_roles?: Array<{ role_key: string; display_name: string }>;
+          platform_permissions?: string[];
         };
       }>('/api/v1/auth/me');
       if (me?.data) {
         const fullUser: AuthUser = {
           ...me.data.user,
+          platform_permissions: me.data.platform_permissions ?? [],
+          platform_roles: me.data.platform_roles ?? [],
           memberships: me.data.memberships.map((m) => ({
             id: m.id,
             tenant_id: m.tenant_id,

@@ -20,6 +20,7 @@ jest.mock('qrcode', () => ({
 import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -94,6 +95,7 @@ const mockPrisma = {
   },
   tenantMembership: { findUnique: jest.fn(), findMany: jest.fn() },
   tenant: { findUnique: jest.fn() },
+  platformUser: { findFirst: jest.fn() },
 };
 
 const mockSecurityAuditService = {
@@ -159,6 +161,10 @@ const mockTenantModuleService = {
   getEnabledModules: jest.fn().mockResolvedValue([]),
 };
 
+const mockPlatformUsersService = {
+  isMember: jest.fn().mockResolvedValue(false),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let redisClient: {
@@ -176,6 +182,8 @@ describe('AuthService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockTenantModuleService.getEnabledModules.mockResolvedValue([]);
+    mockPlatformUsersService.isMember.mockResolvedValue(false);
+    mockPrisma.platformUser.findFirst.mockResolvedValue(null);
 
     mockPrisma.$transaction.mockImplementation(
       async (fn: (tx: typeof mockPrisma & { $executeRawUnsafe: jest.Mock }) => Promise<unknown>) =>
@@ -243,6 +251,7 @@ describe('AuthService', () => {
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
         { provide: TenantReadFacade, useValue: mockTenantReadFacade },
         { provide: TenantModuleService, useValue: mockTenantModuleService },
+        { provide: PlatformUsersService, useValue: mockPlatformUsersService },
       ],
     }).compile();
 
@@ -770,9 +779,7 @@ describe('AuthService', () => {
     it('should allow platform users on the stealth platform host', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
-      redisClient.sismember.mockImplementation((key: string) =>
-        Promise.resolve(key === 'platform_owner_user_ids' ? 1 : 0),
-      );
+      mockPlatformUsersService.isMember.mockResolvedValueOnce(true);
 
       const result = await service.login(
         MOCK_USER.email,
@@ -785,14 +792,12 @@ describe('AuthService', () => {
       );
 
       expect(result).toHaveProperty('access_token');
-      expect(redisClient.sismember).toHaveBeenCalledWith('platform_owner_user_ids', USER_ID);
+      expect(mockPlatformUsersService.isMember).toHaveBeenCalledWith(USER_ID);
     });
 
     it('should reject platform users on tenant hosts with invalid credentials', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      redisClient.sismember.mockImplementation((key: string) =>
-        Promise.resolve(key === 'platform_owner_user_ids' ? 1 : 0),
-      );
+      mockPlatformUsersService.isMember.mockResolvedValueOnce(true);
 
       await expect(
         service.login(

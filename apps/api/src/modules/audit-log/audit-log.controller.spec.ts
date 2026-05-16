@@ -5,7 +5,7 @@ import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
 import { AuditLogController, PlatformAuditLogController } from './audit-log.controller';
 import { AuditLogService } from './audit-log.service';
@@ -111,7 +111,7 @@ describe('PlatformAuditLogController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue(mockGuard)
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue(mockGuard)
       .compile();
 

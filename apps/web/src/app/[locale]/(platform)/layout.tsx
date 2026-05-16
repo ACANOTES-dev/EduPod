@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   Menu,
   ShieldAlert,
+  ShieldCheck,
+  Users,
   Workflow,
   X,
   type LucideIcon,
@@ -30,6 +32,7 @@ interface NavItem {
   label: string;
   href: string;
   badge?: number;
+  permission: string;
 }
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
@@ -102,19 +105,29 @@ function PlatformSidebarNav({
   tenantsLabel: string;
 }) {
   const { subscribe } = usePlatformSocket();
+  const { user } = useAuth();
   const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
   const [unacknowledgedAlertCount, setUnacknowledgedAlertCount] = React.useState(0);
+  const permissions = React.useMemo(
+    () => new Set(user?.platform_permissions ?? []),
+    [user?.platform_permissions],
+  );
+  const can = React.useCallback((permission: string) => permissions.has(permission), [permissions]);
 
   React.useEffect(() => {
     async function fetchCounts() {
       try {
         const [incidents, alerts] = await Promise.all([
-          apiClient<{ meta: { total: number } }>(
-            '/api/v1/admin/security-incidents?pageSize=1&severity=high',
-          ),
-          apiClient<{ meta: { total: number } }>(
-            '/api/v1/admin/alerts/history?pageSize=1&status=fired',
-          ),
+          can('platform.audit_log.view')
+            ? apiClient<{ meta: { total: number } }>(
+                '/api/v1/admin/security-incidents?pageSize=1&severity=high',
+              )
+            : Promise.resolve({ meta: { total: 0 } }),
+          can('platform.alerts.view')
+            ? apiClient<{ meta: { total: number } }>(
+                '/api/v1/admin/alerts/history?pageSize=1&status=fired',
+              )
+            : Promise.resolve({ meta: { total: 0 } }),
         ]);
         setOpenIncidentCount(incidents.meta.total);
         setUnacknowledgedAlertCount(alerts.meta.total);
@@ -126,7 +139,7 @@ function PlatformSidebarNav({
     void fetchCounts();
     const interval = setInterval(() => void fetchCounts(), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [can]);
 
   React.useEffect(() => {
     return subscribe('alert:new', (payload) => {
@@ -152,51 +165,92 @@ function PlatformSidebarNav({
   }, []);
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: dashboardLabel, href: `/${locale}/admin` },
-    { icon: Building2, label: tenantsLabel, href: `/${locale}/admin/tenants` },
-    { icon: Activity, label: healthLabel, href: `/${locale}/admin/health` },
+    {
+      icon: LayoutDashboard,
+      label: dashboardLabel,
+      href: `/${locale}/admin`,
+      permission: 'platform.tenants.view',
+    },
+    {
+      icon: Building2,
+      label: tenantsLabel,
+      href: `/${locale}/admin/tenants`,
+      permission: 'platform.tenants.view',
+    },
+    {
+      icon: Activity,
+      label: healthLabel,
+      href: `/${locale}/admin/health`,
+      permission: 'platform.alerts.view',
+    },
     {
       icon: Bell,
       label: 'Alerts',
       href: `/${locale}/admin/alerts`,
       badge: unacknowledgedAlertCount,
+      permission: 'platform.alerts.view',
     },
-    { icon: Workflow, label: 'Queues', href: `/${locale}/admin/queues` },
-    { icon: ClipboardList, label: auditLogLabel, href: `/${locale}/admin/audit-log` },
+    {
+      icon: Users,
+      label: 'Platform Users',
+      href: `/${locale}/admin/users`,
+      permission: 'platform.platform_users.view',
+    },
+    {
+      icon: ShieldCheck,
+      label: 'Permissions',
+      href: `/${locale}/admin/permissions`,
+      permission: 'platform.platform_users.view',
+    },
+    {
+      icon: Workflow,
+      label: 'Queues',
+      href: `/${locale}/admin/queues`,
+      permission: 'platform.queues.view',
+    },
+    {
+      icon: ClipboardList,
+      label: auditLogLabel,
+      href: `/${locale}/admin/audit-log`,
+      permission: 'platform.audit_log.view',
+    },
     {
       icon: ShieldAlert,
       label: securityIncidentsLabel,
       href: `/${locale}/admin/security-incidents`,
       badge: openIncidentCount,
+      permission: 'platform.audit_log.view',
     },
   ];
 
   return (
     <nav className="flex flex-col gap-1 p-3">
-      {navItems.map((item) => {
-        const active = isActive(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              active
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-text-secondary hover:bg-surface-secondary hover:text-text-primary',
-            )}
-          >
-            <item.icon className="h-[18px] w-[18px] shrink-0" />
-            <span className="flex-1">{item.label}</span>
-            {item.badge && item.badge > 0 ? (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">
-                {item.badge}
-              </span>
-            ) : null}
-          </Link>
-        );
-      })}
+      {navItems
+        .filter((item) => can(item.permission))
+        .map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                active
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-text-secondary hover:bg-surface-secondary hover:text-text-primary',
+              )}
+            >
+              <item.icon className="h-[18px] w-[18px] shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {item.badge && item.badge > 0 ? (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">
+                  {item.badge}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
     </nav>
   );
 }
@@ -298,8 +352,9 @@ function PlatformAccessGate({ children }: { children: React.ReactNode }) {
   const activeMemberships = (user?.memberships ?? []).filter(
     (membership) => membership.membership_status === 'active',
   );
+  const hasPlatformAccess = (user?.platform_permissions ?? []).length > 0;
 
-  if (!isAuthenticated || activeMemberships.length > 0) {
+  if (!isAuthenticated || activeMemberships.length > 0 || !hasPlatformAccess) {
     return <PlainNotFound />;
   }
 

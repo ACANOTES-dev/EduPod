@@ -996,6 +996,7 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 
 **Backend**:
 
+- `apps/api/src/modules/platform-users/`
 - `apps/api/src/modules/tenants/`
 - `apps/api/src/modules/audit-log/`
 - `apps/api/src/modules/security-incidents/`
@@ -1013,9 +1014,13 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 - `/admin/security-incidents/[id]`
 - `/admin/health`
 - `/admin/queues` — BullMQ queue inspector backed by the `queue-admin` module
+- `/admin/users` — platform user and role assignment console backed by relational platform RBAC
+- `/admin/users/[id]`
+- `/admin/permissions` — read-only platform permission matrix
 
 **Also includes**:
 
+- Relational platform RBAC (`platform_users`, `platform_roles`, `platform_user_roles`, `platform_permissions`, `platform_role_permissions`) replaces the legacy Redis authorization set for runtime platform-admin access. Missing platform role rows default-deny.
 - School audit-log surface at `/settings/audit-log`
 - Platform and school operational visibility for diagnostics and compliance review
 

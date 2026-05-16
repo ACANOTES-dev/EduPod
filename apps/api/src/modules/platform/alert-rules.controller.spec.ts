@@ -5,7 +5,7 @@ import request from 'supertest';
 import type { CreateAlertRuleDto } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
 import { AlertRulesController } from './alert-rules.controller';
 import { AlertRulesService } from './alert-rules.service';
@@ -43,7 +43,7 @@ describe('AlertRulesController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -86,7 +86,7 @@ describe('AlertRulesController — HTTP guards and validation', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue(platformGuard)
       .compile();
 

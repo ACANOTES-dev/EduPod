@@ -55,7 +55,7 @@ describe('SecurityIncidentsController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(require('../tenants/guards/platform-owner.guard').PlatformOwnerGuard)
+      .overrideGuard(require('../../common/guards/platform-role.guard').PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -3,8 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { HealthModule } from '../health/health.module';
-// eslint-disable-next-line school/no-cross-module-internal-import -- Provider registration for platform admin route guards.
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
+import { PlatformUsersModule } from '../platform-users/platform-users.module';
 
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
@@ -26,6 +25,7 @@ import { PlatformGateway } from './platform.gateway';
     HealthModule,
     PlatformOnboardingModule,
     PlatformRealtimeModule,
+    PlatformUsersModule,
   ],
   controllers: [
     HealthHistoryController,
@@ -40,7 +40,6 @@ import { PlatformGateway } from './platform.gateway';
     AlertHistoryService,
     AlertEvaluationService,
     AlertDispatchService,
-    PlatformOwnerGuard,
   ],
   exports: [PlatformOnboardingModule, PlatformRealtimeModule],
 })

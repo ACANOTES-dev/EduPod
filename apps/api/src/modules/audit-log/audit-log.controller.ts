@@ -6,10 +6,11 @@ import { auditLogFilterSchema, platformAuditLogFilterSchema } from '@school/shar
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
 
 import { AuditLogService } from './audit-log.service';
 
@@ -30,11 +31,12 @@ export class AuditLogController {
 }
 
 @Controller('v1/admin/audit-logs')
-@UseGuards(AuthGuard, PlatformOwnerGuard)
+@UseGuards(AuthGuard, PlatformRoleGuard)
 export class PlatformAuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   @Get()
+  @RequiresPlatformPermission('platform.audit_log.view')
   async list(
     @Query(new ZodValidationPipe(platformAuditLogFilterSchema))
     query: z.infer<typeof platformAuditLogFilterSchema>,

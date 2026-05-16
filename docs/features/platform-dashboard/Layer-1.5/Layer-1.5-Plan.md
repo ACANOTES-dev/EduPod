@@ -12,13 +12,13 @@
 
 Layer 1.5 is a safety-foundation pass that blocks Layer 2 (intelligence + power tools) and Layer 4 (AI Copilot) from shipping production-grade powers without:
 
-- A real `platform_users` + role table (today: `platform_owner_user_ids` Redis set workaround) so `platform_owner` and `platform_support` are properly distinguishable, invite-able, and revocable.
+- A real `platform_users` + role table (today: `platform_owner_user_ids` Redis set workaround) so the solo operator has a durable `platform_owner` identity now, while the system can support `platform_support` later when there is a real ops team.
 - A cross-tenant audit ledger that records every operator-side action (cache flush, user disable, MFA reset, ownership transfer, queue retry/clean, alert acknowledge, module toggle, AI-suggested action) with actor, timestamp, target, before/after state, and reason.
 - A redaction + retention policy for `platform_error_log` so the AI Copilot (Layer 4) can read errors without ever seeing PII or secrets, and so error data doesn't accumulate indefinitely.
-- A confirmation-modal pattern + two-person approval primitive that Layer 2/3 destructive actions reuse instead of re-inventing.
+- A confirmation-modal pattern for high-blast actions that works in a solo-operator deployment: the signed-in `platform_owner` confirms the exact action/target, provides a reason, and the action is audit-logged. No dashboard feature may require a fake second account during the solo-operator phase.
 - Alert silencing/snooze + maintenance-window suppression so operators can mute false-positive storms during planned work without disabling the underlying rules.
 
-After this layer, the dashboard has the safety scaffolding to confidently ship dangerous actions in Layer 2/3 and to host an AI assistant in Layer 4.
+After this layer, the dashboard has the safety scaffolding to confidently ship dangerous actions in Layer 2/3 and to host an AI assistant in Layer 4, without forcing artificial dual approval.
 
 ---
 
@@ -33,7 +33,7 @@ Layer 1 must be complete (1A WebSocket + 1B Health + 1C Alerts + 1D Onboarding s
 | Existing `platform_owner_user_ids` Redis set                             | Done                                          | Source of truth today; migrated to `platform_users` table by Session 1.5A                                        |
 | Existing tenant-scoped `audit_logs` table                                | Done                                          | Pattern to follow for the new `platform_audit_logs` table                                                        |
 | Existing alert tables (`platform_alert_rules`, `platform_alert_history`) | Done after 1C                                 | Layer 1.5C's silencing extends them                                                                              |
-| Existing Resend email provider                                           | Done                                          | Used by 1.5C for "two-person approval requested" notifications                                                   |
+| Existing Resend email provider                                           | Done                                          | Used by platform-user invites and other notification flows; 1.5C does not require second-approver email          |
 | Existing Sentry triage runbook + guardrails                              | Done                                          | `docs/runbooks/agent-sentry-triage.md` — Layer 1.5C's confirmation primitives align with these existing patterns |
 
 ---
@@ -47,7 +47,7 @@ Layer 1 (1A->1D) complete
               |
               +---> Session 1.5B: Cross-tenant audit ledger + error log redaction/retention
                         |
-                        +---> Session 1.5C: Confirmation UX + alert silencing primitives
+                        +---> Session 1.5C: Owner confirmation UX + alert silencing primitives
 ```
 
 **Execution order:** Strictly sequential. 1.5A unblocks 1.5B (audit ledger references the platform_users table for `actor_user_id`). 1.5B unblocks 1.5C (silencing emits audit events). All three must land before Layer 2 starts.
@@ -62,17 +62,17 @@ Layer 1 (1A->1D) complete
 
 All tables are **platform-level** -- no `tenant_id` column, no RLS policies.
 
-| Table                          | Session | Purpose                                                                               |
-| ------------------------------ | ------- | ------------------------------------------------------------------------------------- |
-| `platform_users`               | 1.5A    | Replaces the Redis-set workaround; canonical list of operator accounts                |
-| `platform_user_roles`          | 1.5A    | Many-to-many between `platform_users` and `platform_roles`                            |
-| `platform_roles`               | 1.5A    | Seeded with `platform_owner` + `platform_support`; future roles append here           |
-| `platform_role_permissions`    | 1.5A    | Many-to-many between `platform_roles` and `platform_permissions`                      |
-| `platform_permissions`         | 1.5A    | Seeded permission keys (e.g., `platform.tenants.suspend`, `platform.users.reset_mfa`) |
-| `platform_audit_logs`          | 1.5B    | Append-only log of every cross-tenant operator action                                 |
-| `platform_alert_silences`      | 1.5C    | Per-rule or per-component suppression windows                                         |
-| `platform_maintenance_windows` | 1.5C    | Time-bounded periods that suppress all alerts                                         |
-| `platform_two_person_requests` | 1.5C    | Pending high-blast actions awaiting a secondary approver                              |
+| Table                                 | Session | Purpose                                                                               |
+| ------------------------------------- | ------- | ------------------------------------------------------------------------------------- |
+| `platform_users`                      | 1.5A    | Replaces the Redis-set workaround; canonical list of operator accounts                |
+| `platform_user_roles`                 | 1.5A    | Many-to-many between `platform_users` and `platform_roles`                            |
+| `platform_roles`                      | 1.5A    | Seeded with `platform_owner` + `platform_support`; future roles append here           |
+| `platform_role_permissions`           | 1.5A    | Many-to-many between `platform_roles` and `platform_permissions`                      |
+| `platform_permissions`                | 1.5A    | Seeded permission keys (e.g., `platform.tenants.suspend`, `platform.users.reset_mfa`) |
+| `platform_audit_logs`                 | 1.5B    | Append-only log of every cross-tenant operator action                                 |
+| `platform_alert_silences`             | 1.5C    | Per-rule or per-component suppression windows                                         |
+| `platform_maintenance_windows`        | 1.5C    | Time-bounded periods that suppress all alerts                                         |
+| `platform_owner_action_confirmations` | 1.5C    | Durable record of high-blast actions confirmed by the signed-in platform owner        |
 
 ### Modified Tables
 
@@ -113,19 +113,20 @@ All tables are **platform-level** -- no `tenant_id` column, no RLS policies.
 | GET    | `/v1/admin/platform-error-log`                 | Read redacted error events (Layer 2D consumes this same endpoint) |
 | POST   | `/v1/admin/platform-error-log/redaction-rules` | Manage the redaction regex rules (platform_owner only)            |
 
-### Session 1.5C -- Confirmation UX + Alert Silencing
+### Session 1.5C -- Owner Confirmation UX + Alert Silencing
 
-| Method | Endpoint                                    | Purpose                                                   |
-| ------ | ------------------------------------------- | --------------------------------------------------------- |
-| POST   | `/v1/admin/two-person-requests`             | Initiate a high-blast action (returns request id)         |
-| POST   | `/v1/admin/two-person-requests/:id/approve` | Secondary approver approves; triggers the original action |
-| POST   | `/v1/admin/two-person-requests/:id/reject`  | Secondary approver rejects; original action discarded     |
-| POST   | `/v1/admin/alert-silences`                  | Create a silence (per-rule, per-component, or global)     |
-| DELETE | `/v1/admin/alert-silences/:id`              | Remove a silence early                                    |
-| POST   | `/v1/admin/maintenance-windows`             | Schedule a maintenance window (suppresses all alerts)     |
-| DELETE | `/v1/admin/maintenance-windows/:id`         | Cancel a planned maintenance window                       |
+| Method | Endpoint                                  | Purpose                                                                 |
+| ------ | ----------------------------------------- | ----------------------------------------------------------------------- |
+| POST   | `/v1/admin/action-confirmations`          | Confirm and execute a high-blast action as the signed-in platform owner |
+| GET    | `/v1/admin/action-confirmations`          | List recent owner-confirmed high-blast actions                          |
+| POST   | `/v1/admin/alert-silences`                | Create a silence (per-rule, per-component, or global)                   |
+| GET    | `/v1/admin/alert-silences`                | List active and recent silences                                         |
+| DELETE | `/v1/admin/alert-silences/:id`            | Remove a silence early                                                  |
+| POST   | `/v1/admin/alert-maintenance-windows`     | Schedule an alert-suppression maintenance window                        |
+| GET    | `/v1/admin/alert-maintenance-windows`     | List alert-suppression maintenance windows                              |
+| DELETE | `/v1/admin/alert-maintenance-windows/:id` | Cancel a planned alert-suppression maintenance window                   |
 
-**Total: 13 new REST endpoints across 3 sessions.**
+**Total: 17 new REST endpoints across 3 sessions.**
 
 ---
 
@@ -145,9 +146,9 @@ All tables are **platform-level** -- no `tenant_id` column, no RLS policies.
 - New page: `apps/web/src/app/[locale]/(platform)/admin/settings/redaction-rules/page.tsx` (redaction policy management)
 - Components: `PlatformAuditTable`, `RedactedErrorCard`, `RedactionRuleEditor`
 
-### Session 1.5C -- Confirmation UX + Alert Silencing
+### Session 1.5C -- Owner Confirmation UX + Alert Silencing
 
-- Shared component: `<TwoPersonConfirmationDialog>` — wraps high-blast action triggers
+- Shared component: `<OwnerActionConfirmDialog>` — wraps high-blast action triggers with typed confirmation + reason capture
 - New page: `apps/web/src/app/[locale]/(platform)/admin/alerts/silences/page.tsx`
 - New page: `apps/web/src/app/[locale]/(platform)/admin/maintenance/page.tsx`
 - Components: `SilenceForm`, `MaintenanceWindowForm`, `ActiveSilenceBanner` (in admin layout header)
@@ -161,11 +162,11 @@ Mirrors the Layer 1 plan (unit, integration, e2e) plus:
 - **Migration-from-Redis test**: Session 1.5A includes a one-shot test that takes a Redis-set state, runs the migration, and asserts every Redis-set entry now has a `platform_users` row + `platform_owner` role.
 - **Audit completeness check**: Session 1.5B static-analysis test scans every controller method that mutates state on a cross-tenant resource and asserts the method either calls `PlatformAuditService.log()` OR carries an explicit `@SkipPlatformAudit('reason')` decorator. Missing audit = build failure (mirrors the Module Gating impl 07 static test pattern).
 - **Redaction round-trip test**: Session 1.5B feeds a corpus of synthetic errors (containing fake emails, phone numbers, JWT-like strings, bank account numbers) through the redaction pipeline and asserts the post-redaction strings contain none of the originals.
-- **Two-person approval e2e**: Session 1.5C Playwright test exercises the full "operator A initiates → operator B approves → action executes" flow including the email notification to operator B and the audit log entries.
+- **Owner-confirmation e2e**: Session 1.5C Playwright test exercises the full "platform owner opens destructive action → types the required confirmation phrase → provides a reason → action executes" flow including the audit log entry.
 
 ### What We Mock
 
-- Resend email provider (in invite + two-person notification tests)
+- Resend email provider (in invite tests)
 - Redis set reads (in migration test)
 - Cron tick (in maintenance window suppression test)
 
@@ -182,10 +183,10 @@ Layer 1.5 is complete when ALL of the following are true:
 - [ ] Cross-tenant audit ledger receives writes from every existing platform-side mutation endpoint (verified by static-analysis test)
 - [ ] Error log redaction policy is configurable; redaction round-trip test passes for the standard PII corpus
 - [ ] Error log retention cron runs daily; rows older than 90 days are purged
-- [ ] Two-person approval primitive exists and is used by at least one existing high-blast action (operator-side cache flush global is the natural first user, but Layer 2/3 destructive actions are the main consumers)
+- [ ] Owner confirmation primitive exists and is used by at least one existing high-blast action (operator-side cache flush global is the natural first user, but Layer 2/3 destructive actions are the main consumers)
 - [ ] Alert silencing UI lets the operator suppress a single rule or all alerts for a chosen window
 - [ ] Maintenance window UI lets the operator pre-schedule a window during which no alerts fire
 - [ ] All new code passes `turbo lint` and `turbo type-check`
 - [ ] All new tests pass and no existing tests regress
-- [ ] `docs/architecture/danger-zones.md` gains entries DZ-PA-1 (default-allow vs default-deny on missing role row), DZ-PA-2 (audit ledger append-only — never UPDATE/DELETE), DZ-PA-3 (redaction is destructive — never read raw errors after the redaction pipeline)
+- [ ] `docs/architecture/danger-zones.md` gains entries DZ-PA-1 (default-allow vs default-deny on missing role row), DZ-PA-2 (audit ledger append-only — never UPDATE/DELETE), DZ-PA-3 (redaction is destructive — never read raw errors after the redaction pipeline), DZ-PA-4 (solo-owner confirmations must never require fake second accounts)
 - [ ] `docs/architecture/pre-flight-checklist.md` gains a new §2d Platform RBAC check

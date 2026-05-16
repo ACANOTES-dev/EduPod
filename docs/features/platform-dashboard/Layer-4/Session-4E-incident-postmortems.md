@@ -7,13 +7,13 @@
 
 ## Objective
 
-Turn alerts and AI actions into a structured **incident** record with a generated postmortem. After this session:
+Turn alerts and AI actions into a structured **incident** record with an operator-triggered postmortem generator. Incident records may be created by normal alert logic, but the AI does not run in the background. After this session:
 
-- When a `critical` alert fires, an incident record is auto-created with the alert as its seed.
+- When a `critical` alert fires, normal non-AI alert logic creates an incident record with the alert as its seed.
 - Subsequent related alerts (same component, same fingerprint, or close in time + scope) attach to the same incident.
-- When the incident is marked resolved (operator action OR auto-detection of evidence clearing), the AI generates a postmortem: timeline, root cause analysis, impact summary, fix applied, prevention items.
+- When the incident is marked resolved, the operator can click "Generate postmortem" to ask the AI for a timeline, root cause analysis, impact summary, fix applied, and prevention items.
 - Postmortems are markdown, operator-editable, and stored on the incident record.
-- The AI suggests new tests, alert rules, or runbook updates based on the incident — but never auto-applies them; the operator reviews and accepts via standard 4D action proposal flow.
+- The AI can suggest new tests, alert rules, or runbook updates when the operator requests prevention recommendations — but never auto-applies them.
 
 This session closes the Layer 4 arc: the Copilot doesn't just diagnose and act on the present — it learns from the past so the system gets smarter.
 
@@ -22,11 +22,12 @@ This session closes the Layer 4 arc: the Copilot doesn't just diagnose and act o
 ## Critical safety constraints
 
 - **Postmortems are AI-generated; runbooks are NOT.** Per the design review feedback: AI generating runbooks autonomously creates a feedback loop where AI mistakes get codified as canonical procedure. Postmortems describe what happened (less risk) and propose runbook IMPROVEMENTS as recommendations the operator reviews before any runbook file is touched. AI never directly writes to `docs/runbooks/*.md`.
+- **Postmortem generation is manual.** Resolving an incident never calls Anthropic by itself. The operator clicks Generate/Regenerate and sees the estimated cost.
 - **Postmortem privacy.** Postmortems may quote alert descriptions, error messages, audit entries — all of which have already been through Layer 1.5B's redaction pipeline. The postmortem reuses the same redactor as a final pass before persisting; double redaction is acceptable, the cost is minimal.
 - **Operator can edit postmortem before sharing.** AI generates the first draft; operator sees it in markdown editor mode; can refine wording, remove speculation, add context only they have. The "shared" version is what's persisted to `platform_incidents.postmortem_final`.
-- **Auto-resolve detection is conservative.** An incident is NOT auto-resolved unless ALL contributing alerts have been resolved AND no new related alerts have fired in the last hour. Bias toward "still open" — better than prematurely closing an incident the operator was still investigating.
+- **Auto-resolve detection is non-AI and conservative.** An incident is NOT auto-resolved unless ALL contributing alerts have been resolved AND no new related alerts have fired in the last hour. Bias toward "still open" — better than prematurely closing an incident the operator was still investigating.
 - **Incident severity is set by the seed alert** (matches the alert's severity). Subsequent attachments don't downgrade; if a `warning` alert attaches to a `critical` incident, the incident stays `critical`.
-- **Postmortem regeneration costs Anthropic budget.** Counted toward the daily recommendation budget from 4C. Operator can manually trigger regeneration but rate-limited (1 per incident per hour).
+- **Postmortem generation costs Anthropic budget.** Operator-triggered generation/regeneration is rate-limited (1 per incident per hour).
 
 ---
 
@@ -194,7 +195,7 @@ export class PostmortemGeneratorService {
   ): Promise<{ draft: string; cost_usd: number }>;
 
   /**
-   * Generate prevention recommendations from a resolved incident.
+   * Manually generate prevention recommendations from a resolved incident.
    * Creates 4C recommendation rows tied to this incident via prevention_recommendation_ids.
    * Examples: "add an alert rule for X", "add a regression test for Y", "update runbook Z to mention this case".
    */
@@ -324,11 +325,11 @@ When the operator asks the Copilot "what's the latest incident?", the response i
 
 - `incident-detection.service.spec.ts` — alert fired + no active incident → new incident; alert fired + active incident with same component → attached; alert resolved + all attached resolved → status moves to monitoring; 1h after monitoring with no new alerts → auto-resolved.
 - `postmortem-generator.service.spec.ts` — postmortem prompt structure correct; cost tracked.
-- `prevention-recommendations.spec.ts` — generated recommendations linked back to incident.
+- `prevention-recommendations.spec.ts` — manually generated recommendations linked back to incident.
 
 ### Integration
 
-- `incident-end-to-end.spec.ts` — fire critical alert → incident created → fire related alert → attached → resolve all alerts → status moves to monitoring → wait 1h (mocked clock) → auto-resolved → operator regenerates postmortem → markdown returned with citations + prevention items.
+- `incident-end-to-end.spec.ts` — fire critical alert → incident created by non-AI logic → fire related alert → attached → resolve all alerts → status moves to monitoring → wait 1h (mocked clock) → auto-resolved → operator clicks Generate postmortem → markdown returned with citations + prevention items.
 - `postmortem-edit.spec.ts` — operator edits postmortem_draft → save as postmortem_final → final persists, draft unchanged.
 
 ### Critical
@@ -341,13 +342,13 @@ When the operator asks the Copilot "what's the latest incident?", the response i
 ## Acceptance
 
 - [ ] `IncidentDetectionService` listens to `platform:alerts` and creates/attaches/resolves incidents per the rules.
-- [ ] `PostmortemGeneratorService` generates a markdown postmortem for resolved incidents.
+- [ ] `PostmortemGeneratorService` generates a markdown postmortem only when manually triggered by the operator.
 - [ ] Postmortem includes Summary, Timeline, Root cause, Impact, Fix applied, Prevention items.
 - [ ] All postmortem claims have citations; uncited claims stripped.
 - [ ] Postmortem runs final-pass redaction.
 - [ ] Operator can edit and save the final version.
-- [ ] Regenerate is rate-limited (1/hr per incident); cost charged to the daily Anthropic budget.
-- [ ] `generate-prevention` creates 4C recommendation rows linked back to the incident via `prevention_recommendation_ids`.
+- [ ] Generate/regenerate is rate-limited (1/hr per incident); cost is shown before the AI call.
+- [ ] `generate-prevention` creates 4C recommendation rows linked back to the incident only when manually triggered.
 - [ ] Frontend pages: `/admin/incidents`, `/admin/incidents/[id]` with all tabs.
 - [ ] Dashboard home shows an "Active incidents" widget.
 - [ ] Auto-resolve test passes (alerts cleared + 1h quiet → incident auto-resolved).
@@ -359,7 +360,7 @@ When the operator asks the Copilot "what's the latest incident?", the response i
 
 ## Notes
 
-- The Layer 4 arc closes here. After 4E, the operator has: live diagnostics (4B), proactive recommendations (4C), supervised actions (4D), and structured incident learning (4E). The system gets observably smarter over time as more incidents accumulate prevention recommendations the operator approves.
+- The Layer 4 arc closes here. After 4E, the operator has: live diagnostics (4B), manual/contextual recommendations (4C), supervised actions (4D), and structured incident learning (4E). The system gets more useful over time as incidents accumulate operator-reviewed prevention recommendations.
 - Auto-resolve at "1h of monitoring with no new alerts" is conservative by design. Operator can manually resolve earlier; auto-resolve is for incidents nobody's actively watching.
 - The "PROPOSAL: update runbook X" pattern in postmortems is the safe path to runbook evolution. AI-flagged proposal → operator reviews → operator manually edits the markdown → next 4A runbook-index cron picks up the change. Never AI-writes-runbook directly.
 - The incident severity inheriting from the seed alert is intentionally simple. Future enhancement: severity escalates if the incident grows beyond a threshold (e.g., >3 affected tenants escalates `warning` to `critical`). Defer until usage shows it matters.

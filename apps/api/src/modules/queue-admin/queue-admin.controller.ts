@@ -16,14 +16,14 @@ import type { Queue } from 'bullmq';
 import type { JwtPayload } from '@school/shared';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
 // ─── Controller ─────────────────────────────────────────────────────────────
 
 @Controller('v1/admin/queues')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard, PlatformRoleGuard)
 export class QueueAdminController {
   private readonly queues: Map<string, Queue>;
 
@@ -40,7 +40,7 @@ export class QueueAdminController {
 
   // GET /v1/admin/queues/failed — summary of failed jobs across all registered queues
   @Get('failed')
-  @RequiresPermission('settings.manage')
+  @RequiresPlatformPermission('platform.queues.view')
   async getFailedSummary() {
     const results: Array<{ queue: string; failed_count: number }> = [];
     for (const [name, queue] of this.queues) {
@@ -52,7 +52,7 @@ export class QueueAdminController {
 
   // GET /v1/admin/queues/:queueName/failed — list failed jobs for a specific queue
   @Get(':queueName/failed')
-  @RequiresPermission('settings.manage')
+  @RequiresPlatformPermission('platform.queues.view')
   async listFailedJobs(
     @Param('queueName') queueName: string,
     @Query('page') page?: string,
@@ -82,7 +82,7 @@ export class QueueAdminController {
 
   // POST /v1/admin/queues/:queueName/failed/:jobId/retry — replay a failed job
   @Post(':queueName/failed/:jobId/retry')
-  @RequiresPermission('settings.manage')
+  @RequiresPlatformPermission('platform.queues.retry')
   @HttpCode(HttpStatus.OK)
   async retryFailedJob(
     @Param('queueName') queueName: string,
@@ -123,7 +123,7 @@ export class QueueAdminController {
 
   // DELETE /v1/admin/queues/:queueName/failed/:jobId — discard a failed job
   @Delete(':queueName/failed/:jobId')
-  @RequiresPermission('settings.manage')
+  @RequiresPlatformPermission('platform.queues.clean')
   @HttpCode(HttpStatus.NO_CONTENT)
   async discardFailedJob(@Param('queueName') queueName: string, @Param('jobId') jobId: string) {
     const queue = this.resolveQueue(queueName);

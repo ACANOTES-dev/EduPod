@@ -19,26 +19,28 @@ import {
 } from '@school/shared';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-// eslint-disable-next-line school/no-cross-module-internal-import -- Platform admin routes use the existing platform-owner guard.
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
 
 import { OnboardingService, type OnboardingTrackerResponse } from './onboarding.service';
 
 @Controller('v1/admin/tenants')
-@UseGuards(AuthGuard, PlatformOwnerGuard)
+@UseGuards(AuthGuard, PlatformRoleGuard)
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
   // GET /v1/admin/tenants/:id/onboarding
   @Get(':id/onboarding')
+  @RequiresPlatformPermission('platform.tenants.view')
   async get(@Param('id', ParseUUIDPipe) id: string): Promise<OnboardingTrackerResponse> {
     return this.onboardingService.getForTenant(id);
   }
 
   // PATCH /v1/admin/tenants/:id/onboarding/:stepId
   @Patch(':id/onboarding/:stepId')
+  @RequiresPlatformPermission('platform.tenants.create')
   async updateStep(
     @Param('id', ParseUUIDPipe) tenantId: string,
     @Param('stepId', ParseUUIDPipe) stepId: string,
@@ -51,6 +53,7 @@ export class OnboardingController {
   // POST /v1/admin/tenants/:id/onboarding/reset
   @Post(':id/onboarding/reset')
   @HttpCode(HttpStatus.OK)
+  @RequiresPlatformPermission('platform.tenants.create')
   async reset(@Param('id', ParseUUIDPipe) tenantId: string): Promise<{ message: string }> {
     await this.onboardingService.resetForTenant(tenantId);
     return { message: 'Onboarding tracker reset successfully' };

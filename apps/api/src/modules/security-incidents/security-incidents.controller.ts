@@ -19,9 +19,10 @@ import {
 } from '@school/shared/security';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
 
 import { createIncidentEventSchema } from './dto/create-incident-event.dto';
 import type { CreateIncidentEventDto } from './dto/create-incident-event.dto';
@@ -34,12 +35,13 @@ import type { UpdateSecurityIncidentDto } from './dto/update-security-incident.d
 import { SecurityIncidentsService } from './security-incidents.service';
 
 @Controller('v1/admin/security-incidents')
-@UseGuards(AuthGuard, PlatformOwnerGuard)
+@UseGuards(AuthGuard, PlatformRoleGuard)
 export class SecurityIncidentsController {
   constructor(private readonly service: SecurityIncidentsService) {}
 
   // GET /v1/admin/security-incidents
   @Get()
+  @RequiresPlatformPermission('platform.audit_log.view')
   async list(
     @Query(new ZodValidationPipe(listSecurityIncidentsSchema))
     query: ListSecurityIncidentsDto,
@@ -49,6 +51,7 @@ export class SecurityIncidentsController {
 
   // POST /v1/admin/security-incidents
   @Post()
+  @RequiresPlatformPermission('platform.audit_log.view')
   async create(
     @Body(new ZodValidationPipe(createSecurityIncidentSchema))
     dto: CreateSecurityIncidentDto,
@@ -59,12 +62,14 @@ export class SecurityIncidentsController {
 
   // GET /v1/admin/security-incidents/:id
   @Get(':id')
+  @RequiresPlatformPermission('platform.audit_log.view')
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);
   }
 
   // PATCH /v1/admin/security-incidents/:id
   @Patch(':id')
+  @RequiresPlatformPermission('platform.audit_log.view')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateSecurityIncidentSchema))
@@ -76,6 +81,7 @@ export class SecurityIncidentsController {
 
   // POST /v1/admin/security-incidents/:id/events
   @Post(':id/events')
+  @RequiresPlatformPermission('platform.audit_log.view')
   async addEvent(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(createIncidentEventSchema))
@@ -87,6 +93,7 @@ export class SecurityIncidentsController {
 
   // POST /v1/admin/security-incidents/:id/notify-controllers
   @Post(':id/notify-controllers')
+  @RequiresPlatformPermission('platform.audit_log.view')
   async notifyControllers(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(notifyControllersSchema))
@@ -98,6 +105,7 @@ export class SecurityIncidentsController {
 
   // POST /v1/admin/security-incidents/:id/notify-dpc
   @Post(':id/notify-dpc')
+  @RequiresPlatformPermission('platform.audit_log.view')
   async notifyDpc(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(notifyDpcSchema))

@@ -83,6 +83,13 @@ enum RoleTier {
   parent
 }
 
+enum PlatformRoleKey {
+  platform_owner
+  platform_support
+
+  @@map("platform_role_key")
+}
+
 enum InvitationStatus {
   pending
   accepted
@@ -1691,6 +1698,9 @@ model User {
   financial_model_snapshots_published FinancialModelSnapshot[] @relation("financial_model_snapshot_publisher")
   event_budgets_created               EventBudget[]            @relation("event_budget_creator")
   shareable_links_created             ShareableLink[]          @relation("shareable_link_creator")
+  platform_user                       PlatformUser?
+  platform_users_invited              PlatformUser[]           @relation("platform_user_invited_by")
+  platform_roles_granted              PlatformUserRole[]       @relation("platform_role_granted_by")
   platform_alerts_acknowledged        PlatformAlertHistory[]   @relation("platform_alert_acknowledger")
   onboarding_steps_completed          TenantOnboardingStep[]   @relation("onboarding_completer")
 
@@ -11774,6 +11784,83 @@ model PlatformHealthSnapshot {
 
   @@index([created_at(sort: Desc)], map: "idx_platform_health_snapshots_created_at")
   @@map("platform_health_snapshots")
+}
+
+model PlatformUser {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @unique @db.Uuid
+  invited_by_user_id String?   @db.Uuid
+  invited_at         DateTime  @default(now()) @db.Timestamptz()
+  activated_at       DateTime? @db.Timestamptz()
+  revoked_at         DateTime? @db.Timestamptz()
+  notes              String?   @db.Text
+  created_at         DateTime  @default(now()) @db.Timestamptz()
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  invited_by User?              @relation("platform_user_invited_by", fields: [invited_by_user_id], references: [id], onDelete: SetNull)
+  roles      PlatformUserRole[]
+  user       User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], map: "idx_platform_users_user_id")
+  @@index([revoked_at], map: "idx_platform_users_revoked_at")
+  @@map("platform_users")
+}
+
+model PlatformRole {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_key     PlatformRoleKey @unique
+  display_name String          @db.VarChar(100)
+  description  String          @db.Text
+  is_system    Boolean         @default(true)
+  created_at   DateTime        @default(now()) @db.Timestamptz()
+  updated_at   DateTime        @default(now()) @updatedAt @db.Timestamptz()
+
+  permissions PlatformRolePermission[]
+  users       PlatformUserRole[]
+
+  @@map("platform_roles")
+}
+
+model PlatformUserRole {
+  platform_user_id   String   @db.Uuid
+  role_id            String   @db.Uuid
+  granted_by_user_id String?  @db.Uuid
+  granted_at         DateTime @default(now()) @db.Timestamptz()
+
+  granted_by    User?        @relation("platform_role_granted_by", fields: [granted_by_user_id], references: [id], onDelete: SetNull)
+  platform_user PlatformUser @relation(fields: [platform_user_id], references: [id], onDelete: Cascade)
+  role          PlatformRole @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([platform_user_id, role_id])
+  @@index([role_id], map: "idx_platform_user_roles_role_id")
+  @@map("platform_user_roles")
+}
+
+model PlatformPermission {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  permission_key      String   @unique @db.VarChar(120)
+  display_name        String   @db.VarChar(100)
+  description         String   @db.Text
+  category            String   @db.VarChar(60)
+  is_destructive      Boolean  @default(false)
+  requires_two_person Boolean  @default(false)
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  roles PlatformRolePermission[]
+
+  @@map("platform_permissions")
+}
+
+model PlatformRolePermission {
+  role_id       String @db.Uuid
+  permission_id String @db.Uuid
+
+  permission PlatformPermission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  role       PlatformRole       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@index([permission_id], map: "idx_platform_role_permissions_permission_id")
+  @@map("platform_role_permissions")
 }
 
 model PlatformAlertRule {

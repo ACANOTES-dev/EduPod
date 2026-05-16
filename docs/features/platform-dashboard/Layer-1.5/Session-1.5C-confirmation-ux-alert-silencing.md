@@ -1,90 +1,84 @@
-# Session 1.5C: Confirmation UX + Alert Silencing Primitives
+# Session 1.5C: Owner Confirmation UX + Alert Silencing Primitives
 
-**Depends on:** Sessions 1.5A (uses `platform_users` for the secondary-approver list) + 1.5B (every action emits audit entries)
-**Unlocks:** Layer 2A (alert rule builder UX uses silencing); Layer 2B (multi-channel alerting respects silences before fanning out); Layer 3B (support toolkit destructive actions use the confirmation primitives); Layer 3C (cache flush global, force logout tenant, maintenance mode all use two-person + maintenance-window infra); Layer 4D (AI Copilot supervised actions reuse the confirmation pattern)
+**Depends on:** Sessions 1.5A (platform owner identity + permissions) + 1.5B (every action emits audit entries)
+**Unlocks:** Layer 2A (alert rule builder UX uses silencing); Layer 2B (multi-channel alerting respects silences before fanning out); Layer 3B/3C (dangerous operator actions reuse the confirmation primitive); Layer 4D (AI Copilot supervised actions reuse the same owner-approved action pattern)
 
 ---
 
 ## Objective
 
-Three small but cross-cutting deliverables that the rest of the dashboard reuses:
+Ship the safety primitives that work for EduPod's real operating model for the next year: **one human platform owner**.
 
-1. **Two-person approval primitive** — for high-blast actions flagged `requires_two_person: true` in the permission catalogue (cache flush global, queue clean, ownership transfer, force-logout tenant, AI-Copilot-proposed destructive actions). Operator A initiates → email goes to all platform_owners → Operator B clicks the link → action executes. Stored as `platform_two_person_requests` with status + payload + expiration.
+This session deliberately removes mandatory two-person approval. Requiring a second approver would force the solo operator to create two accounts and approve their own actions, which adds friction without adding real safety. The correct safety model is:
 
-2. **Alert silencing** — operator can suppress a specific rule, all rules for a component (e.g., "all Redis alerts"), or globally. Time-bounded (default: 1 hour, configurable up to 7 days). Silenced alerts still fire to the audit log but do NOT dispatch via email/Telegram/etc. Stored as `platform_alert_silences`. The 1C alert evaluation cron consults silences before publishing.
+1. The signed-in `platform_owner` can execute any permitted action.
+2. High-blast actions require a stronger confirmation step: exact action/target preview, typed confirmation phrase, required reason, optional fresh-auth/MFA check when available, and audit logging.
+3. The system never blocks a legitimate solo-owner action because a second platform owner does not exist.
 
-3. **Maintenance windows** — pre-scheduled time periods during which all alerts are suppressed AND a banner appears in the dashboard. Operator schedules in advance ("Sunday 02:00–04:00 UTC for DB upgrade"). Stored as `platform_maintenance_windows`. Layer 3C's "maintenance mode" is the immediate-now version of this; this session ships the scheduled version.
+This session delivers:
 
-After this session, no destructive Layer 2/3 action ships without a confirmation modal; no alert storm during planned work without a clean silence flow; and Layer 4's AI Copilot has a clean handoff path for supervised actions.
+- **Owner action confirmation** — durable confirmation record for high-blast actions such as global cache flush, queue clean, ownership transfer, tenant-wide force logout, tenant archive, and AI-proposed destructive actions.
+- **Alert silencing** — suppress a specific rule, a component, or global non-security alerts for a bounded window while still recording suppressed alerts.
+- **Platform alert maintenance windows** — planned alert-suppression windows with a dashboard banner. This is alert noise control, not tenant-facing maintenance mode; Layer 3C owns tenant maintenance mode.
 
 ---
 
-## Critical safety constraints
+## Critical Safety Constraints
 
-- **Two-person approval cannot be self-approved.** Operator A (initiator) is excluded from the approver pool. If only one platform_owner exists, the action is BLOCKED with a clear error: "This action requires a second platform_owner. Invite one before proceeding." (No fallback to "single-operator mode" — tempting but defeats the safety property.)
-- **Approval requests expire.** Default 30 minutes; configurable per action. Expired requests cannot be approved; operator must re-initiate. Prevents "approved last week, executed today" surprise.
-- **The action payload is captured at INITIATE time, executed verbatim at APPROVE time.** Operator A cannot modify the payload after initiating. If they need a different payload, reject the existing request and initiate a new one.
-- **Silencing is a write — not just a config flip.** Every silence creation is an audit entry. Every silence removal is an audit entry. Every alert that WOULD HAVE fired but was suppressed by a silence is still recorded in `platform_alert_history` with `suppressed_by_silence_id` populated, so retrospective analysis sees what happened.
-- **Maintenance windows do NOT mask security alerts.** A separate flag `is_security_critical` on alert rules; rules with this flag fire even during maintenance windows. Examples: "RLS query rejected", "audit chain hash break detected", "platform_user invited from unfamiliar IP". Operator can disable specific security rules manually but the maintenance window doesn't.
-- **Two-person email contains no payload preview by default** — only "Operator A wants to perform action X on resource Y. [Approve] [Reject]" with a link. Payload is shown to Operator B inside the dashboard, not in email (reduces leak surface if email is compromised).
+- **No fake dual approval.** No endpoint, guard, or UI may require a second platform owner in the solo-operator phase. If future staffing changes, a true multi-approver policy can be added as a separate feature flag, but it is not part of this implementation.
+- **High-blast actions still require friction.** The owner must type a confirmation phrase derived from the target, provide a reason, and see a clear before/after or payload preview before execution.
+- **Confirmation is not authorization.** `PlatformRoleGuard` and `@RequiresPlatformPermission()` still decide whether the owner may perform the action. Confirmation is an extra safety step after authorization.
+- **Action payload is captured at confirmation time.** The audit record stores action kind, target, payload summary, reason, and actor. If the payload changes, a new confirmation is required.
+- **Silencing is a write.** Creating/removing silences emits audit entries. Suppressed alerts still land in `platform_alert_history` with `suppressed_by_silence_id` or `suppressed_by_maintenance_window_id`.
+- **Maintenance windows do not mask security alerts.** Alert rules marked `is_security_critical` still fire during maintenance windows.
 
 ---
 
 ## Database
 
-### New tables
+### New Tables
 
 ```prisma
-model PlatformTwoPersonRequest {
-  id                  String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  initiator_user_id   String                              @db.Uuid
-  approver_user_id    String?                             @db.Uuid           // populated on approve
-  action              PlatformAuditAction                 // mirrors the audit action enum
-  target_resource_type String                             @db.VarChar(60)
-  target_resource_id  String?                             @db.VarChar(255)
-  target_tenant_id    String?                             @db.Uuid
-  payload             Json                                @db.JsonB          // captured at initiate; executed verbatim at approve
-  reason              String                              @db.Text           // initiator's explanation (required)
-  status              PlatformTwoPersonRequestStatus      @default(pending)
-  initiated_at        DateTime                            @default(now()) @db.Timestamptz()
-  expires_at          DateTime                            @db.Timestamptz()  // initiated_at + configured TTL (default 30min)
-  resolved_at         DateTime?                           @db.Timestamptz()
-  rejection_reason    String?                             @db.Text
+model PlatformOwnerActionConfirmation {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id         String              @db.Uuid
+  action                PlatformAuditAction
+  target_resource_type  String              @db.VarChar(60)
+  target_resource_id    String?             @db.VarChar(255)
+  target_tenant_id      String?             @db.Uuid
+  payload_summary       Json                @db.JsonB
+  confirmation_phrase   String              @db.VarChar(200)
+  reason                String              @db.Text
+  confirmed_at          DateTime            @default(now()) @db.Timestamptz()
+  executed_at           DateTime?           @db.Timestamptz()
+  execution_status      String              @default("pending") @db.VarChar(30)
+  execution_result      Json?
 
-  initiator           User                                @relation("TwoPersonInitiator", fields: [initiator_user_id], references: [id], onDelete: Restrict)
-  approver            User?                               @relation("TwoPersonApprover", fields: [approver_user_id], references: [id], onDelete: SetNull)
+  actor                 User                @relation("OwnerActionConfirmationActor", fields: [actor_user_id], references: [id], onDelete: Restrict)
 
-  @@map("platform_two_person_requests")
-  @@index([status, expires_at])
-  @@index([initiator_user_id, initiated_at(sort: Desc)])
-}
-
-enum PlatformTwoPersonRequestStatus {
-  pending
-  approved
-  rejected
-  expired
-  executed
-  failed
+  @@map("platform_owner_action_confirmations")
+  @@index([actor_user_id, confirmed_at(sort: Desc)])
+  @@index([action, confirmed_at(sort: Desc)])
+  @@index([target_tenant_id, confirmed_at(sort: Desc)])
 }
 
 model PlatformAlertSilence {
-  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scope             PlatformAlertSilenceScope
-  alert_rule_id     String?                      @db.Uuid          // populated when scope = single_rule
-  component         String?                      @db.VarChar(40)   // populated when scope = component (e.g., 'postgres', 'redis')
-  reason            String                       @db.Text
-  starts_at         DateTime                     @default(now()) @db.Timestamptz()
-  ends_at           DateTime                     @db.Timestamptz()
-  created_by_user_id String                      @db.Uuid
-  created_at        DateTime                     @default(now()) @db.Timestamptz()
-  removed_at        DateTime?                    @db.Timestamptz()
-  removed_by_user_id String?                     @db.Uuid
-  removed_reason    String?                      @db.Text
+  id                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope                   PlatformAlertSilenceScope
+  alert_rule_id            String?                    @db.Uuid
+  component                String?                    @db.VarChar(40)
+  reason                  String                     @db.Text
+  starts_at                DateTime                   @default(now()) @db.Timestamptz()
+  ends_at                  DateTime                   @db.Timestamptz()
+  created_by_user_id       String                     @db.Uuid
+  created_at               DateTime                   @default(now()) @db.Timestamptz()
+  removed_at               DateTime?                  @db.Timestamptz()
+  removed_by_user_id       String?                    @db.Uuid
+  removed_reason           String?                    @db.Text
 
-  alert_rule        PlatformAlertRule?           @relation(fields: [alert_rule_id], references: [id], onDelete: Cascade)
-  created_by        User                         @relation("AlertSilenceCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
-  removed_by        User?                        @relation("AlertSilenceRemovedBy", fields: [removed_by_user_id], references: [id], onDelete: SetNull)
+  alert_rule               PlatformAlertRule?         @relation(fields: [alert_rule_id], references: [id], onDelete: Cascade)
+  created_by               User                       @relation("AlertSilenceCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  removed_by               User?                      @relation("AlertSilenceRemovedBy", fields: [removed_by_user_id], references: [id], onDelete: SetNull)
 
   @@map("platform_alert_silences")
   @@index([starts_at, ends_at])
@@ -92,318 +86,154 @@ model PlatformAlertSilence {
   @@index([component])
 }
 
+model PlatformMaintenanceWindow {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                    String                     @db.VarChar(200)
+  description              String?                    @db.Text
+  starts_at                DateTime                   @db.Timestamptz()
+  ends_at                  DateTime                   @db.Timestamptz()
+  created_by_user_id       String                     @db.Uuid
+  cancelled_at             DateTime?                  @db.Timestamptz()
+  cancelled_by_user_id     String?                    @db.Uuid
+  created_at               DateTime                   @default(now()) @db.Timestamptz()
+
+  created_by               User                       @relation("MaintenanceWindowCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  cancelled_by             User?                      @relation("MaintenanceWindowCancelledBy", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("platform_maintenance_windows")
+  @@index([starts_at, ends_at])
+}
+
 enum PlatformAlertSilenceScope {
   single_rule
   component
   global
 }
-
-model PlatformMaintenanceWindow {
-  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title             String           @db.VarChar(200)
-  description       String?          @db.Text
-  starts_at         DateTime         @db.Timestamptz()
-  ends_at           DateTime         @db.Timestamptz()
-  created_by_user_id String          @db.Uuid
-  cancelled_at      DateTime?        @db.Timestamptz()
-  cancelled_by_user_id String?       @db.Uuid
-  created_at        DateTime         @default(now()) @db.Timestamptz()
-
-  created_by        User             @relation("MaintenanceWindowCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
-  cancelled_by      User?            @relation("MaintenanceWindowCancelledBy", fields: [cancelled_by_user_id], references: [id], onDelete: SetNull)
-
-  @@map("platform_maintenance_windows")
-  @@index([starts_at, ends_at])
-}
 ```
 
-### Modified table (from 1C)
+### Modified Tables
+
+`PlatformPermission` from Session 1.5A should use:
 
 ```prisma
-model PlatformAlertRule {
-  // ... existing fields ...
-  is_security_critical  Boolean   @default(false)   // exempt from maintenance window suppression
-  suppressed_by_silence_ids  String[]  @default([])  // populated by alert evaluation when suppression hits
-
-  // ... existing relations ...
-  silences  PlatformAlertSilence[]
-}
+requires_owner_confirmation Boolean @default(false)
 ```
 
-### Modified table (from 1C)
+Do not use `requires_two_person`. That name encodes the wrong operating model.
 
-```prisma
-model PlatformAlertHistory {
-  // ... existing fields ...
-  suppressed_by_silence_id  String?  @db.Uuid  // populated when alert WOULD have fired but a silence intercepted
-  suppressed_by_maintenance_window_id  String?  @db.Uuid  // populated when alert WOULD have fired but a maintenance window intercepted
-}
-```
+`PlatformAlertRule` gains `is_security_critical Boolean @default(false)`.
+
+`PlatformAlertHistory` gains nullable `suppressed_by_silence_id` and `suppressed_by_maintenance_window_id`.
 
 ---
 
-## API + service layer
+## API + Service Layer
 
-### `PlatformTwoPersonService`
+### `PlatformOwnerActionConfirmationService`
 
 ```ts
 @Injectable()
-export class PlatformTwoPersonService {
-  /**
-   * Initiate a two-person request. Returns the request id. Sends email
-   * to all platform_owners except the initiator with the approve/reject link.
-   */
-  async initiate(input: {
-    initiator_user_id: string;
+export class PlatformOwnerActionConfirmationService {
+  async confirmAndExecute(input: {
+    actor_user_id: string;
     action: PlatformAuditAction;
     target_resource_type: string;
     target_resource_id?: string;
     target_tenant_id?: string;
     payload: unknown;
+    confirmation_phrase: string;
+    typed_confirmation: string;
     reason: string;
-    ttl_minutes?: number; // default 30
-  }): Promise<{ request_id: string; expires_at: Date }> {
-    /* ... */
-  }
-
-  /**
-   * Approve a pending request. Verifies approver !== initiator.
-   * Verifies request not expired. Executes the action via the
-   * registered ActionExecutor for that action enum.
-   * Records audit entry for the approval AND the execution.
-   */
-  async approve(request_id: string, approver_user_id: string): Promise<void> {
-    /* ... */
-  }
-
-  /**
-   * Reject a pending request with optional reason.
-   */
-  async reject(request_id: string, rejector_user_id: string, reason?: string): Promise<void> {
-    /* ... */
-  }
+  }): Promise<{ confirmation_id: string; execution_status: 'executed' | 'failed' }>;
 }
 ```
 
-### Action executor registry
+The service verifies:
 
-`apps/api/src/modules/platform-two-person/action-executors/`:
+- Actor has the required permission.
+- `typed_confirmation === confirmation_phrase`.
+- `reason` is present and meaningful.
+- The action has a registered executor.
 
-One executor per `PlatformAuditAction` value that requires two-person. Each implements:
+Initial executors:
 
-```ts
-interface PlatformTwoPersonActionExecutor {
-  action: PlatformAuditAction;
-  execute(
-    payload: unknown,
-    context: { approver_user_id: string; initiator_user_id: string },
-  ): Promise<void>;
-}
-```
+- `cache_flushed_global`
+- `queue_cleaned`
+- `tenant_ownership_transferred`
+- `session_force_logged_out_tenant`
+- `tenant_archived`
 
-Initial executors (ship in this session):
+Layer 2/3/4 sessions add executors as their action surfaces ship.
 
-- `cache_flushed_global` → calls `RedisService.flushAll()` with audit
-- `queue_cleaned` → calls BullMQ queue `clean()` with audit
-- `tenant_ownership_transferred` → existing service method, wrapped
-- `session_force_logged_out_tenant` → mass session invalidation
-- `tenant_archived` → existing service method, wrapped
-
-Layer 2/3/4 sessions REGISTER additional executors as they ship. The executor registry is open-ended; new actions don't need to modify this session.
-
-### `PlatformAlertSilenceService`
-
-```ts
-@Injectable()
-export class PlatformAlertSilenceService {
-  async create(input: {
-    scope;
-    alert_rule_id?;
-    component?;
-    ends_at;
-    reason;
-    created_by_user_id;
-  }): Promise<PlatformAlertSilence>;
-  async remove(silence_id: string, remover_user_id: string, reason?: string): Promise<void>;
-
-  /**
-   * Called by the alert evaluation cron (1C). Returns true if any
-   * matching silence is active.
-   */
-  async isAlertSilenced(
-    rule: PlatformAlertRule,
-    now: Date,
-  ): Promise<{ silenced: boolean; silence_id?: string }>;
-}
-```
-
-### `PlatformMaintenanceWindowService`
-
-```ts
-@Injectable()
-export class PlatformMaintenanceWindowService {
-  async create(input: {
-    title;
-    description?;
-    starts_at;
-    ends_at;
-    created_by_user_id;
-  }): Promise<PlatformMaintenanceWindow>;
-  async cancel(window_id: string, canceller_user_id: string): Promise<void>;
-
-  /**
-   * Returns the active window if any. Used by alert evaluation AND
-   * surfaced in the dashboard layout via WebSocket.
-   */
-  async getActiveWindow(now: Date): Promise<PlatformMaintenanceWindow | null>;
-}
-```
-
-### Alert evaluation integration (modifies 1C's evaluator)
-
-Inside 1C's `AlertEvaluationService.evaluate(rule)`:
-
-```ts
-// Before publishing the alert
-if (!rule.is_security_critical) {
-  const window = await this.maintenance.getActiveWindow(new Date());
-  if (window) {
-    await this.alertHistory.recordSuppressed(rule, { window_id: window.id });
-    return;
-  }
-}
-
-const silence = await this.silences.isAlertSilenced(rule, new Date());
-if (silence.silenced) {
-  await this.alertHistory.recordSuppressed(rule, { silence_id: silence.silence_id });
-  return;
-}
-
-// Existing publish logic continues
-```
-
-### New controllers
+### New Controllers
 
 ```
-POST   /v1/admin/two-person-requests                       -> @RequiresPlatformPermission(varies by action) + initiate
-POST   /v1/admin/two-person-requests/:id/approve           -> @RequiresPlatformPermission(matches request action) + approve
-POST   /v1/admin/two-person-requests/:id/reject            -> @RequiresPlatformPermission(matches request action) + reject
-GET    /v1/admin/two-person-requests                       -> list pending requests for the current operator (their own + ones awaiting their approval)
+POST /v1/admin/action-confirmations -> confirm + execute a high-blast action
+GET  /v1/admin/action-confirmations -> list recent confirmations
 
-POST   /v1/admin/alert-silences                            -> @RequiresPlatformPermission('platform.alerts.silence')
-DELETE /v1/admin/alert-silences/:id                        -> @RequiresPlatformPermission('platform.alerts.silence')
-GET    /v1/admin/alert-silences                            -> @RequiresPlatformPermission('platform.alerts.view')
+POST   /v1/admin/alert-silences
+DELETE /v1/admin/alert-silences/:id
+GET    /v1/admin/alert-silences
 
-POST   /v1/admin/maintenance-windows                       -> @RequiresPlatformPermission('platform.maintenance.toggle')
-DELETE /v1/admin/maintenance-windows/:id                   -> @RequiresPlatformPermission('platform.maintenance.toggle')
-GET    /v1/admin/maintenance-windows                       -> @RequiresPlatformPermission('platform.alerts.view')
+POST   /v1/admin/alert-maintenance-windows
+DELETE /v1/admin/alert-maintenance-windows/:id
+GET    /v1/admin/alert-maintenance-windows
 ```
 
-### Cleanup cron
-
-Daily at 04:45 UTC: mark `pending` two-person requests where `expires_at < now()` as `expired`. Audit-log per expiration.
+Use `alert-maintenance-windows` to avoid colliding with Layer 3C's tenant maintenance-mode windows.
 
 ---
 
 ## Frontend
 
-### Shared component: `<TwoPersonConfirmationDialog>`
+### Shared Component: `<OwnerActionConfirmDialog>`
 
-`apps/web/src/components/platform-admin/two-person-confirmation-dialog.tsx`:
+Used by every destructive/high-blast UI.
 
-```tsx
-interface TwoPersonConfirmationDialogProps {
-  action: PlatformAuditAction;
-  targetDescription: string; // human-readable target
-  payload: unknown; // sent to the API verbatim
-  onComplete?: () => void;
-}
-```
+It renders:
 
-Renders a modal with:
+- Human-readable action summary.
+- Target name/id.
+- Payload preview or before/after summary.
+- Required typed phrase, for example `ARCHIVE NHQS Pilot`.
+- Required reason textarea.
+- Final "Confirm and execute" button.
 
-- Action description ("This will permanently archive tenant 'NHQS Pilot'.")
-- Payload preview (JSON pretty-printed)
-- "Reason" textarea (required, min 10 chars)
-- "Initiate approval request" button → POSTs to `/v1/admin/two-person-requests`
-- After initiation: shows the request id + a list of platform_owners who can approve
+### Other UI
 
-Used by every Layer 2/3/4 destructive action UI.
-
-### Single-step confirmation: `<DestructiveConfirmDialog>`
-
-For actions flagged `is_destructive: true` but NOT `requires_two_person`, use a simpler confirm-with-reason modal. Same `reason` capture; no second-approver flow.
-
-### New pages
-
-`apps/web/src/app/[locale]/(platform)/admin/two-person-requests/page.tsx`:
-
-- Tabbed view: "Awaiting my approval" | "My pending requests" | "Recent (last 7 days)".
-- Each row: action, target, initiator, initiated_at, expires_at, status.
-- Approve / Reject buttons inline for "Awaiting my approval" tab.
-
-`apps/web/src/app/[locale]/(platform)/admin/alerts/silences/page.tsx`:
-
-- Active silences list + "Add silence" button.
-- Form: scope (single_rule / component / global), duration, reason.
-
-`apps/web/src/app/[locale]/(platform)/admin/maintenance/page.tsx`:
-
-- Active window banner (if any).
-- Scheduled windows table (future).
-- Past windows table (history).
-- "Schedule new" button.
-
-### Layout banner
-
-Dashboard header gains a `<MaintenanceBanner>` component:
-
-- Visible to all platform users when an active window exists.
-- Visible to all tenant users (in a separate, less prominent form) when an active window exists AND the window has `notify_tenants: true` (added field; default false).
-- Pulled in real-time via the existing platform WebSocket — when a window starts/ends, the banner appears/disappears without page refresh.
+- `/admin/alerts/silences` — active silences + create form.
+- `/admin/maintenance` — platform alert maintenance windows + active banner.
+- `<ActiveSilenceBanner>` and `<MaintenanceBanner>` in the platform layout.
 
 ---
 
 ## Tests
 
-### Unit
-
-- `platform-two-person.service.spec.ts`: initiate → email sent to other platform_owners; self-approval blocked; expired requests cannot be approved; payload integrity preserved across initiate/approve cycle.
-- `alert-silence.service.spec.ts`: scoped silences match correct rules; expired silences don't suppress; cascade on rule deletion works.
+- `owner-action-confirmation.service.spec.ts`: phrase mismatch blocked; missing reason blocked; permitted owner executes; audit entries written; executor failure captured.
+- `alert-silence.service.spec.ts`: scoped silences match correct rules; expired silences do not suppress; removed silences stop suppressing.
 - `maintenance-window.service.spec.ts`: active window detection; security-critical rules exempt.
-
-### Integration
-
-- E2E: operator A initiates "queue clean" → operator B receives email (mocked Resend) → B approves → queue cleaned → audit entries for initiate, approve, execute all present.
-- E2E: silence created → matching alert rule fires during silence → alert is recorded as suppressed in history but no email/dispatch happens.
-- E2E: maintenance window scheduled for next 2 hours → during window, non-security alerts suppressed; security-critical alert (audit chain hash break) still fires.
-
-### Static analysis
-
-- A new spec scans Layer 2/3/4 controllers for endpoints that map to `is_destructive: true` permissions. Asserts each has a corresponding frontend component using `<DestructiveConfirmDialog>` or `<TwoPersonConfirmationDialog>`. (Best-effort heuristic — pragmatic check.)
+- E2E: signed-in platform owner confirms queue clean with phrase + reason → executor runs → audit and confirmation rows exist.
+- Static check: destructive Layer 2/3/4 frontend surfaces use `<OwnerActionConfirmDialog>` or an explicit lower-risk confirmation component.
 
 ---
 
 ## Acceptance
 
-- [ ] `PlatformTwoPersonService` exists with initiate/approve/reject. Self-approval blocked. Expiration enforced.
-- [ ] At least 5 action executors registered (cache_flushed_global, queue_cleaned, tenant_ownership_transferred, session_force_logged_out_tenant, tenant_archived).
-- [ ] `<TwoPersonConfirmationDialog>` component exists and is used by at least one existing destructive UI (recommend: tenant archive button).
-- [ ] `<DestructiveConfirmDialog>` exists for non-two-person destructive actions.
+- [ ] No two-person/second-approver requirement exists in this session.
+- [ ] `requires_owner_confirmation` is the permission flag for high-blast actions.
+- [ ] `PlatformOwnerActionConfirmationService` exists with executor registry.
+- [ ] `<OwnerActionConfirmDialog>` exists and is used by at least one existing destructive UI.
+- [ ] At least 5 action executors registered: global cache flush, queue clean, ownership transfer, tenant-wide force logout, tenant archive.
 - [ ] `PlatformAlertSilenceService` exists and integrates with 1C's alert evaluation cron.
-- [ ] `PlatformMaintenanceWindowService` exists; active window suppresses non-security-critical alerts; security-critical rules exempt.
-- [ ] `<MaintenanceBanner>` renders in real-time via WebSocket when a window starts/ends.
-- [ ] Frontend pages: `/admin/two-person-requests`, `/admin/alerts/silences`, `/admin/maintenance` all functional.
-- [ ] Email to second approver does NOT include payload (only the action description).
-- [ ] All actions emit audit entries (initiate, approve, reject, expire, execute).
-- [ ] `docs/architecture/danger-zones.md` gains DZ-PA-4 (two-person self-approval impossible — single-operator deployments need a second platform_owner before this primitive is usable).
+- [ ] `PlatformMaintenanceWindowService` exists for alert-suppression windows; active window suppresses non-security-critical alerts; security-critical rules exempt.
+- [ ] Platform alert maintenance endpoints use `/v1/admin/alert-maintenance-windows`, not `/v1/admin/maintenance-windows`.
+- [ ] All owner-confirmed actions emit platform audit entries with reason and target.
+- [ ] `docs/architecture/danger-zones.md` gains DZ-PA-4: solo-owner confirmations must never require fake second accounts.
 
 ---
 
 ## Notes
 
-- The two-person flow's "single-operator block" is the most contentious safety call. The alternative — falling back to single-operator confirmation when only one owner exists — defeats the safety property when it matters most (the early days when the operator is alone). The right fix is "invite a second platform_owner before you need to do something dangerous." Layer 1.5A's invitation flow makes this 30 seconds of work.
-- The action executor registry is intentionally open-ended. Layer 2/3/4 sessions add executors without touching this session's code. Each new executor lands as part of its own session's PR.
-- Alert silencing UX should support quick presets ("Silence for 1 hour", "Silence for the next maintenance window"). Form complexity stays low.
-- The `notify_tenants: true` flag on maintenance windows is a Layer 3 concern (the tenant-facing banner). Schema includes it now; UI for setting it ships in Layer 3.
-- Layer 4D's AI Copilot supervised actions reuse `PlatformTwoPersonService.initiate()` directly — the AI is the "initiator," operator is the "approver." Same audit trail. Same expiration semantics. Means the AI can never execute a two-person action by itself even if granted unbounded permissions.
+- This is intentionally solo-operator friendly. If EduPod later has a real ops team, add multi-approver policy as a new session/feature flag instead of smuggling it into the solo phase.
+- The confirmation phrase is not a security boundary by itself; it prevents accidental clicks and forces the owner to look at the exact target. Authorization still comes from RBAC.
+- Layer 4D AI actions reuse this exact owner confirmation path. The AI proposes; Ram confirms; the executor runs. No autonomous execution and no fake second account.

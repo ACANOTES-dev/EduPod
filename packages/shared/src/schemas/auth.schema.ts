@@ -62,6 +62,13 @@ export const meResponseSchema = z.object({
   enabled_modules: z.array(
     z.custom<ModuleKey>((value) => typeof value === 'string' && isModuleKey(value)),
   ),
+  platform_roles: z.array(
+    z.object({
+      role_key: z.string(),
+      display_name: z.string(),
+    }),
+  ),
+  platform_permissions: z.array(z.string()),
   memberships: z.array(
     z.object({
       id: z.string().uuid(),

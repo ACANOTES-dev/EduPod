@@ -58,9 +58,9 @@ describe('Tenants Admin Endpoints (e2e)', () => {
     expect(res.body.data.status).toBe('active');
   });
 
-  // ─── Test 2: Reject non-platform-owner ──────────────────────────────────────
+  // ─── Test 2: Default-deny non-platform caller ───────────────────────────────
 
-  it('should reject non-platform-owner', async () => {
+  it('should default-deny non-platform caller', async () => {
     const slug = `test-reject-${Date.now()}`;
     await authPost(app, '/api/v1/admin/tenants', nonPlatformOwnerToken, {
       name: 'Unauthorised School',
@@ -70,7 +70,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
       date_format: 'DD-MM-YYYY',
       currency_code: 'AED',
       academic_year_start_month: 9,
-    }).expect(403);
+    }).expect(404);
   });
 
   // ─── Test 3: Reject unauthenticated ─────────────────────────────────────────

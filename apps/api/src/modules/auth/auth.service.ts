@@ -18,6 +18,7 @@ import { isModuleKey } from '@school/shared/modules';
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
@@ -39,7 +40,6 @@ export type { LoginResult, MfaRequiredResult, MfaSetupResult, SanitisedUser, Ses
 
 const PLATFORM_HOST = 'dua.edupod.app';
 const PLATFORM_HOST_DEV = 'dua.localhost';
-const PLATFORM_USER_REDIS_KEYS = ['platform_owner_user_ids', 'platform_support_user_ids'] as const;
 
 @Injectable()
 export class AuthService {
@@ -57,6 +57,7 @@ export class AuthService {
     private readonly securityAuditService: SecurityAuditService,
     private readonly tenantReadFacade: TenantReadFacade,
     private readonly tenantModuleService: TenantModuleService,
+    private readonly platformUsersService: PlatformUsersService,
   ) {}
 
   // ─── Token signing / verification (delegates to TokenService) ──────────────
@@ -667,6 +668,11 @@ export class AuthService {
         display_name: string;
       }>;
     }>;
+    platform_roles: Array<{
+      role_key: string;
+      display_name: string;
+    }>;
+    platform_permissions: string[];
   }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -708,10 +714,49 @@ export class AuthService {
     const enabledModules = tenantId
       ? await this.tenantModuleService.getEnabledModules(tenantId)
       : [];
+    const platformUser = !tenantId
+      ? await this.prisma.platformUser.findFirst({
+          where: {
+            user_id: userId,
+            revoked_at: null,
+          },
+          select: {
+            roles: {
+              select: {
+                role: {
+                  select: {
+                    display_name: true,
+                    permissions: {
+                      select: {
+                        permission: { select: { permission_key: true } },
+                      },
+                    },
+                    role_key: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : null;
+    const platformRoles =
+      platformUser?.roles.map((role) => ({
+        role_key: role.role.role_key,
+        display_name: role.role.display_name,
+      })) ?? [];
+    const platformPermissions = Array.from(
+      new Set(
+        platformUser?.roles.flatMap((role) =>
+          role.role.permissions.map((permission) => permission.permission.permission_key),
+        ) ?? [],
+      ),
+    ).sort();
 
     return {
       user: this.sanitiseUser(user),
       enabled_modules: enabledModules,
+      platform_roles: platformRoles,
+      platform_permissions: platformPermissions,
       memberships: memberships.map((m) => ({
         id: m.id,
         tenant_id: m.tenant_id,
@@ -946,21 +991,7 @@ export class AuthService {
   }
 
   private async isPlatformUser(userId: string): Promise<boolean> {
-    const client = this.redis.getClient();
-
-    try {
-      for (const key of PLATFORM_USER_REDIS_KEYS) {
-        const isMember = await client.sismember(key, userId);
-        if (isMember) return true;
-      }
-    } catch (err) {
-      this.logger.warn(
-        `Platform user lookup failed for ${userId}`,
-        err instanceof Error ? err.stack : String(err),
-      );
-    }
-
-    return false;
+    return this.platformUsersService.isMember(userId);
   }
 
   private normaliseHost(host?: string): string {

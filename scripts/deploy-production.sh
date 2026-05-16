@@ -499,6 +499,12 @@ main() {
   log 'Applying post-migrate SQL'
   DATABASE_URL="$DATABASE_MIGRATE_URL" pnpm db:post-migrate
 
+  log 'Backfilling platform users from Redis'
+  (
+    cd packages/prisma
+    DATABASE_URL="$DATABASE_MIGRATE_URL" pnpm exec tsx scripts/backfill-platform-users-from-redis.ts
+  )
+
   run_post_migrate_verification
 
   log 'Restarting services'

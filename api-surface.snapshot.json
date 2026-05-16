@@ -176,31 +176,73 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/platform-permissions",
+    "controller": "PlatformPermissionsController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-users",
+    "controller": "PlatformUsersController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/platform-users/:id",
+    "controller": "PlatformUsersController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/platform-users/:id",
+    "controller": "PlatformUsersController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/platform-users/:id/roles",
+    "controller": "PlatformUsersController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/platform-users/invite",
+    "controller": "PlatformUsersController",
+    "module": "platform-users",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/queues/:queueName/failed",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": "settings.manage"
+    "permission": null
   },
   {
     "method": "DELETE",
     "path": "/v1/admin/queues/:queueName/failed/:jobId",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": "settings.manage"
+    "permission": null
   },
   {
     "method": "POST",
     "path": "/v1/admin/queues/:queueName/failed/:jobId/retry",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": "settings.manage"
+    "permission": null
   },
   {
     "method": "GET",
     "path": "/v1/admin/queues/failed",
     "controller": "QueueAdminController",
     "module": "queue-admin",
-    "permission": "settings.manage"
+    "permission": null
   },
   {
     "method": "GET",

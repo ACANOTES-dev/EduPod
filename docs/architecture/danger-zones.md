@@ -1594,6 +1594,20 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 ---
 
+## DZ-PA-1: Platform RBAC Missing Rows Default-Deny
+
+**Risk**: Platform-admin authorization is relational (`platform_users` -> roles -> permissions). If the deploy backfill does not preserve the existing operator from the legacy Redis `platform_owner_user_ids` set, the platform host will correctly default-deny and lock out all platform-admin routes, WebSockets, and navigation.
+**Location**: `apps/api/src/modules/platform-users/`, `apps/api/src/common/guards/platform-role.guard.ts`, `apps/api/src/modules/auth/auth.service.ts`, `apps/api/src/modules/platform/platform.gateway.ts`, `packages/prisma/scripts/backfill-platform-users-from-redis.ts`
+**Status**: ACTIVE (Platform Dashboard Layer 1.5 Session 1.5A, 2026-05-16)
+
+**Rule**: Runtime platform authorization must use relational platform RBAC only. The Redis `platform_owner_user_ids` set is retained as a non-destructive migration/backfill source, not a runtime allowlist. Missing `platform_users` rows, revoked rows, users without roles, and users without a required permission must deny access.
+
+**Mitigation**: Deploys that introduce or modify platform RBAC must seed platform roles/permissions, run the Redis-to-relational backfill before restarting the API, and smoke-test the existing platform owner on `https://dua.edupod.app`. Every `/v1/admin/*` controller must use `PlatformRoleGuard` and method-level `@RequiresPlatformPermission(...)`.
+
+**Regression coverage**: `apps/api/src/common/guards/platform-role.guard.spec.ts`, `apps/api/src/common/guards/platform-permission-coverage.spec.ts`, `apps/api/src/modules/platform-users/platform-users.service.spec.ts`, and platform-auth regression tests cover default-deny and the relational permission path.
+
+---
+
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)
 
 **Location**: `apps/web/i18n/request.ts`, `apps/web/messages/{locale}.json`, `apps/web/src/__tests__/translation-parity.spec.ts`, `scripts/check-i18n.js`

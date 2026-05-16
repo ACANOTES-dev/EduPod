@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as jwt from 'jsonwebtoken';
 
-import { RedisService } from '../redis/redis.service';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 
 import { PlatformGateway } from './platform.gateway';
 import { RedisPubSubCallback, RedisPubSubService } from './redis-pubsub.service';
@@ -59,19 +59,13 @@ function buildSocket(token: string | null): MockSocketHarness {
 describe('PlatformGateway', () => {
   let gateway: PlatformGateway;
   let redisCallbacks: Map<string, RedisPubSubCallback>;
-  let mockRedisClient: {
-    get: jest.Mock<Promise<string | null>, [string]>;
-    setex: jest.Mock<Promise<string>, [string, number, string]>;
-    sismember: jest.Mock<Promise<number>, [string, string]>;
-  };
+  let platformUsersService: { isMember: jest.Mock<Promise<boolean>, [string]> };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     redisCallbacks = new Map();
-    mockRedisClient = {
-      get: jest.fn<Promise<string | null>, [string]>().mockResolvedValue(null),
-      setex: jest.fn<Promise<string>, [string, number, string]>().mockResolvedValue('OK'),
-      sismember: jest.fn<Promise<number>, [string, string]>().mockResolvedValue(1),
+    platformUsersService = {
+      isMember: jest.fn<Promise<boolean>, [string]>().mockResolvedValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -95,10 +89,8 @@ describe('PlatformGateway', () => {
           },
         },
         {
-          provide: RedisService,
-          useValue: {
-            getClient: jest.fn().mockReturnValue(mockRedisClient),
-          },
+          provide: PlatformUsersService,
+          useValue: platformUsersService,
         },
       ],
     }).compile();
@@ -114,7 +106,7 @@ describe('PlatformGateway', () => {
     expect(client.disconnect).not.toHaveBeenCalled();
     expect(client.join).toHaveBeenCalledWith(PLATFORM_ADMINS_ROOM);
     expect(client.data.userId).toBe(USER_ID);
-    expect(mockRedisClient.sismember).toHaveBeenCalledWith('platform_owner_user_ids', USER_ID);
+    expect(platformUsersService.isMember).toHaveBeenCalledWith(USER_ID);
   });
 
   it('should reject invalid JWTs', async () => {
@@ -127,7 +119,7 @@ describe('PlatformGateway', () => {
   });
 
   it('should reject valid JWTs from non-platform-owner users', async () => {
-    mockRedisClient.sismember.mockResolvedValueOnce(0);
+    platformUsersService.isMember.mockResolvedValueOnce(false);
     const client = buildSocket(signToken());
 
     await gateway.handleConnection(client.socket);

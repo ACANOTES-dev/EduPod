@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -96,7 +96,7 @@ describe('AdminHealthController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PermissionGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -7,14 +7,14 @@
 
 ## Objective
 
-Replace the existing `platform_owner_user_ids` Redis-set workaround with a proper relational model: `platform_users` + `platform_user_roles` + `platform_roles` + `platform_role_permissions` + `platform_permissions`. Seed the two roles the master spec §2.1 calls for (`platform_owner`, `platform_support`) with their respective permission sets. Replace every direct `platform_owner_user_ids` check in the codebase with a new `PlatformRoleGuard`. Migrate the existing operator (Ram) from the Redis set to the new tables without losing access. Update Session 0's auth host check to consult the new tables.
+Replace the existing `platform_owner_user_ids` Redis-set workaround with a proper relational model: `platform_users` + `platform_user_roles` + `platform_roles` + `platform_role_permissions` + `platform_permissions`. Seed the two roles the master spec §2.1 calls for (`platform_owner`, `platform_support`) with their respective permission sets, but the implementation must be fully usable with only one real `platform_owner` account. Replace every direct `platform_owner_user_ids` check in the codebase with a new `PlatformRoleGuard`. Migrate the existing operator (Ram) from the Redis set to the new tables without losing access. Update Session 0's auth host check to consult the new tables.
 
 After this session:
 
 - Adding a `platform_support` operator is a clean invite flow, not a manual SADD.
 - Each platform-side controller declares the permission(s) it requires; the guard enforces them.
 - `Session-0-stealth-subdomain.md`'s "if user is NOT in `platform_users`" check works against a real table.
-- Layer 2/3 dangerous actions (cache flush, MFA reset, ownership transfer, queue clean) can require specific permissions (`platform.cache.flush_global`, `platform.users.reset_mfa`, etc.) that `platform_support` MAY have but typically doesn't.
+- Layer 2/3 dangerous actions (cache flush, MFA reset, ownership transfer, queue clean) can require specific permissions (`platform.cache.flush_global`, `platform.users.reset_mfa`, etc.) plus owner confirmation from Session 1.5C. They must not require a second human account.
 
 ---
 
@@ -93,7 +93,7 @@ model PlatformPermission {
   description     String                       @db.Text
   category        String                       @db.VarChar(60)  // 'tenants' | 'users' | 'cache' | 'queues' | 'maintenance' | etc.
   is_destructive  Boolean                      @default(false)  // hint for confirmation modals
-  requires_two_person Boolean                  @default(false)  // hint for the two-person approval flow
+  requires_owner_confirmation Boolean         @default(false)  // hint for the solo-owner confirmation flow
   created_at      DateTime                     @default(now()) @db.Timestamptz()
 
   roles           PlatformRolePermission[]
@@ -144,7 +144,7 @@ export const PLATFORM_PERMISSIONS = [
     category: 'tenants',
     display_name: 'Archive tenants',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.tenants.impersonate',
@@ -175,7 +175,7 @@ export const PLATFORM_PERMISSIONS = [
     category: 'users',
     display_name: 'Transfer tenant ownership',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
 
   // Modules (Module Gating consumer)
@@ -192,7 +192,7 @@ export const PLATFORM_PERMISSIONS = [
     category: 'cache',
     display_name: 'Flush global cache',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   { key: 'platform.queues.view', category: 'queues', display_name: 'View queue state' },
   { key: 'platform.queues.retry', category: 'queues', display_name: 'Retry failed jobs' },
@@ -202,7 +202,7 @@ export const PLATFORM_PERMISSIONS = [
     category: 'queues',
     display_name: 'Clean a queue (delete jobs)',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
   {
     key: 'platform.maintenance.toggle',
@@ -220,7 +220,7 @@ export const PLATFORM_PERMISSIONS = [
     category: 'sessions',
     display_name: 'Force-logout an entire tenant',
     is_destructive: true,
-    requires_two_person: true,
+    requires_owner_confirmation: true,
   },
 
   // Platform users themselves
@@ -454,7 +454,8 @@ In the platform admin morph-shell sub-strip:
 
 ### E2E
 
-- Invite a new platform_support user → email link → set password → login at `dua.edupod.app/login` → visit `/admin` → confirm subset of UI is visible per their permissions (e.g., no suspend button, no MFA reset).
+- Existing platform_owner logs in at `dua.edupod.app/login` after Redis-set backfill and can access all platform admin routes.
+- Optional/future team-mode coverage: invite a new platform_support user → email link → set password → login → confirm restricted UI. This must not be required for solo-operator completion.
 
 ---
 
@@ -465,7 +466,8 @@ In the platform admin morph-shell sub-strip:
 - [ ] `PlatformRoleGuard` exists and replaces `PlatformOwnerGuard` everywhere.
 - [ ] Static-analysis test passes (zero violations).
 - [ ] Session 0 auth check uses the new tables; existing platform_owner can still log in at `dua.edupod.app/login`.
-- [ ] New platform_support user invitation flow works end-to-end (email → set password → login → permission-restricted UI).
+- [ ] Solo-owner flow works end-to-end with only Ram's platform_owner account; no second platform account is required.
+- [ ] Platform_support invitation flow is implemented if already in scope, but the dashboard does not depend on it for any approval or execution path.
 - [ ] `platform_owner` cannot revoke their own owner role; clean error in the UI.
 - [ ] Frontend: `/admin/users`, `/admin/users/[id]`, `/admin/permissions` pages render and respect role-based visibility.
 - [ ] All Layer 1 functionality continues to work for the existing operator (Ram). No regressions.

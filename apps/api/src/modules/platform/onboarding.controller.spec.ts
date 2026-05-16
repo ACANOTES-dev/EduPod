@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
@@ -33,7 +33,7 @@ describe('OnboardingController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -104,7 +104,7 @@ describe('OnboardingController — HTTP guards and validation', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue(platformGuard)
       .compile();
 

@@ -10,22 +10,22 @@
 
 EduPod is a multi-tenant school management SaaS with ~73 backend modules (20 of which are gateable per-tenant via the Module Gating foundation), ~1,048+ API endpoints, 56+ worker jobs, and 5 tenants in pre-launch (NHQS pilot + 4 stress-test). The existing platform admin dashboard was built early when the product had a fraction of its current scope. It provides basic tenant CRUD, an audit log, security incident tracking, basic per-tenant module toggles, and 4 stat cards. There is no health monitoring frontend (the backend endpoint exists but the nav link is dead), no alerting, no queue visibility, no onboarding workflow, and limited support tooling.
 
-The platform admin dashboard must become a world-class operations centre — the single place from which the platform owner and a small ops team can monitor system health, onboard tenants, diagnose issues, manage alerts, perform support actions, **and toggle per-tenant features** without SSH access.
+The platform admin dashboard must become a world-class operations centre — the single place from which the solo platform owner now, and a small ops team later, can monitor system health, onboard tenants, diagnose issues, manage alerts, perform support actions, **and toggle per-tenant features** without SSH access.
 
 > **Foundation update (2026-05-13):** The per-tenant module gating system has been spec'd and is being executed under `Module Gating/` at the repo root. This dashboard spec consumes that foundation as a hard dependency for any module-related work. The closure handoff (`Module Gating/admin-console-handoff.md`) is the canonical interface contract between the two initiatives. Where this spec referenced "module toggles" before, it now points at the Module Gating canonical registry (20 keys), the toggle endpoint behaviour (audit + cache invalidation + pub/sub on every flip), and the `/me` endpoint extension (`enabled_modules: ModuleKey[]`).
 
 > **Hosting decision (2026-05-13):** The platform admin console is moving from `edupod.app/[locale]/admin/*` (publicly discoverable login form) to a stealth subdomain **`dua.edupod.app`**. All Layer 1/1.5/2/3/4 work runs under that origin. Unauthenticated requests to any path other than `/login` return a plain 404 indistinguishable from a non-existent host. JWT cookies are domain-locked to `dua.edupod.app` so platform sessions don't bleed into tenant tabs. The DNS name + access pattern stay out of marketing copy, sitemaps, robots.txt, and the public README — operations runbook only. Full design: `docs/features/platform-dashboard/Layer-1/Session-0-stealth-subdomain.md`. This is **Session 0** — a hard prerequisite for every Layer 1/1.5/2/3/4 session.
 
-> **Safety + Copilot decision (2026-05-14):** External design review on this date flagged that (a) Layer 2/3 dangerous actions and Layer 4's AI Copilot were both planned to ship before the platform RBAC, audit ledger, and confirmation primitives were in place, and (b) an AI Operations Copilot is the natural Layer 4 of this dashboard. Two new layers added: **Layer 1.5 — Platform Ops Safety** (3 sessions: platform_users + RBAC, audit ledger + error redaction, confirmation UX + alert silencing) inserts between Layer 1 and Layer 2 and is a hard prerequisite for everything dangerous after it; **Layer 4 — AI Operations Copilot** (5 sessions: observability context, read-only copilot, fix recommendations, supervised actions, incident postmortems) closes the layer arc with an evidence-first AI assistant. Total dashboard scope is now **22 sessions across 4 layers** (was 14). Layer 1 Session 1A and Session 1B are shipped; Session 1C is in progress. See §6 Build Sequence for the complete updated order and `docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md` + `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` for the layer plans.
+> **Safety + Copilot decision (2026-05-14; solo-operator revision 2026-05-16):** External design review on 2026-05-14 flagged that Layer 2/3 dangerous actions and Layer 4's AI Copilot were both planned to ship before platform RBAC, audit ledger, and confirmation primitives were in place. Layer 1.5 remains the safety foundation, but it is now explicitly **solo-operator executable**: high-blast actions require owner confirmation, reason capture, and audit logging, not fake dual approval through two accounts controlled by the same person. Layer 4 remains an evidence-first AI assistant, but it is **manual-only**: no always-on AI daemon, no background recommendation cron, and no Anthropic call unless the operator asks a question, clicks Explain/Recommend, requests a brief, approves an action, or generates a postmortem. The admin Copilot has **no repository access**; if a code fix is likely required, it generates a repo-agent handoff prompt that packages evidence and instructs the repo agent to independently verify or falsify the Copilot hypothesis before changing code. Total dashboard scope is now **22 sessions across Session 0 + Layers 1, 1.5, 2, 3, and 4** (was 14). Layer 1 Session 1A and Session 1B are shipped; Session 1C is in progress. See §6 Build Sequence for the complete updated order and `docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md` + `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` for the layer plans.
 
 ## 2. Requirements
 
 ### 2.1 Audience
 
-- **Now:** Platform owner (Ram) + 1-2 support/ops staff
+- **Now:** Platform owner (Ram) as the sole operator for roughly the next year
 - **Later:** Full platform team with distinct roles
-- **Implementation:** Two roles now (`platform_owner`, `platform_support`), data model supports adding more later
-- `platform_support` gets read access + impersonation + support toolkit. Cannot suspend/archive tenants.
+- **Implementation:** `platform_owner` is required now. `platform_support` can exist in the data model, but no workflow may require a second human account during the solo-operator phase.
+- Future `platform_support` gets read access + impersonation + support toolkit. Cannot suspend/archive tenants.
 
 ### 2.2 Philosophy
 
@@ -467,7 +467,7 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 
 1.5A: `platform_users` + RBAC (replaces the existing `platform_owner_user_ids` Redis set with proper tables; introduces `platform_support` role; new `PlatformRoleGuard`)
 1.5B: Cross-tenant audit ledger + error log redaction & retention
-1.5C: Confirmation UX (`<DestructiveConfirmDialog>`, `<TwoPersonConfirmationDialog>`) + alert silencing + maintenance windows
+1.5C: Owner confirmation UX (`<OwnerActionConfirmDialog>`) + alert silencing + alert-maintenance windows. No fake dual approval.
 
 ### Layer 2 — Intelligence & Power Tools (4 sessions)
 
@@ -488,17 +488,17 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 
 > **Origin:** Operator-proposed (2026-05-14) and refined by the same external design review. The arc: **Layer 1 = what is happening, Layer 2 = why is it happening, Layer 3 = what controls do I have, Layer 4 = what should I do, and can the system help me do it.** Full plan: `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md`.
 
-4A: Observability context layer (correlation IDs, deploy events, runbook index, evidence service)
-4B: Read-only incident copilot (chat interface; **prompt-injection defense + citation enforcement** are non-negotiable)
-4C: Fix recommendation engine (proactive structured proposals)
-4D: Supervised actions (operator-approved execution; reuses Layer 1.5C two-person primitive; inherits existing Sentry triage runbook guardrails)
-4E: Incident learning + postmortems (auto-detect incidents, AI-generated postmortems, prevention recommendations)
+4A: Observability context layer (correlation IDs, deploy events, runbook index, service topology map, severity policy matrix, evidence service)
+4B: Read-only incident copilot (chat interface + contextual Explain buttons; **prompt-injection defense + citation enforcement** are non-negotiable)
+4C: Manual fix recommendation engine (operator-triggered structured proposals + on-demand daily ops brief)
+4D: Supervised actions + repo-agent handoff prompts (operator-approved execution; reuses Layer 1.5C owner confirmation; inherits existing Sentry triage runbook guardrails; no repo access inside admin console)
+4E: Incident learning + postmortems (non-AI incident records; operator-triggered AI postmortems and prevention recommendations)
 
-**Total: 22 sessions across 4 layers + Session 0** (1 + 4 + 3 + 4 + 5 + 5 = 22).
+**Total: 22 sessions across Session 0 + Layers 1, 1.5, 2, 3, and 4** (1 + 4 + 3 + 4 + 5 + 5 = 22).
 
 > **Cross-initiative dependency:** Layer 3 Session 3E depends on the Module Gating initiative (`Module Gating/STRATEGY.md`) being shipped end-to-end. The Module Gating foundation is **complete** (W1–W5 shipped 2026-05-13) — impl 23 (budgeting full enforcement) is the one outstanding gap, tracked in `Module Gating/IMPLEMENTATION_LOG.md` as a 2-3 hour follow-up. `Module Gating/admin-console-handoff.md` is the closure contract.
 
-> **Layer 4 hard prerequisites:** Layer 4 cannot start until Layer 1 + Layer 1.5 + Layer 2 + at least Layer 3 Sessions 3B + 3C are shipped. The AI Copilot reads from the audit ledger (1.5B), error log redaction (1.5B), recommendation surface (4C → built on top of 1.5C primitives), and the action surface that 3B/3C ship. Skipping the Layer 1.5 prerequisite turns the AI into a security liability. See `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` §2 for the full prerequisite matrix.
+> **Layer 4 hard prerequisites:** Layer 4 cannot start until Layer 1 + Layer 1.5 + Layer 2 + at least Layer 3 Sessions 3B + 3C are shipped. The AI Copilot reads from the audit ledger (1.5B), error log redaction (1.5B), recommendation surface (4C → built on top of 1.5C primitives), and the action surface that 3B/3C ship. Skipping the Layer 1.5 prerequisite turns the AI into a security liability. Layer 4 must remain operator-invoked, not persistent: no background AI monitoring, no proactive model calls, and no autonomous action execution. See `docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md` §2 for the full prerequisite matrix.
 
 ## 7. Navigation Structure (Final)
 
@@ -506,6 +506,8 @@ The dashboard surfaces a per-tenant module toggle UI at `/admin/tenants/:id/modu
 OVERVIEW
   Dashboard          — mixed home (health strip + alerts + tenants + activity)
   Health             — real-time component status with history
+  Copilot            — manual AI chat + recent recommendations + daily brief button
+  Agent Handoffs     — generated prompts for repo agents when code fixes are likely
 
 TENANTS
   All Tenants        — list with health/onboarding/billing/module-coverage indicators
@@ -516,14 +518,18 @@ OPERATIONS
   Alerts & Rules     — alert history + rules engine + channel config
   Queue Manager      — queue dashboard with job inspection + actions
   Sessions & Cache   — active sessions, cache control, maintenance mode
+  Service Topology   — service/queue/module/product-area dependency map
+  Deploys            — deploy history and regression correlation
 
 COMPLIANCE
   Audit Log          — existing platform audit log (enhanced)
   Security Incidents — existing GDPR incident tracking
+  Incidents          — platform incident timeline + operator-triggered postmortems
 
 SETTINGS
   Platform Users     — invite/manage ops team
   Channel Config     — alert channel setup (email, Telegram, WhatsApp, push)
+  Severity Policies  — operator-owned impact classification matrix
 ```
 
 ## 8. Sequencing in Project Roadmap
@@ -532,6 +538,6 @@ Recommended order for remaining project phases:
 
 1. Finish SEN implementation (Phases 6-7)
 2. Static codebase audit
-3. **Build Platform Dashboard (Layers 1-3)**
+3. **Build Platform Dashboard (Session 0 + Layers 1, 1.5, 2, 3, and 4)**
 4. UX/UI revamp (tenant-facing)
 5. E2E testing (with dashboard available for monitoring)

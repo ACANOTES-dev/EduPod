@@ -3,8 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { PlatformRoleGuard } from '../../common/guards/platform-role.guard';
 
-import { PlatformOwnerGuard } from './guards/platform-owner.guard';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
@@ -64,7 +64,7 @@ describe('TenantsController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue(alwaysAllowGuard)
-      .overrideGuard(PlatformOwnerGuard)
+      .overrideGuard(PlatformRoleGuard)
       .useValue(alwaysAllowGuard)
       .compile();
 

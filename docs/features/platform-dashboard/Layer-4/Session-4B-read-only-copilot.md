@@ -7,7 +7,9 @@
 
 ## Objective
 
-Ship the first user-visible AI Copilot — a chat interface at `/admin/copilot` where the operator asks diagnostic questions ("What's broken right now?", "Why did Redis go degraded?", "Which tenant is causing queue failures?", "What changed before this started?") and gets evidence-backed answers with inline citations to the underlying dashboard data.
+Ship the first user-visible AI Copilot — a chat interface at `/admin/copilot` plus contextual "Explain" buttons across the admin console. The operator asks diagnostic questions ("What's broken right now?", "Why did Redis go degraded?", "Which tenant is causing queue failures?", "What changed before this started?") or clicks Explain on a specific alert/error/queue/tenant/deploy/health view and gets evidence-backed answers with inline citations to the underlying dashboard data.
+
+The Copilot is **manual-only** in this session. It is not an always-on background agent, does not monitor continuously, and does not call Anthropic unless the operator sends a message or clicks an Explain action.
 
 **No write powers in this session.** The Copilot reads only. Recommendations come in 4C; supervised actions in 4D. This session is the platform for everything that follows.
 
@@ -21,6 +23,7 @@ The single most important thing this session gets right: **prompt-injection defe
 - **No answer without citations.** Every claim in the AI's response must reference at least one item from the evidence bundle. A backend post-processor scans the AI's output for citation markers; uncited claims are stripped. If stripping leaves an empty response, the operator sees "I don't have enough evidence to answer." Better refusal than hallucination. (DZ-AI-2.)
 - **Read-only is enforced server-side, not just at the prompt level.** The Copilot's NestJS controller has access to `PlatformEvidenceService` (read-only) and nothing else. No service that writes state is wired in. Even if the AI emits an action proposal in this session, the executor side rejects it with `403 NO_EXECUTOR_FOR_THIS_SESSION`. Defense in depth.
 - **Cost guardrail per conversation.** Anthropic spend per conversation is capped (default $0.50; configurable per-platform-user). After the cap, the conversation is locked with "rate limit reached" and the operator must start a new conversation. Per-day platform-wide budget also enforced.
+- **No background AI spend.** Cost is tied to explicit operator actions only: chat messages and contextual Explain buttons.
 - **Conversation history is platform-only.** No tenant data leaks between operator conversations (every operator has their own conversation list). Conversations are auditable by `platform_owner` but not visible to other `platform_support` operators by default.
 - **Anthropic prompt cache is used aggressively** to reduce cost on repeated evidence reads. The system prompt + the bulk of the evidence bundle are cache-eligible; only the operator's question + the latest assistant turn are non-cached.
 
@@ -339,6 +342,7 @@ Three-pane layout (mirrors Claude / ChatGPT conventions):
 - `CopilotMessageBubble` — assistant messages render markdown with inline citation chips. Each chip = `<EvidenceCitation id="E:..." />` which on hover shows a popover with the evidence snippet, on click opens the full dashboard view.
 - `EvidenceCitation` — renders the chip. Hover/click handlers as above.
 - `CopilotInputBar` — multi-line input with send button + token-cost estimator hint ("This question will use ~$0.02 of conversation budget").
+- `ExplainButton` — reusable contextual trigger that opens the Copilot with a preselected evidence bundle from the current alert/error/queue/tenant/deploy/health page.
 - `ConversationLockedBanner` — shown when `is_locked = true` with a "start new conversation" CTA.
 - `EvidencePanel` — right rail; lists evidence items from the most recent AI turn with type badges (health / alert / error / audit / deploy / runbook).
 
@@ -393,12 +397,14 @@ The suite is evaluated against the current Anthropic model. New patterns get add
 
 - [ ] `/admin/copilot` page live; auth-gated by `platform.ai.read`.
 - [ ] Operator can start a conversation, send a question, see a streamed AI response with inline citations.
+- [ ] Contextual Explain buttons exist on alert, error, queue, tenant, deploy, and health views and invoke the Copilot only when clicked.
 - [ ] Citations are clickable and navigate to the underlying dashboard view (health snapshot, alert, error, audit entry, deploy, runbook).
 - [ ] System prompt is in place; evidence is wrapped in `<evidence>` blocks with explicit data-not-instructions framing.
 - [ ] Prompt-injection adversarial suite passes with zero failures.
 - [ ] Post-processor strips uncited claims; `stripped_claims_count` recorded per message.
 - [ ] Per-conversation cost cap enforced ($0.50 default).
 - [ ] Per-day platform-wide cost cap enforced ($50/day default).
+- [ ] No background job, cron, or event subscriber calls Anthropic in Session 4B.
 - [ ] Conversation history is per-operator; only `platform_owner` can view another operator's conversations (audit-logged on view).
 - [ ] All conversations + messages persisted; queryable via the API and visible in the UI.
 - [ ] No write powers wired in — verified by inspecting the controller's injected services list.

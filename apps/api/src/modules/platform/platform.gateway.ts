@@ -11,13 +11,11 @@ import * as jwt from 'jsonwebtoken';
 
 import type { JwtPayload } from '@school/shared';
 
-import { RedisService } from '../redis/redis.service';
+import { PlatformUsersService } from '../platform-users/platform-users.service';
 
 import { RedisPubSubCallback, RedisPubSubService } from './redis-pubsub.service';
 
 const PLATFORM_ADMINS_ROOM = 'platform-admins';
-const PLATFORM_OWNER_REDIS_KEY = 'platform_owner_user_ids';
-const PLATFORM_OWNER_CACHE_TTL = 300;
 
 const CHANNEL_EVENT_MAP: Record<string, string> = {
   'platform:alerts': 'alert:new',
@@ -80,7 +78,7 @@ export class PlatformGateway
   constructor(
     private readonly redisPubSub: RedisPubSubService,
     private readonly configService: ConfigService,
-    private readonly redis: RedisService,
+    private readonly platformUsers: PlatformUsersService,
   ) {}
 
   afterInit(server: PlatformGatewayServer): void {
@@ -115,9 +113,9 @@ export class PlatformGateway
       }
 
       const payload = this.verifyToken(token);
-      const isPlatformOwner = await this.isPlatformOwner(payload.sub);
-      if (!isPlatformOwner) {
-        this.rejectClient(client, 'Platform owner access required');
+      const isPlatformUser = await this.platformUsers.isMember(payload.sub);
+      if (!isPlatformUser) {
+        this.rejectClient(client, 'Platform access required');
         return;
       }
 
@@ -152,27 +150,6 @@ export class PlatformGateway
     }
 
     return decoded;
-  }
-
-  private async isPlatformOwner(userId: string): Promise<boolean> {
-    const client = this.redis.getClient();
-    const userCacheKey = `is_platform_owner:${userId}`;
-    const cached = await client.get(userCacheKey);
-    if (cached === 'true') {
-      return true;
-    }
-    if (cached === 'false') {
-      return false;
-    }
-
-    const isMember = await client.sismember(PLATFORM_OWNER_REDIS_KEY, userId);
-    if (isMember === 1) {
-      await client.setex(userCacheKey, PLATFORM_OWNER_CACHE_TTL, 'true');
-      return true;
-    }
-
-    await client.setex(userCacheKey, PLATFORM_OWNER_CACHE_TTL, 'false');
-    return false;
   }
 
   private rejectClient(client: PlatformGatewayClient, reason: string): void {
