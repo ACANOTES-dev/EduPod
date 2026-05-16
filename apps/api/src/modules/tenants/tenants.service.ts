@@ -141,6 +141,76 @@ interface TenantOnboardingSummary {
   percent_complete: number;
 }
 
+interface TenantDomainRelation {
+  id: string;
+  tenant_id: string;
+  domain: string;
+  domain_type: string;
+  verification_status: string;
+  ssl_status: string;
+  is_primary: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface TenantBrandingRelation {
+  id: string;
+  tenant_id: string;
+  primary_color: string | null;
+  secondary_color: string | null;
+  logo_url: string | null;
+  school_name_display: string | null;
+  school_name_ar: string | null;
+  email_from_name: string | null;
+  email_from_name_ar: string | null;
+  support_email: string | null;
+  support_phone: string | null;
+  receipt_prefix: string;
+  invoice_prefix: string;
+  report_card_title: string | null;
+  payslip_prefix: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface TenantSettingRelation {
+  id: string;
+  tenant_id: string;
+  settings: unknown;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface TenantModuleRelation {
+  id: string;
+  tenant_id: string;
+  module_key: string;
+  is_enabled: boolean;
+}
+
+interface TenantSequenceRelation {
+  id: string;
+  tenant_id: string;
+  sequence_type: string;
+  current_value: bigint;
+}
+
+interface TenantListRelations {
+  domains: TenantDomainRelation[];
+  branding: TenantBrandingRelation | null;
+  _count: { memberships: number };
+  onboarding: TenantOnboardingSummary | null;
+}
+
+interface TenantDetailRelations {
+  branding: TenantBrandingRelation | null;
+  settings: TenantSettingRelation | null;
+  modules: TenantModuleRelation[];
+  domains: TenantDomainRelation[];
+  sequences: TenantSequenceRelation[];
+  _count: { memberships: number };
+}
+
 @Injectable()
 export class TenantsService {
   private readonly logger = new Logger(TenantsService.name);
@@ -828,20 +898,18 @@ export class TenantsService {
     };
   }
 
-  private async getTenantListRelations(tenantId: string) {
+  private async getTenantListRelations(tenantId: string): Promise<TenantListRelations> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      const [domains, branding, memberships, onboardingSteps] = await Promise.all([
-        db.tenantDomain.findMany({ where: { tenant_id: tenantId } }),
-        db.tenantBranding.findUnique({ where: { tenant_id: tenantId } }),
-        db.tenantMembership.count({ where: { tenant_id: tenantId } }),
-        db.tenantOnboardingStep.findMany({
-          where: { tenant_id: tenantId },
-          select: { status: true },
-        }),
-      ]);
+      const domains = await db.tenantDomain.findMany({ where: { tenant_id: tenantId } });
+      const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
+      const memberships = await db.tenantMembership.count({ where: { tenant_id: tenantId } });
+      const onboardingSteps = await db.tenantOnboardingStep.findMany({
+        where: { tenant_id: tenantId },
+        select: { status: true },
+      });
 
       return {
         domains,
@@ -852,19 +920,17 @@ export class TenantsService {
     });
   }
 
-  private async getTenantDetailRelations(tenantId: string) {
+  private async getTenantDetailRelations(tenantId: string): Promise<TenantDetailRelations> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      const [branding, settings, modules, domains, sequences, memberships] = await Promise.all([
-        db.tenantBranding.findUnique({ where: { tenant_id: tenantId } }),
-        db.tenantSetting.findUnique({ where: { tenant_id: tenantId } }),
-        db.tenantModule.findMany({ where: { tenant_id: tenantId } }),
-        db.tenantDomain.findMany({ where: { tenant_id: tenantId } }),
-        db.tenantSequence.findMany({ where: { tenant_id: tenantId } }),
-        db.tenantMembership.count({ where: { tenant_id: tenantId } }),
-      ]);
+      const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
+      const settings = await db.tenantSetting.findUnique({ where: { tenant_id: tenantId } });
+      const modules = await db.tenantModule.findMany({ where: { tenant_id: tenantId } });
+      const domains = await db.tenantDomain.findMany({ where: { tenant_id: tenantId } });
+      const sequences = await db.tenantSequence.findMany({ where: { tenant_id: tenantId } });
+      const memberships = await db.tenantMembership.count({ where: { tenant_id: tenantId } });
 
       return {
         branding,
