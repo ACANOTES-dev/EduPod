@@ -654,23 +654,141 @@ Tests for each method:
 
 ## 8. Acceptance Criteria
 
-- [ ] `platform_audit_actions` table exists with correct schema
-- [ ] All 6 support action endpoints respond correctly (200 on success)
-- [ ] All endpoints require `AuthGuard` + `PlatformOwnerGuard`
-- [ ] Every action writes an audit record with correct `action_type`, `actor_id`, `target_user_id`, `metadata`
-- [ ] `POST /v1/admin/users/:id/reset-password` triggers password reset email (or token generation if Resend not configured)
-- [ ] `POST /v1/admin/users/:id/resend-invite` regenerates invitation token and sends email
-- [ ] `POST /v1/admin/users/:id/unlock` clears `brute_force:*` Redis key for the user's email
-- [ ] `POST /v1/admin/users/:id/disable` sets `global_status = 'disabled'` and invalidates all sessions
-- [ ] `POST /v1/admin/users/:id/enable` sets `global_status = 'active'`
-- [ ] `POST /v1/admin/tenants/:id/transfer-ownership` moves `school_owner` role to new user
-- [ ] Transfer ownership validates new owner is a member of the tenant
-- [ ] Disable user prevents self-disable
-- [ ] `GET /v1/admin/audit-actions` returns paginated audit trail with filters
-- [ ] User search page (`/admin/users`) works with search and pagination
-- [ ] User detail page (`/admin/users/[id]`) shows profile, memberships, support actions, audit history
-- [ ] Tenant detail page shows support actions and audit history sections
-- [ ] `SupportActionDialog` shows loading state and handles errors gracefully
-- [ ] All unit tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
-- [ ] `turbo test` passes with zero regressions
+- [x] `platform_audit_actions` table exists with correct schema
+- [x] All 6 support action endpoints respond correctly (200 on success)
+- [x] All endpoints require `AuthGuard` + `PlatformOwnerGuard`
+- [x] Every action writes an audit record with correct `action_type`, `actor_id`, `target_user_id`, `metadata`
+- [x] `POST /v1/admin/users/:id/reset-password` triggers password reset email (or token generation if Resend not configured)
+- [x] `POST /v1/admin/users/:id/resend-invite` regenerates invitation token and sends email
+- [x] `POST /v1/admin/users/:id/unlock` clears `brute_force:*` Redis key for the user's email
+- [x] `POST /v1/admin/users/:id/disable` sets `global_status = 'disabled'` and invalidates all sessions
+- [x] `POST /v1/admin/users/:id/enable` sets `global_status = 'active'`
+- [x] `POST /v1/admin/tenants/:id/transfer-ownership` moves `school_owner` role to new user
+- [x] Transfer ownership validates new owner is a member of the tenant
+- [x] Disable user prevents self-disable
+- [x] `GET /v1/admin/audit-actions` returns paginated audit trail with filters
+- [x] User search page (`/admin/users`) works with search and pagination
+- [x] User detail page (`/admin/users/[id]`) shows profile, memberships, support actions, audit history
+- [x] Tenant detail page shows support actions and audit history sections
+- [x] `SupportActionDialog` shows loading state and handles errors gracefully
+- [x] All unit tests pass
+- [x] `turbo lint` and `turbo type-check` pass
+- [x] `turbo test` passes with zero regressions
+
+---
+
+## Commits / CI / Notes
+
+- Implementation: `494142fa feat(platform): add support toolkit audit actions`
+- Production RLS fix-forward: `756d0497 fix(platform): run support user lookups through RLS`
+- CI/deploy:
+  - `25974001022` passed and deployed the initial implementation.
+  - `25975365727` passed and deployed the RLS fix-forward.
+- Local verification:
+  - Targeted API/web lint and type-checks passed.
+  - Prisma generate/validate passed.
+  - Targeted platform support service tests passed.
+  - `pnpm turbo run test --concurrency=1` passed.
+  - API coverage gate passed with `JEST_MAX_WORKERS=1`.
+  - AppModule DI compile check passed.
+- Production smoke:
+  - Session 3A dashboard home still loads with health strip, active alerts, tenant cards, queue watch, and activity/audit panels.
+  - `/en/admin/users` support search returns users and authorized platform admins can open user details.
+  - User detail and tenant detail render the support actions panel and support action history.
+  - Password reset, MFA reset, unlock account, disable user, enable user, and transfer ownership succeeded against the NHQS QA tenant; disable/ownership changes were immediately restored.
+  - Re-send invite returned the expected safe `NO_PENDING_INVITATION` error in production because no pending invitation currently exists for the QA user; success behavior is covered by the platform support service tests.
+  - Support audit records were written for all successful smoke actions; audit filtering by user/tenant and pagination were verified through the production API.
+  - Mobile viewport smoke at 390px reported no horizontal overflow.
+
+---
+
+## Next Session Prompt
+
+Implement Session 3C of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-3/Session-3C.md
+
+Context:
+
+- Sessions 0, 1A, 1B, 1C, 1D, 1.5A, 1.5B, 1.5C, 2A, 2B, 2C, 2D, 3A, and 3B are complete, deployed, smoke-tested, and accepted.
+- The platform admin host is https://dua.edupod.app.
+- Platform admin credentials are stored locally at:
+  /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print secrets, commit secrets, or expose them in logs/screenshots.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read docs/features/platform-dashboard/Layer-1/Layer-1-Plan.md.
+5. Read docs/features/platform-dashboard/Layer-1.5/Layer-1.5-Plan.md.
+6. Read docs/features/platform-dashboard/Layer-2/Layer-2-Plan.md.
+7. Read docs/features/platform-dashboard/Layer-3/Layer-3-Plan.md.
+8. Read docs/features/platform-dashboard/Layer-3/Session-3C.md end-to-end.
+9. Read docs/features/platform-dashboard/Layer-3/Session-3B.md.
+10. Load relevant rule packs:
+
+- .claude/rules/backend.md
+- .claude/rules/frontend.md
+- .claude/rules/prisma.md
+- .claude/rules/testing.md
+- .claude/rules/code-quality.md
+- .claude/rules/worker.md if scheduled maintenance jobs or worker-side processing are touched
+- .claude/rules/architecture-policing.md if architecture/blast-radius docs are touched
+
+Implementation requirements:
+
+- Stay strictly within Session 3C.
+- Implement session visibility, force-logout controls, cache statistics/flush controls, maintenance mode, and scheduled maintenance windows exactly as described in the Session 3C spec.
+- Do not add Layer 3D/3E capabilities.
+- Preserve existing platform admin navigation, auth, alerts, health, tenant, queue, audit, error diagnostics, Session 3A dashboard behavior, and Session 3B support toolkit behavior.
+- Follow RLS rules exactly: platform-managed tables do not get tenant RLS; tenant-scoped operations still use the established RLS-aware transaction patterns.
+- Use Redis SCAN patterns for session/cache enumeration; do not use blocking KEYS in production paths.
+- Follow the active UX redesign spec and use token-driven styling.
+
+Verification:
+
+- Run targeted backend and frontend checks for touched files.
+- Run relevant API/web type-check and lint.
+- Run Prisma generation/migration validation required by the repo.
+- Run regression coverage for session listing, force logout by tenant/user, cache stats/flush, maintenance mode toggle, scheduled maintenance windows, routing/navigation, and any touched shared components.
+- Verify with the Codex browser or Playwright:
+  - session groups render only for authorized platform admins
+  - force-logout tenant/user flows handle success/error states safely
+  - cache stats render and scoped/global flush flows handle success/error states safely
+  - maintenance mode toggle blocks tenant mutations while allowing reads
+  - scheduled maintenance window create/cancel flows work and auto-toggle behavior is covered by tests or a safe smoke path
+  - dashboard Session 3A home still loads with all five panels
+  - Session 3B support toolkit pages still load and audit history still renders
+  - mobile layout has no horizontal overflow
+
+Deployment rules:
+
+- Deploy through CI only.
+- Commit to main and push to origin main.
+- git push origin main triggers GitHub Actions and scripts/deploy-production.sh.
+- Never deploy by SSH, rsync, or direct server file edits.
+- SSH access, if used at all, is diagnostics only.
+
+Git hygiene:
+
+- Stage only explicit files you touched. Never use git add . or git add -A.
+- Before pushing:
+  1. git fetch origin main
+  2. git log --oneline origin/main..HEAD
+  3. verify every outgoing commit is intentional
+- Watch CI with gh run watch / gh run view.
+- If CI fails, fix forward with another commit and push.
+
+Completion:
+
+- When CI is green and production smoke passes, tick the Acceptance Criteria checkboxes in:
+  docs/features/platform-dashboard/Layer-3/Session-3C.md
+- Add a short "Commits / CI / Notes" section at the end of that session doc.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 3C is fully complete and whether the repo is ready for the next parallel/sequence work.
+- Final response should include the generated next-session prompt.
