@@ -136,6 +136,54 @@ export class PlatformEvidenceService {
     };
   }
 
+  async forIncident(incidentId: string): Promise<EvidenceBundle> {
+    const incident = await this.prisma.platformIncident.findUnique({
+      where: { id: incidentId },
+      include: {
+        alerts: { include: { rule: true }, orderBy: { fired_at: 'asc' } },
+        handoffs: { orderBy: { created_at: 'asc' } },
+        timeline: { orderBy: { occurred_at: 'asc' } },
+      },
+    });
+    if (!incident) return { items: [] };
+    return {
+      items: [
+        {
+          kind: 'incident',
+          id: incident.id,
+          link: `/admin/incidents/${incident.id}`,
+          occurred_at: incident.started_at.toISOString(),
+          snippet: `${incident.severity} incident: ${incident.title}`,
+          raw: incident,
+        },
+        ...incident.alerts.map((alert) => ({
+          kind: 'alert',
+          id: alert.id,
+          link: `/admin/incidents/${incident.id}`,
+          occurred_at: alert.fired_at.toISOString(),
+          snippet: `${alert.severity} alert from ${alert.rule.name}: ${alert.message}`,
+          raw: alert,
+        })),
+        ...incident.timeline.map((event) => ({
+          kind: 'incident_timeline',
+          id: event.id,
+          link: `/admin/incidents/${incident.id}`,
+          occurred_at: event.occurred_at.toISOString(),
+          snippet: `${event.event_type}: ${event.description}`,
+          raw: event,
+        })),
+        ...incident.handoffs.map((handoff) => ({
+          kind: 'agent_handoff',
+          id: handoff.id,
+          link: `/admin/incidents/${incident.id}`,
+          occurred_at: handoff.created_at.toISOString(),
+          snippet: `Repo-agent handoff: ${handoff.title}`,
+          raw: handoff,
+        })),
+      ],
+    };
+  }
+
   async forDeploy(deployId: string): Promise<EvidenceBundle> {
     const deploy = await this.prisma.platformDeployEvent.findUnique({
       where: { id: deployId },
@@ -292,6 +340,7 @@ export class PlatformEvidenceService {
       if (item.kind === 'error_fingerprint') components.add('api');
       if (item.kind === 'alert') components.add('bullmq');
       if (item.kind === 'health_snapshot') components.add('api');
+      if (item.kind === 'incident' || item.kind === 'incident_timeline') components.add('api');
       if (item.kind === 'queue_state' || item.kind === 'queue_job') components.add('bullmq');
     }
     return this.prisma.platformServiceTopology.findMany({

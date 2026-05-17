@@ -456,6 +456,55 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/incidents",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/incidents/:id",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/incidents/:id",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/incidents/:id/generate-prevention",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/incidents/:id/postmortem",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/incidents/:id/regenerate-postmortem",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/incidents/:id/timeline-events",
+    "controller": "PlatformIncidentsController",
+    "module": "platform",
+    "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/maintenance-windows",
     "controller": "TenantsController",
     "module": "tenants",

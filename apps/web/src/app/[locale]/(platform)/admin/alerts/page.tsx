@@ -84,6 +84,7 @@ function historyRowFromEvent(event: AlertFiredEvent): PlatformAlertHistory {
   return {
     id: event.alert_id,
     rule_id: event.rule_id,
+    incident_id: null,
     severity: event.severity,
     message: event.message,
     metric_value: event.metric_value,

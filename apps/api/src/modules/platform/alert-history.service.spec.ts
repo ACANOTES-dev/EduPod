@@ -6,6 +6,7 @@ import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertHistoryService } from './alert-history.service';
+import { PlatformIncidentService } from './platform-incident.service';
 
 const ALERT_ID = '22222222-2222-4222-8222-222222222222';
 const RULE_ID = '11111111-1111-4111-8111-111111111111';
@@ -40,12 +41,14 @@ function buildMockPrisma() {
 describe('AlertHistoryService', () => {
   let service: AlertHistoryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockIncidentService: { recordAlertAcknowledged: jest.Mock };
   let mockPlatformAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-05-15T10:05:00.000Z'));
     mockPrisma = buildMockPrisma();
+    mockIncidentService = { recordAlertAcknowledged: jest.fn().mockResolvedValue(undefined) };
     mockPlatformAuditService = { log: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,6 +56,7 @@ describe('AlertHistoryService', () => {
         AlertHistoryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlatformAuditService, useValue: mockPlatformAuditService },
+        { provide: PlatformIncidentService, useValue: mockIncidentService },
       ],
     }).compile();
 
@@ -113,6 +117,10 @@ describe('AlertHistoryService', () => {
         acknowledged_by: USER_ID,
       },
     });
+    expect(mockIncidentService.recordAlertAcknowledged).toHaveBeenCalledWith(
+      ALERT_ID,
+      new Date('2026-05-15T10:05:00.000Z'),
+    );
   });
 
   it('throws when acknowledging a missing alert', async () => {

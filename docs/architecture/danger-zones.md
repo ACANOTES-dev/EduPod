@@ -1726,6 +1726,30 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 **Regression coverage**: `apps/api/src/modules/platform/platform-ai-recommendation.service.spec.ts` verifies the cost guard is used for recommendations and daily briefs. `apps/api/src/modules/platform/recommendation-no-background-trigger.spec.ts` locks out background trigger patterns.
 
+## DZ-AI-Postmortem-Privacy: Incident Postmortems Need Final-Pass Redaction
+
+**Risk**: Incident postmortems can quote alert text, timeline notes, redacted errors, audit entries, and operator summaries. Even though upstream platform diagnostics are already redacted, a postmortem draft is a new markdown artifact that may combine evidence in ways that accidentally re-expose sensitive identifiers.
+**Location**: `apps/api/src/modules/platform/postmortem-generator.service.ts`, `apps/api/src/modules/platform/platform-incidents.controller.ts`, `packages/prisma/schema.prisma` (`PlatformIncident`)
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4E, 2026-05-17)
+
+**Rule**: Every AI-generated postmortem must run through citation enforcement and then the standard Layer 1.5B `ErrorRedactorService` before persistence. Operator edits are persisted only through explicit save/publish actions. Do not persist raw AI output as the operator-visible draft.
+
+**Mitigation**: `PostmortemGeneratorService.generate()` builds evidence through `PlatformEvidenceService`, strips uncited claims with `CopilotResponsePostProcessor`, applies the redactor as a final pass, and persists only the redacted draft. The final markdown is operator-edited and saved separately from the AI draft.
+
+**Regression coverage**: `apps/api/src/modules/platform/postmortem-generator.service.spec.ts` verifies cited postmortem generation, redaction-before-persistence, rate limiting, and cost-guard use.
+
+## DZ-AI-Runbook-Authority: AI Proposes Runbook Updates But Never Writes Runbooks
+
+**Risk**: If AI-generated prevention text directly edits `docs/runbooks/*.md`, a model mistake could become canonical operator procedure and later be retrieved as trusted evidence. That creates a feedback loop where bad AI output teaches future AI runs.
+**Location**: `apps/api/src/modules/platform/postmortem-generator.service.ts`, `docs/runbooks/`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4E, 2026-05-17)
+
+**Rule**: AI may propose runbook improvements as operator-reviewed prevention recommendations only. It must never write, patch, or mutate files under `docs/runbooks/*.md` from dashboard generation paths.
+
+**Mitigation**: `generate-prevention` creates `platform_ai_recommendations` rows with `manual_only` proposed actions linked back to the incident. Applying a runbook update remains a human/repo workflow outside the platform dashboard.
+
+**Regression coverage**: `apps/api/src/modules/platform/postmortem-generator.service.spec.ts` verifies prevention generation creates 4C recommendation rows and does not call the AI client or any file-writing path.
+
 ---
 
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)

@@ -11,6 +11,7 @@ import {
   ClipboardList,
   DatabaseZap,
   FileSearch,
+  Flame,
   GitBranch,
   Gauge,
   LayoutDashboard,
@@ -212,6 +213,7 @@ function PlatformSidebarNav({
 }) {
   const { subscribe } = usePlatformSocket();
   const { user } = useAuth();
+  const [activePlatformIncidentCount, setActivePlatformIncidentCount] = React.useState(0);
   const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
   const [unacknowledgedAlertCount, setUnacknowledgedAlertCount] = React.useState(0);
   const permissions = React.useMemo(
@@ -223,10 +225,15 @@ function PlatformSidebarNav({
   React.useEffect(() => {
     async function fetchCounts() {
       try {
-        const [incidents, alerts] = await Promise.all([
+        const [securityIncidents, platformIncidents, alerts] = await Promise.all([
           can('platform.audit_log.view')
             ? apiClient<{ meta: { total: number } }>(
                 '/api/v1/admin/security-incidents?pageSize=1&severity=high',
+              )
+            : Promise.resolve({ meta: { total: 0 } }),
+          can('platform.alerts.view')
+            ? apiClient<{ meta: { total: number } }>(
+                '/api/v1/admin/incidents?pageSize=1&status=active',
               )
             : Promise.resolve({ meta: { total: 0 } }),
           can('platform.alerts.view')
@@ -235,7 +242,8 @@ function PlatformSidebarNav({
               )
             : Promise.resolve({ meta: { total: 0 } }),
         ]);
-        setOpenIncidentCount(incidents.meta.total);
+        setOpenIncidentCount(securityIncidents.meta.total);
+        setActivePlatformIncidentCount(platformIncidents.meta.total);
         setUnacknowledgedAlertCount(alerts.meta.total);
       } catch (err) {
         console.error('[PlatformSidebarNav.fetchCounts]', err);
@@ -326,6 +334,13 @@ function PlatformSidebarNav({
     {
       label: 'Operations',
       items: [
+        {
+          icon: Flame,
+          label: 'Incidents',
+          href: `/${locale}/admin/incidents`,
+          badge: activePlatformIncidentCount,
+          permission: 'platform.alerts.view',
+        },
         {
           icon: Bell,
           label: 'Alerts & Rules',

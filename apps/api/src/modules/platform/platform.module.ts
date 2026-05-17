@@ -38,6 +38,7 @@ import { TelegramAlertDispatcher } from './dispatchers/telegram-alert.dispatcher
 import { WhatsAppAlertDispatcher } from './dispatchers/whatsapp-alert.dispatcher';
 import { HealthHistoryController } from './health-history.controller';
 import { HealthSnapshotService } from './health-snapshot.service';
+import { IncidentDetectionService } from './incident-detection.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
 import { MaintenanceWindowsController } from './maintenance-windows.controller';
 import { OnboardingController } from './onboarding.controller';
@@ -51,6 +52,8 @@ import { PlatformAiCostGuardService } from './platform-ai-cost-guard.service';
 import { PlatformAiRecommendationController } from './platform-ai-recommendation.controller';
 import { PlatformAiRecommendationService } from './platform-ai-recommendation.service';
 import { PlatformEvidenceService } from './platform-evidence.service';
+import { PlatformIncidentService } from './platform-incident.service';
+import { PlatformIncidentsController } from './platform-incidents.controller';
 import { PlatformObservabilityController } from './platform-observability.controller';
 import { PlatformObservabilityService } from './platform-observability.service';
 import { PlatformOnboardingModule } from './platform-onboarding.module';
@@ -58,6 +61,7 @@ import { PlatformRealtimeModule } from './platform-realtime.module';
 import { PlatformSearchController } from './platform-search.controller';
 import { PlatformSearchService } from './platform-search.service';
 import { PlatformGateway } from './platform.gateway';
+import { PostmortemGeneratorService } from './postmortem-generator.service';
 import { TenantMetricsController } from './tenant-metrics.controller';
 import { TenantMetricsService } from './tenant-metrics.service';
 
@@ -93,6 +97,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     PlatformAiActionProposalsController,
     PlatformAiCopilotController,
     PlatformAiRecommendationController,
+    PlatformIncidentsController,
     OnboardingController,
     PlatformObservabilityController,
     PlatformSearchController,
@@ -111,6 +116,9 @@ import { TenantMetricsService } from './tenant-metrics.service';
     PlatformAiCopilotService,
     PlatformAiRecommendationService,
     PlatformAiCostGuardService,
+    PlatformIncidentService,
+    IncidentDetectionService,
+    PostmortemGeneratorService,
     CopilotPromptBuilderService,
     CopilotResponsePostProcessor,
     CopilotInjectionScanner,

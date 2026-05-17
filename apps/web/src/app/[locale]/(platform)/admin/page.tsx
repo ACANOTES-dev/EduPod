@@ -3,6 +3,7 @@
 import { PageHeader } from '@/components/page-header';
 
 import { ActiveAlertsPanel } from './_components/active-alerts-panel';
+import { ActiveIncidentsPanel } from './_components/active-incidents-panel';
 import { ActivityFeed } from './_components/activity-feed';
 import { HealthStrip } from './_components/health-strip';
 import { QuickActions } from './_components/quick-actions';
@@ -27,6 +28,7 @@ export default function PlatformDashboardPage() {
 
         <div className="flex min-w-0 flex-col gap-6">
           <QuickActions />
+          <ActiveIncidentsPanel />
           <RecentRecommendations />
           <ActivityFeed />
         </div>

@@ -32,7 +32,15 @@ import { PageHeader } from '@/components/page-header';
 import { OwnerActionConfirmDialog } from '@/components/platform/owner-action-confirm-dialog';
 import { apiClient } from '@/lib/api-client';
 
-type ContextKind = 'alert' | 'correlation' | 'deploy' | 'error' | 'health' | 'queue' | 'tenant';
+type ContextKind =
+  | 'alert'
+  | 'correlation'
+  | 'deploy'
+  | 'error'
+  | 'health'
+  | 'incident'
+  | 'queue'
+  | 'tenant';
 type RecommendationCategory =
   | 'noise_reduction'
   | 'known_fix'
@@ -128,6 +136,7 @@ const contextKinds: ContextKind[] = [
   'deploy',
   'error',
   'health',
+  'incident',
   'queue',
   'tenant',
 ];

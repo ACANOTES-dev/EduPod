@@ -786,3 +786,12 @@ If Redis is unhealthy at the moment of a credential rotation, the publish silent
 - **Destination**: `platform_ai_action_proposals` and, for code-required fixes, `platform_agent_handoff_prompts`.
 - **Side effects**: approved proposals execute through a fixed in-process registry and write platform audit entries. Destructive/sensitive paths call the Layer 1.5C owner-confirmation executor. `run_sentry_triage` creates a handoff that points at `docs/runbooks/agent-sentry-triage.md`; it does not invoke `./scripts/sentry-cli.sh`, bypass guardrails, or append the fix log from the dashboard.
 - **Explicit non-events**: Session 4D adds no BullMQ job, no repeatable job, no cron schedule, no background AI generation path, and no repository-code executor.
+
+## Platform Incidents + Postmortems (Layer 4 Session 4E)
+
+- **Owner**: API process (`IncidentDetectionService`, `PlatformIncidentService`, `PostmortemGeneratorService`)
+- **Trigger**: normal non-AI `platform:alerts` events from `AlertEvaluationService` create or attach incidents. Postmortem and prevention generation are operator-clicked REST requests only.
+- **Source**: `platform_alert_history`, `platform:alerts` pub/sub events, `PlatformEvidenceService` evidence bundles, and operator-edited postmortem markdown.
+- **Destination**: `platform_incidents`, `platform_incident_timeline_events`, nullable `platform_alert_history.incident_id`, and manually generated prevention rows in `platform_ai_recommendations`.
+- **Side effects**: critical alert fires create or attach to an incident; related warning/critical alerts attach to open incidents by conservative component/queue/scope matching; resolved contributing alerts move incidents to `monitoring`; a 5-minute API-process timer auto-resolves monitoring incidents only after all contributing alerts remain resolved and quiet for 1 hour.
+- **Explicit non-events**: no alert event, cron, timer, WebSocket path, or module-init path calls Anthropic. `regenerate-postmortem` and `generate-prevention` are operator-clicked, budget/rate guarded, and never write `docs/runbooks/*.md`.

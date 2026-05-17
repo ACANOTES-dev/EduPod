@@ -8,7 +8,15 @@ import { Button } from '@school/ui';
 
 interface ExplainButtonProps {
   contextId: string;
-  contextKind: 'alert' | 'correlation' | 'deploy' | 'error' | 'health' | 'queue' | 'tenant';
+  contextKind:
+    | 'alert'
+    | 'correlation'
+    | 'deploy'
+    | 'error'
+    | 'health'
+    | 'incident'
+    | 'queue'
+    | 'tenant';
   label?: string;
   locale: string;
   question?: string;

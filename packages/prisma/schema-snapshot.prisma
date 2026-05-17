@@ -254,6 +254,37 @@ enum PlatformAiActionProposalStatus {
   @@map("platform_ai_action_proposal_status")
 }
 
+enum PlatformIncidentSeverity {
+  warning
+  critical
+
+  @@map("platform_incident_severity")
+}
+
+enum PlatformIncidentStatus {
+  active
+  monitoring
+  resolved
+  cancelled
+
+  @@map("platform_incident_status")
+}
+
+enum PlatformIncidentTimelineEventType {
+  alert_fired
+  alert_acknowledged
+  alert_resolved
+  ai_recommendation_generated
+  ai_action_proposed
+  ai_action_executed
+  operator_note
+  deploy_event
+  related_alert_attached
+  status_changed
+
+  @@map("platform_incident_timeline_event_type")
+}
+
 enum PlatformAuditActionType {
   password_reset
   mfa_reset
@@ -1932,6 +1963,7 @@ model User {
   platform_ai_action_proposals_approved  PlatformAiActionProposal[]        @relation("platform_ai_action_proposal_approver")
   platform_ai_action_proposals_rejected  PlatformAiActionProposal[]        @relation("platform_ai_action_proposal_rejecter")
   platform_agent_handoff_prompts_created PlatformAgentHandoffPrompt[]      @relation("platform_agent_handoff_prompt_creator")
+  platform_incidents_resolved            PlatformIncident[]                @relation("platform_incident_resolver")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -12151,6 +12183,7 @@ model PlatformAlertRuleChannel {
 model PlatformAlertHistory {
   id                                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   rule_id                             String                @db.Uuid
+  incident_id                         String?               @db.Uuid
   severity                            PlatformAlertSeverity
   message                             String                @db.Text
   metric_value                        Decimal               @db.Decimal(12, 2)
@@ -12164,6 +12197,7 @@ model PlatformAlertHistory {
   suppressed_by_maintenance_window_id String?               @db.Uuid
 
   acknowledger       User?                      @relation("platform_alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+  incident           PlatformIncident?          @relation(fields: [incident_id], references: [id], onDelete: SetNull)
   maintenance_window PlatformMaintenanceWindow? @relation(fields: [suppressed_by_maintenance_window_id], references: [id], onDelete: SetNull)
   rule               PlatformAlertRule          @relation(fields: [rule_id], references: [id], onDelete: Cascade)
   silence            PlatformAlertSilence?      @relation(fields: [suppressed_by_silence_id], references: [id], onDelete: SetNull)
@@ -12171,9 +12205,61 @@ model PlatformAlertHistory {
   @@index([fired_at(sort: Desc)], map: "idx_platform_alert_history_fired_at")
   @@index([status], map: "idx_platform_alert_history_status")
   @@index([rule_id], map: "idx_platform_alert_history_rule_id")
+  @@index([incident_id], map: "idx_platform_alert_history_incident")
   @@index([suppressed_by_silence_id], map: "idx_platform_alert_history_silence")
   @@index([suppressed_by_maintenance_window_id], map: "idx_platform_alert_history_window")
   @@map("platform_alert_history")
+}
+
+model PlatformIncident {
+  id                            String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                         String                   @db.VarChar(200)
+  severity                      PlatformIncidentSeverity
+  status                        PlatformIncidentStatus   @default(active)
+  started_at                    DateTime                 @default(now()) @db.Timestamptz()
+  resolved_at                   DateTime?                @db.Timestamptz()
+  resolved_by_user_id           String?                  @db.Uuid
+  auto_resolved                 Boolean                  @default(false)
+  seed_alert_history_id         String                   @db.Uuid
+  affected_tenants              String[]                 @default([]) @db.Uuid
+  affected_components           String[]                 @default([])
+  root_cause_summary            String?                  @db.Text
+  postmortem_draft              String?                  @db.Text
+  postmortem_final              String?                  @db.Text
+  postmortem_generated_at       DateTime?                @db.Timestamptz()
+  postmortem_generations        Int                      @default(0)
+  prevention_recommendation_ids String[]                 @default([]) @db.Uuid
+  created_at                    DateTime                 @default(now()) @db.Timestamptz()
+  updated_at                    DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+
+  resolved_by User?                           @relation("platform_incident_resolver", fields: [resolved_by_user_id], references: [id], onDelete: SetNull)
+  alerts      PlatformAlertHistory[]
+  timeline    PlatformIncidentTimelineEvent[]
+  handoffs    PlatformAgentHandoffPrompt[]
+
+  @@index([status, started_at(sort: Desc)], map: "idx_platform_incidents_status_started")
+  @@index([severity, started_at(sort: Desc)], map: "idx_platform_incidents_severity_started")
+  @@index([started_at(sort: Desc)], map: "idx_platform_incidents_started")
+  @@map("platform_incidents")
+}
+
+model PlatformIncidentTimelineEvent {
+  id                    String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  incident_id           String                            @db.Uuid
+  occurred_at           DateTime                          @db.Timestamptz()
+  event_type            PlatformIncidentTimelineEventType
+  alert_history_id      String?                           @db.Uuid
+  audit_log_id          String?                           @db.Uuid
+  ai_action_proposal_id String?                           @db.Uuid
+  deploy_event_id       String?                           @db.Uuid
+  description           String                            @db.Text
+  metadata              Json?                             @db.JsonB
+  created_at            DateTime                          @default(now()) @db.Timestamptz()
+
+  incident PlatformIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@index([incident_id, occurred_at], map: "idx_platform_incident_timeline_incident_occurred")
+  @@map("platform_incident_timeline_events")
 }
 
 model PlatformOwnerActionConfirmation {
@@ -12584,6 +12670,7 @@ model PlatformAgentHandoffPrompt {
   created_at           DateTime @default(now()) @db.Timestamptz()
 
   created_by     User                      @relation("platform_agent_handoff_prompt_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  incident       PlatformIncident?         @relation(fields: [incident_id], references: [id], onDelete: SetNull)
   recommendation PlatformAiRecommendation? @relation(fields: [recommendation_id], references: [id], onDelete: SetNull)
 
   @@index([created_by_user_id, created_at(sort: Desc)], map: "idx_platform_agent_handoff_prompts_creator_created")

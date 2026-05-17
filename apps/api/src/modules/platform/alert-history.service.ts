@@ -9,6 +9,8 @@ import {
 } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { PlatformIncidentService } from './platform-incident.service';
+
 export type AlertHistoryRow = PlatformAlertHistory & {
   rule: { name: string };
 };
@@ -18,6 +20,7 @@ export class AlertHistoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformAuditService: PlatformAuditService,
+    private readonly platformIncidentService: PlatformIncidentService,
   ) {}
 
   async list(query: AlertHistoryQuery): Promise<{
@@ -81,6 +84,10 @@ export class AlertHistoryService {
         payload: { before: alert, after: updated },
       });
     }
+    await this.platformIncidentService.recordAlertAcknowledged(
+      id,
+      updated.acknowledged_at ?? new Date(),
+    );
     return updated;
   }
 }

@@ -256,6 +256,8 @@ export class PlatformAiCopilotService {
         );
       case 'health':
         return this.evidence.forHealth(context.id === 'overall' ? undefined : context.id);
+      case 'incident':
+        return this.evidence.forIncident(context.id);
       case 'queue':
         return this.evidence.forQueue(context.id);
       case 'tenant':

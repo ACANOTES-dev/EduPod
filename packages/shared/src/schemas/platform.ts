@@ -303,6 +303,7 @@ export const platformCopilotEvidenceContextKindSchema = z.enum([
   'deploy',
   'error',
   'health',
+  'incident',
   'queue',
   'tenant',
 ]);
@@ -494,6 +495,57 @@ export const createPlatformAgentHandoffSchema = z.object({
 });
 
 export type CreatePlatformAgentHandoffDto = z.infer<typeof createPlatformAgentHandoffSchema>;
+
+// ─── Platform Incidents + Postmortems ───────────────────────────────────────
+
+export const platformIncidentSeveritySchema = z.enum(['warning', 'critical']);
+
+export type PlatformIncidentSeverityDto = z.infer<typeof platformIncidentSeveritySchema>;
+
+export const platformIncidentStatusSchema = z.enum([
+  'active',
+  'monitoring',
+  'resolved',
+  'cancelled',
+]);
+
+export type PlatformIncidentStatusDto = z.infer<typeof platformIncidentStatusSchema>;
+
+export const listPlatformIncidentsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: platformIncidentStatusSchema.optional(),
+  severity: platformIncidentSeveritySchema.optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
+export type ListPlatformIncidentsQuery = z.infer<typeof listPlatformIncidentsQuerySchema>;
+
+export const updatePlatformIncidentSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  status: platformIncidentStatusSchema.optional(),
+  affected_tenants: z.array(z.string().uuid()).max(50).optional(),
+  affected_components: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
+});
+
+export type UpdatePlatformIncidentDto = z.infer<typeof updatePlatformIncidentSchema>;
+
+export const savePlatformIncidentPostmortemSchema = z.object({
+  postmortem_final: z.string().trim().min(1).max(60_000),
+});
+
+export type SavePlatformIncidentPostmortemDto = z.infer<
+  typeof savePlatformIncidentPostmortemSchema
+>;
+
+export const createPlatformIncidentTimelineEventSchema = z.object({
+  description: z.string().trim().min(1).max(4000),
+});
+
+export type CreatePlatformIncidentTimelineEventDto = z.infer<
+  typeof createPlatformIncidentTimelineEventSchema
+>;
 
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 

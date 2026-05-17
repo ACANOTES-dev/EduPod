@@ -733,6 +733,21 @@ expired*
 - **Hard stops**: no state transition may execute schema/migration changes, deploy config edits, secret/env-var changes, cron changes, production server configuration changes, Module Gating registry changes, or repository code patches. Code-required fixes create `PlatformAgentHandoffPrompt` rows only.
 - **Scope**: Platform-level, no tenant RLS. The proposal may carry `target_tenant_id` as evidence context, but the approval/execution ledger is part of the platform control plane.
 
+### PlatformIncidentStatus
+
+```
+active     -> [monitoring, resolved, cancelled]
+monitoring -> [active, resolved, cancelled]
+resolved*
+cancelled*
+```
+
+- **Schema**: `packages/prisma/schema.prisma` (`PlatformIncident.status`).
+- **Guarded by**: `PlatformIncidentService`. Critical alerts create incidents from the normal non-AI alert evaluation flow; related alerts attach by conservative component/queue/scope matching and never downgrade severity.
+- **Side effects**: `active -> monitoring` happens only after all contributing alerts resolve. `monitoring -> resolved` happens automatically only after a 1-hour quiet period with all contributing alerts still resolved, or manually through the incidents endpoint. `monitoring -> active` happens when a related alert fires again.
+- **AI boundary**: Postmortem generation does not participate in the incident lifecycle. It is an operator-clicked, rate-limited AI draft action after the incident exists.
+- **Scope**: Platform-level, no tenant RLS. `affected_tenants` is an impact/correlation array for platform operators, not a tenant isolation boundary.
+
 ### PlatformAlertSilence lifecycle
 
 ```

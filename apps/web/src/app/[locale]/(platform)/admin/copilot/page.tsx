@@ -9,7 +9,15 @@ import { Button, Textarea, cn, toast } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-type ContextKind = 'alert' | 'correlation' | 'deploy' | 'error' | 'health' | 'queue' | 'tenant';
+type ContextKind =
+  | 'alert'
+  | 'correlation'
+  | 'deploy'
+  | 'error'
+  | 'health'
+  | 'incident'
+  | 'queue'
+  | 'tenant';
 
 interface EvidenceItem {
   kind: string;
@@ -415,7 +423,16 @@ function parseContext(
 }
 
 function isContextKind(value: string): value is ContextKind {
-  return ['alert', 'correlation', 'deploy', 'error', 'health', 'queue', 'tenant'].includes(value);
+  return [
+    'alert',
+    'correlation',
+    'deploy',
+    'error',
+    'health',
+    'incident',
+    'queue',
+    'tenant',
+  ].includes(value);
 }
 
 function defaultQuestion(kind: ContextKind): string {

@@ -12,6 +12,7 @@ export type AlertStatus = 'fired' | 'acknowledged' | 'resolved';
 export interface PlatformAlertHistory {
   id: string;
   rule_id: string;
+  incident_id: string | null;
   severity: AlertSeverity;
   message: string;
   metric_value: number | string;
