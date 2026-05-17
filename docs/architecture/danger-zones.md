@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1659,6 +1659,20 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 **Mitigation**: `AllExceptionsFilter` records only 5xx exceptions after the normal API response is sent and delegates redaction/grouping to `PlatformErrorLogService`. Session 2D endpoints read the existing redacted table through platform-admin RBAC permissions. Tenant analytics uses only aggregate error counts from the same redacted table.
 
 **Regression coverage**: `apps/api/src/modules/platform-error-log/platform-error-log.service.spec.ts` verifies metadata capture and redacted reads; `apps/api/src/modules/platform/tenant-metrics.controller.spec.ts` verifies platform RBAC on diagnostics routes.
+
+---
+
+## DZ-AI-Internal: Internal Deploy Event Endpoint Uses a Static Token
+
+**Risk**: `POST /v1/admin/_internal/deploy-events` intentionally bypasses JWT platform-admin auth so the CI-driven deployment path can append deploy evidence after production smoke. If the internal token drifts from the server environment, deploy event capture silently stops. If the token leaks, an attacker could add misleading deploy evidence.
+**Location**: `apps/api/src/modules/platform/platform-observability.controller.ts`, `apps/api/src/modules/platform/platform-observability.service.ts`, `scripts/deploy-production.sh`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4A, 2026-05-17)
+
+**Rule**: The endpoint must remain append-only, token-gated, and best-effort. Do not add mutation powers, data deletion, or privileged diagnostics behind this token. Token rotation must update the production environment and the deploy script path together. Capture failure must never fail an otherwise healthy deploy.
+
+**Mitigation**: The endpoint validates `X-Internal-Token` against `DEPLOY_EVENT_INTERNAL_TOKEN` when present, falling back to the server-side `JWT_SECRET` for CI-only local server calls. The deploy script posts only after API restart/smoke and logs capture failures as non-blocking.
+
+**Regression coverage**: `apps/api/src/modules/platform/platform-observability.service.spec.ts` covers token acceptance/rejection and deploy-event append shape. Production smoke verifies `/admin/deploys` after deploy.
 
 ---
 

@@ -152,6 +152,15 @@ enum PlatformAuditAction {
   @@map("platform_audit_action")
 }
 
+enum PlatformDeployStatus {
+  in_progress
+  succeeded
+  failed
+  rolled_back
+
+  @@map("platform_deploy_status")
+}
+
 enum PlatformAuditActionType {
   password_reset
   mfa_reset
@@ -656,26 +665,26 @@ model Tenant {
   maintenance_message       String?       @db.Text
 
   // Relations
-  domains                 TenantDomain[]
-  modules                 TenantModule[]
-  branding                TenantBranding?
-  settings                TenantSetting?
-  module_settings         TenantModuleSetting[]
-  notification_settings   TenantNotificationSetting[]
-  sequences               TenantSequence[]
-  stripe_config           TenantStripeConfig?
-  memberships             TenantMembership[]
-  roles                   Role[]
-  role_permissions        RolePermission[]
-  membership_roles        MembershipRole[]
-  invitations             Invitation[]
-  approval_workflows      ApprovalWorkflow[]
-  approval_requests       ApprovalRequest[]
-  user_ui_preferences     UserUiPreference[]
-  onboarding_steps        TenantOnboardingStep[]
-  platform_tenant_metrics PlatformTenantMetric[]
+  domains                        TenantDomain[]
+  modules                        TenantModule[]
+  branding                       TenantBranding?
+  settings                       TenantSetting?
+  module_settings                TenantModuleSetting[]
+  notification_settings          TenantNotificationSetting[]
+  sequences                      TenantSequence[]
+  stripe_config                  TenantStripeConfig?
+  memberships                    TenantMembership[]
+  roles                          Role[]
+  role_permissions               RolePermission[]
+  membership_roles               MembershipRole[]
+  invitations                    Invitation[]
+  approval_workflows             ApprovalWorkflow[]
+  approval_requests              ApprovalRequest[]
+  user_ui_preferences            UserUiPreference[]
+  onboarding_steps               TenantOnboardingStep[]
+  platform_tenant_metrics        PlatformTenantMetric[]
   platform_support_audit_actions PlatformSupportAuditAction[]
-  maintenance_windows    TenantMaintenanceWindow[]
+  maintenance_windows            TenantMaintenanceWindow[]
 
   // P2 Relations
   households                   Household[]
@@ -12240,6 +12249,106 @@ model PlatformErrorRedactionRule {
 
   @@index([is_enabled], map: "idx_platform_error_redaction_rules_enabled")
   @@map("platform_error_redaction_rules")
+}
+
+model PlatformCorrelationEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  correlation_id String   @db.VarChar(64)
+  occurred_at    DateTime @default(now()) @db.Timestamptz()
+  source         String   @db.VarChar(40)
+  event_type     String   @db.VarChar(60)
+  payload        Json     @db.JsonB
+  user_id        String?  @db.Uuid
+  tenant_id      String?  @db.Uuid
+
+  @@index([correlation_id, occurred_at], map: "idx_platform_correlation_events_correlation")
+  @@index([occurred_at(sort: Desc)], map: "idx_platform_correlation_events_occurred")
+  @@map("platform_correlation_events")
+}
+
+model PlatformDeployEvent {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sha                 String               @db.VarChar(40)
+  short_sha           String               @db.VarChar(12)
+  deployed_at         DateTime             @default(now()) @db.Timestamptz()
+  deploy_run_url      String               @db.VarChar(500)
+  deploy_run_id       String               @db.VarChar(40)
+  migration_version   String?              @db.VarChar(80)
+  status              PlatformDeployStatus
+  duration_seconds    Int?
+  rollback_of_id      String?              @db.Uuid
+  commit_message      String?              @db.Text
+  commit_author_email String?              @db.VarChar(200)
+  failure_reason      String?              @db.Text
+  created_at          DateTime             @default(now()) @db.Timestamptz()
+
+  rollback_of PlatformDeployEvent?  @relation("DeployRollbackOf", fields: [rollback_of_id], references: [id], onDelete: SetNull)
+  rollbacks   PlatformDeployEvent[] @relation("DeployRollbackOf")
+
+  @@index([deployed_at(sort: Desc)], map: "idx_platform_deploy_events_deployed")
+  @@index([sha], map: "idx_platform_deploy_events_sha")
+  @@index([status], map: "idx_platform_deploy_events_status")
+  @@map("platform_deploy_events")
+}
+
+model PlatformRunbookIndex {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  path               String   @unique @db.VarChar(500)
+  title              String   @db.VarChar(200)
+  description        String?  @db.Text
+  alert_keys         String[] @default([])
+  audit_actions      String[] @default([])
+  error_fingerprints String[] @default([])
+  components         String[] @default([])
+  severity           String?  @db.VarChar(20)
+  tags               String[] @default([])
+  raw_front_matter   Json     @db.JsonB
+  content_sha        String   @db.VarChar(64)
+  indexed_at         DateTime @default(now()) @db.Timestamptz()
+
+  @@index([alert_keys], type: Gin, map: "idx_platform_runbooks_alert_keys")
+  @@index([audit_actions], type: Gin, map: "idx_platform_runbooks_audit_actions")
+  @@index([error_fingerprints], type: Gin, map: "idx_platform_runbooks_error_fingerprints")
+  @@index([components], type: Gin, map: "idx_platform_runbooks_components")
+  @@map("platform_runbook_index")
+}
+
+model PlatformServiceTopology {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                   String   @unique @db.VarChar(120)
+  kind                  String   @db.VarChar(40)
+  display_name          String   @db.VarChar(160)
+  description           String?  @db.Text
+  depends_on_keys       String[] @default([])
+  affects_product_areas String[] @default([])
+  suspected_repo_areas  String[] @default([])
+  related_queue_names   String[] @default([])
+  related_module_keys   String[] @default([])
+  related_components    String[] @default([])
+  owner_notes           String?  @db.Text
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  @@index([kind], map: "idx_platform_service_topology_kind")
+  @@index([depends_on_keys], type: Gin, map: "idx_platform_service_topology_depends")
+  @@index([affects_product_areas], type: Gin, map: "idx_platform_service_topology_areas")
+  @@map("platform_service_topology")
+}
+
+model PlatformSeverityPolicy {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key               String   @unique @db.VarChar(120)
+  title             String   @db.VarChar(160)
+  component         String?  @db.VarChar(60)
+  product_area      String?  @db.VarChar(120)
+  tenant_scope      String   @default("any") @db.VarChar(40)
+  condition_config  Json     @db.JsonB
+  severity          String   @db.VarChar(20)
+  operator_guidance String?  @db.Text
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  @@index([component], map: "idx_platform_severity_policies_component")
+  @@index([severity], map: "idx_platform_severity_policies_severity")
+  @@map("platform_severity_policies")
 }
 
 model TenantOnboardingStep {

@@ -1,3 +1,14 @@
+---
+title: Monitoring and alert review
+description: Daily monitoring checks for health, alerts, queues, errors, and platform drift.
+alert_keys: [health.degraded, queue.failed_jobs, error.rate]
+audit_actions: [alert_acknowledged, alert_silenced]
+error_fingerprints: []
+components: [api, worker, postgres, redis, bullmq]
+severity: p2
+tags: [monitoring, alerts, queues]
+---
+
 # Monitoring Runbook
 
 Last updated: 2026-04-01

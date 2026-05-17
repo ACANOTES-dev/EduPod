@@ -5,6 +5,7 @@ export const ACCESS_TOKEN_CHANGED_EVENT = 'edupod:access-token-changed';
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+let browserCorrelationId: string | null = null;
 
 let onApiError: ((error: ApiErrorPayload) => void) | null = null;
 
@@ -49,6 +50,7 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...getCorrelationHeaders(),
     ...(customHeaders as Record<string, string>),
   };
 
@@ -89,6 +91,19 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
   }
 
   return parseResponse<T>(response);
+}
+
+function getCorrelationHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  if (!browserCorrelationId) {
+    browserCorrelationId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+  return { 'X-Correlation-Id': browserCorrelationId };
 }
 
 async function handleErrorResponse<T>(

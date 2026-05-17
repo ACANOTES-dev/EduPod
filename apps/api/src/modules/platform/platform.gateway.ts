@@ -11,6 +11,7 @@ import * as jwt from 'jsonwebtoken';
 
 import type { JwtPayload } from '@school/shared';
 
+import { recordCorrelationEvent } from '../../common/services/correlation-event-sink';
 import { PlatformUsersService } from '../platform-users/platform-users.service';
 
 import { RedisPubSubCallback, RedisPubSubService } from './redis-pubsub.service';
@@ -92,6 +93,16 @@ export class PlatformGateway
 
       const callback: RedisPubSubCallback = (message) => {
         this.server.to(PLATFORM_ADMINS_ROOM).emit(eventName, message);
+        const correlationId =
+          typeof message.correlation_id === 'string' ? message.correlation_id : undefined;
+        if (correlationId) {
+          recordCorrelationEvent({
+            correlation_id: correlationId,
+            source: 'api',
+            event_type: 'ws_event',
+            payload: { channel, event_name: eventName },
+          });
+        }
       };
       this.redisSubscriptions.set(channel, callback);
       this.redisPubSub.subscribe(channel, callback);

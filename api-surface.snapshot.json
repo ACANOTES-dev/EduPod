@@ -98,6 +98,13 @@
     "permission": "students.manage"
   },
   {
+    "method": "POST",
+    "path": "/v1/admin/_internal/deploy-events",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
     "method": "GET",
     "path": "/v1/admin/action-confirmations",
     "controller": "OwnerActionConfirmationsController",
@@ -267,10 +274,31 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/correlation/:id",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/dashboard",
     "controller": "TenantsController",
     "module": "tenants",
     "permission": "platform.tenants.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/deploys",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/deploys/:id",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "GET",
@@ -512,6 +540,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/runbooks",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/search",
     "controller": "PlatformSearchController",
     "module": "platform",
@@ -568,6 +603,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/service-topology",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/sessions",
     "controller": "TenantsController",
     "module": "tenants",
@@ -586,6 +628,13 @@
     "controller": "TenantsController",
     "module": "tenants",
     "permission": "platform.sessions.force_logout_user"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/severity-policies",
+    "controller": "PlatformObservabilityController",
+    "module": "platform",
+    "permission": "platform.audit_log.view"
   },
   {
     "method": "GET",

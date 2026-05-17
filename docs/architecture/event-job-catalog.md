@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added runbook indexing, deploy-event capture, and platform correlation event ingestion); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -752,3 +752,28 @@ Three new public endpoints receive provider events and update notification statu
 ### Failure modes
 
 If Redis is unhealthy at the moment of a credential rotation, the publish silently no-ops. The cache TTL (30-min idle eviction) eventually evicts the stale client. See DZ-Comms-1.
+
+## Platform Observability Context (Layer 4 Session 4A)
+
+### Runbook index refresh
+
+- **Owner**: API process (`PlatformObservabilityService`)
+- **Schedule**: daily after 02:00 UTC, plus a startup best-effort refresh
+- **Source**: `docs/runbooks/*.md`
+- **Destination**: `platform_runbook_index`
+- **Side effects**: parses opt-in front matter, computes a content SHA, and upserts indexed runbook metadata. Runbooks without front matter are skipped. Parse/write failures are logged and do not block API startup.
+
+### Deploy event capture endpoint
+
+- **Route**: `POST /v1/admin/_internal/deploy-events`
+- **Trigger**: `scripts/deploy-production.sh` after CI-driven production smoke completes, with a failed event recorded before automatic rollback when smoke fails.
+- **Auth**: internal token only; no JWT. See DZ-AI-Internal.
+- **Destination**: `platform_deploy_events`
+- **Side effects**: appends SHA, workflow URL/run id, latest migration version, commit metadata, duration, and status for Layer 4 deploy correlation.
+
+### Correlation event ingestion
+
+- **Owner**: API process (`CorrelationEventIngesterService`)
+- **Sources**: request logging middleware, platform audit writes, platform error capture, and platform WebSocket emissions that carry a correlation id.
+- **Destination**: `platform_correlation_events`
+- **Side effects**: buffered best-effort insert. Failed writes drop the batch and log a warning; request handling, audit writes, error capture, and WebSocket sends continue.

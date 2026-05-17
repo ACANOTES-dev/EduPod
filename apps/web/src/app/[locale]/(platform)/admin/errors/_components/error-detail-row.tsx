@@ -28,11 +28,12 @@ export interface PlatformErrorLog {
 }
 
 interface ErrorDetailRowProps {
+  deployHint?: { short_sha: string; deployed_at: string } | null;
   error: PlatformErrorLog;
   tenantName?: string;
 }
 
-export function ErrorDetailRow({ error, tenantName }: ErrorDetailRowProps) {
+export function ErrorDetailRow({ deployHint, error, tenantName }: ErrorDetailRowProps) {
   const [expanded, setExpanded] = React.useState(false);
   const statusTone =
     error.http_status && error.http_status >= 500
@@ -64,6 +65,11 @@ export function ErrorDetailRow({ error, tenantName }: ErrorDetailRowProps) {
           <div className="mt-1 flex flex-wrap gap-1.5">
             {error.http_status ? <Badge className={statusTone}>{error.http_status}</Badge> : null}
             <Badge className="bg-surface-secondary text-text-secondary">{error.level}</Badge>
+            {deployHint ? (
+              <Badge className="bg-info-bg text-info-text">
+                after deploy {deployHint.short_sha}
+              </Badge>
+            ) : null}
           </div>
         </td>
         <td className="px-3 py-3">

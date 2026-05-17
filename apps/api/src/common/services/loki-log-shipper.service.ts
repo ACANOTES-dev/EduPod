@@ -9,6 +9,7 @@ export interface StructuredLogEntry {
   level: string;
   message: string;
   requestId: string | null;
+  correlation_id: string | null;
   tenantId: string | null;
   userId: string | null;
   context: string | null;

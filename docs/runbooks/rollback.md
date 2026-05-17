@@ -1,3 +1,14 @@
+---
+title: Production rollback
+description: Procedure for rollback after a failed deploy or production regression.
+alert_keys: [deploy.rollback, smoke.failed]
+audit_actions: [maintenance_mode_entered, maintenance_mode_exited]
+error_fingerprints: []
+components: [api, worker, web]
+severity: p1
+tags: [deploy, rollback]
+---
+
 # Rollback Runbook
 
 Last updated: 2026-04-01

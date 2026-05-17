@@ -87,6 +87,7 @@ export class StructuredLoggerService extends ConsoleLogger {
       level,
       message,
       requestId: reqCtx?.requestId ?? null,
+      correlation_id: reqCtx?.requestId ?? null,
       tenantId: reqCtx?.tenantId ?? null,
       userId: reqCtx?.userId ?? null,
       context: context ?? this.context ?? null,

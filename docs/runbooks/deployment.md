@@ -1,3 +1,14 @@
+---
+title: Production deployment
+description: CI-only deployment and production smoke verification runbook.
+alert_keys: [deploy.failed, smoke.failed]
+audit_actions: []
+error_fingerprints: []
+components: [api, worker, web, postgres, redis]
+severity: p1
+tags: [deploy, ci, smoke]
+---
+
 # Deployment Runbook
 
 Last updated: 2026-04-01

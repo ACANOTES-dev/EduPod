@@ -33,6 +33,10 @@ interface ErrorResponse {
   meta: { page: number; pageSize: number; total: number };
 }
 
+interface DeployResponse {
+  data: Array<{ short_sha: string; deployed_at: string; status: string }>;
+}
+
 const PAGE_SIZE = 20;
 
 export default function ErrorDiagnosticsPage() {
@@ -45,6 +49,7 @@ export default function ErrorDiagnosticsPage() {
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [recentDeploys, setRecentDeploys] = React.useState<DeployResponse['data']>([]);
 
   React.useEffect(() => {
     apiClient<TenantListResponse>('/api/v1/admin/tenants?pageSize=100', { silent: true })
@@ -52,6 +57,12 @@ export default function ErrorDiagnosticsPage() {
       .catch((err: unknown) => {
         console.error('[ErrorDiagnosticsPage.loadTenants]', err);
         setTenants([]);
+      });
+    apiClient<DeployResponse>('/api/v1/admin/deploys?pageSize=10', { silent: true })
+      .then((response) => setRecentDeploys(response.data))
+      .catch((err: unknown) => {
+        console.error('[ErrorDiagnosticsPage.loadDeploys]', err);
+        setRecentDeploys([]);
       });
   }, []);
 
@@ -204,6 +215,7 @@ export default function ErrorDiagnosticsPage() {
                 <ErrorDetailRow
                   key={row.id}
                   error={row}
+                  deployHint={findDeployHint(row, recentDeploys)}
                   tenantName={
                     row.tenant_id_redacted
                       ? (tenantById.get(row.tenant_id_redacted) ?? row.tenant_id_redacted)
@@ -234,6 +246,17 @@ export default function ErrorDiagnosticsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function findDeployHint(error: PlatformErrorLog, deploys: DeployResponse['data']) {
+  const firstSeen = new Date(error.first_seen_at).getTime();
+  return (
+    deploys.find((deploy) => {
+      if (deploy.status !== 'succeeded') return false;
+      const deployedAt = new Date(deploy.deployed_at).getTime();
+      return firstSeen >= deployedAt && firstSeen - deployedAt <= 30 * 60 * 1000;
+    }) ?? null
   );
 }
 

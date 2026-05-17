@@ -27,6 +27,7 @@ import { AlertRulesService } from './alert-rules.service';
 import { AlertSilenceService } from './alert-silence.service';
 import { AlertSilencesController } from './alert-silences.controller';
 import { ChannelDispatchService } from './channel-dispatch.service';
+import { CorrelationEventIngesterService } from './correlation-event-ingester.service';
 import { EmailAlertDispatcher } from './dispatchers/email-alert.dispatcher';
 import { PushAlertDispatcher } from './dispatchers/push-alert.dispatcher';
 import { TelegramAlertDispatcher } from './dispatchers/telegram-alert.dispatcher';
@@ -38,6 +39,9 @@ import { MaintenanceWindowsController } from './maintenance-windows.controller';
 import { OnboardingController } from './onboarding.controller';
 import { OwnerActionConfirmationService } from './owner-action-confirmation.service';
 import { OwnerActionConfirmationsController } from './owner-action-confirmations.controller';
+import { PlatformEvidenceService } from './platform-evidence.service';
+import { PlatformObservabilityController } from './platform-observability.controller';
+import { PlatformObservabilityService } from './platform-observability.service';
 import { PlatformOnboardingModule } from './platform-onboarding.module';
 import { PlatformRealtimeModule } from './platform-realtime.module';
 import { PlatformSearchController } from './platform-search.controller';
@@ -75,6 +79,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
     OnboardingController,
+    PlatformObservabilityController,
     PlatformSearchController,
     TenantMetricsController,
   ],
@@ -87,6 +92,9 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertSilenceService,
     MaintenanceWindowService,
     OwnerActionConfirmationService,
+    CorrelationEventIngesterService,
+    PlatformEvidenceService,
+    PlatformObservabilityService,
     AlertEvaluationService,
     AlertDispatchService,
     ChannelDispatchService,

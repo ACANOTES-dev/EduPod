@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 
+import { recordCorrelationEvent } from '../services/correlation-event-sink';
 import { StructuredLoggerService } from '../services/logger.service';
 
 import { getRequestContext } from './correlation.middleware';
@@ -42,10 +43,26 @@ export class RequestLoggingMiddleware implements NestMiddleware {
           status: res.statusCode,
           duration_ms: durationMs,
           request_id: reqCtx?.requestId ?? null,
+          correlation_id: reqCtx?.requestId ?? null,
           tenant_id: reqCtx?.tenantId ?? null,
           user_id: reqCtx?.userId ?? null,
         };
         process.stdout.write(JSON.stringify(entry) + '\n');
+        if (reqCtx?.requestId) {
+          recordCorrelationEvent({
+            correlation_id: reqCtx.requestId,
+            source: 'api',
+            event_type: 'http_request',
+            tenant_id: reqCtx.tenantId,
+            user_id: reqCtx.userId,
+            payload: {
+              method: req.method,
+              path: requestPath.replace(UUID_RE, ':id'),
+              status: res.statusCode,
+              duration_ms: durationMs,
+            },
+          });
+        }
       } else {
         this.logger.log(
           `${req.method} ${requestPath} ${res.statusCode} ${durationMs}ms`,

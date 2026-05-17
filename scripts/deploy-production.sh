@@ -426,6 +426,51 @@ notify_deploy() {
   fi
 }
 
+capture_deploy_event() {
+  local status="$1"
+  local sha="$2"
+  local detail="${3:-}"
+  local duration_seconds="${4:-}"
+  local short_sha run_id run_url commit_message commit_author migration_version api_url payload token
+
+  short_sha="${sha:0:7}"
+  run_id="${GITHUB_RUN_ID:-manual-$(date +%s)}"
+  run_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-ACANOTES-dev/EduPod}/actions/runs/${run_id}"
+  commit_message="$(git log -1 --pretty=%s "$sha" 2>/dev/null || true)"
+  commit_author="$(git log -1 --pretty=%ae "$sha" 2>/dev/null || true)"
+  migration_version="$(psql "$DATABASE_MIGRATE_URL" -Atc "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1" 2>/dev/null || true)"
+  api_url="${API_URL:-http://127.0.0.1:${API_PORT:-3001}}"
+  token="${DEPLOY_EVENT_INTERNAL_TOKEN:-${JWT_SECRET:-}}"
+
+  if [[ -z "$token" ]]; then
+    log 'Deploy event capture skipped: no internal token available'
+    return 0
+  fi
+
+  payload="$(node -e '
+    const payload = {
+      sha: process.argv[1],
+      short_sha: process.argv[2],
+      deploy_run_url: process.argv[3],
+      deploy_run_id: process.argv[4],
+      status: process.argv[5],
+      duration_seconds: process.argv[6] ? Number(process.argv[6]) : undefined,
+      migration_version: process.argv[7] || undefined,
+      commit_message: process.argv[8] || undefined,
+      commit_author_email: process.argv[9] || undefined,
+      failure_reason: process.argv[10] || undefined,
+    };
+    console.log(JSON.stringify(payload));
+  ' "$sha" "$short_sha" "$run_url" "$run_id" "$status" "$duration_seconds" "$migration_version" "$commit_message" "$commit_author" "$detail")"
+
+  curl -fsS -X POST \
+    -H 'Content-Type: application/json' \
+    -H "X-Internal-Token: ${token}" \
+    --data "$payload" \
+    "${api_url%/}/api/v1/admin/_internal/deploy-events" > /dev/null || \
+    log 'Deploy event capture failed (non-blocking)'
+}
+
 rollback_release() {
   local previous_sha="$1"
 
@@ -455,7 +500,7 @@ rollback_release() {
 }
 
 main() {
-  local previous_sha deployed_sha target_sha
+  local previous_sha deployed_sha target_sha deploy_started_at
 
   cd "$APP_DIR"
 
@@ -466,6 +511,7 @@ main() {
   flock 9
 
   git checkout main
+  deploy_started_at="$(date +%s)"
   previous_sha="$(git rev-parse HEAD)"
 
   log 'Fetching latest code'
@@ -513,12 +559,14 @@ main() {
   log 'Running smoke tests'
   sleep 5
   if ! run_smoke_test; then
+    capture_deploy_event 'failed' "$deployed_sha" 'smoke tests failed after deploy' "$(( $(date +%s) - deploy_started_at ))"
     rollback_release "$previous_sha"
     notify_deploy 'failed' "$deployed_sha" 'smoke tests failed after deploy'
     exit 1
   fi
 
   log "Deploy complete for ${deployed_sha}"
+  capture_deploy_event 'succeeded' "$deployed_sha" 'deploy and smoke suite passed' "$(( $(date +%s) - deploy_started_at ))"
   notify_deploy 'success' "$deployed_sha" 'deploy and smoke suite passed'
 }
 

@@ -881,6 +881,9 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         env:
           DEPLOY_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -890,7 +893,7 @@ jobs:
           # same remote cache (turbo.edupod.app) that the CI build warmed
           # a few minutes earlier for the same SHA — turns the 2 min server
           # build into a ~10 s cache pull.
-          envs: DEPLOY_SHA,TURBO_API,TURBO_TEAM,TURBO_TOKEN
+          envs: DEPLOY_SHA,GITHUB_REPOSITORY,GITHUB_RUN_ID,GITHUB_SERVER_URL,TURBO_API,TURBO_TEAM,TURBO_TOKEN
           script: |
             cd /opt/edupod/app
             DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" \

@@ -116,6 +116,7 @@ describe('StructuredLoggerService', () => {
 
       const parsed = JSON.parse(output.trim());
       expect(parsed.requestId).toBe('req-123');
+      expect(parsed.correlation_id).toBe('req-123');
       expect(parsed.tenantId).toBe('tenant-abc');
       expect(parsed.userId).toBe('user-xyz');
     });

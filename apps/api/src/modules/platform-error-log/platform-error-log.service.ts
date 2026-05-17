@@ -9,6 +9,8 @@ import type {
   PreviewPlatformErrorRedactionRuleDto,
 } from '@school/shared';
 
+import { getCorrelationId } from '../../common/middleware/correlation.middleware';
+import { recordCorrelationEvent } from '../../common/services/correlation-event-sink';
 import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -54,10 +56,11 @@ export class PlatformErrorLogService {
       post_redaction_length: message.redacted.length + (stack?.redacted.length ?? 0),
     };
 
+    let capturedId: string | null = null;
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.platformErrorLog.findFirst({ where: { fingerprint } });
       if (existing) {
-        await tx.platformErrorLog.update({
+        const updated = await tx.platformErrorLog.update({
           where: { id: existing.id },
           data: {
             count: { increment: 1 },
@@ -71,10 +74,11 @@ export class PlatformErrorLogService {
             correlation_id: input.correlation_id ?? existing.correlation_id,
           },
         });
+        capturedId = updated?.id ?? existing.id;
         return;
       }
 
-      await tx.platformErrorLog.create({
+      const created = await tx.platformErrorLog.create({
         data: {
           occurred_at: now,
           source: input.source,
@@ -94,7 +98,25 @@ export class PlatformErrorLogService {
           sentry_event_id: input.sentry_event_id,
         },
       });
+      capturedId = created?.id ?? null;
     });
+    const correlationId = input.correlation_id ?? getCorrelationId();
+    if (correlationId && capturedId) {
+      recordCorrelationEvent({
+        correlation_id: correlationId,
+        source: input.source,
+        event_type: 'error_captured',
+        tenant_id: input.tenant_id,
+        user_id: input.user_id,
+        payload: {
+          platform_error_log_id: capturedId,
+          fingerprint,
+          level: input.level,
+          endpoint: input.endpoint,
+          http_status: input.http_status,
+        },
+      });
+    }
   }
 
   async listRedacted(query: PlatformErrorLogQuery): Promise<{

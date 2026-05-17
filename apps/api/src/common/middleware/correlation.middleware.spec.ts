@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 import {
   CorrelationMiddleware,
+  CORRELATION_ID_HEADER,
   enrichRequestContext,
   getCorrelationId,
   getRequestContext,
@@ -48,6 +49,7 @@ describe('CorrelationMiddleware', () => {
       expect(id).toBeDefined();
       expect(UUID_RE.test(id!)).toBe(true);
       expect(res.headers[REQUEST_ID_HEADER]).toBe(id);
+      expect(res.headers[CORRELATION_ID_HEADER]).toBe(id);
       done();
     };
 
@@ -63,6 +65,25 @@ describe('CorrelationMiddleware', () => {
       const id = getCorrelationId();
       expect(id).toBe(existingId);
       expect(res.headers[REQUEST_ID_HEADER]).toBe(existingId);
+      done();
+    };
+
+    middleware.use(req, res, next);
+  });
+
+  it('should prefer existing X-Correlation-Id header from the request', (done) => {
+    const existingId = 'correlation-123';
+    const req = buildMockRequest({
+      [CORRELATION_ID_HEADER]: existingId,
+      [REQUEST_ID_HEADER]: 'request-456',
+    });
+    const res = buildMockResponse();
+
+    const next: NextFunction = () => {
+      const id = getCorrelationId();
+      expect(id).toBe(existingId);
+      expect(res.headers[REQUEST_ID_HEADER]).toBe(existingId);
+      expect(res.headers[CORRELATION_ID_HEADER]).toBe(existingId);
       done();
     };
 

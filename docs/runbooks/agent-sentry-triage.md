@@ -1,3 +1,14 @@
+---
+title: Sentry alert triage
+description: Procedure for resolving Sentry alerts through the guarded repo-agent workflow.
+alert_keys: [sentry.alert.fired, sentry.alert.regressed]
+audit_actions: []
+error_fingerprints: []
+components: [api, worker]
+severity: p2
+tags: [sentry, triage, repo-agent]
+---
+
 # Agent runbook — autonomous Sentry triage
 
 **Purpose.** When the user receives a Sentry alert and tells an AI agent to deal with it, this runbook drives the agent end-to-end: fetch → diagnose → fix → test → commit → deploy → verify → resolve → audit-log. No human-in-the-loop between trigger and close-out.

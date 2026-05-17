@@ -225,6 +225,67 @@ export type PreviewPlatformErrorRedactionRuleDto = z.infer<
   typeof previewPlatformErrorRedactionRuleSchema
 >;
 
+// ─── Platform Observability Context ─────────────────────────────────────────
+
+export const platformDeployStatusSchema = z.enum([
+  'in_progress',
+  'succeeded',
+  'failed',
+  'rolled_back',
+]);
+
+export type PlatformDeployStatusDto = z.infer<typeof platformDeployStatusSchema>;
+
+export const createPlatformDeployEventSchema = z.object({
+  sha: z.string().trim().min(7).max(40),
+  short_sha: z.string().trim().min(7).max(12),
+  deploy_run_url: z.string().trim().url().max(500),
+  deploy_run_id: z.string().trim().min(1).max(40),
+  migration_version: z.string().trim().min(1).max(80).optional(),
+  status: platformDeployStatusSchema,
+  duration_seconds: z.coerce.number().int().min(0).optional(),
+  rollback_of_id: z.string().uuid().optional(),
+  commit_message: z.string().trim().max(2000).optional(),
+  commit_author_email: z.string().trim().email().max(200).optional(),
+  failure_reason: z.string().trim().max(4000).optional(),
+});
+
+export type CreatePlatformDeployEventDto = z.infer<typeof createPlatformDeployEventSchema>;
+
+export const listPlatformDeployEventsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: platformDeployStatusSchema.optional(),
+});
+
+export type ListPlatformDeployEventsQuery = z.infer<typeof listPlatformDeployEventsQuerySchema>;
+
+export const platformRunbookQuerySchema = z.object({
+  component: z.string().trim().min(1).max(80).optional(),
+  severity: z.string().trim().min(1).max(20).optional(),
+  alert_key: z.string().trim().min(1).max(120).optional(),
+  tag: z.string().trim().min(1).max(80).optional(),
+});
+
+export type PlatformRunbookQuery = z.infer<typeof platformRunbookQuerySchema>;
+
+export const platformTopologyQuerySchema = z.object({
+  kind: z.string().trim().min(1).max(40).optional(),
+  component: z.string().trim().min(1).max(60).optional(),
+  queue: z.string().trim().min(1).max(80).optional(),
+  module_key: z.string().trim().min(1).max(80).optional(),
+});
+
+export type PlatformTopologyQuery = z.infer<typeof platformTopologyQuerySchema>;
+
+export const platformSeverityPolicyQuerySchema = z.object({
+  component: z.string().trim().min(1).max(60).optional(),
+  severity: z.enum(['info', 'warning', 'critical']).optional(),
+  product_area: z.string().trim().min(1).max(120).optional(),
+});
+
+export type PlatformSeverityPolicyQuery = z.infer<typeof platformSeverityPolicyQuerySchema>;
+
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 
 export const alertComponentSchema = z.enum([

@@ -1,3 +1,14 @@
+---
+title: Worker module gating patterns
+description: Module-gating patterns for cron dispatchers, event-driven processors, and provider webhooks.
+alert_keys: [module.gating.worker.skip, queue.failed_jobs]
+audit_actions: [module_toggled]
+error_fingerprints: []
+components: [worker, bullmq]
+severity: p2
+tags: [worker, module-gating, queues]
+---
+
 # Worker Module Gating Patterns
 
 Module-gated worker code reads tenant module state through

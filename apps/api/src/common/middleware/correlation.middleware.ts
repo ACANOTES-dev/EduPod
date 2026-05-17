@@ -50,6 +50,7 @@ export function enrichRequestContext(update: { tenantId?: string; userId?: strin
 // ─── Header constant ────────────────────────────────────────────────────────
 
 export const REQUEST_ID_HEADER = 'x-request-id';
+export const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
@@ -64,12 +65,13 @@ export const REQUEST_ID_HEADER = 'x-request-id';
 @Injectable()
 export class CorrelationMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
-    const incomingId = req.headers[REQUEST_ID_HEADER];
+    const incomingId = req.headers[CORRELATION_ID_HEADER] ?? req.headers[REQUEST_ID_HEADER];
     const requestId =
       typeof incomingId === 'string' && incomingId.length > 0 ? incomingId : randomUUID();
 
     // Set response header for traceability
     res.setHeader(REQUEST_ID_HEADER, requestId);
+    res.setHeader(CORRELATION_ID_HEADER, requestId);
 
     const context: RequestContext = { requestId };
 

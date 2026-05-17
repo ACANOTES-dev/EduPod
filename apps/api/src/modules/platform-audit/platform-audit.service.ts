@@ -5,6 +5,8 @@ import { Prisma, type PlatformAuditAction, type PlatformAuditLog } from '@prisma
 
 import type { PlatformAuditLogQuery } from '@school/shared';
 
+import { getCorrelationId } from '../../common/middleware/correlation.middleware';
+import { recordCorrelationEvent } from '../../common/services/correlation-event-sink';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PlatformAuditContext {
@@ -62,7 +64,7 @@ export class PlatformAuditService {
           prev_hash: prevHash,
         });
 
-        return tx.platformAuditLog.create({
+        const created = await tx.platformAuditLog.create({
           data: {
             actor_user_id: input.actor_user_id,
             action: input.action,
@@ -78,6 +80,23 @@ export class PlatformAuditService {
             created_at: createdAt,
           },
         });
+        const correlationId = getCorrelationId();
+        if (correlationId) {
+          recordCorrelationEvent({
+            correlation_id: correlationId,
+            source: 'api',
+            event_type: 'audit_logged',
+            tenant_id: input.target_tenant_id,
+            user_id: input.actor_user_id,
+            payload: {
+              audit_log_id: created.id,
+              action: created.action,
+              target_resource_type: created.target_resource_type,
+              target_resource_id: created.target_resource_id,
+            },
+          });
+        }
+        return created;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
