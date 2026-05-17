@@ -699,25 +699,39 @@ interface SessionsState {
 
 ## 8. Acceptance Criteria
 
-- [ ] `tenants` table has `maintenance_mode` (BOOLEAN) and `maintenance_message` (TEXT) columns
-- [ ] `tenant_maintenance_windows` table exists with correct schema and constraints
-- [ ] `tenant_maintenance_windows` has NO RLS policy
-- [ ] `GET /v1/admin/sessions` returns sessions grouped by tenant
-- [ ] `DELETE /v1/admin/sessions/tenant/:id` force-logs out all users in tenant
-- [ ] `DELETE /v1/admin/sessions/user/:id` force-logs out specific user
-- [ ] `POST /v1/admin/cache/flush` flushes specified cache type
-- [ ] `GET /v1/admin/cache/stats` returns key counts per cache type
-- [ ] `PATCH /v1/admin/tenants/:id/maintenance` toggles maintenance mode
-- [ ] Maintenance middleware returns 503 for mutations on maintenance tenants
-- [ ] Maintenance middleware allows GET/HEAD/OPTIONS requests through
-- [ ] Maintenance middleware does not block admin routes
-- [ ] `GET /v1/admin/maintenance-windows` returns windows with tenant and creator info
-- [ ] `POST /v1/admin/maintenance-windows` creates a scheduled window
-- [ ] `DELETE /v1/admin/maintenance-windows/:id` cancels a scheduled window
-- [ ] Cron job enables/disables maintenance at scheduled times
-- [ ] Sessions tab UI shows expandable tenant groups with force-logout buttons
-- [ ] Cache tab shows stats and flush buttons per cache type
-- [ ] Maintenance tab shows per-tenant toggle and scheduled windows
-- [ ] All unit tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
-- [ ] `turbo test` passes with zero regressions
+- [x] `tenants` table has `maintenance_mode` (BOOLEAN) and `maintenance_message` (TEXT) columns
+- [x] `tenant_maintenance_windows` table exists with correct schema and constraints
+- [x] `tenant_maintenance_windows` has NO RLS policy
+- [x] `GET /v1/admin/sessions` returns sessions grouped by tenant
+- [x] `DELETE /v1/admin/sessions/tenant/:id` force-logs out all users in tenant
+- [x] `DELETE /v1/admin/sessions/user/:id` force-logs out specific user
+- [x] `POST /v1/admin/cache/flush` flushes specified cache type
+- [x] `GET /v1/admin/cache/stats` returns key counts per cache type
+- [x] `PATCH /v1/admin/tenants/:id/maintenance` toggles maintenance mode
+- [x] Maintenance middleware returns 503 for mutations on maintenance tenants
+- [x] Maintenance middleware allows GET/HEAD/OPTIONS requests through
+- [x] Maintenance middleware does not block admin routes
+- [x] `GET /v1/admin/maintenance-windows` returns windows with tenant and creator info
+- [x] `POST /v1/admin/maintenance-windows` creates a scheduled window
+- [x] `DELETE /v1/admin/maintenance-windows/:id` cancels a scheduled window
+- [x] Cron job enables/disables maintenance at scheduled times
+- [x] Sessions tab UI shows expandable tenant groups with force-logout buttons
+- [x] Cache tab shows stats and flush buttons per cache type
+- [x] Maintenance tab shows per-tenant toggle and scheduled windows
+- [x] All unit tests pass
+- [x] `turbo lint` and `turbo type-check` pass
+- [x] `turbo test` passes with zero regressions
+
+---
+
+## 9. Commits / CI / Notes
+
+**Implementation commit:** `e062b5af` (`feat(platform): add session cache and maintenance ops`)
+
+**CI / deploy:** GitHub Actions run `25976300138` passed. Production deploy completed for commit `e062b5af78e89be2765d5f128e678ec443e32361`; deploy smoke reported WEB OK, API OK, API READY OK, WORKER OK, SOLVER OK, and AUTH OK.
+
+**Local verification:** Prisma validation, targeted backend/frontend checks, API/worker/web type-checks, lint, focused API and worker tests, RLS audit, worker processor spec audit, and `TURBO_CONCURRENCY=1 pnpm turbo run test` all passed.
+
+**Production smoke:** Verified the platform dashboard regression, support toolkit regression, session groups, user/tenant force-logout confirmation surfaces, cache stats and tenant cache flush, maintenance mode toggle on/off, scheduled maintenance window create/cancel, and mobile overflow at `390x844`.
+
+**Notes:** Force logout was verified to the production confirmation step and covered by backend tests, but was not executed against live production sessions to avoid disconnecting active users. The temporary smoke-test maintenance mode and scheduled maintenance window were both cleaned up before completion.
