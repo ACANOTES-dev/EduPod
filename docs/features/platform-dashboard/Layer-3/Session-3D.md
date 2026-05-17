@@ -861,27 +861,118 @@ React.useEffect(() => {
 
 ## 8. Acceptance Criteria
 
-- [ ] `platform_users` table exists with correct schema
-- [ ] `PlatformUserRole` enum has `platform_owner` and `platform_support` values
-- [ ] Data migration seeds existing platform owners from Redis set into `platform_users` table
-- [ ] `PlatformOwnerGuard` checks `platform_users` table first, falls back to Redis set
-- [ ] `PlatformOwnerGuard` auto-migrates Redis set users to table on first access
-- [ ] `PlatformOwnerGuard` caches results in Redis with correct TTL
-- [ ] `PlatformRoleGuard` enforces minimum role level
-- [ ] `platform_support` can access read + impersonate endpoints
-- [ ] `platform_support` is blocked from suspend, archive, delete, disable, transfer-ownership
-- [ ] `GET /v1/admin/platform-users` returns all platform users with user details
-- [ ] `POST /v1/admin/platform-users` creates a platform user and sends invite email
-- [ ] `PATCH /v1/admin/platform-users/:id` updates role or active status
-- [ ] Cannot deactivate/remove the last active `platform_owner`
-- [ ] `DELETE /v1/admin/platform-users/:id` removes user and invalidates sessions/cache
-- [ ] `GET /v1/admin/search?q=...` returns results across tenants, users, alerts
-- [ ] Platform Users page UI shows DataTable with correct columns
-- [ ] Invite dialog uses react-hook-form with zodResolver
-- [ ] Global search opens with Cmd+K, shows grouped results, supports keyboard navigation
-- [ ] Sidebar navigation uses grouped sections matching design spec
-- [ ] Badge counts shown on Alerts and Security Incidents
-- [ ] Keyboard shortcuts work (Cmd+K, g+d, g+h, g+t, g+q, g+a)
-- [ ] All unit tests pass
-- [ ] `turbo lint` and `turbo type-check` pass
-- [ ] `turbo test` passes with zero regressions
+- [x] `platform_users` table exists with correct schema
+- [x] `PlatformUserRole` enum has `platform_owner` and `platform_support` values -- satisfied by the normalized Layer 1.5 `platform_roles`/`platform_permissions` model rather than the older single enum shape in this draft.
+- [x] Data migration seeds existing platform owners from Redis set into `platform_users` table -- existing backfill script and seed compatibility remain in place.
+- [x] `PlatformOwnerGuard` checks `platform_users` table first, falls back to Redis set -- superseded by `AuthGuard` + normalized `PlatformRoleGuard`/permission checks from Layer 1.5.
+- [x] `PlatformOwnerGuard` auto-migrates Redis set users to table on first access -- superseded by the Layer 1.5 backfill path and normalized RBAC.
+- [x] `PlatformOwnerGuard` caches results in Redis with correct TTL -- superseded by cached normalized platform membership/permission resolution.
+- [x] `PlatformRoleGuard` enforces minimum role level
+- [x] `platform_support` can access read + impersonate endpoints
+- [x] `platform_support` is blocked from suspend, archive, delete, disable, transfer-ownership
+- [x] `GET /v1/admin/platform-users` returns all platform users with user details
+- [x] `POST /v1/admin/platform-users` creates a platform user and sends invite email
+- [x] `PATCH /v1/admin/platform-users/:id` updates role or active status
+- [x] Cannot deactivate/remove the last active `platform_owner`
+- [x] `DELETE /v1/admin/platform-users/:id` removes user and invalidates sessions/cache
+- [x] `GET /v1/admin/search?q=...` returns results across tenants, users, alerts, and jobs
+- [x] Platform Users page UI shows DataTable with correct columns
+- [x] Invite dialog uses react-hook-form with zodResolver
+- [x] Global search opens with Cmd+K, shows grouped results, supports keyboard navigation
+- [x] Sidebar navigation uses grouped sections matching design spec
+- [x] Badge counts shown on Alerts and Security Incidents
+- [x] Keyboard shortcuts work (Cmd+K, g+d, g+h, g+t, g+q, g+a)
+- [x] All unit tests pass
+- [x] `turbo lint` and `turbo type-check` pass
+- [x] `turbo test` passes with zero regressions
+
+## Commits / CI / Notes
+
+**Implementation commit:** `0e6db360 feat(platform): add users navigation and search`
+
+**CI / deploy:** GitHub Actions run `25977234500` (`CI / Deploy`, `main`) completed successfully on May 17, 2026. Deploy job completed successfully through the standard CI-only production path.
+
+**Local verification:**
+
+- `pnpm exec prettier --write` on touched files
+- `pnpm --filter @school/api test -- platform-search.service.spec.ts platform-search.controller.spec.ts platform-users.service.spec.ts platform-role.guard.spec.ts`
+- `DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm --filter @school/prisma exec prisma validate`
+- API, web, and shared lint checks
+- Nest `AppModule` DI compile check
+- `pnpm turbo run type-check`
+- `pnpm --filter @school/api test`
+- `pnpm --filter @school/web build`
+- Focused post-commit API regression check including `api-surface.spec.ts`
+- Pre-push `validate:ci` completed successfully before push.
+
+`pnpm turbo run test` was started locally and reached the updated API snapshot issue; after regenerating the snapshot, the full turbo test run was killed by local memory pressure. The API package full test suite was rerun with a larger Node heap and passed, and the pre-push/CI test gates completed successfully.
+
+**Production smoke:** Verified on `https://dua.edupod.app` on May 17, 2026:
+
+- Platform owner login and owner RBAC.
+- Session 3A dashboard still loads.
+- Grouped navigation renders Overview, Tenants, Operations, Compliance, and Settings.
+- Dashboard active highlight is applied.
+- Alert and Security Incident nav signals/badges render.
+- Cmd+K global search opens and renders grouped result state.
+- Platform Users page renders.
+- Session 3B/3C regression routes load: Support Users, Sessions & Cache, Queue Manager, Maintenance, and Health.
+- Mobile viewport render for Platform Users has no horizontal overflow.
+- Production API smoke passed for platform owner auth, platform users/RBAC, and global search.
+
+Production currently has one platform owner and no provisioned platform support operator, so live support-login verification was not possible without creating a production operator. Support permissions and destructive-action blocking are covered by local RBAC/guard/service tests.
+
+## Next Session Prompt
+
+```text
+Implement Session 3E of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-3/Session-3E.md
+
+Context:
+- Sessions 0, 1A, 1B, 1C, 1D, 1.5A, 1.5B, 1.5C, 2A, 2B, 2C, 2D, 3A, 3B, 3C, and 3D are complete, deployed, smoke-tested, and accepted.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, and Layer 3 plans.
+5. Read Session-3E.md end-to-end.
+6. Read Session-3D.md.
+7. Read docs/runbooks/module-gating-operations.md and docs/runbooks/worker-module-gating-patterns.md.
+8. Inspect the existing module gating implementation around MODULE_REGISTRY, tenant_modules, GET/PATCH /v1/admin/tenants/:id/modules, audit logging, cache invalidation, and frontend gating before designing anything new.
+9. Load backend, frontend, prisma, testing, and code-quality rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 3E.
+- Build the per-tenant module toggles UI on top of the existing module gating foundation.
+- Reuse existing module registry keys and existing toggle semantics.
+- Do not add new module gating rules, new module keys, new database tables, new enums, or a custom preset system.
+- Platform-managed tables do not get tenant RLS; tenant-scoped operations still use RLS-aware transaction patterns.
+- Preserve existing platform admin behavior, including Session 3A dashboard, Session 3B support toolkit, Session 3C sessions/cache/maintenance operations, and Session 3D platform users/navigation/global search.
+- Follow token-driven UX styling.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify the tenant modules page, optimistic toggle/revert behavior, dependency warning, compliance jurisdiction warning, completeness banner safety path where feasible, audit-log last-toggled display, existing PATCH behavior, and mobile layout with Codex browser or Playwright.
+- Verify 3A/3B/3C/3D regressions, especially platform navigation, active highlights, Cmd+K global search, and platform users access.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick Session 3E acceptance criteria after green CI and production smoke.
+- Add “Commits / CI / Notes” to Session-3E.md.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 3E is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
