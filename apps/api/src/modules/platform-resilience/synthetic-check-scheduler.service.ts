@@ -9,6 +9,10 @@ import { SyntheticCheckRunnerService } from './synthetic-check-runner.service';
 const SYNTHETIC_CHECK_QUEUE = 'platform-synthetic-checks';
 const RUN_SYNTHETIC_CHECK_JOB = 'resilience:run-synthetic-check';
 
+function syntheticScheduleJobId(definitionKey: string): string {
+  return `cron-synthetic-${definitionKey.replaceAll(':', '-')}`;
+}
+
 @Injectable()
 export class SyntheticCheckSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SyntheticCheckSchedulerService.name);
@@ -61,7 +65,7 @@ export class SyntheticCheckSchedulerService implements OnModuleInit, OnModuleDes
       RUN_SYNTHETIC_CHECK_JOB,
       { definition_id: definition.id },
       {
-        jobId: `cron:synthetic:${definition.key}`,
+        jobId: syntheticScheduleJobId(definition.key),
         removeOnComplete: 10,
         removeOnFail: 50,
         repeat: { pattern: definition.schedule_cron },
@@ -75,7 +79,7 @@ export class SyntheticCheckSchedulerService implements OnModuleInit, OnModuleDes
     const repeatables = await queue.getRepeatableJobs();
     await Promise.all(
       repeatables
-        .filter((job) => job.id === `cron:synthetic:${definitionKey}`)
+        .filter((job) => job.id === syntheticScheduleJobId(definitionKey))
         .map((job) => queue.removeRepeatableByKey(job.key)),
     );
   }

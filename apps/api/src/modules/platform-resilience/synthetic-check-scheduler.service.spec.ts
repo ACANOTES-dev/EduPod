@@ -21,7 +21,7 @@ describe('SyntheticCheckSchedulerService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockQueue.getRepeatableJobs.mockResolvedValue([
-      { id: 'cron:synthetic:platform.login', key: 'repeat-key-1' },
+      { id: 'cron-synthetic-platform.login', key: 'repeat-key-1' },
     ]);
   });
 
@@ -60,7 +60,7 @@ describe('SyntheticCheckSchedulerService', () => {
       'resilience:run-synthetic-check',
       { definition_id: 'definition-1' },
       expect.objectContaining({
-        jobId: 'cron:synthetic:platform.login',
+        jobId: 'cron-synthetic-platform.login',
         repeat: { pattern: '*/5 * * * *' },
       }),
     );

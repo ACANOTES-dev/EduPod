@@ -215,7 +215,10 @@ describe('SyntheticCheckHandlersService', () => {
         _synthetic: true,
         tenant_id: '00000000-0000-0000-0000-000000000000',
       }),
-      expect.objectContaining({ removeOnComplete: 10 }),
+      expect.objectContaining({
+        jobId: expect.stringMatching(/^synthetic-[0-9a-f-]+$/),
+        removeOnComplete: 10,
+      }),
     );
     expect(result.status).toBe('passed');
   });

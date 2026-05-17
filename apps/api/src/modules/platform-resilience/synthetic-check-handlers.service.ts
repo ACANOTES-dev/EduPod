@@ -16,6 +16,10 @@ const CRITICAL_CANARY_JOB = 'synthetic:critical-queue-canary';
 const SYNTHETIC_TENANT_SENTINEL = '00000000-0000-0000-0000-000000000000';
 const CRITICAL_QUEUES = new Set(['notifications', 'behaviour', 'finance', 'payroll', 'pastoral']);
 
+function syntheticCanaryJobId(canaryId: string): string {
+  return `synthetic-${canaryId}`;
+}
+
 function nowMs(): number {
   return Date.now();
 }
@@ -245,7 +249,7 @@ class QueueCanaryHandler implements SyntheticCheckHandler {
           canary_id: canaryId,
           tenant_id: SYNTHETIC_TENANT_SENTINEL,
         },
-        { jobId: `synthetic:${canaryId}`, removeOnComplete: 10, removeOnFail: 10 },
+        { jobId: syntheticCanaryJobId(canaryId), removeOnComplete: 10, removeOnFail: 10 },
       );
       await (job as Job).waitUntilFinished(events, input.timeout_ms);
       const latency = nowMs() - started;
