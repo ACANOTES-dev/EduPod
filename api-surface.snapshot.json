@@ -99,6 +99,13 @@
   },
   {
     "method": "POST",
+    "path": "/v1/admin/_internal/backup-events",
+    "controller": "BackupCaptureController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
+  },
+  {
+    "method": "POST",
     "path": "/v1/admin/_internal/deploy-events",
     "controller": "PlatformObservabilityController",
     "module": "platform",
@@ -355,6 +362,62 @@
     "controller": "PlatformAuditLogController",
     "module": "audit-log",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/backups/readiness",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/backups/replications",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/backups/restore-drills",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/backups/restore-drills",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.record_drill"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/backups/restore-drills/:id",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/backups/restore-drills/:id",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.record_drill"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/backups/runs",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/backups/runs/:id",
+    "controller": "BackupReadinessController",
+    "module": "platform-resilience",
+    "permission": "platform.backups.view"
   },
   {
     "method": "POST",

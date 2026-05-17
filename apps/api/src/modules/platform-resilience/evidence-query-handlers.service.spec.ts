@@ -7,6 +7,9 @@ function buildPrisma() {
     platformAlertRouteHealthCheck: {
       findFirst: jest.fn().mockResolvedValue({ ran_at: new Date('2026-05-18T09:09:00Z') }),
     },
+    platformBackupRun: {
+      findFirst: jest.fn().mockResolvedValue({ created_at: new Date('2026-05-18T09:10:00Z') }),
+    },
     platformDeployEvent: {
       findFirst: jest.fn().mockResolvedValue({ deployed_at: new Date('2026-05-18T09:00:00Z') }),
     },
@@ -35,10 +38,18 @@ function buildPrisma() {
 }
 
 describe('EvidenceQueryHandlersService', () => {
+  const backupReadiness = {
+    latestReadinessComputedAt: jest.fn().mockResolvedValue(new Date('2026-05-18T09:11:00Z')),
+  };
+
   it('maps pinned query kinds to hard-coded Prisma reads', async () => {
     const prisma = buildPrisma();
     const redis = { getClient: jest.fn() };
-    const service = new EvidenceQueryHandlersService(prisma as never, redis as never);
+    const service = new EvidenceQueryHandlersService(
+      prisma as never,
+      redis as never,
+      backupReadiness as never,
+    );
 
     const result = await service.lastSeenFor('max_deployed_at_deploy_event', {});
 
@@ -49,7 +60,11 @@ describe('EvidenceQueryHandlersService', () => {
   });
 
   it('covers every direct pinned database query kind without freeform SQL', async () => {
-    const service = new EvidenceQueryHandlersService(buildPrisma() as never, {} as never);
+    const service = new EvidenceQueryHandlersService(
+      buildPrisma() as never,
+      {} as never,
+      backupReadiness as never,
+    );
 
     await expect(service.lastSeenFor('max_completed_at_health_snapshot', {})).resolves.toEqual(
       new Date('2026-05-18T09:01:00Z'),
@@ -75,13 +90,21 @@ describe('EvidenceQueryHandlersService', () => {
     await expect(service.lastSeenFor('max_ran_at_route_health_check', {})).resolves.toEqual(
       new Date('2026-05-18T09:09:00Z'),
     );
-    await expect(service.lastSeenFor('max_received_at_backup_capture', {})).resolves.toBeNull();
-    await expect(service.lastSeenFor('max_computed_at_backup_readiness', {})).resolves.toBeNull();
+    await expect(service.lastSeenFor('max_received_at_backup_capture', {})).resolves.toEqual(
+      new Date('2026-05-18T09:10:00Z'),
+    );
+    await expect(service.lastSeenFor('max_computed_at_backup_readiness', {})).resolves.toEqual(
+      new Date('2026-05-18T09:11:00Z'),
+    );
     await expect(service.lastSeenFor('max_snapshot_at_readiness_score', {})).resolves.toBeNull();
   });
 
   it('maps whitelisted table timestamp templates to pinned handlers', async () => {
-    const service = new EvidenceQueryHandlersService(buildPrisma() as never, {} as never);
+    const service = new EvidenceQueryHandlersService(
+      buildPrisma() as never,
+      {} as never,
+      backupReadiness as never,
+    );
 
     await expect(
       service.lastSeenFor('max_occurred_at_table', {
@@ -98,7 +121,11 @@ describe('EvidenceQueryHandlersService', () => {
   });
 
   it('rejects freeform table or column query targets', () => {
-    const service = new EvidenceQueryHandlersService(buildPrisma() as never, {} as never);
+    const service = new EvidenceQueryHandlersService(
+      buildPrisma() as never,
+      {} as never,
+      backupReadiness as never,
+    );
 
     expect(() =>
       service.validate('max_occurred_at_table', {
@@ -126,7 +153,11 @@ describe('EvidenceQueryHandlersService', () => {
         get,
       }),
     };
-    const service = new EvidenceQueryHandlersService(prisma as never, redis as never);
+    const service = new EvidenceQueryHandlersService(
+      prisma as never,
+      redis as never,
+      backupReadiness as never,
+    );
 
     await expect(
       service.lastSeenFor('max_seen_redis_pubsub', {

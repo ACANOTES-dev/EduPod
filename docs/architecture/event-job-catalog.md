@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added API-process evidence freshness, BullMQ queue heartbeat, Redis pub/sub heartbeat, and UptimeRobot reconciliation timers; all non-AI and not BullMQ-driven). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added runbook indexing, deploy-event capture, and platform correlation event ingestion); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5E — added API-process backup readiness and read-only offsite replication polling; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added API-process evidence freshness, BullMQ queue heartbeat, Redis pub/sub heartbeat, and UptimeRobot reconciliation timers; all non-AI and not BullMQ-driven). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added runbook indexing, deploy-event capture, and platform correlation event ingestion); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -25,6 +25,7 @@
 - `platform:queue-snapshot-heartbeat` -> every `60s` in the API process via `QueueSnapshotHeartbeatTask` (Session 5D). Calls the existing QueueAdmin/BullMQ introspection surface and writes `platform:resilience:bullmq:last_seen_at` to Redis only after successful queue inspection. If introspection fails, the Redis key is left stale so the `bullmq.snapshots` evidence pipeline naturally transitions through `lagging` -> `stale` -> `silent`.
 - `platform:redis-pubsub-heartbeat` -> every `10s` in the API process via `RedisPubSubHeartbeatService` (Session 5D). Publishes a heartbeat on the existing platform health pub/sub channel and updates `platform:resilience:pubsub:last_seen_at` only after the subscriber receives the round trip. It does not persist database rows; the evidence pipeline reads the Redis key.
 - `platform:uptime-reconciliation` -> every `5 min` in the API process via `UptimeReconciliationService` (Session 5D). When `UPTIMEROBOT_API_KEY` is configured, reads UptimeRobot monitor state and compares it with latest internal synthetic check results, appending `platform_uptime_reconciliations` rows and emitting warning alerts only after disagreement streaks reach two cycles. When the key is absent, it logs at debug level and skips without failing platform startup or evidence freshness.
+- `platform:backup-readiness` -> every `15 min` in the API process via `BackupReadinessScheduledTask` (Session 5E). First asks `OffsiteReplicationPollerService` to list/head configured object-storage backup metadata without writing, deleting, moving, or restoring backup artefacts, then computes backup age, replication lag, restore-point age, and restore-drill age. It writes `platform_offsite_replications`, transition-only `platform_alert_history` rows, a Redis key for the `backup.readiness.computed` evidence pipeline, and `platform:resilience`/`platform:alerts` messages. Critical backup/replication breaches are not maintenance-suppressible; warning restore-drill breaches may be maintenance-suppressed.
 
 ### Core rules
 
@@ -959,4 +960,32 @@ reconciliation path, alert-emission branch, shell banner, or Copilot freshness
 indicator imports or calls Anthropic, OpenAI, `AiModule`,
 `PlatformAiCopilotService`, recommendation generation, action proposal
 generation, repo-agent handoff generation, shell, git, or repository-file
+mutation.
+
+## Platform Backup Readiness (Layer 5 Session 5E)
+
+### Backup capture and readiness timer
+
+- **Owner**: API process (`BackupCaptureController`,
+  `BackupReadinessScheduledTask`, `BackupReadinessService`,
+  `OffsiteReplicationPollerService`)
+- **Schedule**: readiness every 15 minutes via NestJS Schedule, explicitly not
+  BullMQ
+- **Source**: idempotent internal-token backup-event POSTs from
+  `scripts/deploy-production.sh`, `platform_backup_runs`, object-storage
+  metadata from S3-compatible list/head calls, and operator-recorded
+  `platform_restore_drills`
+- **Destination**: `platform_backup_runs`, `platform_offsite_replications`,
+  Redis key `platform:resilience:backup-readiness:last_computed_at`, and
+  transition-only `platform_alert_history` rows
+- **Side effects**: deploy backup event capture is best-effort and non-fatal;
+  replication polling is metadata-only; restore drills are recorded manually and
+  no endpoint executes a restore.
+
+### Non-events
+
+No backup capture endpoint, readiness timer, replication poller, restore-drill
+API, dashboard status path, or alert-emission branch imports or calls Anthropic,
+OpenAI, `AiModule`, `PlatformAiCopilotService`, recommendation generation,
+action proposals, repo-agent handoff generation, shell, git, or repository-file
 mutation.

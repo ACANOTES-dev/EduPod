@@ -1,6 +1,6 @@
 # Recovery Drill Runbook
 
-Last updated: 2026-04-01
+Last updated: 2026-05-18
 
 ---
 
@@ -48,6 +48,18 @@ Minimum terminology:
 
 - `RTO`: how long it took to recover the service or drill target
 - `RPO`: how much data freshness was lost relative to the desired restore point
+
+## Dashboard Evidence
+
+After completing a restore drill, record the result in Platform Admin at
+`/admin/backups`. The dashboard entry is evidence only: it does not execute a
+restore and it must not replace the checklist. Record the restore point, outcome,
+observed RPO/RTO, duration, evidence link, notes, and follow-ups.
+
+The backup readiness page also reads backup-event rows captured by deploys and
+read-only off-site object metadata. The off-site metadata poller can lag the
+physical backup by up to one scheduled readiness interval, so use the object
+store/runbook directly when diagnosing an active recovery.
 
 ---
 

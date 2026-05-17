@@ -27,6 +27,10 @@ SMOKE_SOLVER_URL="${SMOKE_SOLVER_URL:-http://localhost:5557/health}"
 # ───────────────────────────────────────────────────────────────────────────────
 
 rollback_attempted=0
+BACKUP_EVENT_LOCATION=""
+BACKUP_EVENT_STARTED_AT=""
+BACKUP_EVENT_FINISHED_AT=""
+BACKUP_EVENT_SIZE_BYTES=""
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$1"
@@ -221,11 +225,61 @@ create_predeploy_backup() {
   mkdir -p "$BACKUP_DIR"
   backup_stamp="$(date +%Y%m%d-%H%M%S)"
   backup_file="${BACKUP_DIR}/predeploy-${backup_stamp}.dump"
+  BACKUP_EVENT_STARTED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
   log "Creating pre-deploy database backup at ${backup_file}"
   pg_dump "$DATABASE_MIGRATE_URL" --format=custom --file "$backup_file"
+  BACKUP_EVENT_FINISHED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  BACKUP_EVENT_LOCATION="local:${backup_file}"
+  BACKUP_EVENT_SIZE_BYTES="$(wc -c < "$backup_file" | tr -d '[:space:]')"
 
   find "$BACKUP_DIR" -type f -name '*.dump' -mtime +"$BACKUP_RETENTION_DAYS" -delete || true
+}
+
+capture_backup_event() {
+  local api_url token payload
+
+  if [[ -z "$BACKUP_EVENT_LOCATION" || -z "$BACKUP_EVENT_STARTED_AT" || -z "$BACKUP_EVENT_FINISHED_AT" ]]; then
+    log 'Backup event capture skipped: no backup metadata available'
+    return 0
+  fi
+
+  token="${BACKUP_EVENT_INTERNAL_TOKEN:-${DEPLOY_EVENT_INTERNAL_TOKEN:-${JWT_SECRET:-}}}"
+  if [[ -z "$token" ]]; then
+    log 'Backup event capture skipped: no internal token available'
+    return 0
+  fi
+
+  api_url="${BACKUP_EVENT_CAPTURE_URL:-http://127.0.0.1:${API_PORT:-3001}/api/v1/admin/_internal/backup-events}"
+  payload="$(node -e '
+    const payload = {
+      kind: "pg_dump",
+      status: "succeeded",
+      started_at: process.argv[1],
+      finished_at: process.argv[2],
+      location: process.argv[3],
+      size_bytes: process.argv[4] ? Number(process.argv[4]) : undefined,
+      storage_kind: "local",
+      trigger_source: "deploy_pipeline",
+      integrity_check_passed: null,
+    };
+    if (payload.started_at && payload.finished_at) {
+      payload.duration_seconds = Math.max(0, Math.floor((Date.parse(payload.finished_at) - Date.parse(payload.started_at)) / 1000));
+    }
+    console.log(JSON.stringify(payload));
+  ' "$BACKUP_EVENT_STARTED_AT" "$BACKUP_EVENT_FINISHED_AT" "$BACKUP_EVENT_LOCATION" "$BACKUP_EVENT_SIZE_BYTES")"
+
+  if curl -fsS -X POST \
+    -H 'Content-Type: application/json' \
+    -H "X-Internal-Token: ${token}" \
+    --retry 3 \
+    --retry-delay 5 \
+    --data "$payload" \
+    "$api_url" > /dev/null; then
+    log 'Backup event captured'
+  else
+    log 'Backup event capture failed (non-blocking)'
+  fi
 }
 
 install_dependencies() {
@@ -536,6 +590,7 @@ main() {
   run_deploy_preflight
   run_build "$deployed_sha"
   create_predeploy_backup
+  capture_backup_event
 
   log 'Running database migrations'
   (

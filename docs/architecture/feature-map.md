@@ -992,11 +992,12 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 
 > **Gateable:** no — core platform administration
 
-**What it does**: Platform-owner tooling for tenant provisioning and status management, domain management, module enablement, impersonation, MFA reset, platform audit visibility, security incident management, and service health checks.
+**What it does**: Platform-owner tooling for tenant provisioning and status management, domain management, module enablement, impersonation, MFA reset, platform audit visibility, security incident management, service health checks, alert routing, evidence freshness, and backup/restore readiness.
 
 **Backend**:
 
 - `apps/api/src/modules/platform/` — platform health, alerts, alert routing/escalation, maintenance windows, incident learning, and platform dashboard APIs
+- `apps/api/src/modules/platform-resilience/` — deterministic synthetic monitoring, signed Sentry intake, evidence completeness, uptime reconciliation, backup readiness, and restore-drill evidence APIs
 - `apps/api/src/modules/platform-users/`
 - `apps/api/src/modules/tenants/`
 - `apps/api/src/modules/tenants/admin/tenant-modules-admin.service.ts` — builds the platform operator module-toggle view from `MODULE_REGISTRY`, `tenant_modules`, completeness checks, and latest `audit_logs` metadata.
@@ -1029,11 +1030,13 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 - `/admin/alerts/escalation` — escalation-policy management over ordered route/ack-window steps.
 - `/admin/alerts/route-health` — route dead-man and manual-test history.
 - `/admin/profile/emergency-contact` — operator-managed emergency-contact profile and timezone.
+- `/admin/backups` — backup/restore readiness summary, backup runs, read-only off-site replication metadata, and operator-recorded restore-drill evidence.
 
 **Also includes**:
 
 - Relational platform RBAC (`platform_users`, `platform_roles`, `platform_user_roles`, `platform_permissions`, `platform_role_permissions`) replaces the legacy Redis authorization set for runtime platform-admin access. Missing platform role rows default-deny.
 - Platform alert routing/escalation (`platform_alert_routes`, `platform_alert_escalation_policies`, `platform_alert_route_health_checks`, `platform_alert_acknowledgements`, `platform_alert_emergency_contacts`) sits on top of existing alert rules/channels/history. Background route-health and escalation code is deterministic and non-AI.
+- Platform backup readiness (`platform_backup_runs`, `platform_offsite_replications`, `platform_restore_drills`) captures deploy backup evidence, polls object metadata read-only, records human restore drills, and alerts on backup freshness/replication/drill thresholds. Background readiness code is deterministic and non-AI.
 - School audit-log surface at `/settings/audit-log`
 - Platform and school operational visibility for diagnostics and compliance review
 

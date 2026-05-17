@@ -12,6 +12,7 @@ import {
   Bug,
   CalendarClock,
   ClipboardList,
+  DatabaseBackup,
   DatabaseZap,
   FileSearch,
   Flame,
@@ -416,6 +417,12 @@ function PlatformSidebarNav({
           label: 'Evidence Completeness',
           href: `/${locale}/admin/evidence-completeness`,
           permission: 'platform.evidence.view',
+        },
+        {
+          icon: DatabaseBackup,
+          label: 'Backups',
+          href: `/${locale}/admin/backups`,
+          permission: 'platform.backups.view',
         },
         {
           icon: Layers,

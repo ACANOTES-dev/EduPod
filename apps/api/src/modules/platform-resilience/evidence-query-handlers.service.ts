@@ -4,6 +4,8 @@ import { type EvidencePipelineQueryKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+import { BackupReadinessService } from './backup-readiness.service';
+
 type QueryParams = Record<string, unknown>;
 
 const REDIS_KEY_PREFIX = 'platform:resilience:';
@@ -13,6 +15,7 @@ export class EvidenceQueryHandlersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly backups: BackupReadinessService,
   ) {}
 
   async lastSeenFor(kind: EvidencePipelineQueryKind, params: QueryParams): Promise<Date | null> {
@@ -42,7 +45,9 @@ export class EvidenceQueryHandlersService {
       case 'max_occurred_at_table':
         return this.latestWhitelistedTableTimestamp(params);
       case 'max_received_at_backup_capture':
+        return this.latestBackupCapture();
       case 'max_computed_at_backup_readiness':
+        return this.backups.latestReadinessComputedAt();
       case 'max_snapshot_at_readiness_score':
         return null;
     }
@@ -142,6 +147,14 @@ export class EvidenceQueryHandlersService {
       select: { ran_at: true },
     });
     return row?.ran_at ?? null;
+  }
+
+  private async latestBackupCapture(): Promise<Date | null> {
+    const row = await this.prisma.platformBackupRun.findFirst({
+      orderBy: { created_at: 'desc' },
+      select: { created_at: true },
+    });
+    return row?.created_at ?? null;
   }
 
   private async latestWhitelistedTableTimestamp(params: QueryParams): Promise<Date | null> {

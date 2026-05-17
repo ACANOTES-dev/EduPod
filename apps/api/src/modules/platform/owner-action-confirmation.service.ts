@@ -20,6 +20,8 @@ import { RedisService } from '../redis/redis.service';
 import { TenantsService } from '../tenants/tenants.service';
 
 const ACTION_PERMISSIONS: Partial<Record<PlatformAuditAction, string>> = {
+  backup_restore_drill_deleted: 'platform.backups.manage',
+  backup_restore_drill_updated: 'platform.backups.manage',
   cache_flushed_global: 'platform.cache.flush_global',
   job_removed: 'platform.queues.clean',
   queue_cleaned: 'platform.queues.clean',
@@ -54,6 +56,8 @@ export class OwnerActionConfirmationService {
     private readonly queueManagementService: QueueManagementService,
   ) {
     this.executors = {
+      backup_restore_drill_deleted: (input) => this.deleteRestoreDrill(input),
+      backup_restore_drill_updated: (input) => this.confirmRestoreDrillUpdate(input),
       cache_flushed_global: (input) => this.flushGlobalCache(input),
       job_removed: (input) => this.removeQueueJob(input),
       queue_cleaned: (input) => this.cleanQueue(input),
@@ -192,6 +196,42 @@ export class OwnerActionConfirmationService {
       'transcript:*',
     ]);
     return { deleted_count: deletedCount };
+  }
+
+  private async deleteRestoreDrill(input: ExecutorInput): Promise<Record<string, unknown>> {
+    const drillId =
+      input.targetResourceId ?? readString(asRecord(input.payload), 'restore_drill_id');
+    if (!drillId) {
+      throw new BadRequestException({
+        code: 'RESTORE_DRILL_REQUIRED',
+        message: 'Restore drill id is required.',
+      });
+    }
+    const existing = await this.prisma.platformRestoreDrill.findUnique({ where: { id: drillId } });
+    if (!existing) {
+      return { restore_drill_id: drillId, deleted: false };
+    }
+    await this.prisma.platformRestoreDrill.delete({ where: { id: drillId } });
+    return { restore_drill_id: drillId, deleted: true };
+  }
+
+  private async confirmRestoreDrillUpdate(input: ExecutorInput): Promise<Record<string, unknown>> {
+    const drillId =
+      input.targetResourceId ?? readString(asRecord(input.payload), 'restore_drill_id');
+    if (!drillId) {
+      throw new BadRequestException({
+        code: 'RESTORE_DRILL_REQUIRED',
+        message: 'Restore drill id is required.',
+      });
+    }
+    const existing = await this.prisma.platformRestoreDrill.findUnique({ where: { id: drillId } });
+    if (!existing) {
+      throw new BadRequestException({
+        code: 'RESTORE_DRILL_NOT_FOUND',
+        message: 'Restore drill was not found.',
+      });
+    }
+    return { restore_drill_id: drillId, destructive_update_confirmed: true };
   }
 
   private async cleanQueue(input: ExecutorInput): Promise<Record<string, unknown>> {

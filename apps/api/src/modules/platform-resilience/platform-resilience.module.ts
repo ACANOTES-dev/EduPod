@@ -8,10 +8,14 @@ import { PlatformUsersModule } from '../platform-users/platform-users.module';
 import { QueueAdminModule } from '../queue-admin/queue-admin.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { BackupReadinessScheduledTask } from './backup-readiness-scheduled.task';
+import { BackupCaptureController, BackupReadinessController } from './backup-readiness.controller';
+import { BackupReadinessService } from './backup-readiness.service';
 import { EvidenceCompletenessController } from './evidence-completeness.controller';
 import { EvidenceFreshnessScheduledTask } from './evidence-freshness-scheduled.task';
 import { EvidenceFreshnessService } from './evidence-freshness.service';
 import { EvidenceQueryHandlersService } from './evidence-query-handlers.service';
+import { OffsiteReplicationPollerService } from './offsite-replication-poller.service';
 import { QueueSnapshotHeartbeatTask } from './queue-snapshot-heartbeat.task';
 import { RedisPubSubHeartbeatService } from './redis-pubsub-heartbeat.service';
 import { SentryAlertEmitterService } from './sentry/sentry-alert-emitter.service';
@@ -43,15 +47,20 @@ import { UptimeReconciliationService } from './uptime-reconciliation.service';
     TenantsModule,
   ],
   controllers: [
+    BackupCaptureController,
+    BackupReadinessController,
     EvidenceCompletenessController,
     SentryIssuesController,
     SentryWebhookController,
     SyntheticChecksController,
   ],
   providers: [
+    BackupReadinessScheduledTask,
+    BackupReadinessService,
     EvidenceFreshnessScheduledTask,
     EvidenceFreshnessService,
     EvidenceQueryHandlersService,
+    OffsiteReplicationPollerService,
     QueueSnapshotHeartbeatTask,
     RedisPubSubHeartbeatService,
     SentryAlertEmitterService,

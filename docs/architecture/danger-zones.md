@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added DZ-RES-7 for deterministic evidence freshness and pinned query kinds). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4B — added DZ-AI-1 and DZ-AI-2 for read-only Copilot prompt-injection and citation controls); previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5E — added DZ-RES-8 for backup readiness read-only boundaries and no-restore guarantees). Previously: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added DZ-RES-7 for deterministic evidence freshness and pinned query kinds). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4B — added DZ-AI-1 and DZ-AI-2 for read-only Copilot prompt-injection and citation controls); previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1902,6 +1902,45 @@ no-op when `UPTIMEROBOT_API_KEY` is absent.
 `synthetic-no-ai-import.spec.ts` cover query-kind validation, seeded-delete
 protection, transition-only alerting, maintenance suppression, non-suppressible
 silent alerts, Redis heartbeat behavior, disagreement streaks, and the non-AI
+boundary.
+
+## DZ-RES-8: Backup Readiness Must Never Become A Restore Executor
+
+**Risk**: A dashboard that can see backup files is tempting to turn into a
+"restore now" console. That would put production data mutation, backup storage
+mutation, and incident-time judgement behind an operations UI built only for
+readiness evidence. A second risk is silent backup-evidence drift: if deploy
+capture or object metadata parsing changes, the dashboard could report stale
+backup readiness even though physical backups still exist.
+**Location**: `apps/api/src/modules/platform-resilience/backup-*.ts`,
+`apps/api/src/modules/platform-resilience/offsite-replication-poller.service.ts`,
+`apps/web/src/app/[locale]/(platform)/admin/backups/page.tsx`,
+`scripts/deploy-production.sh`, `packages/prisma/schema.prisma`
+(`PlatformBackupRun`, `PlatformOffsiteReplication`, `PlatformRestoreDrill`)
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5E, 2026-05-18)
+
+**Rule**: Backup readiness may record evidence, read object metadata, compute
+age/lag/drill thresholds, and alert on transitions. It must not write, delete,
+move, copy, or restore backup artefacts. It must not expose a restore-execution
+endpoint. Restore drills are manual operator records after the runbook has
+already been performed. Destructive drill evidence deletion and destructive
+drill edits require Layer 1.5C owner confirmation. Backup/readiness scheduled
+paths must not import or call Layer 4 AI services, Anthropic, OpenAI,
+recommendation generation, action proposals, or repo-agent handoff generation.
+
+**Mitigation**: `BackupCaptureController` is static-token gated and idempotent
+on `backup_key`; deploy script capture is best-effort and never turns a
+successful `pg_dump` into a failed deploy. `OffsiteReplicationPollerService`
+uses S3-compatible list/head calls only. `BackupReadinessScheduledTask` runs in
+the API process every 15 minutes and records only metadata/readiness signals.
+The `/admin/backups` UI labels restore recording as evidence entry and links to
+the runbook instead of executing anything.
+
+**Regression coverage**: `backup-key.spec.ts`,
+`backup-readiness.service.spec.ts`, `backup-no-anthropic.spec.ts`, and
+`evidence-query-handlers.service.spec.ts` cover deterministic key derivation,
+idempotent capture, owner-confirmed destructive drill edits/deletion,
+transition-only alerting, readiness evidence freshness, and the non-AI import
 boundary.
 
 ---

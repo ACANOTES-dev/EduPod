@@ -169,6 +169,11 @@ enum PlatformAuditAction {
   evidence_pipeline_deleted
   evidence_pipeline_check_run_now
   uptime_reconciliation_acknowledged
+  backup_captured
+  backup_updated
+  backup_restore_drill_recorded
+  backup_restore_drill_updated
+  backup_restore_drill_deleted
 
   @@map("platform_audit_action")
 }
@@ -201,6 +206,33 @@ enum EvidencePipelineStatus {
   unknown
 
   @@map("evidence_pipeline_status")
+}
+
+enum BackupRunKind {
+  full
+  incremental
+  pg_dump
+  snapshot
+
+  @@map("backup_run_kind")
+}
+
+enum BackupRunStatus {
+  succeeded
+  failed
+  partial
+  verifying
+
+  @@map("backup_run_status")
+}
+
+enum RestoreDrillOutcome {
+  passed
+  failed_recoverable
+  failed_blocking
+  inconclusive
+
+  @@map("restore_drill_outcome")
 }
 
 enum SyntheticCheckKind {
@@ -2031,6 +2063,7 @@ model User {
   platform_alert_silences_removed        PlatformAlertSilence[]            @relation("platform_alert_silence_remover")
   platform_maintenance_windows_created   PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_creator")
   platform_maintenance_windows_cancelled PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_canceller")
+  platform_restore_drills_performed      PlatformRestoreDrill[]            @relation("platform_restore_drill_performer")
   tenant_maintenance_windows_created     TenantMaintenanceWindow[]         @relation("tenant_maintenance_window_creator")
   onboarding_steps_completed             TenantOnboardingStep[]            @relation("onboarding_completer")
   platform_ai_conversations              PlatformAiConversation[]          @relation("platform_ai_conversation_creator")
@@ -12628,6 +12661,76 @@ model PlatformCertificateCheck {
   @@map("platform_certificate_checks")
 }
 
+model PlatformBackupRun {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  backup_key             String          @unique @db.VarChar(160)
+  kind                   BackupRunKind
+  status                 BackupRunStatus
+  started_at             DateTime        @db.Timestamptz()
+  finished_at            DateTime?       @db.Timestamptz()
+  duration_seconds       Int?
+  size_bytes             BigInt?
+  location               String          @db.VarChar(500)
+  storage_kind           String          @db.VarChar(40)
+  integrity_check_passed Boolean?
+  integrity_check_at     DateTime?       @db.Timestamptz()
+  integrity_check_detail Json?           @db.JsonB
+  trigger_source         String          @db.VarChar(40)
+  triggered_by_user_id   String?         @db.Uuid
+  failure_reason         String?         @db.Text
+  deploy_event_id        String?         @db.Uuid
+  created_at             DateTime        @default(now()) @db.Timestamptz()
+  updated_at             DateTime        @updatedAt @db.Timestamptz()
+
+  deploy_event PlatformDeployEvent?          @relation(fields: [deploy_event_id], references: [id], onDelete: SetNull)
+  replications PlatformOffsiteReplication[]
+
+  @@index([finished_at(sort: Desc)], map: "idx_platform_backup_runs_finished")
+  @@index([status, finished_at(sort: Desc)], map: "idx_platform_backup_runs_status_finished")
+  @@index([kind, finished_at(sort: Desc)], map: "idx_platform_backup_runs_kind_finished")
+  @@map("platform_backup_runs")
+}
+
+model PlatformOffsiteReplication {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_backup_id    String?  @db.Uuid
+  replication_target  String   @db.VarChar(120)
+  snapshot_id         String   @db.VarChar(255)
+  replicated_at       DateTime @db.Timestamptz()
+  size_bytes          BigInt?
+  lag_seconds         Int?
+  integrity_verified  Boolean  @default(false)
+  detected_at         DateTime @default(now()) @db.Timestamptz()
+
+  source_backup PlatformBackupRun? @relation(fields: [source_backup_id], references: [id], onDelete: SetNull)
+
+  @@unique([replication_target, snapshot_id], map: "platform_offsite_replications_target_snapshot_key")
+  @@index([replication_target, replicated_at(sort: Desc)], map: "idx_platform_replications_target_time")
+  @@index([source_backup_id], map: "idx_platform_replications_source")
+  @@map("platform_offsite_replications")
+}
+
+model PlatformRestoreDrill {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  drill_at             DateTime            @db.Timestamptz()
+  performed_by_user_id String              @db.Uuid
+  restore_point        String              @db.VarChar(255)
+  outcome              RestoreDrillOutcome
+  duration_seconds     Int?
+  rpo_observed_seconds Int?
+  rto_observed_seconds Int?
+  notes                String?             @db.Text
+  evidence_url         String?             @db.VarChar(500)
+  follow_ups           Json?               @db.JsonB
+  recorded_at          DateTime            @default(now()) @db.Timestamptz()
+
+  performed_by User @relation("platform_restore_drill_performer", fields: [performed_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([drill_at(sort: Desc)], map: "idx_platform_restore_drills_drill_at")
+  @@index([outcome], map: "idx_platform_restore_drills_outcome")
+  @@map("platform_restore_drills")
+}
+
 model PlatformEvidencePipeline {
   id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   key                         String                    @unique @db.VarChar(120)
@@ -12833,8 +12936,9 @@ model PlatformDeployEvent {
   failure_reason      String?              @db.Text
   created_at          DateTime             @default(now()) @db.Timestamptz()
 
-  rollback_of PlatformDeployEvent?  @relation("DeployRollbackOf", fields: [rollback_of_id], references: [id], onDelete: SetNull)
-  rollbacks   PlatformDeployEvent[] @relation("DeployRollbackOf")
+  rollback_of   PlatformDeployEvent?  @relation("DeployRollbackOf", fields: [rollback_of_id], references: [id], onDelete: SetNull)
+  rollbacks     PlatformDeployEvent[] @relation("DeployRollbackOf")
+  backup_runs   PlatformBackupRun[]
   sentry_issues PlatformSentryIssue[]
 
   @@index([deployed_at(sort: Desc)], map: "idx_platform_deploy_events_deployed")

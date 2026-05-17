@@ -140,6 +140,11 @@ export const platformAuditActionSchema = z.enum([
   'evidence_pipeline_deleted',
   'evidence_pipeline_check_run_now',
   'uptime_reconciliation_acknowledged',
+  'backup_captured',
+  'backup_updated',
+  'backup_restore_drill_recorded',
+  'backup_restore_drill_updated',
+  'backup_restore_drill_deleted',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -654,6 +659,97 @@ export const uptimeReconciliationListQuerySchema = z.object({
 });
 
 export type UptimeReconciliationListQuery = z.infer<typeof uptimeReconciliationListQuerySchema>;
+
+// ─── Backup / Restore Readiness ──────────────────────────────────────────────
+
+export const backupRunKindSchema = z.enum(['full', 'incremental', 'pg_dump', 'snapshot']);
+
+export type BackupRunKindDto = z.infer<typeof backupRunKindSchema>;
+
+export const backupRunStatusSchema = z.enum(['succeeded', 'failed', 'partial', 'verifying']);
+
+export type BackupRunStatusDto = z.infer<typeof backupRunStatusSchema>;
+
+export const restoreDrillOutcomeSchema = z.enum([
+  'passed',
+  'failed_recoverable',
+  'failed_blocking',
+  'inconclusive',
+]);
+
+export type RestoreDrillOutcomeDto = z.infer<typeof restoreDrillOutcomeSchema>;
+
+const optionalNonNegativeIntSchema = z.coerce.number().int().min(0).optional();
+
+export const captureBackupEventSchema = z
+  .object({
+    backup_key: z.string().trim().min(8).max(160).optional(),
+    kind: backupRunKindSchema.default('pg_dump'),
+    status: backupRunStatusSchema,
+    started_at: z.coerce.date(),
+    finished_at: z.coerce.date().optional(),
+    duration_seconds: optionalNonNegativeIntSchema,
+    size_bytes: z.union([z.coerce.number().int().min(0), z.string().regex(/^\d+$/)]).optional(),
+    location: z.string().trim().min(1).max(500),
+    storage_kind: z.string().trim().min(1).max(40),
+    integrity_check_passed: z.boolean().nullable().optional(),
+    integrity_check_at: z.coerce.date().nullable().optional(),
+    integrity_check_detail: z.record(z.unknown()).nullable().optional(),
+    trigger_source: z
+      .enum(['deploy_pipeline', 'cron', 'manual', 'polling_fallback'])
+      .default('deploy_pipeline'),
+    triggered_by_user_id: z.string().uuid().nullable().optional(),
+    failure_reason: z.string().trim().max(4000).nullable().optional(),
+    deploy_event_id: z.string().uuid().nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.finished_at && value.finished_at < value.started_at) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Finished time must not be before started time.',
+        path: ['finished_at'],
+      });
+    }
+  });
+
+export type CaptureBackupEventDto = z.infer<typeof captureBackupEventSchema>;
+
+export const backupReadinessListQuerySchema = paginationQuerySchema.extend({
+  status: backupRunStatusSchema.optional(),
+  kind: backupRunKindSchema.optional(),
+});
+
+export type BackupReadinessListQuery = z.infer<typeof backupReadinessListQuerySchema>;
+
+export const backupReplicationListQuerySchema = paginationQuerySchema.extend({
+  replication_target: z.string().trim().min(1).max(120).optional(),
+});
+
+export type BackupReplicationListQuery = z.infer<typeof backupReplicationListQuerySchema>;
+
+export const restoreDrillListQuerySchema = paginationQuerySchema.extend({
+  outcome: restoreDrillOutcomeSchema.optional(),
+});
+
+export type RestoreDrillListQuery = z.infer<typeof restoreDrillListQuerySchema>;
+
+export const createRestoreDrillSchema = z.object({
+  drill_at: z.coerce.date(),
+  restore_point: z.string().trim().min(1).max(255),
+  outcome: restoreDrillOutcomeSchema,
+  duration_seconds: optionalNonNegativeIntSchema,
+  rpo_observed_seconds: optionalNonNegativeIntSchema,
+  rto_observed_seconds: optionalNonNegativeIntSchema,
+  notes: z.string().trim().max(8000).optional(),
+  evidence_url: z.string().trim().url().max(500).optional(),
+  follow_ups: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
+});
+
+export type CreateRestoreDrillDto = z.infer<typeof createRestoreDrillSchema>;
+
+export const updateRestoreDrillSchema = createRestoreDrillSchema.partial();
+
+export type UpdateRestoreDrillDto = z.infer<typeof updateRestoreDrillSchema>;
 
 // ─── Platform Incidents + Postmortems ───────────────────────────────────────
 
