@@ -5,27 +5,28 @@ import {
   BarChart3,
   Bell,
   BellOff,
-  BellRing,
   Building2,
   CalendarClock,
   ClipboardList,
   DatabaseZap,
   FileSearch,
   LayoutDashboard,
+  Layers,
   ListChecks,
   Menu,
+  MonitorDot,
   ScanText,
+  Search,
   SearchCode,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Users,
-  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -37,6 +38,8 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 import { PlatformSocketProvider } from '@/providers/platform-socket-provider';
 
+import { GlobalSearch } from './admin/_components/global-search';
+
 interface NavItem {
   icon: LucideIcon;
   label: string;
@@ -45,12 +48,21 @@ interface NavItem {
   permission: string;
 }
 
+interface NavSection {
+  items: NavItem[];
+  label: string;
+}
+
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useParams();
+  const router = useRouter();
   const locale = (params?.locale as string) ?? 'en';
   const t = useTranslations();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const gTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gPressed = React.useRef(false);
   const isLoginPath =
     pathname === `/${locale}/login` || (pathname ?? '').startsWith(`/${locale}/login/`);
 
@@ -73,6 +85,68 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     return (pathname ?? '').startsWith(href);
   };
 
+  React.useEffect(() => {
+    function clearGPrefix() {
+      gPressed.current = false;
+      if (gTimeout.current) {
+        clearTimeout(gTimeout.current);
+        gTimeout.current = null;
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+      ) {
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+
+      if (
+        event.key.toLowerCase() === 'g' &&
+        !gPressed.current &&
+        !event.metaKey &&
+        !event.ctrlKey
+      ) {
+        gPressed.current = true;
+        gTimeout.current = setTimeout(() => {
+          gPressed.current = false;
+          gTimeout.current = null;
+        }, 500);
+        return;
+      }
+
+      if (gPressed.current) {
+        const routes: Record<string, string> = {
+          a: `/${locale}/admin/alerts`,
+          d: `/${locale}/admin`,
+          h: `/${locale}/admin/health`,
+          q: `/${locale}/admin/queues`,
+          t: `/${locale}/admin/tenants`,
+        };
+        const route = routes[event.key.toLowerCase()];
+        clearGPrefix();
+        if (route) {
+          event.preventDefault();
+          router.push(route);
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearGPrefix();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [locale, router]);
+
   if (isLoginPath) {
     return <>{children}</>;
   }
@@ -93,6 +167,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               healthLabel={t('platform.admin.systemHealth')}
               isActive={isActive}
               locale={locale}
+              onOpenSearch={() => setSearchOpen(true)}
               securityIncidentsLabel={t('platform.admin.securityIncidents')}
               setMobileOpen={setMobileOpen}
               tenantsLabel={t('platform.tenants')}
@@ -100,6 +175,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           }
           title={t('platform.admin.title')}
         >
+          <GlobalSearch locale={locale} onOpenChange={setSearchOpen} open={searchOpen} />
           {children}
         </PlatformShell>
       </PlatformSocketProvider>
@@ -113,6 +189,7 @@ function PlatformSidebarNav({
   healthLabel,
   isActive,
   locale,
+  onOpenSearch,
   securityIncidentsLabel,
   setMobileOpen,
   tenantsLabel,
@@ -122,6 +199,7 @@ function PlatformSidebarNav({
   healthLabel: string;
   isActive: (href: string) => boolean;
   locale: string;
+  onOpenSearch: () => void;
   securityIncidentsLabel: string;
   setMobileOpen: (open: boolean) => void;
   tenantsLabel: string;
@@ -186,153 +264,210 @@ function PlatformSidebarNav({
     return () => window.removeEventListener('platform-alerts:acknowledged', handleAcknowledged);
   }, []);
 
-  const navItems: NavItem[] = [
+  const navSections: NavSection[] = [
     {
-      icon: LayoutDashboard,
-      label: dashboardLabel,
-      href: `/${locale}/admin`,
-      permission: 'platform.tenants.view',
+      label: 'Overview',
+      items: [
+        {
+          icon: LayoutDashboard,
+          label: dashboardLabel,
+          href: `/${locale}/admin`,
+          permission: 'platform.tenants.view',
+        },
+        {
+          icon: Activity,
+          label: healthLabel,
+          href: `/${locale}/admin/health`,
+          permission: 'platform.alerts.view',
+        },
+      ],
     },
     {
-      icon: Building2,
-      label: tenantsLabel,
-      href: `/${locale}/admin/tenants`,
-      permission: 'platform.tenants.view',
+      label: 'Tenants',
+      items: [
+        {
+          icon: Building2,
+          label: tenantsLabel,
+          href: `/${locale}/admin/tenants`,
+          permission: 'platform.tenants.view',
+        },
+        {
+          icon: BarChart3,
+          label: 'Tenant Compare',
+          href: `/${locale}/admin/tenants/compare`,
+          permission: 'platform.tenants.view',
+        },
+      ],
     },
     {
-      icon: BarChart3,
-      label: 'Tenant Compare',
-      href: `/${locale}/admin/tenants/compare`,
-      permission: 'platform.tenants.view',
+      label: 'Operations',
+      items: [
+        {
+          icon: Bell,
+          label: 'Alerts & Rules',
+          href: `/${locale}/admin/alerts`,
+          badge: unacknowledgedAlertCount,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: ListChecks,
+          label: 'Alert Rules',
+          href: `/${locale}/admin/alerts/rules`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: BellOff,
+          label: 'Alert Silences',
+          href: `/${locale}/admin/alerts/silences`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: CalendarClock,
+          label: 'Alert Maintenance',
+          href: `/${locale}/admin/maintenance`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: Layers,
+          label: 'Queue Manager',
+          href: `/${locale}/admin/queues`,
+          permission: 'platform.queues.view',
+        },
+        {
+          icon: MonitorDot,
+          label: 'Sessions & Cache',
+          href: `/${locale}/admin/sessions`,
+          permission: 'platform.tenants.view',
+        },
+        {
+          icon: Users,
+          label: 'Support Users',
+          href: `/${locale}/admin/users`,
+          permission: 'platform.users.reset_password',
+        },
+      ],
     },
     {
-      icon: Activity,
-      label: healthLabel,
-      href: `/${locale}/admin/health`,
-      permission: 'platform.alerts.view',
+      label: 'Compliance',
+      items: [
+        {
+          icon: ClipboardList,
+          label: 'Tenant Audit',
+          href: `/${locale}/admin/audit-log`,
+          permission: 'platform.audit_log.view',
+        },
+        {
+          icon: FileSearch,
+          label: auditLogLabel,
+          href: `/${locale}/admin/audit-log/platform`,
+          permission: 'platform.audit_log.view',
+        },
+        {
+          icon: ScanText,
+          label: 'Error Log',
+          href: `/${locale}/admin/error-log`,
+          permission: 'platform.audit_log.view',
+        },
+        {
+          icon: SearchCode,
+          label: 'Error Diagnostics',
+          href: `/${locale}/admin/errors`,
+          permission: 'platform.audit_log.view',
+        },
+        {
+          icon: ShieldAlert,
+          label: securityIncidentsLabel,
+          href: `/${locale}/admin/security-incidents`,
+          badge: openIncidentCount,
+          permission: 'platform.audit_log.view',
+        },
+      ],
     },
     {
-      icon: Bell,
-      label: 'Alert History',
-      href: `/${locale}/admin/alerts`,
-      badge: unacknowledgedAlertCount,
-      permission: 'platform.alerts.view',
-    },
-    {
-      icon: ListChecks,
-      label: 'Alert Rules',
-      href: `/${locale}/admin/alerts/rules`,
-      permission: 'platform.alerts.view',
-    },
-    {
-      icon: BellRing,
-      label: 'Alert Channels',
-      href: `/${locale}/admin/alerts/channels`,
-      permission: 'platform.alerts.view',
-    },
-    {
-      icon: BellOff,
-      label: 'Alert Silences',
-      href: `/${locale}/admin/alerts/silences`,
-      permission: 'platform.alerts.view',
-    },
-    {
-      icon: CalendarClock,
-      label: 'Alert Maintenance',
-      href: `/${locale}/admin/maintenance`,
-      permission: 'platform.alerts.view',
-    },
-    {
-      icon: Users,
-      label: 'Users',
-      href: `/${locale}/admin/users`,
-      permission: 'platform.users.reset_password',
-    },
-    {
-      icon: DatabaseZap,
-      label: 'Sessions & Cache',
-      href: `/${locale}/admin/sessions`,
-      permission: 'platform.tenants.view',
-    },
-    {
-      icon: ShieldCheck,
-      label: 'Permissions',
-      href: `/${locale}/admin/permissions`,
-      permission: 'platform.platform_users.view',
-    },
-    {
-      icon: Workflow,
-      label: 'Queue Manager',
-      href: `/${locale}/admin/queues`,
-      permission: 'platform.queues.view',
-    },
-    {
-      icon: ClipboardList,
-      label: 'Tenant Audit',
-      href: `/${locale}/admin/audit-log`,
-      permission: 'platform.audit_log.view',
-    },
-    {
-      icon: FileSearch,
-      label: auditLogLabel,
-      href: `/${locale}/admin/audit-log/platform`,
-      permission: 'platform.audit_log.view',
-    },
-    {
-      icon: ScanText,
-      label: 'Error Log',
-      href: `/${locale}/admin/error-log`,
-      permission: 'platform.audit_log.view',
-    },
-    {
-      icon: SearchCode,
-      label: 'Error Diagnostics',
-      href: `/${locale}/admin/errors`,
-      permission: 'platform.audit_log.view',
-    },
-    {
-      icon: SlidersHorizontal,
-      label: 'Redaction Rules',
-      href: `/${locale}/admin/settings/redaction-rules`,
-      permission: 'platform.platform_users.view',
-    },
-    {
-      icon: ShieldAlert,
-      label: securityIncidentsLabel,
-      href: `/${locale}/admin/security-incidents`,
-      badge: openIncidentCount,
-      permission: 'platform.audit_log.view',
+      label: 'Settings',
+      items: [
+        {
+          icon: Users,
+          label: 'Platform Users',
+          href: `/${locale}/admin/platform-users`,
+          permission: 'platform.platform_users.view',
+        },
+        {
+          icon: ShieldCheck,
+          label: 'Permissions',
+          href: `/${locale}/admin/permissions`,
+          permission: 'platform.platform_users.view',
+        },
+        {
+          icon: SlidersHorizontal,
+          label: 'Channel Config',
+          href: `/${locale}/admin/alerts/channels`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: DatabaseZap,
+          label: 'Redaction Rules',
+          href: `/${locale}/admin/settings/redaction-rules`,
+          permission: 'platform.platform_users.view',
+        },
+      ],
     },
   ];
 
   return (
-    <nav className="flex flex-col gap-1 p-3">
-      {navItems
-        .filter((item) => can(item.permission))
-        .map((item) => {
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                active
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-text-secondary hover:bg-surface-secondary hover:text-text-primary',
-              )}
-            >
-              <item.icon className="h-[18px] w-[18px] shrink-0" />
-              <span className="flex-1">{item.label}</span>
-              {item.badge && item.badge > 0 ? (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">
-                  {item.badge}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
+    <nav className="flex flex-col gap-4 p-3">
+      <button
+        type="button"
+        onClick={onOpenSearch}
+        className="flex h-10 w-full items-center gap-3 rounded-lg border border-border bg-surface-secondary px-3 text-start text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+      >
+        <Search className="h-[18px] w-[18px] shrink-0" />
+        <span className="min-w-0 flex-1 truncate">Search platform</span>
+        <span className="hidden rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] text-text-tertiary xl:inline">
+          ⌘K
+        </span>
+      </button>
+
+      {navSections.map((section) => {
+        const visibleItems = section.items.filter((item) => can(item.permission));
+        if (visibleItems.length === 0) {
+          return null;
+        }
+
+        return (
+          <section key={section.label} className="space-y-1">
+            <h2 className="px-3 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
+              {section.label}
+            </h2>
+            <div className="space-y-1">
+              {visibleItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      active
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-text-secondary hover:bg-surface-secondary hover:text-text-primary',
+                    )}
+                  >
+                    <item.icon className="h-[18px] w-[18px] shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-bg px-1.5 text-[11px] font-semibold text-danger-text">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </nav>
   );
 }

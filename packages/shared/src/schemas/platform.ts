@@ -35,6 +35,30 @@ export const updatePlatformUserRolesSchema = z.object({
 
 export type UpdatePlatformUserRolesDto = z.infer<typeof updatePlatformUserRolesSchema>;
 
+export const updatePlatformUserAccessSchema = z
+  .object({
+    is_active: z.boolean().optional(),
+    role: platformRoleKeySchema.optional(),
+    role_keys: z.array(platformRoleKeySchema).min(1).optional(),
+  })
+  .refine(
+    (data) =>
+      data.is_active !== undefined || data.role !== undefined || data.role_keys !== undefined,
+    {
+      message: 'At least one access field must be provided',
+    },
+  );
+
+export type UpdatePlatformUserAccessDto = z.infer<typeof updatePlatformUserAccessSchema>;
+
+// ─── Platform Global Search ─────────────────────────────────────────────────
+
+export const platformGlobalSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(100),
+});
+
+export type PlatformGlobalSearchQuery = z.infer<typeof platformGlobalSearchQuerySchema>;
+
 // ─── Platform Audit + Error Log ──────────────────────────────────────────────
 
 export const platformAuditActionSchema = z.enum([

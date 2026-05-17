@@ -16,6 +16,7 @@
  * - Batch methods return arrays (empty = nothing found).
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -103,6 +104,13 @@ export interface TenantPlatformSummaryRow {
   name: string;
 }
 
+export interface TenantSearchSummaryRow {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+}
+
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -172,6 +180,28 @@ export class TenantReadFacade {
     return this.prisma.tenant.findMany({
       where: { id: { in: tenantIds } },
       select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * Search tenant display rows for platform operator workflows.
+   */
+  async searchPlatformSummaries(query: string, take = 5): Promise<TenantSearchSummaryRow[]> {
+    return this.prisma.tenant.findMany({
+      where: {
+        OR: [
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+      },
+      take,
     });
   }
 

@@ -5,7 +5,11 @@ import { ConfigService } from '@nestjs/config';
 import type { PlatformRoleKey } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
-import type { InvitePlatformUserDto, UpdatePlatformUserRolesDto } from '@school/shared';
+import type {
+  InvitePlatformUserDto,
+  UpdatePlatformUserAccessDto,
+  UpdatePlatformUserRolesDto,
+} from '@school/shared';
 
 import {
   PlatformAuditService,
@@ -324,6 +328,10 @@ export class PlatformUsersService {
       });
     }
 
+    if (currentRoleKeys.includes('platform_owner') && !dto.role_keys.includes('platform_owner')) {
+      await this.assertAnotherActiveOwnerExists(id);
+    }
+
     const desiredRoleIds = new Set(roles.map((role) => role.id));
     await this.prisma.$transaction(async (tx) => {
       for (const role of roles) {
@@ -376,6 +384,108 @@ export class PlatformUsersService {
     return updated;
   }
 
+  async updateAccess(
+    id: string,
+    dto: UpdatePlatformUserAccessDto,
+    actorUserId: string,
+    audit?: PlatformAuditContext,
+  ): Promise<PlatformUserListRow> {
+    const platformUser = await this.getUser(id);
+    const desiredRoleKeys = dto.role_keys ?? (dto.role ? [dto.role] : undefined);
+    const roles = desiredRoleKeys ? await this.getRolesOrThrow(desiredRoleKeys) : [];
+    const currentRoleKeys = platformUser.roles.map((role) => role.role.role_key);
+    const removesOwner =
+      currentRoleKeys.includes('platform_owner') &&
+      desiredRoleKeys !== undefined &&
+      !desiredRoleKeys.includes('platform_owner');
+    const deactivatesOwner =
+      currentRoleKeys.includes('platform_owner') &&
+      dto.is_active === false &&
+      !platformUser.revoked_at;
+
+    if (platformUser.user_id === actorUserId && (removesOwner || deactivatesOwner)) {
+      throw new BadRequestException({
+        code: 'CANNOT_REVOKE_OWN_PLATFORM_OWNER',
+        message: 'You cannot remove your own platform_owner access.',
+      });
+    }
+
+    if (removesOwner || deactivatesOwner) {
+      await this.assertAnotherActiveOwnerExists(id);
+    }
+
+    const desiredRoleIds = new Set(roles.map((role) => role.id));
+    await this.prisma.$transaction(async (tx) => {
+      if (desiredRoleKeys) {
+        for (const role of roles) {
+          await tx.platformUserRole.upsert({
+            where: {
+              platform_user_id_role_id: {
+                platform_user_id: id,
+                role_id: role.id,
+              },
+            },
+            update: {},
+            create: {
+              platform_user_id: id,
+              role_id: role.id,
+              granted_by_user_id: actorUserId,
+            },
+          });
+        }
+
+        const rolesToRemove = platformUser.roles.filter(
+          (role) => !desiredRoleIds.has(role.role_id),
+        );
+        for (const role of rolesToRemove) {
+          await tx.platformUserRole.delete({
+            where: {
+              platform_user_id_role_id: {
+                platform_user_id: id,
+                role_id: role.role_id,
+              },
+            },
+          });
+        }
+      }
+
+      if (dto.is_active !== undefined) {
+        await tx.platformUser.update({
+          where: { id },
+          data: { revoked_at: dto.is_active ? null : new Date() },
+        });
+      }
+    });
+
+    const updated = await this.getUser(id);
+    if (audit) {
+      const removedRoles = desiredRoleKeys
+        ? currentRoleKeys.filter((role) => !desiredRoleKeys.includes(role))
+        : [];
+      const addedRoles = desiredRoleKeys
+        ? desiredRoleKeys.filter((role) => !currentRoleKeys.includes(role))
+        : [];
+      await this.platformAuditService.log({
+        ...audit,
+        action:
+          dto.is_active === false
+            ? 'platform_user_revoked'
+            : addedRoles.length > 0
+              ? 'platform_role_granted'
+              : 'platform_role_revoked',
+        target_resource_type: 'platform_user',
+        target_resource_id: id,
+        payload: {
+          before: platformUser,
+          after: updated,
+          extra: { added_roles: addedRoles, removed_roles: removedRoles },
+        },
+      });
+    }
+
+    return updated;
+  }
+
   async revoke(id: string, actorUserId: string, audit?: PlatformAuditContext): Promise<void> {
     const platformUser = await this.getUser(id);
     const roleKeys = platformUser.roles.map((role) => role.role.role_key);
@@ -384,6 +494,10 @@ export class PlatformUsersService {
         code: 'CANNOT_REVOKE_OWN_PLATFORM_OWNER',
         message: 'You cannot revoke your own platform_owner access.',
       });
+    }
+
+    if (roleKeys.includes('platform_owner')) {
+      await this.assertAnotherActiveOwnerExists(id);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -467,6 +581,24 @@ export class PlatformUsersService {
     }
 
     return roles;
+  }
+
+  private async assertAnotherActiveOwnerExists(platformUserId: string): Promise<void> {
+    const activeOwnerCount = await this.prisma.platformUser.count({
+      where: {
+        id: { not: platformUserId },
+        revoked_at: null,
+        roles: { some: { role: { role_key: 'platform_owner' } } },
+        user: { global_status: 'active' },
+      },
+    });
+
+    if (activeOwnerCount === 0) {
+      throw new BadRequestException({
+        code: 'LAST_PLATFORM_OWNER',
+        message: 'Cannot remove the last active platform owner.',
+      });
+    }
   }
 
   private buildSetupUrl(token: string): string {

@@ -40,6 +40,8 @@ import { OwnerActionConfirmationService } from './owner-action-confirmation.serv
 import { OwnerActionConfirmationsController } from './owner-action-confirmations.controller';
 import { PlatformOnboardingModule } from './platform-onboarding.module';
 import { PlatformRealtimeModule } from './platform-realtime.module';
+import { PlatformSearchController } from './platform-search.controller';
+import { PlatformSearchService } from './platform-search.service';
 import { PlatformGateway } from './platform.gateway';
 import { TenantMetricsController } from './tenant-metrics.controller';
 import { TenantMetricsService } from './tenant-metrics.service';
@@ -73,6 +75,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
     OnboardingController,
+    PlatformSearchController,
     TenantMetricsController,
   ],
   providers: [
@@ -88,6 +91,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertDispatchService,
     ChannelDispatchService,
     TenantMetricsService,
+    PlatformSearchService,
     EmailAlertDispatcher,
     TelegramAlertDispatcher,
     WhatsAppAlertDispatcher,

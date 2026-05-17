@@ -15,6 +15,7 @@
  * - Sensitive fields (password_hash, mfa_secret) are NEVER selected.
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -68,6 +69,10 @@ export interface UserSummaryRow {
   last_name: string;
 }
 
+export interface UserSearchSummaryRow extends UserSummaryRow {
+  global_status: string;
+}
+
 export interface UserProfilePatch {
   first_name?: string;
   last_name?: string;
@@ -112,6 +117,30 @@ export class AuthReadFacade {
     return this.prisma.user.findMany({
       where: { id: { in: userIds } },
       select: USER_SUMMARY_SELECT,
+    });
+  }
+
+  /**
+   * Search safe user display rows for platform operator workflows.
+   */
+  async searchUserSummaries(query: string, take = 5): Promise<UserSearchSummaryRow[]> {
+    return this.prisma.user.findMany({
+      where: {
+        OR: [
+          { email: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { first_name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { last_name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+        ],
+      },
+      orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
+      select: {
+        email: true,
+        first_name: true,
+        global_status: true,
+        id: true,
+        last_name: true,
+      },
+      take,
     });
   }
 

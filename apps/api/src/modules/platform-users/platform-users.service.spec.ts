@@ -67,6 +67,7 @@ function buildMockPrisma() {
       platformPermission: { findMany: jest.fn() },
       platformRole: { findMany: jest.fn() },
       platformUser: {
+        count: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -195,6 +196,18 @@ describe('PlatformUsersService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('blocks removing the last active platform_owner role from another operator', async () => {
+    mock.prisma.platformUser.findUnique.mockResolvedValueOnce(platformUserRow);
+    mock.prisma.platformRole.findMany.mockResolvedValueOnce([supportRole]);
+    mock.prisma.platformUser.count.mockResolvedValueOnce(0);
+
+    await expect(
+      service.updateRoles(PLATFORM_USER_ID, { role_keys: ['platform_support'] }, ACTOR_USER_ID),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'LAST_PLATFORM_OWNER' }),
+    });
+  });
+
   it('blocks revoking the actor own platform_owner row', async () => {
     mock.prisma.platformUser.findUnique.mockResolvedValueOnce({
       ...platformUserRow,
@@ -204,6 +217,41 @@ describe('PlatformUsersService', () => {
     await expect(service.revoke(PLATFORM_USER_ID, ACTOR_USER_ID)).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('blocks revoking the last active platform_owner row', async () => {
+    mock.prisma.platformUser.findUnique.mockResolvedValueOnce(platformUserRow);
+    mock.prisma.platformUser.count.mockResolvedValueOnce(0);
+
+    await expect(service.revoke(PLATFORM_USER_ID, ACTOR_USER_ID)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'LAST_PLATFORM_OWNER' }),
+    });
+  });
+
+  it('updates access status through the Session 3D alias path', async () => {
+    mock.prisma.platformUser.findUnique
+      .mockResolvedValueOnce({
+        ...platformUserRow,
+        roles: [
+          { platform_user_id: PLATFORM_USER_ID, role_id: SUPPORT_ROLE_ID, role: supportRole },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ...platformUserRow,
+        revoked_at: new Date('2026-05-02T00:00:00.000Z'),
+        roles: [
+          { platform_user_id: PLATFORM_USER_ID, role_id: SUPPORT_ROLE_ID, role: supportRole },
+        ],
+      });
+
+    await expect(
+      service.updateAccess(PLATFORM_USER_ID, { is_active: false }, ACTOR_USER_ID),
+    ).resolves.toMatchObject({ id: PLATFORM_USER_ID });
+
+    expect(mock.tx.platformUser.update).toHaveBeenCalledWith({
+      where: { id: PLATFORM_USER_ID },
+      data: { revoked_at: expect.any(Date) },
+    });
   });
 
   it('revokes a platform user without deleting the underlying user account', async () => {

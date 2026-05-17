@@ -17,6 +17,8 @@ import type { Request } from 'express';
 import {
   invitePlatformUserSchema,
   type InvitePlatformUserDto,
+  updatePlatformUserAccessSchema,
+  type UpdatePlatformUserAccessDto,
   updatePlatformUserRolesSchema,
   type UpdatePlatformUserRolesDto,
   type JwtPayload,
@@ -51,6 +53,16 @@ export class PlatformUsersController {
   }
 
   // POST /v1/admin/platform-users/invite
+  @Post()
+  @RequiresPlatformPermission('platform.platform_users.invite')
+  async inviteFromRoot(
+    @Body(new ZodValidationPipe(invitePlatformUserSchema)) dto: InvitePlatformUserDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformUsersService.invite(dto, user.sub, auditContextFromRequest(user, request));
+  }
+
   @Post('invite')
   @RequiresPlatformPermission('platform.platform_users.invite')
   async invite(
@@ -59,6 +71,23 @@ export class PlatformUsersController {
     @Req() request: Request,
   ) {
     return this.platformUsersService.invite(dto, user.sub, auditContextFromRequest(user, request));
+  }
+
+  // PATCH /v1/admin/platform-users/:id
+  @Patch(':id')
+  @RequiresPlatformPermission('platform.platform_users.assign_roles')
+  async updateAccess(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updatePlatformUserAccessSchema)) dto: UpdatePlatformUserAccessDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.platformUsersService.updateAccess(
+      id,
+      dto,
+      user.sub,
+      auditContextFromRequest(user, request),
+    );
   }
 
   // PATCH /v1/admin/platform-users/:id/roles
