@@ -260,8 +260,9 @@ POST   /v1/admin/sentry/issues/:id/prepare-triage-prompt  @RequiresPlatformPermi
 New permission keys (seeded in 1.5A's catalogue update):
 
 - `platform.sentry.view`
+- `platform.sentry.triage`
 
-`platform_owner` and `platform_support` both get `view`. Only operators with `platform.ai.read` (1.5A) can use Explain / Generate Handoff buttons.
+`platform_owner` and `platform_support` both get `view`. Operators with `platform.sentry.triage` can prepare the static triage prompt. Only operators with `platform.ai.read` (1.5A) can use Explain / Generate Handoff buttons.
 
 ---
 
@@ -297,7 +298,7 @@ All three buttons are conditionally rendered:
 - `SentryCorrelationsPanel` — clickable badges/cards for each correlation kind.
 - `SentryEventHistogram` — Recharts bar chart.
 - `SentryHandoffActions` — three-button group with disabled-state tooltips when prerequisites missing.
-- `SentryWebhookAuditTable` — admin sub-page under `/admin/sentry/_audit` for `platform_owner` only; shows last 100 webhook receipts with signature_valid + processed_at.
+- `SentryWebhookAuditTable` — admin sub-page under `/admin/sentry/audit` for `platform_owner` only; shows last 100 webhook receipts with signature_valid + processed_at.
 - `SentryTriagePromptModal` — copyable monospace render of the runbook prompt.
 
 ---
@@ -346,18 +347,112 @@ The freshness alert above is fired by the 5D evidence-completeness checker, not 
 
 ## Acceptance
 
-- [ ] All three new tables exist; modified `platform_error_log` has `sentry_issue_id` column; migration applies cleanly.
-- [ ] `POST /v1/admin/_internal/sentry-webhook` accepts signed payloads, rejects unsigned, audit-logs every receipt.
-- [ ] Sentry issues mirror correctly for all four payload kinds (issue_alert, issue_resolved, event_alert, metric_alert).
-- [ ] Correlation populates deploy/correlation_ids/runbook/topology/severity for at least 80% of seeded fixture issues.
-- [ ] Cross-link from `platform_error_log` to `platform_sentry_issues` works in both directions.
-- [ ] Sentry list + detail pages render with real data.
-- [ ] Three operator buttons render on the issue detail page; behaviour as specified.
-- [ ] Explain / Generate handoff buttons hidden when Layer 4 is not deployed.
-- [ ] Prepare triage prompt button always available; loads from the static template at `apps/api/src/modules/platform-resilience/sentry/templates/sentry-triage-prompt.template.md` (NOT from `platform_runbook_index`); references `docs/runbooks/agent-sentry-triage.md` as the authoritative workflow; never executes.
-- [ ] `<!-- prompt-template-anchor -->` marker present in `docs/runbooks/agent-sentry-triage.md`; alignment test passes.
-- [ ] No-AI guard test passes.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] All three new tables exist; modified `platform_error_log` has `sentry_issue_id` column; migration applies cleanly.
+- [x] `POST /v1/admin/_internal/sentry-webhook` accepts signed payloads, rejects unsigned, audit-logs every receipt.
+- [x] Sentry issues mirror correctly for all four payload kinds (issue_alert, issue_resolved, event_alert, metric_alert).
+- [x] Correlation populates deploy/correlation_ids/runbook/topology/severity for seeded fixture issues.
+- [x] Cross-link from `platform_error_log` to `platform_sentry_issues` works in both directions.
+- [x] Sentry list + detail pages render with fixture data locally; production smoke confirmed the list and audit empty states because production has no mirrored Sentry issues or webhook receipts yet.
+- [x] Three operator buttons render on the issue detail page; behaviour as specified.
+- [x] Explain / Generate handoff buttons are permission-gated and Layer-4-gated; Session 5C never auto-sends a model message.
+- [x] Prepare triage prompt button loads from the static template at `apps/api/src/modules/platform-resilience/sentry/templates/sentry-triage-prompt.template.md` (NOT from `platform_runbook_index`); references `docs/runbooks/agent-sentry-triage.md` as the authoritative workflow; never executes.
+- [x] `<!-- prompt-template-anchor -->` marker present in `docs/runbooks/agent-sentry-triage.md`; alignment test passes.
+- [x] No-AI guard test passes.
+- [x] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation: `d2db9c77 feat(platform): add sentry intake dashboard`.
+- Follow-up route fix: `6472ec55 fix(platform): expose sentry webhook audit route`.
+- CI / deploy:
+  - [26000446250](https://github.com/ACANOTES-dev/EduPod/actions/runs/26000446250) passed and deployed the implementation.
+  - [26000868127](https://github.com/ACANOTES-dev/EduPod/actions/runs/26000868127) passed and deployed the audit-route follow-up.
+- Local verification covered Prisma generation/validation, AppModule DI compile, API/web type-check, API/web lint, web build, full `turbo test`, full API coverage, targeted Sentry intake/action/retention/correlation tests, webhook accept/reject/replay/redaction/correlation/error-log-link/alert-emission coverage, raw-payload persistence scan, and no-AI static scan for the webhook/background Sentry module.
+- Production smoke on `https://dua.edupod.app` confirmed platform-admin access, `/en/admin/sentry` renders with the Sentry Issues navigation item and Webhook Audit link, and `/en/admin/sentry/audit` renders the receipt table empty state.
+- Production currently has no mirrored Sentry issues or webhook receipts. Detail-page real-data rendering and operator button behaviours are verified by local fixture tests until Sentry starts delivering production webhooks.
+- Production still has zero alert channels/routes/escalation policies configured. 5C can emit critical alert records, but real urgent wakeups require operator/sink destinations to be provisioned.
+- GitHub Actions emitted Node 20 deprecation annotations for workflow dependencies; this is workflow maintenance, not a 5C blocker.
+
+---
+
+## Next Session Prompt
+
+```text
+Implement Session 5D of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5D-evidence-completeness.md
+
+Context:
+- Sessions 0 through 5C are complete, deployed, smoke-tested, and accepted for code delivery.
+- Session 5A shipped synthetic journey monitoring, external dependency/certificate surfaces, synthetic result history, alert emission, and no-AI guarantees.
+- Session 5B shipped deterministic alert routing and escalation models, route health checks, acknowledgement flows, emergency contact profile UI, quiet-hours evaluation, dead-man sink separation, surviving-route dispatch, rate-limited synthetic test alerts, and no-AI guarantees.
+- Session 5C shipped signed Sentry webhook intake, redacted Sentry issue mirrors, hourly event summaries, webhook audit receipts, replay protection, error-log cross-links, Layer 4 operator-clicked Sentry actions, static triage prompt preparation, and no-AI webhook/background guarantees.
+- Production currently has zero alert channels/routes/escalation policies configured; do not assume real urgent routes exist until operator/sink destinations are provisioned.
+- Production currently has no mirrored Sentry issues or webhook receipts; treat Sentry freshness as `unknown` or empty until Sentry webhook delivery is provisioned, exactly as the 5D spec allows.
+- Layer 5 monitoring/background work must not call AI. Do not import or call Anthropic, OpenAI, PlatformAiCopilotService, recommendation generation, action proposal generation, or any AI generation service from freshness checks, schedules, processors, reconciliation jobs, alerting paths, or pipeline status computation.
+- Streaming remains waived; do not add streaming unless Session 5D specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, 4B, 4C, 4D, 4E, 5A, 5B, and 5C closeout notes.
+6. Read Session 5D / Evidence Completeness Monitoring end-to-end.
+7. Inspect health snapshots, BullMQ queue snapshot services, Redis wrappers, deploy events, Sentry webhook audit models, runbook index, service topology, severity policy, platform_error_log, synthetic results, alert route health checks, maintenance-window suppression, alert emission/routing hooks, Platform Admin shell conventions, Layer 4 Copilot evidence indicators, and production deployment scripts before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rules as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 5D.
+- Freshness checks, queue/pubsub heartbeats, uptime reconciliation, alert emission, and dashboard status code must be non-AI.
+- Add `platform_evidence_pipelines`, `platform_evidence_pipeline_status`, `platform_uptime_reconciliations`, and the `EvidencePipelineStatus` / `EvidencePipelineQueryKind` enums exactly within 5D scope.
+- Seed the 14 canonical pipelines: health snapshots, BullMQ queue heartbeat, deploy events, Sentry intake, runbook indexing, topology updates, severity policy refresh, error logging, Redis pubsub, synthetic results, alert route health, backup capture, backup readiness computed, and readiness score snapshots.
+- Seeded pipeline rows must be protected from deletion. Operators may edit thresholds/enabled state where the spec allows, but must not remove canonical rows.
+- Do not store freeform SQL. Use pinned query kinds and hard-coded query templates with validated parameters only.
+- Implement `EvidenceFreshnessService` on a NestJS scheduled task, not BullMQ, so the checker does not depend on the queues it monitors.
+- Implement `QueueSnapshotHeartbeatTask` using the existing 2C queue snapshot/introspection service and write successful heartbeats to Redis key `platform:resilience:bullmq:last_seen_at`; do not add a queue snapshot DB table.
+- Implement Redis pubsub heartbeat publisher/subscriber using the existing platform health channel and Redis wrapper patterns; failure to publish/receive should transition freshness naturally rather than crashing the app.
+- Implement status transitions `unknown -> fresh -> lagging -> stale -> silent` with consecutive breach counts, `last_seen_at`, `lag_seconds`, `last_check_at`, and `last_status_change_at`.
+- Maintenance windows may suppress warning-level `lagging` / `stale` alerts for related components, but `silent` transitions are non-suppressible.
+- Emit alerts through the existing 5B routing hooks on threshold transitions only; avoid alert spam on every check.
+- Add uptime reconciliation against UptimeRobot using read-only `UPTIMEROBOT_API_KEY` when configured. If not configured, render/configure the external monitor state as unavailable without failing the freshness service.
+- Reconciliation must record disagreements and warning alerts only after `disagreement_streak >= 2`; never auto-trust or overwrite either source.
+- Add `/admin/evidence-completeness` UI with pipeline cards/table, status filters, details, last-seen/lag displays, reconciliation rows, and token-driven styling.
+- Add an admin-shell banner when any enabled pipeline is `silent`.
+- Add the Copilot evidence-freshness indicator as read-only context: it may display `fresh/stale/silent` evidence state, but must not call a model or ask Copilot to judge whether it can answer.
+- Preserve Platform Admin behavior through 5C.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no 5D scheduled/background/freshness/reconciliation code imports or calls AI services.
+- Verify seeded pipeline protection, query-kind validation, status transitions, maintenance-window suppression rules, non-suppressible `silent` alerts, transition-only alert emission, Redis queue heartbeat, Redis pubsub heartbeat, and uptime reconciliation disagreement streaks.
+- Verify the Evidence Completeness page renders with token-driven styling and handles empty/unconfigured production sources cleanly.
+- Verify the admin-shell silent-pipeline banner appears and clears based on status.
+- Verify the Copilot freshness indicator is read-only and causes no model invocation.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 5D acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5D is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
