@@ -5,7 +5,6 @@ import { MODULE_KEYS_ARRAY, MODULE_REGISTRY, isModuleKey } from '@school/shared/
 import type { ModuleDefinition, ModuleKey } from '@school/shared/modules';
 
 import { withRls } from '../../../common/helpers/with-rls';
-import { AuditLogReadFacade } from '../../audit-log/audit-log-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface ModuleView extends ModuleDefinition {
@@ -32,10 +31,7 @@ interface ModuleRowsWithCompleteness {
 
 @Injectable()
 export class TenantModulesAdminService {
-  constructor(
-    private readonly auditLogReadFacade: AuditLogReadFacade,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getModulesView(tenantId: string): Promise<TenantModulesViewResponse> {
     const tenant = await this.prisma.tenant.findUnique({
@@ -96,11 +92,22 @@ export class TenantModulesAdminService {
   private async fetchLatestToggleEventsByKey(
     tenantId: string,
   ): Promise<Map<ModuleKey, LatestToggle>> {
-    const logs = await this.auditLogReadFacade.findManyWithActor(tenantId, {
-      entityType: 'tenant_config',
-      entityId: tenantId,
-      action: 'module_toggle',
-      take: MODULE_REGISTRY.length * 5,
+    const logs = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      return tx.auditLog.findMany({
+        where: {
+          action: 'module_toggle',
+          entity_id: tenantId,
+          entity_type: 'tenant_config',
+          tenant_id: tenantId,
+        },
+        orderBy: { created_at: 'desc' },
+        take: MODULE_REGISTRY.length * 5,
+        include: {
+          actor: {
+            select: { id: true, email: true, first_name: true, last_name: true },
+          },
+        },
+      });
     });
 
     const latestByKey = new Map<ModuleKey, LatestToggle>();
