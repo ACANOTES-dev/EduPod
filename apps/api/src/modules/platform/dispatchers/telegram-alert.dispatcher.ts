@@ -26,12 +26,13 @@ export class TelegramAlertDispatcher implements ChannelDispatcher {
     const botToken = this.encryption.decrypt(parsed.bot_token_encrypted, parsed.bot_token_key_ref);
     const marker = SEVERITY_MARKER[alert.severity] ?? '[ALERT]';
     const text = [
-      `${marker} *${this.escapeMarkdown(alert.rule_name)}*`,
+      `${alert.is_test ? '\\[SYNTHETIC TEST\\] ' : ''}${marker} *${this.escapeMarkdown(alert.rule_name)}*`,
       '',
       this.escapeMarkdown(alert.message),
       '',
       `Metric value: \`${alert.metric_value}\``,
       `Severity: ${this.escapeMarkdown(alert.severity)}`,
+      ...(alert.ack_url ? ['', `Acknowledge: ${this.escapeMarkdown(alert.ack_url)}`] : []),
     ].join('\n');
 
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {

@@ -9,7 +9,7 @@ import {
 } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { PlatformIncidentService } from './platform-incident.service';
+import { AlertRoutingService } from './alert-routing.service';
 
 export type AlertHistoryRow = PlatformAlertHistory & {
   rule: { name: string };
@@ -20,7 +20,7 @@ export class AlertHistoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformAuditService: PlatformAuditService,
-    private readonly platformIncidentService: PlatformIncidentService,
+    private readonly alertRoutingService: AlertRoutingService,
   ) {}
 
   async list(query: AlertHistoryQuery): Promise<{
@@ -52,6 +52,7 @@ export class AlertHistoryService {
     id: string,
     userId: string,
     audit?: PlatformAuditContext,
+    comment?: string,
   ): Promise<PlatformAlertHistory> {
     const alert = await this.prisma.platformAlertHistory.findUnique({ where: { id } });
     if (!alert) {
@@ -67,13 +68,10 @@ export class AlertHistoryService {
       });
     }
 
-    const updated = await this.prisma.platformAlertHistory.update({
-      where: { id },
-      data: {
-        status: 'acknowledged',
-        acknowledged_at: new Date(),
-        acknowledged_by: userId,
-      },
+    const updated = await this.alertRoutingService.acknowledge({
+      alert_history_id: id,
+      comment,
+      user_id: userId,
     });
     if (audit) {
       await this.platformAuditService.log({
@@ -84,10 +82,6 @@ export class AlertHistoryService {
         payload: { before: alert, after: updated },
       });
     }
-    await this.platformIncidentService.recordAlertAcknowledged(
-      id,
-      updated.acknowledged_at ?? new Date(),
-    );
     return updated;
   }
 }

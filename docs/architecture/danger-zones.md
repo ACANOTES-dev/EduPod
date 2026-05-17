@@ -1782,6 +1782,53 @@ critical queue dispatcher specs cover the non-AI boundary, credential-source
 guard, redacted result storage, maintenance skip behavior, repeatable schedule
 dedupe, alert emission, and sentinel short-circuiting.
 
+## DZ-RES-4: Alert Route Health Checks Must Use Sink Destinations Only
+
+**Risk**: A dead-man watchdog that pings a real operator destination every few
+minutes creates alert fatigue, trains operators to ignore pages, and can mask
+the very failure it is supposed to detect.
+**Location**: `apps/api/src/modules/platform/alert-route-dead-man-cron.service.ts`, `apps/api/src/modules/platform/alert-routes.service.ts`
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5B, 2026-05-17)
+
+**Rule**: Scheduled route-health checks must send only to
+`platform_alert_routes.health_check_destination`. The real
+`operator_destination` is exercised only by explicit operator-triggered test
+alerts. Operator and health-check destinations must be distinct at the API layer
+and by DB check constraint.
+
+**Mitigation**: `AlertRoutesService` validates destination separation before
+create/update, the database has `chk_route_destinations_distinct`, and
+`AlertRouteDeadManCronService` refuses to dispatch when a route somehow has
+identical destinations.
+
+**Regression coverage**: `alert-route-dead-man-cron.spec.ts` verifies the sink
+destination refusal path and statically verifies failed routes are excluded from
+their own failure dispatch.
+
+## DZ-RES-5: Alert Escalation Must Remain Deterministic And Non-AI
+
+**Risk**: Alert escalation runs in the background and may fire during production
+incidents. Any model-backed decision path here could introduce latency, cost,
+privacy exposure, or non-deterministic routing during an emergency.
+**Location**: `apps/api/src/modules/platform/alert-routing.service.ts`,
+`apps/api/src/modules/platform/alert-escalation-cron.service.ts`,
+`apps/api/src/modules/platform/alert-ack-token.service.ts`
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5B, 2026-05-17)
+
+**Rule**: Alert routing, escalation, route-health checks, test alerts, and magic
+link acknowledgements are deterministic. They must not import or call Layer 4 AI
+services, Anthropic, OpenAI, recommendation generation, action proposals, or
+agent handoff generation.
+
+**Mitigation**: `AlertRoutingService` uses persisted routes/policies and
+`Intl.DateTimeFormat` for IANA wall-clock quiet-hours evaluation. Magic links
+are HMAC signed, short-lived, single-use, and identity-bound through Redis. The
+no-AI boundary is enforced by a static Jest guard.
+
+**Regression coverage**: `alert-routing-no-ai-import.spec.ts`,
+`quiet-hours-evaluator.spec.ts`, platform alert evaluation specs, and synthetic
+no-AI specs cover the deterministic boundary.
+
 ---
 
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)

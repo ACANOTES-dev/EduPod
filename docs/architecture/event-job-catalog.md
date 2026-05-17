@@ -829,3 +829,25 @@ No synthetic scheduler, runner, canary processor, or alert-emission path imports
 or calls Anthropic, OpenAI, `PlatformAiCopilotService`, recommendation
 generation, action proposal generation, repo-agent handoff generation, or any
 Layer 4 model-backed service.
+
+## Platform Alert Routing + Escalation (Layer 5 Session 5B)
+
+### Alert escalation timer
+
+- **Owner**: API process (`AlertEscalationCronService`)
+- **Schedule**: every 30 seconds via API-process timer
+- **Source**: `platform_alert_history` rows where `status = fired`, `escalation_state in (awaiting_ack, escalating)`, and `next_escalation_at <= now()`
+- **Destination**: updated `platform_alert_history.current_escalation_step`, `next_escalation_at`, and `channels_notified`; delivery goes through `AlertRoutingService`
+- **Side effects**: dispatches the next escalation route using the route's `operator_destination`; records `expired` when policy steps are exhausted; halts when an alert is acknowledged or auto-resolved.
+
+### Alert route dead-man timer
+
+- **Owner**: API process (`AlertRouteDeadManCronService`)
+- **Schedule**: every minute, with each route's own `dead_man_interval_minutes` gate (default 15)
+- **Source**: enabled `platform_alert_routes`
+- **Destination**: `platform_alert_route_health_checks`, `platform_alert_routes.last_health_check_*`, and `platform_alert_channels.last_health_check_at`
+- **Side effects**: sends synthetic pings only to `health_check_destination` sink destinations. If the sink matches the operator destination, no provider send occurs; the check records `sink_destination_equals_operator` and emits a critical route-health alert through surviving routes only. Route-health alerts are security-critical/non-suppressible.
+
+### Non-events
+
+No alert escalation, acknowledgement, route-health timer, route test, or dead-man path imports or calls Anthropic, OpenAI, `AiModule`, `PlatformAiCopilotService`, recommendation generation, action proposal generation, or repo-agent handoff generation.

@@ -1642,6 +1642,22 @@ If you change an enum's values (`ALTER TYPE ... ADD VALUE` or rename via `@map`)
 - **`PolicyActionExecutionStatus`** — `schema.prisma:7482` — 4 values (`success|failed|skipped_duplicate|skipped_condition`). Per-execution outcome on automated behaviour policy actions.
 - **`ReporterAckStatus`** — `schema.prisma:7495` — 3 values (`@map` to `received|assigned|under_review`). Reporter acknowledgement state on safeguarding/CP intake.
 
+### Platform alert routing
+
+**`AlertEscalationState`** — 7 values (`idle|dispatched|awaiting_ack|escalating|acknowledged|auto_resolved|expired`). Introduced by Platform Dashboard Layer 5 Session 5B on `platform_alert_history.escalation_state`.
+
+Valid transitions:
+
+- `idle -> awaiting_ack` when a fired alert matches an enabled escalation policy and the first route dispatch succeeds or is attempted.
+- `idle -> dispatched` when an alert falls back to the legacy rule/channel dispatch path without an escalation policy.
+- `awaiting_ack -> escalating` when the acknowledgement window expires and a later escalation step dispatches.
+- `escalating -> escalating` for subsequent policy steps.
+- `awaiting_ack|escalating -> acknowledged` when the dashboard ack endpoint or signed magic-link ack records a valid acknowledgement.
+- `awaiting_ack|escalating -> auto_resolved` when the underlying alert condition clears before operator acknowledgement.
+- `awaiting_ack|escalating -> expired` when the escalation policy has no remaining steps.
+
+Guardrails: route-health/dead-man failure alerts are emitted as security-critical platform alert rules and are not suppressible by maintenance windows or global silences. Magic-link acknowledgements are signed, short-lived, single-use, and bound to a platform user id.
+
 ### Pastoral (auxiliary)
 
 - **`PastoralActionStatus`** — `schema.prisma:7527` — 5 values (`@map` to `pending|in_progress|completed|overdue|cancelled`). Per-action state on pastoral case action plans.

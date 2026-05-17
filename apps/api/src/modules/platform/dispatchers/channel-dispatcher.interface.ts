@@ -5,6 +5,9 @@ export interface AlertPayload {
   severity: string;
   message: string;
   metric_value: number;
+  ack_url?: string;
+  is_dead_man_check?: boolean;
+  is_test?: boolean;
 }
 
 export interface AlertChannelForDispatch {

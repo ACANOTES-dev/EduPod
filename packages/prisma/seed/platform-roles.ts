@@ -191,6 +191,24 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     description: 'Silence alerts during planned work.',
   },
   {
+    key: 'platform.alerts.manage',
+    category: 'alerts',
+    display_name: 'Manage alert routing',
+    description: 'Manage alert routes, escalation policies, test alerts, and emergency routing.',
+  },
+  {
+    key: 'platform.profile.view',
+    category: 'profile',
+    display_name: 'View own platform profile',
+    description: 'View the current operator emergency contact profile.',
+  },
+  {
+    key: 'platform.profile.manage',
+    category: 'profile',
+    display_name: 'Manage own platform profile',
+    description: 'Update the current operator emergency contact profile.',
+  },
+  {
     key: 'platform.ai.read',
     category: 'ai_copilot',
     display_name: 'Read AI Copilot suggestions (Layer 4)',
@@ -237,6 +255,8 @@ export const PLATFORM_ROLE_PERMISSIONS = {
     'platform.audit_log.view',
     'platform.alerts.view',
     'platform.alerts.acknowledge',
+    'platform.profile.view',
+    'platform.profile.manage',
     'platform.platform_users.view',
     'platform.ai.read',
     'platform.synthetic.view',

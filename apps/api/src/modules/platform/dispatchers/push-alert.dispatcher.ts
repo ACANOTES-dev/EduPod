@@ -30,9 +30,13 @@ export class PushAlertDispatcher implements ChannelDispatcher {
       JSON.stringify({
         badge: '/badge-72.png',
         body: alert.message,
-        data: { metric_value: alert.metric_value },
+        data: {
+          ack_url: alert.ack_url,
+          is_test: alert.is_test ?? false,
+          metric_value: alert.metric_value,
+        },
         icon: '/icon-192.png',
-        title: `[${alert.severity.toUpperCase()}] ${alert.rule_name}`,
+        title: `${alert.is_test ? '[SYNTHETIC TEST] ' : ''}[${alert.severity.toUpperCase()}] ${alert.rule_name}`,
       }),
     );
   }

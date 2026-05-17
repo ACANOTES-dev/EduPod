@@ -162,6 +162,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/alerts/ack/:token",
+    "controller": "AlertMagicAckController",
+    "module": "platform",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/alerts/channels",
     "controller": "AlertChannelsController",
     "module": "platform",
@@ -197,6 +204,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/alerts/escalation-policies",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/escalation-policies",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alerts/escalation-policies/:id",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/escalation-policies/:id",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/alerts/history",
     "controller": "AlertHistoryController",
     "module": "platform",
@@ -208,6 +243,55 @@
     "controller": "AlertHistoryController",
     "module": "platform",
     "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/history/:id/acknowledge",
+    "controller": "AlertHistoryController",
+    "module": "platform",
+    "permission": "platform.alerts.acknowledge"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/alerts/route-health",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/alerts/routes",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/routes",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/alerts/routes/:id",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/alerts/routes/:id",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/routes/:id/test",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
   },
   {
     "method": "GET",
@@ -243,6 +327,13 @@
     "controller": "AlertRulesController",
     "module": "platform",
     "permission": "platform.alerts.silence"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/alerts/test-all",
+    "controller": "AlertRoutingController",
+    "module": "platform",
+    "permission": "platform.alerts.manage"
   },
   {
     "method": "GET",
@@ -425,6 +516,20 @@
     "controller": "PlatformObservabilityController",
     "module": "platform",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/emergency-contacts/me",
+    "controller": "EmergencyContactController",
+    "module": "platform",
+    "permission": "platform.profile.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/emergency-contacts/me",
+    "controller": "EmergencyContactController",
+    "module": "platform",
+    "permission": "platform.profile.manage"
   },
   {
     "method": "GET",

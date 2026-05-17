@@ -24,7 +24,12 @@ describe('SyntheticAlertEmitterService', () => {
   it('creates a synthetic alert rule and publishes fired alerts', async () => {
     const prisma = buildPrisma();
     const redis = { publish: jest.fn().mockResolvedValue(undefined) };
-    const service = new SyntheticAlertEmitterService(prisma as never, redis as never);
+    const routing = { dispatchInitial: jest.fn().mockResolvedValue(['email']) };
+    const service = new SyntheticAlertEmitterService(
+      prisma as never,
+      redis as never,
+      routing as never,
+    );
 
     await service.emit({
       definition_key: 'platform.login',
@@ -52,6 +57,7 @@ describe('SyntheticAlertEmitterService', () => {
       'platform:alerts',
       expect.objectContaining({ type: 'alert_fired' }),
     );
+    expect(routing.dispatchInitial).toHaveBeenCalledWith('alert-1');
   });
 
   it('reuses existing rules and resolves open failure alerts on recovery', async () => {
@@ -61,7 +67,12 @@ describe('SyntheticAlertEmitterService', () => {
       name: 'Synthetic Platform Login recovered',
     });
     const redis = { publish: jest.fn().mockResolvedValue(undefined) };
-    const service = new SyntheticAlertEmitterService(prisma as never, redis as never);
+    const routing = { dispatchInitial: jest.fn().mockResolvedValue([]) };
+    const service = new SyntheticAlertEmitterService(
+      prisma as never,
+      redis as never,
+      routing as never,
+    );
 
     await service.emit({
       definition_key: 'platform.login',

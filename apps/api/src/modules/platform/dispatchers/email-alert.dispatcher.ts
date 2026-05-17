@@ -42,12 +42,17 @@ export class EmailAlertDispatcher implements ChannelDispatcher {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px;">
         <div style="background: ${color}; color: white; padding: 16px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0;">${escapeHtml(alert.severity.toUpperCase())} Alert</h2>
+          <h2 style="margin: 0;">${alert.is_test ? '[SYNTHETIC TEST] ' : ''}${escapeHtml(alert.severity.toUpperCase())} Alert</h2>
         </div>
         <div style="border: 1px solid #E5E7EB; border-top: none; padding: 16px; border-radius: 0 0 8px 8px;">
           <p><strong>Rule:</strong> ${escapeHtml(alert.rule_name)}</p>
           <p><strong>Current Value:</strong> ${alert.metric_value}</p>
           <p>${escapeHtml(alert.message)}</p>
+          ${
+            alert.ack_url
+              ? `<p><a href="${escapeHtml(alert.ack_url)}" style="display: inline-block; background: #111827; color: white; padding: 10px 14px; border-radius: 6px; text-decoration: none;">Acknowledge alert</a></p>`
+              : ''
+          }
           <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 16px 0;" />
           <p style="color: #6B7280; font-size: 12px;">This is an automated alert from the EduPod Platform.</p>
         </div>
@@ -58,9 +63,9 @@ export class EmailAlertDispatcher implements ChannelDispatcher {
     for (const recipient of parsed.recipients) {
       const result = await this.resendEmail.send(tenantId, {
         to: recipient,
-        subject: `[EduPod ${alert.severity.toUpperCase()}] ${alert.rule_name}`,
+        subject: `${alert.is_test ? '[SYNTHETIC TEST] ' : ''}[EduPod ${alert.severity.toUpperCase()}] ${alert.rule_name}`,
         html,
-        tags: [{ name: 'kind', value: 'platform_alert' }],
+        tags: [{ name: 'kind', value: alert.is_test ? 'platform_alert_test' : 'platform_alert' }],
       });
       if ('messageId' in result) {
         sentCount += 1;

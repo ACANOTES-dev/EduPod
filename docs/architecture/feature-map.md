@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every implemented feature, mapped to its code location. This document answers "what does the product do and where does it live?"
 > **Maintenance**: Update only when a feature change is confirmed final. This file is intended to be the architecture-level source of truth for product scope.
-> **Last verified**: 2026-05-17 (Platform Dashboard Layer 3 Session 3E — added per-tenant module toggles page backed by the existing Module Gating registry and PATCH toggle flow); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added platform tenant analytics snapshots, tenant comparison, and redacted error diagnostics surfaces); previously: 2026-05-13 (Module Gating Wave W1 documentation pass — Quick Reference Gateable column plus per-domain Gateable annotations; i18n expansion sweep — per-locale PDF template bundles (en, ar, fr, es, de, ga, it, ro), notification message catalogue with dotted-key resolver, dual-language household notification fanout in `NotificationsService`, tenant-gated locale controls + new platform admin route `/admin/tenants/[id]/locales`. Quick Reference table now reflects the actual module count (73 modules under `apps/api/src/modules/`) and adds the previously-missing Budgeting & Analysis row. New §42 (Infrastructure & Cross-Cutting Modules) catalogues the platform-level modules that aren't product features. `sequence` references corrected from the earlier `sequences` plural typo.); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-17 (Platform Dashboard Layer 5 Session 5B — added alert routes, escalation policies, route health, signed acknowledgements, and operator emergency-contact surfaces); previously: 2026-05-17 (Platform Dashboard Layer 3 Session 3E — added per-tenant module toggles page backed by the existing Module Gating registry and PATCH toggle flow); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added platform tenant analytics snapshots, tenant comparison, and redacted error diagnostics surfaces); previously: 2026-05-13 (Module Gating Wave W1 documentation pass — Quick Reference Gateable column plus per-domain Gateable annotations; i18n expansion sweep — per-locale PDF template bundles (en, ar, fr, es, de, ga, it, ro), notification message catalogue with dotted-key resolver, dual-language household notification fanout in `NotificationsService`, tenant-gated locale controls + new platform admin route `/admin/tenants/[id]/locales`. Quick Reference table now reflects the actual module count (73 modules under `apps/api/src/modules/`) and adds the previously-missing Budgeting & Analysis row. New §42 (Infrastructure & Cross-Cutting Modules) catalogues the platform-level modules that aren't product features. `sequence` references corrected from the earlier `sequences` plural typo.); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -996,6 +996,7 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 
 **Backend**:
 
+- `apps/api/src/modules/platform/` — platform health, alerts, alert routing/escalation, maintenance windows, incident learning, and platform dashboard APIs
 - `apps/api/src/modules/platform-users/`
 - `apps/api/src/modules/tenants/`
 - `apps/api/src/modules/tenants/admin/tenant-modules-admin.service.ts` — builds the platform operator module-toggle view from `MODULE_REGISTRY`, `tenant_modules`, completeness checks, and latest `audit_logs` metadata.
@@ -1024,10 +1025,15 @@ Both granted to Owner + Principal by default. Backfilled by Impl 02 onto every e
 - `/admin/users` — platform user and role assignment console backed by relational platform RBAC
 - `/admin/users/[id]`
 - `/admin/permissions` — read-only platform permission matrix
+- `/admin/alerts/routes` — alert route management with operator destinations, sink destinations, urgency tiers, quiet hours, per-route tests, and test-all controls.
+- `/admin/alerts/escalation` — escalation-policy management over ordered route/ack-window steps.
+- `/admin/alerts/route-health` — route dead-man and manual-test history.
+- `/admin/profile/emergency-contact` — operator-managed emergency-contact profile and timezone.
 
 **Also includes**:
 
 - Relational platform RBAC (`platform_users`, `platform_roles`, `platform_user_roles`, `platform_permissions`, `platform_role_permissions`) replaces the legacy Redis authorization set for runtime platform-admin access. Missing platform role rows default-deny.
+- Platform alert routing/escalation (`platform_alert_routes`, `platform_alert_escalation_policies`, `platform_alert_route_health_checks`, `platform_alert_acknowledgements`, `platform_alert_emergency_contacts`) sits on top of existing alert rules/channels/history. Background route-health and escalation code is deterministic and non-AI.
 - School audit-log surface at `/settings/audit-log`
 - Platform and school operational visibility for diagnostics and compliance review
 

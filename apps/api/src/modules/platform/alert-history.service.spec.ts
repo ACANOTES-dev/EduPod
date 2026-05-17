@@ -6,7 +6,7 @@ import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertHistoryService } from './alert-history.service';
-import { PlatformIncidentService } from './platform-incident.service';
+import { AlertRoutingService } from './alert-routing.service';
 
 const ALERT_ID = '22222222-2222-4222-8222-222222222222';
 const RULE_ID = '11111111-1111-4111-8111-111111111111';
@@ -41,14 +41,21 @@ function buildMockPrisma() {
 describe('AlertHistoryService', () => {
   let service: AlertHistoryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockIncidentService: { recordAlertAcknowledged: jest.Mock };
+  let mockAlertRoutingService: { acknowledge: jest.Mock };
   let mockPlatformAuditService: { log: jest.Mock };
 
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-05-15T10:05:00.000Z'));
     mockPrisma = buildMockPrisma();
-    mockIncidentService = { recordAlertAcknowledged: jest.fn().mockResolvedValue(undefined) };
+    mockAlertRoutingService = {
+      acknowledge: jest.fn().mockResolvedValue({
+        ...ALERT,
+        status: 'acknowledged',
+        acknowledged_at: new Date('2026-05-15T10:05:00.000Z'),
+        acknowledged_by: USER_ID,
+      }),
+    };
     mockPlatformAuditService = { log: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -56,7 +63,7 @@ describe('AlertHistoryService', () => {
         AlertHistoryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlatformAuditService, useValue: mockPlatformAuditService },
-        { provide: PlatformIncidentService, useValue: mockIncidentService },
+        { provide: AlertRoutingService, useValue: mockAlertRoutingService },
       ],
     }).compile();
 
@@ -97,30 +104,16 @@ describe('AlertHistoryService', () => {
 
   it('acknowledges fired alerts', async () => {
     mockPrisma.platformAlertHistory.findUnique.mockResolvedValueOnce(ALERT);
-    mockPrisma.platformAlertHistory.update.mockResolvedValueOnce({
-      ...ALERT,
-      status: 'acknowledged',
-      acknowledged_at: new Date('2026-05-15T10:05:00.000Z'),
-      acknowledged_by: USER_ID,
-    });
-
     await expect(service.acknowledge(ALERT_ID, USER_ID)).resolves.toMatchObject({
       status: 'acknowledged',
       acknowledged_by: USER_ID,
     });
 
-    expect(mockPrisma.platformAlertHistory.update).toHaveBeenCalledWith({
-      where: { id: ALERT_ID },
-      data: {
-        status: 'acknowledged',
-        acknowledged_at: new Date('2026-05-15T10:05:00.000Z'),
-        acknowledged_by: USER_ID,
-      },
+    expect(mockAlertRoutingService.acknowledge).toHaveBeenCalledWith({
+      alert_history_id: ALERT_ID,
+      comment: undefined,
+      user_id: USER_ID,
     });
-    expect(mockIncidentService.recordAlertAcknowledged).toHaveBeenCalledWith(
-      ALERT_ID,
-      new Date('2026-05-15T10:05:00.000Z'),
-    );
   });
 
   it('throws when acknowledging a missing alert', async () => {

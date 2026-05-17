@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -11,7 +13,13 @@ import {
 import type { PlatformAlertHistory } from '@prisma/client';
 import type { Request } from 'express';
 
-import { alertHistoryQuerySchema, type AlertHistoryQuery, type JwtPayload } from '@school/shared';
+import {
+  acknowledgePlatformAlertSchema,
+  type AcknowledgePlatformAlertDto,
+  alertHistoryQuerySchema,
+  type AlertHistoryQuery,
+  type JwtPayload,
+} from '@school/shared';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPlatformPermission } from '../../common/decorators/requires-platform-permission.decorator';
@@ -42,7 +50,7 @@ export class AlertHistoryController {
   // PATCH /v1/admin/alerts/history/:id/acknowledge
   @Patch(':id/acknowledge')
   @RequiresPlatformPermission('platform.alerts.acknowledge')
-  async acknowledge(
+  async acknowledgePatch(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
@@ -52,5 +60,23 @@ export class AlertHistoryController {
       user.sub,
       auditContextFromRequest(user, request),
     );
+  }
+
+  // POST /v1/admin/alerts/history/:id/acknowledge
+  @Post(':id/acknowledge')
+  @RequiresPlatformPermission('platform.alerts.acknowledge')
+  async acknowledge(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(acknowledgePlatformAlertSchema)) dto: AcknowledgePlatformAlertDto,
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<PlatformAlertHistory> {
+    const updated = await this.alertHistoryService.acknowledge(
+      id,
+      user.sub,
+      auditContextFromRequest(user, request),
+      dto.comment,
+    );
+    return updated;
   }
 }

@@ -4,6 +4,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  BellRing,
   BellOff,
   Bot,
   Building2,
@@ -355,6 +356,24 @@ function PlatformSidebarNav({
           permission: 'platform.alerts.view',
         },
         {
+          icon: GitBranch,
+          label: 'Alert Routes',
+          href: `/${locale}/admin/alerts/routes`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: SlidersHorizontal,
+          label: 'Escalation',
+          href: `/${locale}/admin/alerts/escalation`,
+          permission: 'platform.alerts.view',
+        },
+        {
+          icon: Activity,
+          label: 'Route Health',
+          href: `/${locale}/admin/alerts/route-health`,
+          permission: 'platform.alerts.view',
+        },
+        {
           icon: BellOff,
           label: 'Alert Silences',
           href: `/${locale}/admin/alerts/silences`,
@@ -478,6 +497,12 @@ function PlatformSidebarNav({
           label: 'Channel Config',
           href: `/${locale}/admin/alerts/channels`,
           permission: 'platform.alerts.view',
+        },
+        {
+          icon: BellRing,
+          label: 'Emergency Contact',
+          href: `/${locale}/admin/profile/emergency-contact`,
+          permission: 'platform.profile.view',
         },
         {
           icon: DatabaseZap,

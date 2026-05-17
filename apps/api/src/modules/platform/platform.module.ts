@@ -17,16 +17,25 @@ import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { AlertAckTokenService } from './alert-ack-token.service';
 import { AlertChannelsController } from './alert-channels.controller';
 import { AlertChannelsService } from './alert-channels.service';
 import { AlertDispatchService } from './alert-dispatch.service';
+import { AlertEscalationCronService } from './alert-escalation-cron.service';
+import { AlertEscalationPoliciesService } from './alert-escalation-policies.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
 import { AlertHistoryController } from './alert-history.controller';
 import { AlertHistoryService } from './alert-history.service';
+import { AlertMagicAckController } from './alert-magic-ack.controller';
+import { AlertRouteDeadManCronService } from './alert-route-dead-man-cron.service';
+import { AlertRoutesService } from './alert-routes.service';
+import { AlertRoutingController } from './alert-routing.controller';
+import { AlertRoutingService } from './alert-routing.service';
 import { AlertRulesController } from './alert-rules.controller';
 import { AlertRulesService } from './alert-rules.service';
 import { AlertSilenceService } from './alert-silence.service';
 import { AlertSilencesController } from './alert-silences.controller';
+import { AlertTestRateLimitService } from './alert-test-rate-limit.service';
 import { ChannelDispatchService } from './channel-dispatch.service';
 import { CopilotInjectionScanner } from './copilot-injection-scanner';
 import { CopilotPromptBuilderService } from './copilot-prompt-builder.service';
@@ -36,6 +45,8 @@ import { EmailAlertDispatcher } from './dispatchers/email-alert.dispatcher';
 import { PushAlertDispatcher } from './dispatchers/push-alert.dispatcher';
 import { TelegramAlertDispatcher } from './dispatchers/telegram-alert.dispatcher';
 import { WhatsAppAlertDispatcher } from './dispatchers/whatsapp-alert.dispatcher';
+import { EmergencyContactController } from './emergency-contact.controller';
+import { EmergencyContactService } from './emergency-contact.service';
 import { HealthHistoryController } from './health-history.controller';
 import { HealthSnapshotService } from './health-snapshot.service';
 import { IncidentDetectionService } from './incident-detection.service';
@@ -89,6 +100,8 @@ import { TenantMetricsService } from './tenant-metrics.service';
   controllers: [
     HealthHistoryController,
     AlertChannelsController,
+    AlertMagicAckController,
+    AlertRoutingController,
     AlertRulesController,
     AlertHistoryController,
     AlertSilencesController,
@@ -102,14 +115,22 @@ import { TenantMetricsService } from './tenant-metrics.service';
     PlatformObservabilityController,
     PlatformSearchController,
     TenantMetricsController,
+    EmergencyContactController,
   ],
   providers: [
     PlatformGateway,
     HealthSnapshotService,
+    AlertAckTokenService,
     AlertChannelsService,
+    AlertEscalationCronService,
+    AlertEscalationPoliciesService,
     AlertRulesService,
+    AlertRouteDeadManCronService,
+    AlertRoutesService,
+    AlertRoutingService,
     AlertHistoryService,
     AlertSilenceService,
+    AlertTestRateLimitService,
     MaintenanceWindowService,
     OwnerActionConfirmationService,
     PlatformAiActionProposalsService,
@@ -130,11 +151,12 @@ import { TenantMetricsService } from './tenant-metrics.service';
     ChannelDispatchService,
     TenantMetricsService,
     PlatformSearchService,
+    EmergencyContactService,
     EmailAlertDispatcher,
     TelegramAlertDispatcher,
     WhatsAppAlertDispatcher,
     PushAlertDispatcher,
   ],
-  exports: [PlatformOnboardingModule, PlatformRealtimeModule],
+  exports: [PlatformOnboardingModule, PlatformRealtimeModule, AlertRoutingService],
 })
 export class PlatformModule {}

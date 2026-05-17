@@ -138,6 +138,15 @@ enum PlatformAuditAction {
   alert_channel_updated
   alert_channel_deleted
   alert_channel_tested
+  alert_route_created
+  alert_route_updated
+  alert_route_deleted
+  alert_route_tested
+  alert_test_all_routes
+  alert_escalation_policy_created
+  alert_escalation_policy_updated
+  alert_escalation_policy_deleted
+  alert_emergency_contact_updated
   platform_error_redaction_rule_created
   platform_error_redaction_rule_deleted
   platform_error_retention_purged
@@ -1973,6 +1982,9 @@ model User {
   platform_users_invited                 PlatformUser[]                    @relation("platform_user_invited_by")
   platform_roles_granted                 PlatformUserRole[]                @relation("platform_role_granted_by")
   platform_alerts_acknowledged           PlatformAlertHistory[]            @relation("platform_alert_acknowledger")
+  platform_alert_acknowledgements        PlatformAlertAcknowledgement[]    @relation("platform_alert_acknowledgement_actor")
+  platform_alert_health_checks_triggered PlatformAlertRouteHealthCheck[]   @relation("platform_alert_route_health_check_trigger")
+  platform_alert_escalation_policies     PlatformAlertEscalationPolicy[]   @relation("platform_alert_escalation_policy_creator")
   platform_audit_logs                    PlatformAuditLog[]                @relation("platform_audit_actor")
   support_audit_actions_performed        PlatformSupportAuditAction[]      @relation("support_audit_actor")
   support_audit_actions_received         PlatformSupportAuditAction[]      @relation("support_audit_target_user")
@@ -7671,6 +7683,18 @@ enum PlatformAlertStatus {
   @@map("alert_status")
 }
 
+enum AlertEscalationState {
+  idle
+  dispatched
+  awaiting_ack
+  escalating
+  acknowledged
+  auto_resolved
+  expired
+
+  @@map("alert_escalation_state")
+}
+
 enum PlatformAlertChannelType {
   email
   telegram
@@ -7678,6 +7702,14 @@ enum PlatformAlertChannelType {
   push
 
   @@map("platform_alert_channel_type")
+}
+
+enum AlertChannelUrgencyTier {
+  info
+  urgent
+  critical_only
+
+  @@map("alert_channel_urgency_tier")
 }
 
 enum AlertRecipientStatus {
@@ -12084,19 +12116,22 @@ model PlatformHealthSnapshot {
 }
 
 model PlatformUser {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id            String    @unique @db.Uuid
-  invited_by_user_id String?   @db.Uuid
-  invited_at         DateTime  @default(now()) @db.Timestamptz()
-  activated_at       DateTime? @db.Timestamptz()
-  revoked_at         DateTime? @db.Timestamptz()
-  notes              String?   @db.Text
-  created_at         DateTime  @default(now()) @db.Timestamptz()
-  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String    @unique @db.Uuid
+  emergency_contact_id String?   @unique @db.Uuid
+  invited_by_user_id   String?   @db.Uuid
+  invited_at           DateTime  @default(now()) @db.Timestamptz()
+  activated_at         DateTime? @db.Timestamptz()
+  revoked_at           DateTime? @db.Timestamptz()
+  notes                String?   @db.Text
+  created_at           DateTime  @default(now()) @db.Timestamptz()
+  updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
-  invited_by User?              @relation("platform_user_invited_by", fields: [invited_by_user_id], references: [id], onDelete: SetNull)
-  roles      PlatformUserRole[]
-  user       User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  alert_emergency_contact PlatformAlertEmergencyContact? @relation("platform_alert_emergency_contact_owner")
+  emergency_contact       PlatformAlertEmergencyContact? @relation("platform_user_emergency_contact", fields: [emergency_contact_id], references: [id], onDelete: SetNull)
+  invited_by              User?                          @relation("platform_user_invited_by", fields: [invited_by_user_id], references: [id], onDelete: SetNull)
+  roles                   PlatformUserRole[]
+  user                    User                           @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id], map: "idx_platform_users_user_id")
   @@index([revoked_at], map: "idx_platform_users_revoked_at")
@@ -12182,15 +12217,18 @@ model PlatformAlertRule {
 }
 
 model PlatformAlertChannel {
-  id         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name       String                   @db.VarChar(255)
-  type       PlatformAlertChannelType
-  config     Json                     @db.JsonB
-  is_enabled Boolean                  @default(true)
-  created_at DateTime                 @default(now()) @db.Timestamptz()
-  updated_at DateTime                 @default(now()) @updatedAt @db.Timestamptz()
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String                   @db.VarChar(255)
+  type                 PlatformAlertChannelType
+  config               Json                     @db.JsonB
+  is_enabled           Boolean                  @default(true)
+  urgency_tier         AlertChannelUrgencyTier  @default(info)
+  last_health_check_at DateTime?                @db.Timestamptz()
+  created_at           DateTime                 @default(now()) @db.Timestamptz()
+  updated_at           DateTime                 @default(now()) @updatedAt @db.Timestamptz()
 
-  rules PlatformAlertRuleChannel[]
+  rules  PlatformAlertRuleChannel[]
+  routes PlatformAlertRoute[]
 
   @@map("platform_alert_channels")
 }
@@ -12205,6 +12243,85 @@ model PlatformAlertRuleChannel {
   @@id([rule_id, channel_id])
   @@index([channel_id], map: "idx_platform_alert_rule_channels_channel")
   @@map("platform_alert_rule_channels")
+}
+
+model PlatformAlertRoute {
+  id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id                String                  @db.Uuid
+  display_name              String                  @db.VarChar(160)
+  urgency_tier              AlertChannelUrgencyTier
+  enabled                   Boolean                 @default(true)
+  operator_destination      Json                    @db.JsonB
+  health_check_destination  Json                    @db.JsonB
+  quiet_hours_start         String?                 @db.VarChar(5)
+  quiet_hours_end           String?                 @db.VarChar(5)
+  quiet_hours_timezone      String                  @default("Europe/Dublin") @db.VarChar(60)
+  critical_override_quiet   Boolean                 @default(true)
+  dead_man_interval_minutes Int                     @default(15)
+  last_health_check_at      DateTime?               @db.Timestamptz()
+  last_health_check_status  String?                 @db.VarChar(20)
+  created_at                DateTime                @default(now()) @db.Timestamptz()
+  updated_at                DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  acknowledgements    PlatformAlertAcknowledgement[]  @relation("platform_alert_acknowledgement_route")
+  acknowledged_alerts PlatformAlertHistory[]          @relation("platform_alert_history_acknowledged_route")
+  channel             PlatformAlertChannel            @relation(fields: [channel_id], references: [id], onDelete: Restrict)
+  health_checks       PlatformAlertRouteHealthCheck[]
+
+  @@index([enabled, urgency_tier], map: "idx_platform_alert_routes_enabled_urgency")
+  @@index([channel_id], map: "idx_platform_alert_routes_channel")
+  @@map("platform_alert_routes")
+}
+
+model PlatformAlertEscalationPolicy {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  display_name          String   @db.VarChar(160)
+  applies_to_severity   String   @db.VarChar(20)
+  applies_to_alert_keys String[] @default([])
+  steps                 Json     @db.JsonB
+  enabled               Boolean  @default(true)
+  created_by_user_id    String   @db.Uuid
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  created_by User @relation("platform_alert_escalation_policy_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([applies_to_severity], map: "idx_platform_alert_escalation_policies_severity")
+  @@map("platform_alert_escalation_policies")
+}
+
+model PlatformAlertRouteHealthCheck {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  route_id             String   @db.Uuid
+  ran_at               DateTime @default(now()) @db.Timestamptz()
+  success              Boolean
+  latency_ms           Int?
+  failure_detail       Json?    @db.JsonB
+  triggered_by         String   @default("schedule") @db.VarChar(40)
+  triggered_by_user_id String?  @db.Uuid
+
+  route             PlatformAlertRoute @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  triggered_by_user User?              @relation("platform_alert_route_health_check_trigger", fields: [triggered_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([route_id, ran_at(sort: Desc)], map: "idx_platform_alert_route_health_checks_route_ran")
+  @@index([success, ran_at(sort: Desc)], map: "idx_platform_alert_route_health_checks_success_ran")
+  @@map("platform_alert_route_health_checks")
+}
+
+model PlatformAlertAcknowledgement {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  alert_history_id          String   @unique @db.Uuid
+  acknowledged_by_user_id   String   @db.Uuid
+  acknowledged_at           DateTime @default(now()) @db.Timestamptz()
+  acknowledged_via_route_id String?  @db.Uuid
+  comment                   String?  @db.Text
+
+  acknowledged_by User                 @relation("platform_alert_acknowledgement_actor", fields: [acknowledged_by_user_id], references: [id], onDelete: Restrict)
+  alert           PlatformAlertHistory @relation(fields: [alert_history_id], references: [id], onDelete: Cascade)
+  route           PlatformAlertRoute?  @relation("platform_alert_acknowledgement_route", fields: [acknowledged_via_route_id], references: [id], onDelete: SetNull)
+
+  @@index([acknowledged_by_user_id, acknowledged_at(sort: Desc)], map: "idx_platform_alert_ack_actor_time")
+  @@map("platform_alert_acknowledgements")
 }
 
 model PlatformAlertHistory {
@@ -12222,20 +12339,45 @@ model PlatformAlertHistory {
   acknowledged_by                     String?               @db.Uuid
   suppressed_by_silence_id            String?               @db.Uuid
   suppressed_by_maintenance_window_id String?               @db.Uuid
+  escalation_state                    AlertEscalationState  @default(idle)
+  next_escalation_at                  DateTime?             @db.Timestamptz()
+  current_escalation_step             Int                   @default(0)
+  acknowledged_via_route_id           String?               @db.Uuid
 
-  acknowledger       User?                      @relation("platform_alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
-  incident           PlatformIncident?          @relation(fields: [incident_id], references: [id], onDelete: SetNull)
-  maintenance_window PlatformMaintenanceWindow? @relation(fields: [suppressed_by_maintenance_window_id], references: [id], onDelete: SetNull)
-  rule               PlatformAlertRule          @relation(fields: [rule_id], references: [id], onDelete: Cascade)
-  silence            PlatformAlertSilence?      @relation(fields: [suppressed_by_silence_id], references: [id], onDelete: SetNull)
+  acknowledgement    PlatformAlertAcknowledgement?
+  acknowledger       User?                         @relation("platform_alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+  acknowledged_route PlatformAlertRoute?           @relation("platform_alert_history_acknowledged_route", fields: [acknowledged_via_route_id], references: [id], onDelete: SetNull)
+  incident           PlatformIncident?             @relation(fields: [incident_id], references: [id], onDelete: SetNull)
+  maintenance_window PlatformMaintenanceWindow?    @relation(fields: [suppressed_by_maintenance_window_id], references: [id], onDelete: SetNull)
+  rule               PlatformAlertRule             @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+  silence            PlatformAlertSilence?         @relation(fields: [suppressed_by_silence_id], references: [id], onDelete: SetNull)
 
   @@index([fired_at(sort: Desc)], map: "idx_platform_alert_history_fired_at")
   @@index([status], map: "idx_platform_alert_history_status")
   @@index([rule_id], map: "idx_platform_alert_history_rule_id")
   @@index([incident_id], map: "idx_platform_alert_history_incident")
+  @@index([escalation_state, next_escalation_at], map: "idx_platform_alert_history_escalation_due")
   @@index([suppressed_by_silence_id], map: "idx_platform_alert_history_silence")
   @@index([suppressed_by_maintenance_window_id], map: "idx_platform_alert_history_window")
   @@map("platform_alert_history")
+}
+
+model PlatformAlertEmergencyContact {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform_user_id  String   @unique @db.Uuid
+  email             String?  @db.VarChar(255)
+  sms_phone         String?  @db.VarChar(40)
+  whatsapp_phone    String?  @db.VarChar(40)
+  telegram_chat_id  String?  @db.VarChar(40)
+  push_subscription Json?    @db.JsonB
+  preferred_order   String[] @default([])
+  timezone          String   @default("Europe/Dublin") @db.VarChar(60)
+  updated_at        DateTime @updatedAt @db.Timestamptz()
+
+  platform_user          PlatformUser  @relation("platform_alert_emergency_contact_owner", fields: [platform_user_id], references: [id], onDelete: Cascade)
+  platform_user_selected PlatformUser? @relation("platform_user_emergency_contact")
+
+  @@map("platform_alert_emergency_contacts")
 }
 
 model PlatformIncident {

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type PlatformAlertSeverity } from '@prisma/client';
 
+import { AlertRoutingService } from '../platform/alert-routing.service';
 import { RedisPubSubService } from '../platform/redis-pubsub.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,6 +10,7 @@ export class SyntheticAlertEmitterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisPubSub: RedisPubSubService,
+    private readonly alertRouting: AlertRoutingService,
   ) {}
 
   async emit(input: {
@@ -34,6 +36,9 @@ export class SyntheticAlertEmitterService {
         resolved_at: input.type === 'recovered' ? new Date() : undefined,
       },
     });
+    if (input.type !== 'recovered') {
+      await this.alertRouting.dispatchInitial(alert.id);
+    }
 
     await this.redisPubSub.publish('platform:alerts', {
       alert_id: alert.id,

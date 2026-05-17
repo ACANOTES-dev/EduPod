@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { AlertDispatchService } from './alert-dispatch.service';
 import { AlertEvaluationService } from './alert-evaluation.service';
+import { AlertRoutingService } from './alert-routing.service';
 import { AlertSilenceService } from './alert-silence.service';
 import { ChannelDispatchService } from './channel-dispatch.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
@@ -122,6 +123,7 @@ describe('AlertEvaluationService', () => {
     sendEmail: jest.Mock<Promise<string[]>, [typeof BASE_RULE, typeof FIRED_ALERT, number]>;
   };
   let mockChannelDispatch: { dispatchAlert: jest.Mock };
+  let mockAlertRouting: { dispatchInitial: jest.Mock; resolveSilently: jest.Mock };
   let mockAlertSilenceService: { findActiveSilenceForRule: jest.Mock };
   let mockMaintenanceWindowService: { findActiveWindowForRule: jest.Mock };
 
@@ -147,6 +149,10 @@ describe('AlertEvaluationService', () => {
     mockChannelDispatch = {
       dispatchAlert: jest.fn().mockResolvedValue(['email']),
     };
+    mockAlertRouting = {
+      dispatchInitial: jest.fn().mockResolvedValue(['email']),
+      resolveSilently: jest.fn().mockResolvedValue(undefined),
+    };
     mockAlertSilenceService = {
       findActiveSilenceForRule: jest.fn().mockResolvedValue(null),
     };
@@ -162,6 +168,7 @@ describe('AlertEvaluationService', () => {
         { provide: RedisPubSubService, useValue: mockRedisPubSub },
         { provide: AlertDispatchService, useValue: mockDispatch },
         { provide: ChannelDispatchService, useValue: mockChannelDispatch },
+        { provide: AlertRoutingService, useValue: mockAlertRouting },
         { provide: AlertSilenceService, useValue: mockAlertSilenceService },
         { provide: MaintenanceWindowService, useValue: mockMaintenanceWindowService },
       ],
@@ -193,11 +200,7 @@ describe('AlertEvaluationService', () => {
         status: 'fired',
       }),
     });
-    expect(mockDispatch.sendEmail).toHaveBeenCalledWith(BASE_RULE, FIRED_ALERT, 600);
-    expect(mockPrisma.platformAlertHistory.update).toHaveBeenCalledWith({
-      where: { id: ALERT_ID },
-      data: { channels_notified: ['email'] },
-    });
+    expect(mockAlertRouting.dispatchInitial).toHaveBeenCalledWith(ALERT_ID);
     expect(mockRedisPubSub.publish).toHaveBeenCalledWith(
       'platform:alerts',
       expect.objectContaining({ type: 'alert_fired', alert_id: ALERT_ID }),
@@ -211,19 +214,9 @@ describe('AlertEvaluationService', () => {
 
     await service.evaluate();
 
-    expect(mockChannelDispatch.dispatchAlert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metric_value: 600,
-        rule_name: BASE_RULE.name,
-        severity: BASE_RULE.severity,
-      }),
-      [EMAIL_CHANNEL],
-    );
+    expect(mockAlertRouting.dispatchInitial).toHaveBeenCalledWith(ALERT_ID);
+    expect(mockChannelDispatch.dispatchAlert).not.toHaveBeenCalled();
     expect(mockDispatch.sendEmail).not.toHaveBeenCalled();
-    expect(mockPrisma.platformAlertHistory.update).toHaveBeenCalledWith({
-      where: { id: ALERT_ID },
-      data: { channels_notified: ['email'] },
-    });
   });
 
   it('respects cooldown periods', async () => {
@@ -271,10 +264,7 @@ describe('AlertEvaluationService', () => {
 
     await service.evaluate();
 
-    expect(mockPrisma.platformAlertHistory.update).toHaveBeenCalledWith({
-      where: { id: ALERT_ID },
-      data: { status: 'resolved', resolved_at: new Date('2026-05-15T10:00:00.000Z') },
-    });
+    expect(mockAlertRouting.resolveSilently).toHaveBeenCalledWith(ALERT_ID, 'condition_resolved');
     expect(mockRedisPubSub.publish).toHaveBeenCalledWith(
       'platform:alerts',
       expect.objectContaining({ type: 'alert_resolved', alert_id: ALERT_ID }),

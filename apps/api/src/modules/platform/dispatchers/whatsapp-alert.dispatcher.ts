@@ -26,11 +26,12 @@ export class WhatsAppAlertDispatcher implements ChannelDispatcher {
     }
 
     const body = [
-      `[${alert.severity.toUpperCase()}] ${alert.rule_name}`,
+      `${alert.is_test ? '[SYNTHETIC TEST] ' : ''}[${alert.severity.toUpperCase()}] ${alert.rule_name}`,
       '',
       alert.message,
       '',
       `Metric value: ${alert.metric_value}`,
+      ...(alert.ack_url ? ['', `Acknowledge: ${alert.ack_url}`] : []),
     ].join('\n');
     const response = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,

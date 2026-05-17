@@ -6,9 +6,8 @@ import { alertConditionConfigSchema, type AlertConditionConfig } from '@school/s
 import { HealthService, type FullHealthResult } from '../health/health.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { AlertDispatchService } from './alert-dispatch.service';
+import { AlertRoutingService } from './alert-routing.service';
 import { AlertSilenceService } from './alert-silence.service';
-import { ChannelDispatchService } from './channel-dispatch.service';
 import { MaintenanceWindowService } from './maintenance-window.service';
 import { RedisPubSubService } from './redis-pubsub.service';
 
@@ -38,8 +37,7 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly healthService: HealthService,
     private readonly redisPubSub: RedisPubSubService,
-    private readonly alertDispatchService: AlertDispatchService,
-    private readonly channelDispatchService: ChannelDispatchService,
+    private readonly alertRoutingService: AlertRoutingService,
     private readonly alertSilenceService: AlertSilenceService,
     private readonly maintenanceWindowService: MaintenanceWindowService,
   ) {}
@@ -304,28 +302,7 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    const ruleChannels = await this.prisma.platformAlertRuleChannel.findMany({
-      where: { rule_id: rule.id },
-      include: { channel: true },
-    });
-    const channelsNotified =
-      ruleChannels.length > 0
-        ? await this.channelDispatchService.dispatchAlert(
-            {
-              message,
-              metric_value: metricValue,
-              rule_name: rule.name,
-              severity: rule.severity,
-            },
-            ruleChannels.map((ruleChannel) => ruleChannel.channel),
-          )
-        : await this.alertDispatchService.sendEmail(rule, alert, metricValue);
-    if (channelsNotified.length > 0) {
-      await this.prisma.platformAlertHistory.update({
-        where: { id: alert.id },
-        data: { channels_notified: channelsNotified },
-      });
-    }
+    const channelsNotified = await this.alertRoutingService.dispatchInitial(alert.id);
 
     await this.redisPubSub.publish('platform:alerts', {
       type: 'alert_fired',
@@ -356,10 +333,7 @@ export class AlertEvaluationService implements OnModuleInit, OnModuleDestroy {
     }
 
     const resolvedAt = new Date();
-    await this.prisma.platformAlertHistory.update({
-      where: { id: openAlert.id },
-      data: { status: 'resolved', resolved_at: resolvedAt },
-    });
+    await this.alertRoutingService.resolveSilently(openAlert.id, 'condition_resolved');
 
     await this.redisPubSub.publish('platform:alerts', {
       type: 'alert_resolved',

@@ -60,18 +60,26 @@ export class ChannelDispatchService {
   async sendTestAlert(
     channel: AlertChannelForDispatch,
   ): Promise<{ success: boolean; message: string }> {
+    return this.sendSyntheticAlert(channel, {
+      message: '[SYNTHETIC TEST] This is a test alert from EduPod Platform Admin.',
+      metric_value: 0,
+      rule_name: 'Test Alert',
+      severity: 'info',
+      is_test: true,
+    });
+  }
+
+  async sendSyntheticAlert(
+    channel: AlertChannelForDispatch,
+    payload: AlertPayload,
+  ): Promise<{ success: boolean; message: string }> {
     const dispatcher = this.dispatchers.get(channel.type);
     if (!dispatcher) {
       return { success: false, message: `Unknown channel type: ${channel.type}` };
     }
 
     try {
-      await dispatcher.send(channel.config, {
-        message: 'This is a test alert from EduPod Platform Admin.',
-        metric_value: 0,
-        rule_name: 'Test Alert',
-        severity: 'info',
-      });
+      await dispatcher.send(channel.config, payload);
       return { success: true, message: `Test alert sent to ${channel.type} successfully.` };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown dispatch error';

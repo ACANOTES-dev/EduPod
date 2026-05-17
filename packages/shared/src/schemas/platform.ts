@@ -109,6 +109,15 @@ export const platformAuditActionSchema = z.enum([
   'alert_channel_updated',
   'alert_channel_deleted',
   'alert_channel_tested',
+  'alert_route_created',
+  'alert_route_updated',
+  'alert_route_deleted',
+  'alert_route_tested',
+  'alert_test_all_routes',
+  'alert_escalation_policy_created',
+  'alert_escalation_policy_updated',
+  'alert_escalation_policy_deleted',
+  'alert_emergency_contact_updated',
   'platform_error_redaction_rule_created',
   'platform_error_redaction_rule_deleted',
   'platform_error_retention_purged',
@@ -793,6 +802,178 @@ export const updateAlertChannelSchema = z.object({
 });
 
 export type UpdateAlertChannelDto = z.infer<typeof updateAlertChannelSchema>;
+
+// ─── Platform Alert Routing + Escalation ────────────────────────────────────
+
+export const alertChannelUrgencyTierSchema = z.enum(['info', 'urgent', 'critical_only']);
+
+export type AlertChannelUrgencyTierDto = z.infer<typeof alertChannelUrgencyTierSchema>;
+
+export const alertEscalationStateSchema = z.enum([
+  'idle',
+  'dispatched',
+  'awaiting_ack',
+  'escalating',
+  'acknowledged',
+  'auto_resolved',
+  'expired',
+]);
+
+export type AlertEscalationStateDto = z.infer<typeof alertEscalationStateSchema>;
+
+const hhmmSchema = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Time must use HH:MM in 24-hour local time');
+
+const ianaTimezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .superRefine((value, ctx) => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date());
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Timezone must be a valid IANA timezone',
+      });
+    }
+  });
+
+export const alertRouteDestinationSchema = z.record(z.unknown()).superRefine((value, ctx) => {
+  if (Object.keys(value).length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Destination must include at least one channel-specific field',
+    });
+  }
+});
+
+const alertRouteBaseSchema = z.object({
+  channel_id: z.string().uuid(),
+  display_name: z.string().trim().min(1).max(160),
+  urgency_tier: alertChannelUrgencyTierSchema.default('urgent'),
+  enabled: z.boolean().default(true),
+  operator_destination: alertRouteDestinationSchema,
+  health_check_destination: alertRouteDestinationSchema,
+  quiet_hours_start: hhmmSchema.optional(),
+  quiet_hours_end: hhmmSchema.optional(),
+  quiet_hours_timezone: ianaTimezoneSchema.default('Europe/Dublin'),
+  critical_override_quiet: z.boolean().default(true),
+  dead_man_interval_minutes: z.coerce.number().int().min(1).max(1440).default(15),
+});
+
+export const createAlertRouteSchema = alertRouteBaseSchema.superRefine((value, ctx) => {
+  if (Boolean(value.quiet_hours_start) !== Boolean(value.quiet_hours_end)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Quiet hours require both start and end times',
+      path: ['quiet_hours_end'],
+    });
+  }
+  if (
+    JSON.stringify(value.operator_destination) === JSON.stringify(value.health_check_destination)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Health-check sink destination must differ from the operator destination',
+      path: ['health_check_destination'],
+    });
+  }
+});
+
+export type CreateAlertRouteDto = z.infer<typeof createAlertRouteSchema>;
+
+export const updateAlertRouteSchema = alertRouteBaseSchema.partial().superRefine((value, ctx) => {
+  if (Boolean(value.quiet_hours_start) !== Boolean(value.quiet_hours_end)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Quiet hours require both start and end times',
+      path: ['quiet_hours_end'],
+    });
+  }
+  if (
+    value.operator_destination !== undefined &&
+    value.health_check_destination !== undefined &&
+    JSON.stringify(value.operator_destination) === JSON.stringify(value.health_check_destination)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Health-check sink destination must differ from the operator destination',
+      path: ['health_check_destination'],
+    });
+  }
+});
+
+export type UpdateAlertRouteDto = z.infer<typeof updateAlertRouteSchema>;
+
+export const testAlertRouteSchema = z.object({
+  comment: z.string().trim().max(500).optional(),
+});
+
+export type TestAlertRouteDto = z.infer<typeof testAlertRouteSchema>;
+
+export const alertEscalationStepSchema = z.object({
+  route_id: z.string().uuid(),
+  ack_window_minutes: z.coerce.number().int().min(1).max(1440),
+});
+
+export const createAlertEscalationPolicySchema = z.object({
+  display_name: z.string().trim().min(1).max(160),
+  applies_to_severity: z.enum(['warning', 'critical']),
+  applies_to_alert_keys: z.array(z.string().trim().min(1).max(160)).default([]),
+  steps: z.array(alertEscalationStepSchema).min(1).max(10),
+  enabled: z.boolean().default(true),
+});
+
+export type CreateAlertEscalationPolicyDto = z.infer<typeof createAlertEscalationPolicySchema>;
+
+export const updateAlertEscalationPolicySchema = createAlertEscalationPolicySchema.partial();
+
+export type UpdateAlertEscalationPolicyDto = z.infer<typeof updateAlertEscalationPolicySchema>;
+
+export const acknowledgePlatformAlertSchema = z.object({
+  comment: z.string().trim().max(1000).optional(),
+});
+
+export type AcknowledgePlatformAlertDto = z.infer<typeof acknowledgePlatformAlertSchema>;
+
+const pushSubscriptionSchema = z
+  .object({
+    endpoint: z.string().trim().url(),
+    keys: z.object({
+      p256dh: z.string().trim().min(1),
+      auth: z.string().trim().min(1),
+    }),
+  })
+  .optional();
+
+export const updateEmergencyContactSchema = z.object({
+  email: z.string().trim().email().max(255).nullable().optional(),
+  sms_phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Must be E.164 format')
+    .nullable()
+    .optional(),
+  whatsapp_phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Must be E.164 format')
+    .nullable()
+    .optional(),
+  telegram_chat_id: z.string().trim().min(1).max(40).nullable().optional(),
+  push_subscription: pushSubscriptionSchema.nullable(),
+  preferred_order: z
+    .array(z.enum(['email', 'sms', 'whatsapp', 'telegram', 'push']))
+    .max(5)
+    .default([]),
+  timezone: ianaTimezoneSchema.default('Europe/Dublin'),
+});
+
+export type UpdateEmergencyContactDto = z.infer<typeof updateEmergencyContactSchema>;
 
 export const alertHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
