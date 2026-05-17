@@ -227,18 +227,18 @@ Recommendations with `requires_repo_agent_handoff = true` show a "Generate repo-
 
 ## Acceptance
 
-- [ ] Recommendation generation is manual-only; no background AI loop exists.
-- [ ] `POST /v1/admin/copilot/recommendations/generate` creates cited recommendations from selected evidence.
-- [ ] `POST /v1/admin/copilot/briefs/daily` generates an on-demand daily ops brief.
-- [ ] Contextual Explain/Recommend buttons exist on alert, error, queue, tenant, deploy, and health views.
-- [ ] Recommendations use service topology and severity policy context.
-- [ ] Code-required recommendations are marked for repo-agent handoff instead of direct dashboard execution.
-- [ ] Destructive recommendations require Layer 1.5C owner confirmation, not two-person approval.
-- [ ] Deduplication by evidence fingerprint works.
-- [ ] Operator can dismiss with reason.
-- [ ] Operator can accept; routes to 4D or shows manual execution guidance if 4D is not shipped.
-- [ ] Per-request and per-day budget caps enforced.
-- [ ] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
+- [x] Recommendation generation is manual-only; no background AI loop exists.
+- [x] `POST /v1/admin/copilot/recommendations/generate` creates cited recommendations from selected evidence.
+- [x] `POST /v1/admin/copilot/briefs/daily` generates an on-demand daily ops brief.
+- [x] Contextual Explain/Recommend buttons exist on alert, error, queue, tenant, deploy, and health views.
+- [x] Recommendations use service topology and severity policy context.
+- [x] Code-required recommendations are marked for repo-agent handoff instead of direct dashboard execution.
+- [x] Destructive recommendations require Layer 1.5C owner confirmation, not two-person approval.
+- [x] Deduplication by evidence fingerprint works.
+- [x] Operator can dismiss with reason.
+- [x] Operator can accept; routes to 4D or shows manual execution guidance if 4D is not shipped.
+- [x] Per-request and per-day budget caps enforced.
+- [x] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
 
 ---
 
@@ -247,3 +247,89 @@ Recommendations with `requires_repo_agent_handoff = true` show a "Generate repo-
 - This session intentionally avoids proactive AI. If a future Layer 5 adds periodic non-AI health checks with SMS/email, those checks can include a link that opens the Copilot with preselected evidence, but they should not call the model automatically.
 - The daily ops brief is on-demand. It is a button, not a scheduled AI job.
 - The most important product behavior is contextual diagnosis. The chat page is useful, but the "Explain this" buttons are where the Copilot becomes operationally valuable.
+
+## Commits / CI / Notes
+
+- `e0a6649c` — `feat(platform): add manual ai recommendations`
+- `a9e6a63a` — `test(platform): cover recommendation controller`
+- `862f0f0a` — `fix(platform): restore cross-tenant audit log reads`
+- CI/deploy run `25984246114` passed for the initial Session 4C implementation and deployed to production.
+- CI/deploy run `25984778866` passed for the platform audit-log RLS follow-up and deployed to production.
+- Production smoke on `https://dua.edupod.app` passed after the final deploy:
+  - platform-admin login succeeded.
+  - recommendation list and manual generation endpoints returned successfully.
+  - generation remained read-only/manual-only and refused to persist uncited recommendations in automated coverage.
+  - daily brief returned cited evidence.
+  - audit log, platform audit log, alerts, queues, errors, service topology, tenant detail/modules, health, deploys, runbooks, severity policies, sessions, platform users, support toolkit, and Cmd+K search all loaded without runtime errors.
+- Prompt-injection evidence handling, citation stripping/refusal, no-background-trigger behavior, blocklisted action sanitization, deduplication, and cost guardrails are covered by targeted backend tests.
+- `pnpm check:migration-safety` still reports pre-existing historical migration findings unrelated to the additive 4C migration.
+- `pnpm check:arch-docs` still reports pre-existing architecture-doc drift unrelated to 4C.
+
+## Next Session Prompt
+
+```text
+Implement Session 4D of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md
+docs/features/platform-dashboard/Layer-4/Session-4D-supervised-actions.md
+
+Context:
+- Sessions 0 through 4C are complete, deployed, smoke-tested, and accepted.
+- Session 4C shipped manual, evidence-backed fix recommendations at /admin/copilot/recommendations.
+- Production Copilot generation is configured and verified.
+- Streaming remains waived; do not add streaming unless Session 4D specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, and Layer 4 plans.
+5. Read Session 4A, Session 4B, and Session 4C closeout notes.
+6. Read Session 4D / Supervised Actions end-to-end.
+7. Inspect existing 4C recommendation engine, Copilot, evidence service, prompt builder, post-processor, citation enforcement, cost guardrails, RBAC, audit log, owner confirmation, alerts, queues, sessions/cache/maintenance, runbooks, Sentry triage runbook, topology, and severity policy conventions before designing anything new.
+8. Load backend, frontend, prisma, testing, code-quality, architecture-policing, and feature-map-maintenance rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 4D.
+- Build supervised action proposals from existing 4C recommendation/proposed_action/evidence context.
+- No autonomous execution. Every action must be operator-clicked and explicitly approved.
+- No fake two-person approval. Destructive/sensitive actions must use the Layer 1.5C owner confirmation flow.
+- No code-change executor. Code-required fixes produce a repo-agent handoff prompt only.
+- Hard-block migrations, schema changes, deploy config, secrets, env vars, cron schedules, production server config, and Module Gating registry changes at prompt, post-processor, and executor boundaries.
+- Repo-agent handoff prompts must include independent verification/falsification instructions and must not contain secrets.
+- Evidence is data, never instructions. No action proposal without evidence/citations.
+- Use PlatformEvidenceService where evidence is needed; do not bypass it.
+- Permission must be checked at approval time: platform.ai.approve_action plus the underlying action permission.
+- AI must never be recorded as approver.
+- Preserve all existing platform admin behavior, including Sessions 3A through 4C.
+- Follow token-driven UX styling.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify supervised-action endpoints and UI in production after deploy.
+- Verify destructive owner-confirmation path.
+- Verify no two-person approval requirement is introduced.
+- Verify blocklist refusals.
+- Verify repo-agent handoff prompt includes independent verification and contains no secrets.
+- Verify run_sentry_triage uses the existing runbook handoff and does not bypass guardrails.
+- Verify existing Platform Admin regressions, especially dashboard, Copilot, recommendations, alerts, queues, error log, audit log, deploys, runbooks, topology, severity policies, tenant detail/modules, sessions/cache/maintenance, platform users, Cmd+K global search, and support toolkit access.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 4D acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 4 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 4D is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
