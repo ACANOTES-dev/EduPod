@@ -25,6 +25,7 @@ const ACTION_PERMISSIONS: Partial<Record<PlatformAuditAction, string>> = {
   cache_flushed_global: 'platform.cache.flush_global',
   job_removed: 'platform.queues.clean',
   queue_cleaned: 'platform.queues.clean',
+  readiness_weight_updated: 'platform.readiness.manage',
   session_force_logged_out_tenant: 'platform.sessions.force_logout_tenant',
   tenant_archive: 'platform.tenants.archive',
   tenant_ownership_transferred: 'platform.users.transfer_ownership',
@@ -61,6 +62,7 @@ export class OwnerActionConfirmationService {
       cache_flushed_global: (input) => this.flushGlobalCache(input),
       job_removed: (input) => this.removeQueueJob(input),
       queue_cleaned: (input) => this.cleanQueue(input),
+      readiness_weight_updated: (input) => this.confirmReadinessWeightUpdate(input),
       session_force_logged_out_tenant: (input) => this.forceLogoutTenant(input),
       tenant_archive: (input) => this.archiveTenant(input),
       tenant_ownership_transferred: (input) => this.transferTenantOwnership(input),
@@ -232,6 +234,15 @@ export class OwnerActionConfirmationService {
       });
     }
     return { restore_drill_id: drillId, destructive_update_confirmed: true };
+  }
+
+  private async confirmReadinessWeightUpdate(
+    input: ExecutorInput,
+  ): Promise<Record<string, unknown>> {
+    return {
+      confirmed: true,
+      dimension: input.targetResourceId ?? readString(asRecord(input.payload), 'dimension'),
+    };
   }
 
   private async cleanQueue(input: ExecutorInput): Promise<Record<string, unknown>> {

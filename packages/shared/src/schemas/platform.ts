@@ -145,6 +145,7 @@ export const platformAuditActionSchema = z.enum([
   'backup_restore_drill_recorded',
   'backup_restore_drill_updated',
   'backup_restore_drill_deleted',
+  'readiness_weight_updated',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -750,6 +751,33 @@ export type CreateRestoreDrillDto = z.infer<typeof createRestoreDrillSchema>;
 export const updateRestoreDrillSchema = createRestoreDrillSchema.partial();
 
 export type UpdateRestoreDrillDto = z.infer<typeof updateRestoreDrillSchema>;
+
+// ─── Readiness Score / Ops Confidence ───────────────────────────────────────
+
+export const readinessDimensionSchema = z.enum([
+  'synthetic_journeys',
+  'alert_route_health',
+  'evidence_freshness',
+  'backup_readiness',
+  'sentry_intake',
+  'queue_canary',
+  'deploy_event_freshness',
+  'unresolved_critical_incidents',
+  'certificate_expiry',
+  'external_dependency_status',
+]);
+
+export type ReadinessDimensionDto = z.infer<typeof readinessDimensionSchema>;
+
+export const updateReadinessDimensionWeightSchema = z.object({
+  enabled: z.boolean().optional(),
+  owner_confirmation_id: z.string().uuid().optional(),
+  weight: z.coerce.number().min(0).max(100),
+});
+
+export type UpdateReadinessDimensionWeightDto = z.infer<
+  typeof updateReadinessDimensionWeightSchema
+>;
 
 // ─── Platform Incidents + Postmortems ───────────────────────────────────────
 

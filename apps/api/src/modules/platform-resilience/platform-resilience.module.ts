@@ -17,6 +17,10 @@ import { EvidenceFreshnessService } from './evidence-freshness.service';
 import { EvidenceQueryHandlersService } from './evidence-query-handlers.service';
 import { OffsiteReplicationPollerService } from './offsite-replication-poller.service';
 import { QueueSnapshotHeartbeatTask } from './queue-snapshot-heartbeat.task';
+import { ReadinessAlertEvaluatorService } from './readiness-alert-evaluator.service';
+import { ReadinessScoreScheduledTask } from './readiness-score-scheduled.task';
+import { ReadinessScoreController } from './readiness-score.controller';
+import { ReadinessScoreService } from './readiness-score.service';
 import { RedisPubSubHeartbeatService } from './redis-pubsub-heartbeat.service';
 import { SentryAlertEmitterService } from './sentry/sentry-alert-emitter.service';
 import { SentryCorrelationService } from './sentry/sentry-correlation.service';
@@ -50,6 +54,7 @@ import { UptimeReconciliationService } from './uptime-reconciliation.service';
     BackupCaptureController,
     BackupReadinessController,
     EvidenceCompletenessController,
+    ReadinessScoreController,
     SentryIssuesController,
     SentryWebhookController,
     SyntheticChecksController,
@@ -62,6 +67,9 @@ import { UptimeReconciliationService } from './uptime-reconciliation.service';
     EvidenceQueryHandlersService,
     OffsiteReplicationPollerService,
     QueueSnapshotHeartbeatTask,
+    ReadinessAlertEvaluatorService,
+    ReadinessScoreScheduledTask,
+    ReadinessScoreService,
     RedisPubSubHeartbeatService,
     SentryAlertEmitterService,
     SentryCorrelationService,

@@ -946,6 +946,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/readiness-score",
+    "controller": "ReadinessScoreController",
+    "module": "platform-resilience",
+    "permission": "platform.readiness.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/readiness-score/dimensions",
+    "controller": "ReadinessScoreController",
+    "module": "platform-resilience",
+    "permission": "platform.readiness.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/readiness-score/dimensions/:dimension",
+    "controller": "ReadinessScoreController",
+    "module": "platform-resilience",
+    "permission": "platform.readiness.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/readiness-score/history",
+    "controller": "ReadinessScoreController",
+    "module": "platform-resilience",
+    "permission": "platform.readiness.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/runbooks",
     "controller": "PlatformObservabilityController",
     "module": "platform",

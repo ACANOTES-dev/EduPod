@@ -41,6 +41,9 @@ describe('EvidenceQueryHandlersService', () => {
   const backupReadiness = {
     latestReadinessComputedAt: jest.fn().mockResolvedValue(new Date('2026-05-18T09:11:00Z')),
   };
+  const readiness = {
+    latestSnapshotAt: jest.fn().mockResolvedValue(new Date('2026-05-18T09:12:00Z')),
+  };
 
   it('maps pinned query kinds to hard-coded Prisma reads', async () => {
     const prisma = buildPrisma();
@@ -49,6 +52,7 @@ describe('EvidenceQueryHandlersService', () => {
       prisma as never,
       redis as never,
       backupReadiness as never,
+      readiness as never,
     );
 
     const result = await service.lastSeenFor('max_deployed_at_deploy_event', {});
@@ -64,6 +68,7 @@ describe('EvidenceQueryHandlersService', () => {
       buildPrisma() as never,
       {} as never,
       backupReadiness as never,
+      readiness as never,
     );
 
     await expect(service.lastSeenFor('max_completed_at_health_snapshot', {})).resolves.toEqual(
@@ -96,7 +101,9 @@ describe('EvidenceQueryHandlersService', () => {
     await expect(service.lastSeenFor('max_computed_at_backup_readiness', {})).resolves.toEqual(
       new Date('2026-05-18T09:11:00Z'),
     );
-    await expect(service.lastSeenFor('max_snapshot_at_readiness_score', {})).resolves.toBeNull();
+    await expect(service.lastSeenFor('max_snapshot_at_readiness_score', {})).resolves.toEqual(
+      new Date('2026-05-18T09:12:00Z'),
+    );
   });
 
   it('maps whitelisted table timestamp templates to pinned handlers', async () => {
@@ -104,6 +111,7 @@ describe('EvidenceQueryHandlersService', () => {
       buildPrisma() as never,
       {} as never,
       backupReadiness as never,
+      readiness as never,
     );
 
     await expect(
@@ -125,6 +133,7 @@ describe('EvidenceQueryHandlersService', () => {
       buildPrisma() as never,
       {} as never,
       backupReadiness as never,
+      readiness as never,
     );
 
     expect(() =>
@@ -157,6 +166,7 @@ describe('EvidenceQueryHandlersService', () => {
       prisma as never,
       redis as never,
       backupReadiness as never,
+      readiness as never,
     );
 
     await expect(

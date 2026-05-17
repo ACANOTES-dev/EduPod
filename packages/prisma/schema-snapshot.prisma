@@ -174,6 +174,7 @@ enum PlatformAuditAction {
   backup_restore_drill_recorded
   backup_restore_drill_updated
   backup_restore_drill_deleted
+  readiness_weight_updated
 
   @@map("platform_audit_action")
 }
@@ -233,6 +234,21 @@ enum RestoreDrillOutcome {
   inconclusive
 
   @@map("restore_drill_outcome")
+}
+
+enum ReadinessDimension {
+  synthetic_journeys
+  alert_route_health
+  evidence_freshness
+  backup_readiness
+  sentry_intake
+  queue_canary
+  deploy_event_freshness
+  unresolved_critical_incidents
+  certificate_expiry
+  external_dependency_status
+
+  @@map("readiness_dimension")
 }
 
 enum SyntheticCheckKind {
@@ -2064,6 +2080,7 @@ model User {
   platform_maintenance_windows_created   PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_creator")
   platform_maintenance_windows_cancelled PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_canceller")
   platform_restore_drills_performed      PlatformRestoreDrill[]            @relation("platform_restore_drill_performer")
+  platform_readiness_weights_updated     PlatformReadinessDimensionWeight[] @relation("platform_readiness_weight_updater")
   tenant_maintenance_windows_created     TenantMaintenanceWindow[]         @relation("tenant_maintenance_window_creator")
   onboarding_steps_completed             TenantOnboardingStep[]            @relation("onboarding_completer")
   platform_ai_conversations              PlatformAiConversation[]          @relation("platform_ai_conversation_creator")
@@ -12770,6 +12787,32 @@ model PlatformEvidencePipelineStatus {
 
   @@index([status], map: "idx_platform_evidence_pipeline_status_status")
   @@map("platform_evidence_pipeline_status")
+}
+
+model PlatformReadinessScoreSnapshot {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  snapshot_at           DateTime            @default(now()) @db.Timestamptz()
+  score                 Decimal             @db.Decimal(5, 2)
+  worst_dimension       ReadinessDimension?
+  worst_dimension_value Decimal?            @db.Decimal(5, 2)
+  breakdown             Json                @db.JsonB
+  reasons               Json                @db.JsonB
+  weights_snapshot      Json                @db.JsonB
+
+  @@index([snapshot_at(sort: Desc)], map: "idx_platform_readiness_snapshots_at")
+  @@map("platform_readiness_score_snapshots")
+}
+
+model PlatformReadinessDimensionWeight {
+  dimension          ReadinessDimension @id
+  weight             Decimal            @db.Decimal(5, 2)
+  enabled            Boolean            @default(true)
+  updated_by_user_id String?            @db.Uuid
+  updated_at         DateTime           @updatedAt @db.Timestamptz()
+
+  updated_by User? @relation("platform_readiness_weight_updater", fields: [updated_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("platform_readiness_dimension_weights")
 }
 
 model PlatformUptimeReconciliation {

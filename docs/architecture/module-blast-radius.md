@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-05-18 (Session 5E backup readiness: PlatformResilience adds internal-token backup capture, API-process backup readiness, read-only offsite replication metadata polling, restore-drill recording, and `/admin/backups`; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Session 5D evidence completeness: PlatformResilience adds scheduled evidence freshness, queue/pubsub heartbeat bridges, uptime reconciliation, evidence dashboard endpoints, and read-only Copilot freshness summary; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Session 5C Sentry intake: PlatformResilience adds signed Sentry webhook intake, issue mirror/audit/summary retention, and read-only correlation against deploy events, correlation events, runbooks, topology, severity policies, tenants, and platform error logs; Layer 4 Sentry action buttons stay operator-clicked in PlatformModule, not webhook/background paths). Previously: 2026-05-17 (Session 5B alert routing: PlatformModule adds deterministic alert routing/escalation services, magic-link acknowledgements, route-health timers, and emergency-contact profile endpoints; PlatformResilience alert emission now hands off to `AlertRoutingService`; no worker dependency and no background AI path added). Previously: 2026-05-17 (Session 4E incident learning: PlatformModule adds platform incident/postmortem services over existing alert pub/sub, PlatformEvidenceService, AiModule, ErrorRedactorService, and 4C recommendation rows; no worker or repo-write dependency added). Previously: 2026-05-17 (Session 4C manual platform AI recommendations: PlatformModule adds a manual-only recommendation controller/service over existing AiModule + PlatformEvidenceService + Copilot cost/citation safety stack; no executor dependency added). Previously: 2026-05-17 (Session 4B read-only platform Copilot: PlatformModule now imports AiModule for platform-scoped Anthropic calls and uses PlatformEvidenceService as the sole evidence source). Previously: 2026-05-16 (Session 2D platform tenant analytics/error diagnostics: PlatformModule now imports owner read-facade modules for cross-domain tenant metrics and reuses PlatformErrorLogModule for redacted diagnostics). Previously: 2026-05-16 (Session 2C platform queue management: QueueAdminModule now owns all-queue BullMQ introspection/control and publishes queue metrics through PlatformRealtimeModule). Previously: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: added owner-confirmed action service, alert silences, alert maintenance windows, and platform BullMQ queue dependencies). Previously: 2026-05-16 (Session 1.5B platform audit/error logging: added `PlatformAuditModule`, `PlatformErrorLogModule`, append-only `platform_audit_logs`, redacted `platform_error_log`, and platform-scoped audit consumers). Previously: 2026-05-16 (Session 1.5A platform users/RBAC: added `PlatformUsersModule`, relational platform role/permission tables, and one-way consumers from AuthModule/PlatformModule/platform admin guards). Previously: 2026-05-16 (Session 1D platform onboarding tracker: added `TenantOnboardingStep`, `PlatformOnboardingModule`, and `PlatformRealtimeModule`; documented the one-way TenantsModule -> PlatformOnboardingModule import used for onboarding seeding/auto-complete hooks without importing full PlatformModule). Previously: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-18 (Session 5F readiness score: PlatformResilience adds deterministic readiness aggregation, live threshold evaluation, daily snapshots, weight governance, `/admin/readiness`, and the dashboard readiness hero; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Session 5E backup readiness: PlatformResilience adds internal-token backup capture, API-process backup readiness, read-only offsite replication metadata polling, restore-drill recording, and `/admin/backups`; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Session 5D evidence completeness: PlatformResilience adds scheduled evidence freshness, queue/pubsub heartbeat bridges, uptime reconciliation, evidence dashboard endpoints, and read-only Copilot freshness summary; all non-AI and not BullMQ-driven). Previously: 2026-05-18 (Session 5C Sentry intake: PlatformResilience adds signed Sentry webhook intake, issue mirror/audit/summary retention, and read-only correlation against deploy events, correlation events, runbooks, topology, severity policies, tenants, and platform error logs; Layer 4 Sentry action buttons stay operator-clicked in PlatformModule, not webhook/background paths). Previously: 2026-05-17 (Session 5B alert routing: PlatformModule adds deterministic alert routing/escalation services, magic-link acknowledgements, route-health timers, and emergency-contact profile endpoints; PlatformResilience alert emission now hands off to `AlertRoutingService`; no worker dependency and no background AI path added). Previously: 2026-05-17 (Session 4E incident learning: PlatformModule adds platform incident/postmortem services over existing alert pub/sub, PlatformEvidenceService, AiModule, ErrorRedactorService, and 4C recommendation rows; no worker or repo-write dependency added). Previously: 2026-05-17 (Session 4C manual platform AI recommendations: PlatformModule adds a manual-only recommendation controller/service over existing AiModule + PlatformEvidenceService + Copilot cost/citation safety stack; no executor dependency added). Previously: 2026-05-17 (Session 4B read-only platform Copilot: PlatformModule now imports AiModule for platform-scoped Anthropic calls and uses PlatformEvidenceService as the sole evidence source). Previously: 2026-05-16 (Session 2D platform tenant analytics/error diagnostics: PlatformModule now imports owner read-facade modules for cross-domain tenant metrics and reuses PlatformErrorLogModule for redacted diagnostics). Previously: 2026-05-16 (Session 2C platform queue management: QueueAdminModule now owns all-queue BullMQ introspection/control and publishes queue metrics through PlatformRealtimeModule). Previously: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: added owner-confirmed action service, alert silences, alert maintenance windows, and platform BullMQ queue dependencies). Previously: 2026-05-16 (Session 1.5B platform audit/error logging: added `PlatformAuditModule`, `PlatformErrorLogModule`, append-only `platform_audit_logs`, redacted `platform_error_log`, and platform-scoped audit consumers). Previously: 2026-05-16 (Session 1.5A platform users/RBAC: added `PlatformUsersModule`, relational platform role/permission tables, and one-way consumers from AuthModule/PlatformModule/platform admin guards). Previously: 2026-05-16 (Session 1D platform onboarding tracker: added `TenantOnboardingStep`, `PlatformOnboardingModule`, and `PlatformRealtimeModule`; documented the one-way TenantsModule -> PlatformOnboardingModule import used for onboarding seeding/auto-complete hooks without importing full PlatformModule). Previously: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -697,10 +697,10 @@ control plane rather than creating a new module.
 
 ### PlatformResilienceModule — resilience monitoring
 
-Layer 5 Sessions 5A, 5C, 5D, and 5E add deterministic synthetic monitoring,
+Layer 5 Sessions 5A, 5C, 5D, 5E, and 5F add deterministic synthetic monitoring,
 signed Sentry intake, evidence-completeness monitoring, and backup/restore
-readiness in a dedicated platform module instead of extending the AI-bearing
-PlatformModule.
+readiness, plus the operator readiness score, in a dedicated platform module
+instead of extending the AI-bearing PlatformModule.
 
 - **Imports**: PlatformAuditModule, PlatformErrorLogModule,
   PlatformRealtimeModule, PlatformUsersModule, PrismaModule, ConfigModule,
@@ -711,6 +711,8 @@ PlatformModule.
   Sentry triage-prompt rendering, evidence pipeline status, uptime
   reconciliation, backup readiness, restore-drill recording, and read-only
   Copilot freshness summary are platform-admin controller surfaces only.
+  Readiness score, score history, dimension weights, and weight updates are
+  platform-admin controller surfaces only.
 
 - **Cross-module writes**:
   - writes platform-scoped synthetic definitions/results, external dependency
@@ -723,7 +725,11 @@ PlatformModule.
   - writes platform backup run rows from internal-token deploy evidence,
     offsite replication metadata rows from read-only object-storage list/head
     calls, and operator-recorded restore-drill rows;
+  - writes platform readiness score snapshots once daily and readiness weight
+    rows on operator changes;
   - writes platform audit entries for create/update/delete/run-now;
+  - writes platform audit entries for readiness weight changes, including
+    before/after values and owner-confirmation metadata when required;
   - emits warning/critical/recovery alerts by creating platform alert history
     rows and publishing the existing `platform:alerts` event;
   - emits critical Sentry webhook config/signature alerts through the same
@@ -732,12 +738,16 @@ PlatformModule.
     transitions/streak crossings through the same alert-routing path;
   - emits backup freshness, replication lag, integrity, and restore-drill
     alerts only on threshold transitions through the same alert-routing path.
+  - emits readiness warning/critical/recovery alerts only on debounced live
+    threshold transitions through the same alert-routing path; daily snapshots
+    do not fire score threshold alerts.
 
 - **Worker coupling**: adds the dedicated `synthetic-canary` queue and sentinel
   short-circuit guards to the notifications, behaviour, finance, payroll, and
   pastoral queue dispatchers. The sentinel tenant id is never a real tenant id
-  and is accepted only for the canary job name. Session 5D adds no worker job;
-  its freshness timer and heartbeat bridges run in the API process.
+  and is accepted only for the canary job name. Sessions 5D, 5E, and 5F add no
+  worker jobs; their freshness, backup-readiness, and readiness-score timers run
+  in the API process.
 
 - **What breaks if dependencies change**:
   - platform RBAC permission-name changes can hide or block the new admin pages;
@@ -750,12 +760,15 @@ PlatformModule.
     `bullmq.snapshots` heartbeat from refreshing;
   - Redis key naming changes can make the `bullmq.snapshots` and
     `redis.pubsub`, and `backup.readiness.computed` evidence pipelines appear
-    stale/silent;
+    stale/silent, and can break readiness live debounce state;
   - error redaction changes affect result snippets, failure detail, Sentry
     affected URLs, tags, stack summaries, and breadcrumb summaries;
   - Layer 4A deploy/correlation/runbook/topology/severity table shape changes
     can break Sentry correlation and evidence freshness query handlers, but the
     webhook still persists a redacted mirror and audit row;
+  - readiness dimension enum or weight defaults changes affect migration seeds,
+    shared API contracts, score computation, alert reasons, and dashboard
+    rendering together;
   - UptimeRobot response shape or API-key provisioning changes only affect
     reconciliation rows; the service degrades cleanly when the key is absent;
   - S3-compatible object metadata or backup naming changes can make offsite

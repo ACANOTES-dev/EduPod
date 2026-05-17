@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { BackupReadinessService } from './backup-readiness.service';
+import { ReadinessScoreService } from './readiness-score.service';
 
 type QueryParams = Record<string, unknown>;
 
@@ -16,6 +17,7 @@ export class EvidenceQueryHandlersService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly backups: BackupReadinessService,
+    private readonly readiness: ReadinessScoreService,
   ) {}
 
   async lastSeenFor(kind: EvidencePipelineQueryKind, params: QueryParams): Promise<Date | null> {
@@ -49,7 +51,7 @@ export class EvidenceQueryHandlersService {
       case 'max_computed_at_backup_readiness':
         return this.backups.latestReadinessComputedAt();
       case 'max_snapshot_at_readiness_score':
-        return null;
+        return this.readiness.latestSnapshotAt();
     }
   }
 

@@ -346,6 +346,12 @@ function PlatformSidebarNav({
           permission: 'platform.alerts.view',
         },
         {
+          icon: Gauge,
+          label: 'Readiness',
+          href: `/${locale}/admin/readiness`,
+          permission: 'platform.readiness.view',
+        },
+        {
           icon: Bell,
           label: 'Alerts & Rules',
           href: `/${locale}/admin/alerts`,
