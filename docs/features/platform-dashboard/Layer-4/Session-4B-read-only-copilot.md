@@ -395,21 +395,45 @@ The suite is evaluated against the current Anthropic model. New patterns get add
 
 ## Acceptance
 
-- [ ] `/admin/copilot` page live; auth-gated by `platform.ai.read`.
+- [x] `/admin/copilot` page live; auth-gated by `platform.ai.read`.
 - [ ] Operator can start a conversation, send a question, see a streamed AI response with inline citations.
-- [ ] Contextual Explain buttons exist on alert, error, queue, tenant, deploy, and health views and invoke the Copilot only when clicked.
-- [ ] Citations are clickable and navigate to the underlying dashboard view (health snapshot, alert, error, audit entry, deploy, runbook).
-- [ ] System prompt is in place; evidence is wrapped in `<evidence>` blocks with explicit data-not-instructions framing.
-- [ ] Prompt-injection adversarial suite passes with zero failures.
-- [ ] Post-processor strips uncited claims; `stripped_claims_count` recorded per message.
-- [ ] Per-conversation cost cap enforced ($0.50 default).
-- [ ] Per-day platform-wide cost cap enforced ($50/day default).
-- [ ] No background job, cron, or event subscriber calls Anthropic in Session 4B.
-- [ ] Conversation history is per-operator; only `platform_owner` can view another operator's conversations (audit-logged on view).
-- [ ] All conversations + messages persisted; queryable via the API and visible in the UI.
-- [ ] No write powers wired in — verified by inspecting the controller's injected services list.
-- [ ] `docs/architecture/danger-zones.md` gains DZ-AI-1 (prompt injection — evidence is data, never instructions) and DZ-AI-2 (citation enforcement — no answer without source).
-- [ ] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
+  - 2026-05-17 closeout: conversation creation and message persistence are live, but production generation returns `COPILOT_AI_UNAVAILABLE` because no platform Anthropic key is configured for the API process. The implemented response path is request/response, not SSE/WebSocket streaming.
+- [x] Contextual Explain buttons exist on alert, error, queue, tenant, deploy, and health views and invoke the Copilot only when clicked.
+- [x] Citations are clickable and navigate to the underlying dashboard view (health snapshot, alert, error, audit entry, deploy, runbook).
+- [x] System prompt is in place; evidence is wrapped in `<evidence>` blocks with explicit data-not-instructions framing.
+- [x] Prompt-injection adversarial suite passes with zero failures.
+- [x] Post-processor strips uncited claims; `stripped_claims_count` recorded per message.
+- [x] Per-conversation cost cap enforced ($0.50 default).
+- [x] Per-day platform-wide cost cap enforced ($50/day default).
+- [x] No background job, cron, or event subscriber calls Anthropic in Session 4B.
+- [x] Conversation history is per-operator; only `platform_owner` can view another operator's conversations (audit-logged on view).
+- [x] All conversations + messages persisted; queryable via the API and visible in the UI.
+- [x] No write powers wired in — verified by inspecting the controller's injected services list.
+- [x] `docs/architecture/danger-zones.md` gains DZ-AI-1 (prompt injection — evidence is data, never instructions) and DZ-AI-2 (citation enforcement — no answer without source).
+- [x] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `4ae17315 feat(platform): add read-only incident copilot`
+- CI / deploy: GitHub Actions run `25982218973` passed on 2026-05-17; deploy completed for `4ae1731542dfaf60c3f1033ddfc17e2f0031e753`.
+- Local verification before deploy:
+  - Prisma client generation and schema validation passed.
+  - Targeted Copilot, evidence, prompt builder, injection scanner, response post-processor, and cost guard tests passed.
+  - Shared/API/web type-checks passed.
+  - Shared/web/API lint passed (`NODE_OPTIONS=--max-old-space-size=12288` for API lint).
+  - API and web builds passed.
+  - Full `pnpm test` passed after updating the API surface snapshot.
+  - RLS audit, raw SQL governance, and i18n checks passed.
+- Production smoke on `https://dua.edupod.app`:
+  - `/en/admin/copilot` loads inside the platform admin shell and is visible in the permission-aware navigation.
+  - `GET /api/v1/admin/copilot/conversations`, `POST /api/v1/admin/copilot/conversations`, and `GET /api/v1/admin/copilot/conversations/:id` returned successfully with platform-admin credentials.
+  - `POST /api/v1/admin/copilot/conversations/:id/messages` persisted the operator message and returned guarded `503 COPILOT_AI_UNAVAILABLE`; this confirms the no-unconfigured-spend guard is active but blocks live AI-answer verification until production AI config is added.
+  - Contextual Explain links verified in production for health, deploys, queue detail, tenant detail, and expanded error diagnostics rows. Alert history currently has no fired rows in production, so the alert row-level Explain button could not be clicked live; the implemented path is covered by local code/test inspection.
+  - Regression smoke passed for dashboard, alerts, queues, error log, audit log, deploys, runbooks, topology, severity policies, tenant detail/modules, sessions/cache, maintenance, platform users, Cmd+K search, and support toolkit access.
+  - Prompt-injection defense, citation stripping/refusal, and cost guardrails are covered by targeted automated tests. Full live citation verification is pending production AI configuration.
+- Closeout status: deployed and stable, but Session 4B should not be marked fully accepted until production AI generation is configured and the streamed-response acceptance item is either implemented or explicitly waived.
 
 ---
 
