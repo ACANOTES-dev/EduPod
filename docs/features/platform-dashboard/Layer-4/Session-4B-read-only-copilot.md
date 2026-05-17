@@ -396,8 +396,8 @@ The suite is evaluated against the current Anthropic model. New patterns get add
 ## Acceptance
 
 - [x] `/admin/copilot` page live; auth-gated by `platform.ai.read`.
-- [ ] Operator can start a conversation, send a question, see a streamed AI response with inline citations.
-  - 2026-05-17 closeout: conversation creation and message persistence are live, but production generation returns `COPILOT_AI_UNAVAILABLE` because no platform Anthropic key is configured for the API process. The implemented response path is request/response, not SSE/WebSocket streaming.
+- [x] Operator can start a conversation, send a question, see an AI response with inline citations.
+  - 2026-05-17 update: production Anthropic configuration is present, the deployed request/response path returned a cited answer, and Ram explicitly waived streaming for Session 4B.
 - [x] Contextual Explain buttons exist on alert, error, queue, tenant, deploy, and health views and invoke the Copilot only when clicked.
 - [x] Citations are clickable and navigate to the underlying dashboard view (health snapshot, alert, error, audit entry, deploy, runbook).
 - [x] System prompt is in place; evidence is wrapped in `<evidence>` blocks with explicit data-not-instructions framing.
@@ -429,11 +429,15 @@ The suite is evaluated against the current Anthropic model. New patterns get add
 - Production smoke on `https://dua.edupod.app`:
   - `/en/admin/copilot` loads inside the platform admin shell and is visible in the permission-aware navigation.
   - `GET /api/v1/admin/copilot/conversations`, `POST /api/v1/admin/copilot/conversations`, and `GET /api/v1/admin/copilot/conversations/:id` returned successfully with platform-admin credentials.
-  - `POST /api/v1/admin/copilot/conversations/:id/messages` persisted the operator message and returned guarded `503 COPILOT_AI_UNAVAILABLE`; this confirms the no-unconfigured-spend guard is active but blocks live AI-answer verification until production AI config is added.
+  - Initial closeout before production AI configuration: `POST /api/v1/admin/copilot/conversations/:id/messages` persisted the operator message and returned guarded `503 COPILOT_AI_UNAVAILABLE`; this confirmed the no-unconfigured-spend guard was active.
   - Contextual Explain links verified in production for health, deploys, queue detail, tenant detail, and expanded error diagnostics rows. Alert history currently has no fired rows in production, so the alert row-level Explain button could not be clicked live; the implemented path is covered by local code/test inspection.
   - Regression smoke passed for dashboard, alerts, queues, error log, audit log, deploys, runbooks, topology, severity policies, tenant detail/modules, sessions/cache, maintenance, platform users, Cmd+K search, and support toolkit access.
-  - Prompt-injection defense, citation stripping/refusal, and cost guardrails are covered by targeted automated tests. Full live citation verification is pending production AI configuration.
-- Closeout status: deployed and stable, but Session 4B should not be marked fully accepted until production AI generation is configured and the streamed-response acceptance item is either implemented or explicitly waived.
+  - Prompt-injection defense, citation stripping/refusal, and cost guardrails are covered by targeted automated tests.
+- Follow-up fix: `776f8724 fix(platform): use valid copilot model id`
+  - CI / deploy: GitHub Actions run `25983273130` passed on 2026-05-17; deploy completed for `776f872419f46d041086fad3c421654fae9768a8`.
+  - Local verification: targeted Copilot prompt-builder and Anthropic client tests passed; API type-check passed; API lint passed with `NODE_OPTIONS=--max-old-space-size=12288`; API build passed.
+  - Production smoke: live Copilot conversation creation returned `201`; sending a health diagnostic returned `201` with a cited answer, 2 citations, and 29 evidence items.
+- Closeout status: Session 4B is fully accepted. Production AI generation is configured, request/response Copilot answers are live with citations, and streaming is explicitly waived for this session.
 
 ---
 
