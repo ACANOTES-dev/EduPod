@@ -439,7 +439,7 @@ capture_deploy_event() {
   commit_message="$(git log -1 --pretty=%s "$sha" 2>/dev/null || true)"
   commit_author="$(git log -1 --pretty=%ae "$sha" 2>/dev/null || true)"
   migration_version="$(psql "$DATABASE_MIGRATE_URL" -Atc "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1" 2>/dev/null || true)"
-  api_url="${API_URL:-http://127.0.0.1:${API_PORT:-3001}}"
+  api_url="http://127.0.0.1:${API_PORT:-3001}"
   token="${DEPLOY_EVENT_INTERNAL_TOKEN:-${JWT_SECRET:-}}"
 
   if [[ -z "$token" ]]; then
@@ -463,12 +463,15 @@ capture_deploy_event() {
     console.log(JSON.stringify(payload));
   ' "$sha" "$short_sha" "$run_url" "$run_id" "$status" "$duration_seconds" "$migration_version" "$commit_message" "$commit_author" "$detail")"
 
-  curl -fsS -X POST \
+  if curl -fsS -X POST \
     -H 'Content-Type: application/json' \
     -H "X-Internal-Token: ${token}" \
     --data "$payload" \
-    "${api_url%/}/api/v1/admin/_internal/deploy-events" > /dev/null || \
+    "${api_url%/}/api/v1/admin/_internal/deploy-events" > /dev/null; then
+    log "Deploy event captured (${status} ${short_sha})"
+  else
     log 'Deploy event capture failed (non-blocking)'
+  fi
 }
 
 rollback_release() {
