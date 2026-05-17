@@ -56,7 +56,7 @@ export default function PlatformSentryPage() {
         actions={
           <div className="flex gap-2">
             <Button asChild size="sm" variant="outline">
-              <Link href={`/${locale}/admin/sentry/_audit`}>Webhook Audit</Link>
+              <Link href={`/${locale}/admin/sentry/audit`}>Webhook Audit</Link>
             </Button>
             <Button size="sm" variant="outline" onClick={() => void loadIssues()}>
               <RefreshCw className="me-1.5 h-3.5 w-3.5" />
