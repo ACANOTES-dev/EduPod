@@ -50,6 +50,10 @@ const envSchema = z
     // Optional -- Platform
     PLATFORM_DOMAIN: z.string().default('edupod.app'),
     PLATFORM_ALERT_EMAIL_TENANT_ID: z.string().uuid().optional(),
+    PLATFORM_AI_MODEL: z.string().optional(),
+    PLATFORM_AI_PROVIDER: z.enum(['anthropic', 'openai']).optional(),
+    PLATFORM_ANTHROPIC_API_KEY: z.string().optional(),
+    OPENAI_API_KEY: z.string().optional(),
     DEPLOY_EVENT_INTERNAL_TOKEN: z.string().min(32).optional(),
     TWILIO_ACCOUNT_SID: z.string().optional(),
     TWILIO_AUTH_TOKEN: z.string().optional(),

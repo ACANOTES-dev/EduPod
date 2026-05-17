@@ -1,15 +1,18 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { PlatformAiConversation, PlatformAiMessage } from '@prisma/client';
 
 import type { EvidenceBundle } from './platform-evidence.service';
 import { COPILOT_SYSTEM_PROMPT } from './prompts/copilot-system-prompt';
 
-const COPILOT_MODEL = 'claude-sonnet-4-6-20250514';
+const DEFAULT_COPILOT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 1200;
 
 @Injectable()
 export class CopilotPromptBuilderService {
+  constructor(private readonly configService: ConfigService) {}
+
   build(input: {
     conversation: PlatformAiConversation;
     evidence: EvidenceBundle;
@@ -25,7 +28,7 @@ export class CopilotPromptBuilderService {
       }));
 
     return {
-      model: COPILOT_MODEL,
+      model: this.configService.get<string>('PLATFORM_AI_MODEL') ?? DEFAULT_COPILOT_MODEL,
       max_tokens: MAX_TOKENS,
       temperature: 0.1,
       system: [
