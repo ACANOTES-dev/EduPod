@@ -383,17 +383,17 @@ POST   /v1/admin/_internal/deploy-events  -> internal-token-gated; CI posts depl
 
 ## Acceptance
 
-- [ ] `CorrelationIdMiddleware` registered globally; correlation ids appear on every log line, every job, every WebSocket event.
-- [ ] `platform_correlation_events` table receives writes from API, worker, error capture, audit capture.
-- [ ] CI pipeline POSTs deploy events; `platform_deploy_events` populated for every deploy that runs after this session ships.
-- [ ] At least 5 existing runbooks gain front-matter; runbook index cron runs and populates `platform_runbook_index`.
-- [ ] `platform_service_topology` and `platform_severity_policies` tables exist and are seeded with an initial EduPod map/policy set.
-- [ ] `PlatformEvidenceService` exists with topology and severity evidence methods; unit tests pass for each.
-- [ ] Frontend pages: `/admin/correlation/[id]`, `/admin/deploys`, `/admin/runbooks`, `/admin/service-topology`, `/admin/severity-policies` all render.
-- [ ] `DeployBadge` appears on error log entries when the error correlates with a deploy in the last 30 minutes.
-- [ ] `docs/runbooks/runbook-front-matter.md` (new) documents the front-matter schema for future runbook authors.
-- [ ] `docs/architecture/event-job-catalog.md` gains the daily runbook-index cron + the deploy-event-capture endpoint.
-- [ ] All new code passes `turbo lint` and `turbo type-check`; all new tests pass; no existing tests regress.
+- [x] `CorrelationIdMiddleware` registered globally; correlation ids appear on every log line, every job, every WebSocket event.
+- [x] `platform_correlation_events` table receives writes from API, worker, error capture, audit capture.
+- [x] CI pipeline POSTs deploy events; `platform_deploy_events` populated for every deploy that runs after this session ships.
+- [x] At least 5 existing runbooks gain front-matter; runbook index cron runs and populates `platform_runbook_index`.
+- [x] `platform_service_topology` and `platform_severity_policies` tables exist and are seeded with an initial EduPod map/policy set.
+- [x] `PlatformEvidenceService` exists with topology and severity evidence methods; unit tests pass for each.
+- [x] Frontend pages: `/admin/correlation/[id]`, `/admin/deploys`, `/admin/runbooks`, `/admin/service-topology`, `/admin/severity-policies` all render.
+- [x] `DeployBadge` appears on error log entries when the error correlates with a deploy in the last 30 minutes.
+- [x] `docs/runbooks/runbook-front-matter.md` (new) documents the front-matter schema for future runbook authors.
+- [x] `docs/architecture/event-job-catalog.md` gains the daily runbook-index cron + the deploy-event-capture endpoint.
+- [x] All new code passes `turbo lint` and `turbo type-check`; all new tests pass; no existing tests regress.
 
 ---
 
@@ -407,3 +407,24 @@ POST   /v1/admin/_internal/deploy-events  -> internal-token-gated; CI posts depl
 - The severity policy matrix should start small and practical. It can be improved after real incidents; the goal is to give the AI a clear operator-owned impact model, not a perfect SRE taxonomy on day one.
 - The `_internal/deploy-events` endpoint is the only platform-side endpoint that bypasses JWT auth. It uses a static token from env. Add to `docs/architecture/danger-zones.md` as DZ-AI-Internal: "Internal deploy endpoint — token rotation must accompany any CI workflow change to prevent stale-token deploys silently failing."
 - Future enhancement (out of scope): a `platform_signal_summary` materialized view that pre-aggregates evidence for the last hour, refreshed every 60 seconds — used by Layer 4B to answer "what's broken right now?" with sub-second latency. Defer until Layer 4 is in production and we have real query patterns to optimise.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `23ebba09 feat(platform): add observability context foundation`
+- Fix-forward commit: `010f2b0b fix(platform): capture deploy events locally`
+- CI/deploy:
+  - `23ebba09` GitHub Actions run `25980946776` passed and deployed.
+  - `010f2b0b` GitHub Actions run `25981244469` passed and deployed.
+- Production smoke, 2026-05-17 04:34 UTC, passed on `https://dua.edupod.app`:
+  - API login token flow passed without printing secrets.
+  - Deploy event capture verified for `010f2b0` with `status=succeeded`, run `25981244469`, and migration `20260517120000_add_platform_observability_context`.
+  - Runbook index endpoint returned 6 rows.
+  - Service topology endpoint returned 8 rows.
+  - Severity policies endpoint returned 5 rows.
+  - Correlation event capture produced a smoke correlation row and `/en/admin/correlation/:id` rendered.
+  - New pages rendered: deploy log, runbooks, service topology, severity policies, correlation timeline.
+  - Regression smoke passed: dashboard, health, alerts, queues, redacted error log, error diagnostics, audit log, platform audit ledger, sessions/cache/maintenance, platform users, tenant detail/support toolkit, tenant module toggles, and Cmd+K global search.
+- Local verification before deploy included Prisma validate/generate, targeted API tests, API type-check/lint, web type-check/lint, DI compile, RLS audit, raw SQL governance, `validate:fast`, and full `pnpm turbo run test --concurrency=1`.
+- Note: the first Session 4A deploy completed successfully but did not create a deploy event because the deploy script used the public `API_URL`. The fix-forward commit now posts deploy events to the local API port from the production host and verified the next CI deployment created the expected row.
