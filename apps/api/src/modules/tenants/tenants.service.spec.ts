@@ -102,6 +102,9 @@ const mockPrisma = {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
+  auditLog: {
+    create: jest.fn(),
+  },
   tenantNotificationSetting: {
     create: jest.fn(),
   },
@@ -1437,12 +1440,22 @@ describe('TenantsService', () => {
         where: { id: 'mod-1' },
         data: { is_enabled: true },
       });
-      expect(mockSecurityAuditService.logModuleToggle).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        'sen',
-        true,
-      );
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: TENANT_ID,
+          actor_user_id: USER_ID,
+          entity_type: 'tenant_config',
+          entity_id: TENANT_ID,
+          action: 'module_toggle',
+          metadata_json: {
+            category: 'security_event',
+            sensitivity: 'elevated',
+            module_key: 'sen',
+            is_enabled: true,
+          },
+          ip_address: null,
+        },
+      });
       expect(mockTenantModuleService.invalidateCache).toHaveBeenCalledWith(TENANT_ID);
       expect(mockTenantModuleCacheBusService.publishInvalidation).toHaveBeenCalledWith(
         TENANT_ID,
@@ -1450,7 +1463,7 @@ describe('TenantsService', () => {
         true,
       );
       const updateOrder = firstInvocationOrder(mockPrisma.tenantModule.update);
-      const auditOrder = firstInvocationOrder(mockSecurityAuditService.logModuleToggle);
+      const auditOrder = firstInvocationOrder(mockPrisma.auditLog.create);
       const invalidateOrder = firstInvocationOrder(mockTenantModuleService.invalidateCache);
       const publishOrder = firstInvocationOrder(
         mockTenantModuleCacheBusService.publishInvalidation,
@@ -1530,7 +1543,7 @@ describe('TenantsService', () => {
       await service.toggleModule(TENANT_ID, 'finance', false);
 
       expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      expect(mockSecurityAuditService.logModuleToggle).not.toHaveBeenCalled();
+      expect(mockPrisma.auditLog.create).not.toHaveBeenCalled();
       expect(mockTenantModuleService.invalidateCache).toHaveBeenCalledWith(TENANT_ID);
       expect(mockTenantModuleCacheBusService.publishInvalidation).toHaveBeenCalledWith(
         TENANT_ID,

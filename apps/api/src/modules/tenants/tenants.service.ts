@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import {
   seedInboxDefaultsForTenant,
@@ -1002,12 +1003,28 @@ export class TenantsService {
         data: { is_enabled: isEnabled },
       });
 
+      if (actorUserId) {
+        await db.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            actor_user_id: actorUserId,
+            entity_type: 'tenant_config',
+            entity_id: tenantId,
+            action: 'module_toggle',
+            metadata_json: {
+              category: 'security_event',
+              sensitivity: 'elevated',
+              module_key: moduleKey,
+              is_enabled: isEnabled,
+            } as Prisma.InputJsonValue,
+            ip_address: null,
+          },
+        });
+      }
+
       return { existing: existingModule, result: updatedModule };
     });
 
-    if (actorUserId) {
-      await this.securityAuditService.logModuleToggle(tenantId, actorUserId, moduleKey, isEnabled);
-    }
     await this.tenantModuleService.invalidateCache(tenantId);
     await this.tenantModuleCacheBusService.publishInvalidation(tenantId, moduleKey, isEnabled);
     if (audit) {
