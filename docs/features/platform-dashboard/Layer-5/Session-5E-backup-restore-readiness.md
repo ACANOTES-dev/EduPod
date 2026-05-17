@@ -159,7 +159,7 @@ The handler:
 3. **UPSERT** by `backup_key`: if the row exists, update mutable fields (status, finished*at, integrity_check*\*, failure_reason); if not, insert. Returns `{ id, created: bool }`.
 4. Writes a `platform_audit_logs` entry (action: `backup.captured` | `backup.updated`).
 
-The `scripts/deploy-production.sh` backup step (existing) is extended (separate patch outside this session, but called out as a prerequisite gap) to POST after a successful pg_dump. The script can include `backup_key` explicitly OR let the API compute it; the script also retries safely (idempotent endpoint):
+The `scripts/deploy-production.sh` backup step (existing) is extended in this session to POST after a successful pg_dump. The script can include `backup_key` explicitly OR let the API compute it; the script also retries safely (idempotent endpoint):
 
 ```bash
 curl -fsS -X POST "$INTERNAL_API/v1/admin/_internal/backup-events" \
@@ -348,25 +348,106 @@ All alerts respect Layer 1.5C maintenance windows for `warning` severity; `criti
 
 ## Acceptance
 
-- [ ] All three new tables exist; migration applies cleanly.
-- [ ] `platform_backup_runs.backup_key` is `UNIQUE NOT NULL`; UPSERT semantics verified.
-- [ ] `BackupCaptureController` accepts internal-token POSTs; idempotent on `backup_key`; deploy script extended (separate patch) to call it with `--retry 3`.
-- [ ] `OffsiteReplicationPollerService` runs every 15 min; populates `platform_offsite_replications`.
-- [ ] `BackupReadinessService` computes summary and emits alerts on threshold breach.
-- [ ] `/admin/backups` page renders summary + three tabs with real data.
-- [ ] `<RecordRestoreDrillDialog>` works end-to-end; drill recorded; audit-log entry written.
-- [ ] DELETE on drill record requires Layer 1.5C owner confirmation.
-- [ ] No restore-execution endpoint exists in this layer (verified by route inventory test).
-- [ ] No-AI guard test passes.
-- [ ] Cross-links to `docs/runbooks/recovery-drills.md` rendered in all relevant places.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] All three new tables exist; migration applies cleanly.
+- [x] `platform_backup_runs.backup_key` is `UNIQUE NOT NULL`; UPSERT semantics verified.
+- [x] `BackupCaptureController` accepts internal-token POSTs; idempotent on `backup_key`; deploy script extended to call it with `--retry 3`.
+- [x] `OffsiteReplicationPollerService` runs every 15 min; populates `platform_offsite_replications`.
+- [x] `BackupReadinessService` computes summary and emits alerts on threshold breach.
+- [x] `/admin/backups` page renders summary + three tabs with real data.
+- [x] `<RecordRestoreDrillDialog>` works end-to-end; drill recorded; audit-log entry written.
+- [x] DELETE on drill record requires Layer 1.5C owner confirmation.
+- [x] No restore-execution endpoint exists in this layer (verified by route inventory test).
+- [x] No-AI guard test passes.
+- [x] Cross-links to `docs/runbooks/recovery-drills.md` rendered in all relevant places.
+- [x] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `4e9a6f79 feat(platform): add backup readiness monitoring`.
+- CI/deploy: GitHub Actions run `26005024313` completed green and deployed through the production workflow.
+- Local verification included Prisma validation, focused backend/frontend type-checks and lint, API DI compilation, targeted backup/readiness/evidence tests, no-AI static guard, deploy-script syntax check, full `pnpm test`, and full `pnpm validate:ci`.
+- Production smoke on `https://dua.edupod.app` verified platform-admin login, `/en/admin/backups`, the 5E readiness/runs/replications/drills API calls, and existing `/en/admin/health` plus `/en/admin/alerts` regressions.
+- Production currently has no captured 5E backup, replication, or restore-drill rows, so backup readiness correctly starts red with empty-evidence reasons. The first post-5E non-doc deployment can now capture backup evidence because the internal endpoint and deploy-script POST are live; offsite replication still depends on storage metadata configuration, and restore-drill readiness depends on a human-recorded drill.
+- The 5D evidence pipelines now include `backup.capture` and `backup.readiness.computed` timestamp sources.
+- Generated next-session prompt is below.
+
+```text
+Implement Session 5F of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5F-readiness-score-ops-confidence.md
+
+Context:
+- Sessions 0 through 5E are complete, deployed, smoke-tested, and accepted for code delivery.
+- Session 5A shipped synthetic journey monitoring, external dependency/certificate surfaces, synthetic result history, alert emission, and no-AI guarantees.
+- Session 5B shipped deterministic alert routing and escalation models, route health checks, acknowledgement flows, emergency contact profile UI, quiet-hours evaluation, dead-man sink separation, surviving-route dispatch, rate-limited synthetic test alerts, and no-AI guarantees.
+- Session 5C shipped signed Sentry webhook intake, redacted Sentry issue mirrors, hourly event summaries, webhook audit receipts, replay protection, error-log cross-links, Layer 4 operator-clicked Sentry actions, static triage prompt preparation, and no-AI webhook/background guarantees.
+- Session 5D shipped evidence completeness monitoring, 14 canonical evidence pipelines, seeded-pipeline deletion protection, pinned query kinds, NestJS scheduled freshness checks, BullMQ and Redis pub/sub heartbeat bridges, UptimeRobot reconciliation, shell silent-pipeline banner, Copilot freshness indicator, and no-AI freshness/background guarantees.
+- Session 5E shipped backup/restore readiness models, internal-token backup evidence capture, deploy-script best-effort backup POST, deterministic backup idempotency, read-only offsite replication metadata polling, manual restore-drill API/UI, owner-confirmed destructive drill changes, scheduled backup readiness computation/alert transitions, 5D backup evidence timestamps, `/admin/backups`, and no-AI backup/background guarantees.
+- Production currently has zero alert channels/routes/escalation policies configured; do not assume real urgent routes exist until operator/sink destinations are provisioned.
+- Production currently has no mirrored Sentry issues or webhook receipts; treat Sentry freshness as unknown or empty until Sentry webhook delivery is provisioned.
+- Production currently has one real silent evidence signal, error.log.writes, because platform_error_log is quiet beyond its 12-hour threshold; do not treat that as a 5D deployment failure.
+- Production backup readiness currently starts red/empty until at least one post-5E non-doc deploy captures backup evidence, offsite metadata is configured, and a restore drill is recorded; do not treat that initial empty state as a 5E deployment failure.
+- Layer 5 monitoring/background/readiness work must not call AI.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, 4B, 4C, 4D, 4E, 5A, 5B, 5C, 5D, and 5E closeout notes.
+6. Read Session 5F / Readiness Score / Ops Confidence end-to-end.
+7. Inspect existing 5A-5E services, alert routing hooks, maintenance-window suppression, evidence freshness seeded pipelines, backup readiness summary, deploy event freshness, alert history/unresolved critical incident surfaces, Platform Admin shell/dashboard conventions, owner-confirmation primitive, audit ledger, and score/trend UI patterns before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rules as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 5F.
+- Readiness score, snapshot, live evaluation, background, and dashboard code must be non-AI.
+- Add the 5F readiness score models/enums/API contracts and default dimension weights.
+- Implement deterministic ReadinessScoreService aggregation over explicitly enumerated dimensions only; missing dimension data must score as 0, not be skipped.
+- Implement live evaluation on a NestJS scheduled task every 5 minutes; compute in memory, debounce threshold crossings across two consecutive evaluations, and do not write snapshot rows from the live path.
+- Implement daily snapshot on a NestJS scheduled task at 00:05 UTC; persist one score snapshot with breakdown, reasons, and weights snapshot; daily snapshots must not fire alerts.
+- Emit warning/critical/recovery alerts through existing routing hooks on debounced live threshold transitions only, respecting maintenance-window rules from the spec.
+- Add dimension weight read/update APIs, audit logging, and owner-confirmation gating for large weight changes.
+- Add `/admin/readiness` and the dashboard-home readiness hero card; include breakdown, 90-day trend, weight editor for platform owners, and clear disabled/missing data states.
+- Seed `platform.readiness.view` and `platform.readiness.manage` permissions with the role grants specified by the session.
+- Preserve Platform Admin behavior through 5E.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no 5F scheduled/background/score/snapshot/dashboard code imports or calls AI services.
+- Verify deterministic score computation, dimension mapping, weight normalization, missing-data penalty, live-vs-snapshot separation, debounce behavior, alert transitions, audit logging, owner-confirmed large weight changes, and dashboard rendering.
+- Verify `/admin/readiness` and the dashboard hero in production.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 5F acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5F is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
 ## Notes / Risks
 
-- **Backup script extension is a prerequisite gap.** This session ships the receiving endpoint, the polling service, and the UI — but the existing `scripts/deploy-production.sh` must be patched separately (one-line `curl` after pg_dump) to actually populate `platform_backup_runs`. Document in the session prompt; coordinate with deploy-pipeline owner. If the patch is delayed, the table stays empty and the readiness summary correctly shows red — surfacing the gap rather than hiding it.
-- **The polling-only fallback.** If the deploy script never POSTs, there's a fallback: a cron (every 6 hours) scans the backup directory + S3 listing, derives `backup_key` from each artefact's metadata using the same formula the deploy script uses, and **upserts** retroactive rows via the same internal endpoint. Because both paths use the same `backup_key` derivation, deploy POST + fallback scan never produce duplicates. The fallback runs every 6 hours, not every minute, to avoid thrash; document the latency expectation in `docs/runbooks/recovery-drills.md`.
+- **Backup script extension shipped.** This session includes the receiving endpoint, the polling service, the UI, and the `scripts/deploy-production.sh` best-effort POST after pg_dump. The deployment that introduced the endpoint could not capture its own pre-deploy backup because the API route was not live yet; subsequent non-doc deployments can populate `platform_backup_runs`.
+- **Replication polling is metadata-only.** The poller lists and heads configured object-storage targets, then upserts `platform_offsite_replications`. It does not write, delete, move, or restore backup artefacts.
 - **RPO / RTO observed values are operator-entered.** This session does not measure them; it just records what the operator observed during the drill. A future session could automate measurement using a dedicated drill environment.
 - **The "amber 25h backup" default is ONE hour past the 24h cadence.** Operators don't get paged for a 5-minute backup delay. Tune lower if backups become more frequent than daily.
 - **Restore drills must be recorded by a human.** No automated drill execution. The reason: a real restore drill includes operator judgement (e.g., "I noticed the post-restore RLS policies were missing on three tables and had to manually run `post_migrate.sql` — added to follow-ups"). Software cannot capture that.
