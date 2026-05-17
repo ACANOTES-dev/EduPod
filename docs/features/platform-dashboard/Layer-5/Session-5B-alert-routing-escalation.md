@@ -324,21 +324,98 @@ Self-service form for the signed-in operator. Fields: email (required), SMS phon
 
 ## Acceptance
 
-- [ ] All five new tables exist; the three existing-table modifications applied; migration runs cleanly.
-- [ ] `platform_alert_routes` has `operator_destination` AND `health_check_destination` columns; DB CHECK constraint prevents identical values.
-- [ ] `AlertRoutingService` replaces 2B's dispatch path; existing 2B alerts continue to fire correctly.
-- [ ] At least one urgent path (SMS / WhatsApp / Telegram / push) configured in production alongside email.
-- [ ] Each enabled route in production has a distinct `health_check_destination` sink — verified by smoke check on first deploy.
-- [ ] At least one escalation policy seeded covering `critical` severity with email → SMS → WhatsApp ordering.
-- [ ] "Test alert" button per route works (uses `operator_destination`); "Test all routes" works and is rate-limited to 5/day.
-- [ ] Quiet hours suppress non-critical alerts in `Europe/Dublin` time (DST flips covered by tests); critical-override bypass works.
-- [ ] Dead-man cron runs every minute per route, sending ONLY to `health_check_destination`; failures emit critical alerts via surviving routes' `operator_destination`.
-- [ ] Magic-link acks work end-to-end; tokens are single-use and TTL-bounded.
-- [ ] Dashboard ack button works; both ack paths record `acknowledged_via_route_id`.
-- [ ] Operator emergency contact profile editable at `/admin/profile/emergency-contact`; updates audit-log.
-- [ ] Layer 1.5C maintenance windows suppress normal alerts but DO NOT suppress route-health or dead-man alerts.
-- [ ] No-AI guard test passes; no Layer 4 service imported under the alert-routing module.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] All five new tables exist; the three existing-table modifications applied; migration runs cleanly.
+- [x] `platform_alert_routes` has `operator_destination` AND `health_check_destination` columns; DB CHECK constraint prevents identical values.
+- [x] `AlertRoutingService` replaces 2B's dispatch path; existing 2B alerts continue to fire correctly.
+- [ ] At least one urgent path (SMS / WhatsApp / Telegram / push) configured in production alongside email. Production currently has zero alert channels/routes; real operator and sink destinations are required before this operational criterion can be accepted.
+- [ ] Each enabled route in production has a distinct `health_check_destination` sink — verified by smoke check on first deploy. Production currently has zero enabled routes; the API smoke verified endpoint availability and destination separation logic is covered locally.
+- [ ] At least one escalation policy seeded covering `critical` severity with email → SMS → WhatsApp ordering. Production currently has zero escalation policies; this must be configured once real routes exist.
+- [x] "Test alert" button per route works (uses `operator_destination`); "Test all routes" works and is rate-limited to 5/day. Covered by controller/service tests; production test sends were not run because no production routes exist yet.
+- [x] Quiet hours suppress non-critical alerts in `Europe/Dublin` time (DST flips covered by tests); critical-override bypass works.
+- [x] Dead-man cron runs every minute per route, sending ONLY to `health_check_destination`; failures emit critical alerts via surviving routes' `operator_destination`.
+- [x] Magic-link acks work end-to-end; tokens are single-use and TTL-bounded.
+- [x] Dashboard ack button works; both ack paths record `acknowledged_via_route_id`.
+- [x] Operator emergency contact profile editable at `/admin/profile/emergency-contact`; updates audit-log.
+- [x] Layer 1.5C maintenance windows suppress normal alerts but DO NOT suppress route-health or dead-man alerts.
+- [x] No-AI guard test passes; no Layer 4 service imported under the alert-routing module.
+- [x] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+
+## Commits / CI / Notes
+
+- Implementation: `c9895410 feat(platform): add alert routing escalation`.
+- CI / deploy: [25998772382](https://github.com/ACANOTES-dev/EduPod/actions/runs/25998772382) passed and deployed to production.
+- Local verification covered Prisma validation/generation, schema/API snapshots, API type-check and lint, web type-check and lint, API build, web build, AppModule DI compile, focused alert-routing/escalation/ack/dead-man/quiet-hours/rate-limit tests, the full API platform test slice, full API coverage, and no-AI static scanning for Layer 5 proactive/background code.
+- The first local integration pre-push run hit an existing parallel-collider flake in `staff-profiles.e2e-spec.ts` / `approval-workflows.e2e-spec.ts`; both passed when rerun directly, and the full pre-push validation passed on retry before push.
+- Production smoke on `https://dua.edupod.app` confirmed platform-admin login and render health for `/en/admin/alerts/routes`, `/en/admin/alerts/escalation`, `/en/admin/alerts/route-health`, and `/en/admin/profile/emergency-contact`.
+- Production API smoke confirmed the 5B route, escalation, and route-health endpoints respond successfully. Production currently has zero alert channels, zero alert routes, and zero escalation policies, so the operational acceptance items that require real operator/sink destinations remain open pending production configuration.
+- GitHub Actions emitted a Node 20 deprecation annotation for `actions/cache@v4` / `actions/download-artifact@v4`; this is workflow maintenance, not a 5B blocker.
+
+## Next Session Prompt
+
+```text
+Implement Session 5C of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5C-sentry-intake-agent-handoff.md
+
+Context:
+- Sessions 0 through 5B are complete, deployed, smoke-tested, and accepted for code delivery.
+- Session 5B shipped deterministic alert routing and escalation models, route health checks, acknowledgement flows, emergency contact profile UI, quiet-hours evaluation, dead-man sink separation, surviving-route dispatch, rate-limited synthetic test alerts, and no-AI guarantees.
+- Production currently has zero alert channels/routes/escalation policies configured; do not assume real urgent routes exist until operator/sink destinations are provisioned.
+- Layer 5 webhook/background work must not call AI. Do not import or call Anthropic, OpenAI, PlatformAiCopilotService, recommendation generation, action proposal generation, or any AI generation service from Sentry webhook intake, ingestion, correlation, audit, freshness, schedules, processors, or alerting paths.
+- Streaming remains waived; do not add streaming unless Session 5C specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, Session 4B, Session 4C, Session 4D, Session 4E, Session 5A, and Session 5B closeout notes.
+6. Read Session 5C / Sentry Intake + Agent Handoff Packets end-to-end.
+7. Inspect existing Sentry setup, platform_error_log, deploy events, correlation events, runbook index, service topology, severity policy, redaction pipeline, platform audit, alert emission, 5B alert routing hooks, Layer 4B Copilot entry points, Layer 4D handoff generator, platform dashboard shell conventions, and docs/runbooks/agent-sentry-triage.md before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 5C.
+- Sentry webhook intake, ingestion, correlation, audit, retention, and alerting code must be non-AI. Operator-clicked buttons may call existing Layer 4 endpoints exactly as specified; no background or webhook path may invoke a model or generate recommendations.
+- Add the Sentry issue mirror, hourly event summary, webhook audit models, and platform_error_log cross-link exactly within 5C scope.
+- Implement `POST /v1/admin/_internal/sentry-webhook` as a public but signature-validated endpoint using `SENTRY_WEBHOOK_SECRET`; fail closed when missing or invalid, audit every receipt, and emit critical alerts for signature/config failures.
+- Never store raw Sentry payloads. Persist only redacted summaries, redacted tags, payload SHA256, and normalized issue fields.
+- Add replay protection for duplicate payload SHA256 values within the configured window.
+- Process `issue_alert`, `issue_resolved`, `event_alert`, and `metric_alert` payloads.
+- Correlate issues with deploy events, correlation ids, runbooks, service topology, and severity policies without inventing tenant ids.
+- Add operator-only Sentry list/detail pages, webhook audit table, correlations panel, event histogram, linked error logs, and the three action buttons.
+- `Explain with Copilot` and `Generate repo-agent handoff` must be operator-clicked, permission-gated, hidden when Layer 4 is unavailable, and must not send a model message automatically.
+- `Prepare Sentry triage prompt` must always be available, load from a static deployed template, reference docs/runbooks/agent-sentry-triage.md as authoritative, include the prompt-template anchor alignment test, and never execute the runbook.
+- Preserve all existing Platform Admin behavior through 5B.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no 5C webhook/background code imports or calls AI services.
+- Verify signed webhook accept/reject, missing-secret fail-closed behavior, audit writes, replay protection, all supported payload kinds, redaction, correlation, error-log cross-links, critical alert emission, and retention cleanup.
+- Verify Sentry list/detail/audit pages render with token-driven styling.
+- Verify operator buttons render and behave as specified, including no automatic model invocation.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 5C acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5C is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
