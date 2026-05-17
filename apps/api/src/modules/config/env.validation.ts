@@ -29,6 +29,7 @@ const envSchema = z
 
     // Optional -- Sentry
     SENTRY_DSN_BACKEND: z.string().optional(),
+    SENTRY_WEBHOOK_SECRET: z.string().optional(),
     PGBOUNCER_ADMIN_URL: z.string().url().optional(),
     WORKER_HEALTH_URL: z.string().url().optional(),
 

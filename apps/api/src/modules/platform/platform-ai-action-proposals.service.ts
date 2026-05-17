@@ -919,7 +919,7 @@ function hasCitedEvidence(
   return citations.some((id) => ids.has(id));
 }
 
-function suspectedRepoAreasFromEvidence(evidence: EvidenceItem[]): string[] {
+export function suspectedRepoAreasFromEvidence(evidence: EvidenceItem[]): string[] {
   const areas = new Set<string>();
   for (const item of evidence) {
     if (!isRecord(item.raw)) continue;
@@ -934,7 +934,7 @@ function suspectedRepoAreasFromEvidence(evidence: EvidenceItem[]): string[] {
   return [...areas].sort();
 }
 
-function buildHandoffPrompt(input: {
+export function buildHandoffPrompt(input: {
   evidence: EvidenceItem[];
   hypothesis: string;
   suspectedRepoAreas: string[];
@@ -997,14 +997,14 @@ ${repoAreas}
 `;
 }
 
-function redactSecrets(value: string): string {
+export function redactSecrets(value: string): string {
   return value
     .replace(/(sk-[A-Za-z0-9_-]{20,})/g, '[REDACTED_SECRET]')
     .replace(/(password|secret|token|api[_-]?key)=([^\s]+)/gi, '$1=[REDACTED_SECRET]')
     .replace(/Bearer\s+[A-Za-z0-9._-]{20,}/g, 'Bearer [REDACTED_SECRET]');
 }
 
-function assertNoSecrets(value: string): void {
+export function assertNoSecrets(value: string): void {
   const patterns = [
     /sk-[A-Za-z0-9_-]{20,}/,
     /(password|secret|token|api[_-]?key)=([^\s]+)/i,

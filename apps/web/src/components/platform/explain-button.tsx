@@ -16,6 +16,7 @@ interface ExplainButtonProps {
     | 'health'
     | 'incident'
     | 'queue'
+    | 'sentry_issue'
     | 'tenant';
   label?: string;
   locale: string;
@@ -73,5 +74,5 @@ export function RecommendFixButton({
 }
 
 function defaultQuestion(contextKind: ExplainButtonProps['contextKind']): string {
-  return `Explain this ${contextKind} using only cited platform evidence.`;
+  return `Explain this ${contextKind.replace('_', ' ')} using only cited platform evidence.`;
 }

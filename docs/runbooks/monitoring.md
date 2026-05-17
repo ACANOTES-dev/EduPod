@@ -173,3 +173,33 @@ Operational rules:
   no alert for applicable checks.
 - A single failure emits a warning; configured consecutive failures emit a
   critical alert; the first pass after a failure emits a recovery alert.
+
+## 8. Sentry Intake
+
+Layer 5 Session 5C mirrors signed Sentry issue webhooks into the platform
+dashboard so operators can triage without context-switching to Sentry first.
+
+First stops:
+
+- `/en/admin/sentry` for the issue list, filters, state, release, and tenant
+  context.
+- `/en/admin/sentry/_audit` for the last webhook receipts, signature status,
+  replay detection, and processing errors.
+- Sentry issue detail pages for deploy, correlation-id, runbook, topology,
+  severity-policy, histogram, and linked `platform_error_log` evidence.
+
+Operational rules:
+
+- Missing or invalid `SENTRY_WEBHOOK_SECRET` is a monitoring configuration
+  fault. The webhook must fail closed and audit every rejected receipt.
+- Raw Sentry payloads are never stored. Use the redacted summaries, tags,
+  `payload_sha256`, and linked error-log rows for forensics.
+- Production may legitimately have zero alert routes or escalation policies
+  configured. In that state, critical Sentry intake alerts are recorded in the
+  platform alert history but may not wake an operator until destinations are
+  provisioned.
+- The three Sentry issue actions are operator-clicked only: Explain opens a
+  preloaded Copilot conversation without sending a model message, Generate
+  handoff creates a prompt for review, and Prepare triage prompt renders the
+  static wrapper for [agent-sentry-triage.md](./agent-sentry-triage.md). The
+  dashboard never executes the runbook.

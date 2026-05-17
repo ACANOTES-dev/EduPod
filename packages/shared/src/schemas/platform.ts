@@ -133,6 +133,8 @@ export const platformAuditActionSchema = z.enum([
   'synthetic_check_updated',
   'synthetic_check_deleted',
   'synthetic_check_run_now',
+  'sentry_triage_prompt_prepared',
+  'sentry_agent_handoff_generated',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -318,6 +320,7 @@ export const platformCopilotEvidenceContextKindSchema = z.enum([
   'health',
   'incident',
   'queue',
+  'sentry_issue',
   'tenant',
 ]);
 
@@ -508,6 +511,32 @@ export const createPlatformAgentHandoffSchema = z.object({
 });
 
 export type CreatePlatformAgentHandoffDto = z.infer<typeof createPlatformAgentHandoffSchema>;
+
+// ─── Platform Sentry Intake ─────────────────────────────────────────────────
+
+export const sentryIssueStateSchema = z.enum(['unresolved', 'resolved', 'ignored', 'archived']);
+
+export type SentryIssueStateDto = z.infer<typeof sentryIssueStateSchema>;
+
+export const sentryIssueListQuerySchema = z.object({
+  environment: z.string().trim().min(1).max(40).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  q: z.string().trim().min(1).max(200).optional(),
+  release: z.string().trim().min(1).max(120).optional(),
+  state: sentryIssueStateSchema.optional(),
+  tenant_id: z.string().uuid().optional(),
+});
+
+export type SentryIssueListQuery = z.infer<typeof sentryIssueListQuerySchema>;
+
+export const sentryWebhookAuditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  signature_valid: z.coerce.boolean().optional(),
+});
+
+export type SentryWebhookAuditQuery = z.infer<typeof sentryWebhookAuditQuerySchema>;
 
 // ─── Platform Incidents + Postmortems ───────────────────────────────────────
 

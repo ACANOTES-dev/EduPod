@@ -256,6 +256,58 @@ export class PlatformEvidenceService {
     };
   }
 
+  async forSentryIssue(issueId: string): Promise<EvidenceBundle> {
+    const issue = await this.prisma.platformSentryIssue.findUnique({
+      where: { id: issueId },
+      include: {
+        correlated_deploy: true,
+        error_logs: { orderBy: { last_seen_at: 'desc' }, take: 20 },
+        events_summary: { orderBy: { hour_bucket: 'desc' }, take: 24 },
+      },
+    });
+    if (!issue) return { items: [] };
+    return {
+      items: [
+        {
+          kind: 'sentry_issue',
+          id: issue.id,
+          link: `/admin/sentry/${issue.id}`,
+          occurred_at: issue.last_seen_at.toISOString(),
+          snippet: `${issue.level ?? 'unknown'} Sentry issue: ${issue.title}`,
+          raw: issue,
+        },
+        ...(issue.correlated_deploy
+          ? [
+              {
+                kind: 'deploy_event',
+                id: issue.correlated_deploy.id,
+                link: `/admin/deploys?deploy=${encodeURIComponent(issue.correlated_deploy.id)}`,
+                occurred_at: issue.correlated_deploy.deployed_at.toISOString(),
+                snippet: `${issue.correlated_deploy.status} deploy ${issue.correlated_deploy.short_sha}`,
+                raw: issue.correlated_deploy,
+              },
+            ]
+          : []),
+        ...issue.error_logs.map((error) => ({
+          kind: 'error_fingerprint',
+          id: error.id,
+          link: `/admin/errors?fingerprint=${encodeURIComponent(error.fingerprint)}`,
+          occurred_at: error.last_seen_at.toISOString(),
+          snippet: error.message_redacted.slice(0, 160),
+          raw: error,
+        })),
+        ...issue.events_summary.map((summary) => ({
+          kind: 'sentry_hourly_summary',
+          id: summary.id,
+          link: `/admin/sentry/${issue.id}`,
+          occurred_at: summary.hour_bucket.toISOString(),
+          snippet: `${summary.event_count.toString()} mirrored Sentry events`,
+          raw: summary,
+        })),
+      ],
+    };
+  }
+
   async forTenant(tenantId: string, opts?: { since?: Date }): Promise<EvidenceBundle> {
     const since = opts?.since ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [metrics, errors, audit] = await Promise.all([
@@ -342,6 +394,9 @@ export class PlatformEvidenceService {
       if (item.kind === 'health_snapshot') components.add('api');
       if (item.kind === 'incident' || item.kind === 'incident_timeline') components.add('api');
       if (item.kind === 'queue_state' || item.kind === 'queue_job') components.add('bullmq');
+      if (item.kind === 'sentry_issue' || item.kind === 'sentry_hourly_summary') {
+        components.add('api');
+      }
     }
     return this.prisma.platformServiceTopology.findMany({
       where: components.size ? { related_components: { hasSome: [...components] } } : {},

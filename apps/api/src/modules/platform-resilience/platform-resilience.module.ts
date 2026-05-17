@@ -5,7 +5,17 @@ import { PlatformModule } from '../platform/platform.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { PlatformErrorLogModule } from '../platform-error-log/platform-error-log.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
+import { SentryAlertEmitterService } from './sentry/sentry-alert-emitter.service';
+import { SentryCorrelationService } from './sentry/sentry-correlation.service';
+import { SentryIngestionService } from './sentry/sentry-ingestion.service';
+import { SentryIssuesController } from './sentry/sentry-issues.controller';
+import { SentryIssuesService } from './sentry/sentry-issues.service';
+import { SentryPayloadNormalizerService } from './sentry/sentry-payload-normalizer.service';
+import { SentryRetentionService } from './sentry/sentry-retention.service';
+import { SentrySignatureService } from './sentry/sentry-signature.service';
+import { SentryWebhookController } from './sentry/sentry-webhook.controller';
 import { SyntheticAlertEmitterService } from './synthetic-alert-emitter.service';
 import { SyntheticCheckHandlersService } from './synthetic-check-handlers.service';
 import { SyntheticCheckRunnerService } from './synthetic-check-runner.service';
@@ -21,9 +31,17 @@ import { SyntheticCredentialResolverService } from './synthetic-credential-resol
     PlatformModule,
     PlatformRealtimeModule,
     PlatformUsersModule,
+    TenantsModule,
   ],
-  controllers: [SyntheticChecksController],
+  controllers: [SentryIssuesController, SentryWebhookController, SyntheticChecksController],
   providers: [
+    SentryAlertEmitterService,
+    SentryCorrelationService,
+    SentryIngestionService,
+    SentryIssuesService,
+    SentryPayloadNormalizerService,
+    SentryRetentionService,
+    SentrySignatureService,
     SyntheticAlertEmitterService,
     SyntheticCheckHandlersService,
     SyntheticCheckRunnerService,

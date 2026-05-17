@@ -17,6 +17,7 @@ type ContextKind =
   | 'health'
   | 'incident'
   | 'queue'
+  | 'sentry_issue'
   | 'tenant';
 
 interface EvidenceItem {
@@ -70,13 +71,14 @@ export default function PlatformCopilotPage() {
 
   const queryContext = React.useMemo(() => parseContext(searchParams), [searchParams]);
   const queryQuestion = searchParams?.get('question') ?? '';
+  const queryConversationId = searchParams?.get('conversation_id') ?? '';
 
   const loadConversations = React.useCallback(async () => {
     try {
       setLoading(true);
       const rows = await apiClient<CopilotConversation[]>('/api/v1/admin/copilot/conversations');
       setConversations(rows);
-      if (!queryContext && rows.length > 0) {
+      if (!queryContext && !queryConversationId && rows.length > 0) {
         setActiveConversation((current) => current ?? rows[0] ?? null);
       }
     } catch (err: unknown) {
@@ -85,7 +87,7 @@ export default function PlatformCopilotPage() {
     } finally {
       setLoading(false);
     }
-  }, [queryContext]);
+  }, [queryContext, queryConversationId]);
 
   React.useEffect(() => {
     void loadConversations();
@@ -97,6 +99,12 @@ export default function PlatformCopilotPage() {
     void startConversation(queryContext, queryQuestion || defaultQuestion(queryContext.kind));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once for the query-triggered Explain action.
   }, []);
+
+  React.useEffect(() => {
+    if (!queryConversationId) return;
+    void loadConversation(queryConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load only when explicitly linked.
+  }, [queryConversationId]);
 
   async function startConversation(context?: CopilotContext, firstQuestion?: string) {
     try {
@@ -431,6 +439,7 @@ function isContextKind(value: string): value is ContextKind {
     'health',
     'incident',
     'queue',
+    'sentry_issue',
     'tenant',
   ].includes(value);
 }

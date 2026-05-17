@@ -390,6 +390,8 @@ export class PlatformAiRecommendationService {
         return this.evidence.forIncident(context.id);
       case 'queue':
         return this.evidence.forQueue(context.id);
+      case 'sentry_issue':
+        return this.evidence.forSentryIssue(context.id);
       case 'tenant':
         return this.evidence.forTenant(context.id);
     }

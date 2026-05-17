@@ -35,6 +35,8 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
     'Platform-admin analytics snapshots; tenant_id is a correlation FK, not an RLS boundary.',
   platform_correlation_events:
     'Platform-admin observability timeline; tenant_id is correlation metadata, not an RLS boundary.',
+  platform_sentry_issues:
+    'Platform-admin Sentry issue mirror; tenant_id is correlation metadata, not an RLS boundary.',
   tenant_onboarding_steps:
     'Platform-admin onboarding tracker; tenant_id is a data-integrity FK, not an RLS boundary.',
   tenant_maintenance_windows:

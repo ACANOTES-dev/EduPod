@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-05-17 (Session 5B alert routing: PlatformModule adds deterministic alert routing/escalation services, magic-link acknowledgements, route-health timers, and emergency-contact profile endpoints; PlatformResilience alert emission now hands off to `AlertRoutingService`; no worker dependency and no background AI path added). Previously: 2026-05-17 (Session 4E incident learning: PlatformModule adds platform incident/postmortem services over existing alert pub/sub, PlatformEvidenceService, AiModule, ErrorRedactorService, and 4C recommendation rows; no worker or repo-write dependency added). Previously: 2026-05-17 (Session 4C manual platform AI recommendations: PlatformModule adds a manual-only recommendation controller/service over existing AiModule + PlatformEvidenceService + Copilot cost/citation safety stack; no executor dependency added). Previously: 2026-05-17 (Session 4B read-only platform Copilot: PlatformModule now imports AiModule for platform-scoped Anthropic calls and uses PlatformEvidenceService as the sole evidence source). Previously: 2026-05-16 (Session 2D platform tenant analytics/error diagnostics: PlatformModule now imports owner read-facade modules for cross-domain tenant metrics and reuses PlatformErrorLogModule for redacted diagnostics). Previously: 2026-05-16 (Session 2C platform queue management: QueueAdminModule now owns all-queue BullMQ introspection/control and publishes queue metrics through PlatformRealtimeModule). Previously: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: added owner-confirmed action service, alert silences, alert maintenance windows, and platform BullMQ queue dependencies). Previously: 2026-05-16 (Session 1.5B platform audit/error logging: added `PlatformAuditModule`, `PlatformErrorLogModule`, append-only `platform_audit_logs`, redacted `platform_error_log`, and platform-scoped audit consumers). Previously: 2026-05-16 (Session 1.5A platform users/RBAC: added `PlatformUsersModule`, relational platform role/permission tables, and one-way consumers from AuthModule/PlatformModule/platform admin guards). Previously: 2026-05-16 (Session 1D platform onboarding tracker: added `TenantOnboardingStep`, `PlatformOnboardingModule`, and `PlatformRealtimeModule`; documented the one-way TenantsModule -> PlatformOnboardingModule import used for onboarding seeding/auto-complete hooks without importing full PlatformModule). Previously: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-18 (Session 5C Sentry intake: PlatformResilience adds signed Sentry webhook intake, issue mirror/audit/summary retention, and read-only correlation against deploy events, correlation events, runbooks, topology, severity policies, tenants, and platform error logs; Layer 4 Sentry action buttons stay operator-clicked in PlatformModule, not webhook/background paths). Previously: 2026-05-17 (Session 5B alert routing: PlatformModule adds deterministic alert routing/escalation services, magic-link acknowledgements, route-health timers, and emergency-contact profile endpoints; PlatformResilience alert emission now hands off to `AlertRoutingService`; no worker dependency and no background AI path added). Previously: 2026-05-17 (Session 4E incident learning: PlatformModule adds platform incident/postmortem services over existing alert pub/sub, PlatformEvidenceService, AiModule, ErrorRedactorService, and 4C recommendation rows; no worker or repo-write dependency added). Previously: 2026-05-17 (Session 4C manual platform AI recommendations: PlatformModule adds a manual-only recommendation controller/service over existing AiModule + PlatformEvidenceService + Copilot cost/citation safety stack; no executor dependency added). Previously: 2026-05-17 (Session 4B read-only platform Copilot: PlatformModule now imports AiModule for platform-scoped Anthropic calls and uses PlatformEvidenceService as the sole evidence source). Previously: 2026-05-16 (Session 2D platform tenant analytics/error diagnostics: PlatformModule now imports owner read-facade modules for cross-domain tenant metrics and reuses PlatformErrorLogModule for redacted diagnostics). Previously: 2026-05-16 (Session 2C platform queue management: QueueAdminModule now owns all-queue BullMQ introspection/control and publishes queue metrics through PlatformRealtimeModule). Previously: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: added owner-confirmed action service, alert silences, alert maintenance windows, and platform BullMQ queue dependencies). Previously: 2026-05-16 (Session 1.5B platform audit/error logging: added `PlatformAuditModule`, `PlatformErrorLogModule`, append-only `platform_audit_logs`, redacted `platform_error_log`, and platform-scoped audit consumers). Previously: 2026-05-16 (Session 1.5A platform users/RBAC: added `PlatformUsersModule`, relational platform role/permission tables, and one-way consumers from AuthModule/PlatformModule/platform admin guards). Previously: 2026-05-16 (Session 1D platform onboarding tracker: added `TenantOnboardingStep`, `PlatformOnboardingModule`, and `PlatformRealtimeModule`; documented the one-way TenantsModule -> PlatformOnboardingModule import used for onboarding seeding/auto-complete hooks without importing full PlatformModule). Previously: 2026-05-13 (full Nest import-graph audit; CommunicationsModule consumer list corrected — most "post Impl 12 follow-up" claims never landed; added previously undocumented modules: ai, auth, config, events, pastoral-checkins, pastoral-dsar, people-dashboard, public-households, queue-admin, s3, schedules, tenants, trips; SchedulingModule import list and several other edges brought in line with code); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -695,23 +695,31 @@ control plane rather than creating a new module.
   route, worker processor, cron, queue payload, Module Gating registry, deploy
   config, or repository-code executor is introduced by this session.
 
-### PlatformResilienceModule — synthetic journey monitoring
+### PlatformResilienceModule — resilience monitoring
 
-Layer 5 Session 5A adds deterministic synthetic monitoring in a dedicated
-platform module instead of extending the AI-bearing PlatformModule.
+Layer 5 Sessions 5A and 5C add deterministic synthetic monitoring and signed
+Sentry intake in a dedicated platform module instead of extending the AI-bearing
+PlatformModule.
 
 - **Imports**: PlatformAuditModule, PlatformErrorLogModule,
-  PlatformRealtimeModule, PlatformUsersModule, PrismaModule, ConfigModule.
+  PlatformRealtimeModule, PlatformUsersModule, PrismaModule, ConfigModule,
+  TenantsModule.
 
 - **Exports**: none. Synthetic check CRUD, run-now execution, dependency status,
-  and certificate inventory are platform-admin controller surfaces only.
+  certificate inventory, Sentry issue list/detail, Sentry webhook audit, and
+  Sentry triage-prompt rendering are platform-admin controller surfaces only.
 
 - **Cross-module writes**:
   - writes platform-scoped synthetic definitions/results, external dependency
     status, and certificate rows;
+  - writes platform-scoped Sentry issue mirrors, hourly event summaries,
+    webhook audit rows, and nullable `platform_error_log.sentry_issue_id`
+    cross-links;
   - writes platform audit entries for create/update/delete/run-now;
   - emits warning/critical/recovery alerts by creating platform alert history
-    rows and publishing the existing `platform:alerts` event.
+    rows and publishing the existing `platform:alerts` event;
+  - emits critical Sentry webhook config/signature alerts through the same
+    alert-routing path, with no assumption that production urgent routes exist.
 
 - **Worker coupling**: adds the dedicated `synthetic-canary` queue and sentinel
   short-circuit guards to the notifications, behaviour, finance, payroll, and
@@ -721,11 +729,16 @@ platform module instead of extending the AI-bearing PlatformModule.
 - **What breaks if dependencies change**:
   - platform RBAC permission-name changes can hide or block the new admin pages;
   - alert history shape or `platform:alerts` payload changes can break synthetic
-    alert emission and incident attachment;
+    alert emission, Sentry critical alert emission, and incident attachment;
   - BullMQ repeatable job APIs or queue names changing can stop scheduled check
     registration;
-  - error redaction changes affect result snippets and failure detail.
+  - error redaction changes affect result snippets, failure detail, Sentry
+    affected URLs, tags, stack summaries, and breadcrumb summaries;
+  - Layer 4A deploy/correlation/runbook/topology/severity table shape changes
+    can break Sentry correlation, but the webhook still persists a redacted
+    mirror and audit row.
 
 - **Blast radius**: MEDIUM for platform operations visibility and worker
   liveness checks. No tenant-scoped table, tenant RLS policy, autonomous AI
-  path, repo executor, or production-server mutation is introduced.
+  path, repo executor, Sentry write-back, or production-server mutation is
+  introduced.

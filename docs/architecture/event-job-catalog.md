@@ -851,3 +851,57 @@ Layer 4 model-backed service.
 ### Non-events
 
 No alert escalation, acknowledgement, route-health timer, route test, or dead-man path imports or calls Anthropic, OpenAI, `AiModule`, `PlatformAiCopilotService`, recommendation generation, action proposal generation, or repo-agent handoff generation.
+
+## Platform Sentry Intake (Layer 5 Session 5C)
+
+### Signed Sentry webhook intake
+
+- **Owner**: API process (`SentryWebhookController`,
+  `SentryIngestionService`)
+- **Route**: `POST /v1/admin/_internal/sentry-webhook`
+- **Auth**: no JWT; fail-closed HMAC verification with
+  `SENTRY_WEBHOOK_SECRET` and `Sentry-Hook-Signature`
+- **Source**: Sentry `issue_alert`, `issue_resolved`, `event_alert`, and
+  `metric_alert` webhook payloads
+- **Destination**: `platform_sentry_webhook_audit`,
+  `platform_sentry_issues`, `platform_sentry_events_summary`, and nullable
+  `platform_error_log.sentry_issue_id`
+- **Side effects**: stores only redacted normalized fields plus
+  `payload_sha256`; rejects missing/invalid signatures with `401`; treats
+  duplicate payload hashes inside the replay window as idempotent; correlates
+  mirrored issues with deploy events, correlation events, runbooks, topology,
+  and severity policies; emits critical platform alerts for webhook
+  configuration/signature failures and critical unresolved issues.
+
+### Sentry retention timer
+
+- **Owner**: API process (`SentryRetentionService`)
+- **Schedule**: daily after startup/timer gate
+- **Source**: `platform_sentry_webhook_audit` and
+  `platform_sentry_events_summary`
+- **Destination**: same tables
+- **Side effects**: deletes webhook audit rows older than 90 days and hourly
+  summary rows older than 180 days. The issue mirror remains for operator
+  history until a future explicit archival policy is introduced.
+
+### Operator-clicked Sentry handoff actions
+
+- **Owner**: API process (`PlatformSentryActionsController` in
+  `PlatformModule`)
+- **Trigger**: explicit operator clicks only
+- **Source**: persisted `platform_sentry_issues` detail plus Layer 4 evidence
+  bundles
+- **Destination**: Layer 4 Copilot conversation shell or
+  `platform_agent_handoff_prompts`
+- **Side effects**: Explain creates a preloaded Copilot conversation without
+  sending a model message; Generate handoff writes a repo-agent prompt for the
+  operator to open; Prepare triage prompt renders a static deployed template
+  referencing `docs/runbooks/agent-sentry-triage.md` and never executes it.
+
+### Non-events
+
+No Sentry webhook handler, ingestion service, correlation service, audit writer,
+retention timer, or alert-emission path imports or calls Anthropic, OpenAI,
+`AiModule`, `PlatformAiCopilotService`, recommendation generation, action
+proposal generation, repo-agent handoff generation, Sentry write-back, shell,
+git, or repository-file mutation.

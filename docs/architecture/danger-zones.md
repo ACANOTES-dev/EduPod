@@ -1829,6 +1829,41 @@ no-AI boundary is enforced by a static Jest guard.
 `quiet-hours-evaluator.spec.ts`, platform alert evaluation specs, and synthetic
 no-AI specs cover the deterministic boundary.
 
+## DZ-RES-6: Sentry Intake Must Fail Closed And Stay Data-Only
+
+**Risk**: Sentry webhook payloads can contain user input, stack traces, URLs,
+breadcrumbs, and prompt-injection text. Accepting unsigned payloads, storing raw
+payloads, guessing tenant identity, or triggering Copilot/repo-agent work from
+the webhook would turn observability intake into a privacy, security, or
+autonomous-action incident.
+**Location**: `apps/api/src/modules/platform-resilience/sentry/**`,
+`apps/api/src/modules/platform/platform-sentry-actions.controller.ts`,
+`docs/runbooks/agent-sentry-triage.md`
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5C, 2026-05-18)
+
+**Rule**: `POST /v1/admin/_internal/sentry-webhook` must reject requests when
+`SENTRY_WEBHOOK_SECRET` is missing or when `Sentry-Hook-Signature` fails HMAC
+verification. It must persist only normalized/redacted fields, tags,
+summaries, and `payload_sha256`; it must never store raw payload JSON. Tenant
+ids come only from a real `tags.tenant_id` match. Webhook/background paths must
+not call AI, run `docs/runbooks/agent-sentry-triage.md`, write back to Sentry,
+run shell/git, or create repo-agent handoffs.
+
+**Mitigation**: `SentrySignatureService` verifies signatures and
+`SentryWebhookController` audit-logs missing/invalid signatures before returning
+`401`. `SentryPayloadNormalizerService` is the only payload-shape adapter; it
+redacts affected URLs, tags, stack summaries, and breadcrumb summaries before
+`SentryIngestionService` writes the mirror. Replay protection uses recent
+`payload_sha256` audit rows. Layer 4 buttons live in `PlatformModule` and are
+operator-clicked only.
+
+**Regression coverage**: `sentry-webhook.controller.spec.ts`,
+`sentry-signature.service.spec.ts`, `sentry-payload-normalizer.service.spec.ts`,
+`sentry-triage-template.spec.ts`, `synthetic-no-ai-import.spec.ts`, and
+`alert-routing-no-ai-import.spec.ts` cover signature failure, missing secret,
+replay handling, redaction, static prompt alignment, and the non-AI import
+boundary.
+
 ---
 
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)

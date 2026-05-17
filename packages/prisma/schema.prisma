@@ -162,6 +162,8 @@ enum PlatformAuditAction {
   synthetic_check_updated
   synthetic_check_deleted
   synthetic_check_run_now
+  sentry_triage_prompt_prepared
+  sentry_agent_handoff_generated
 
   @@map("platform_audit_action")
 }
@@ -7695,6 +7697,15 @@ enum AlertEscalationState {
   @@map("alert_escalation_state")
 }
 
+enum SentryIssueState {
+  unresolved
+  resolved
+  ignored
+  archived
+
+  @@map("sentry_issue_state")
+}
+
 enum PlatformAlertChannelType {
   email
   telegram
@@ -12645,7 +12656,10 @@ model PlatformErrorLog {
   user_id_redacted   String?  @db.Uuid
   correlation_id     String?  @db.VarChar(64)
   sentry_event_id    String?  @db.VarChar(64)
+  sentry_issue_id    String?  @db.Uuid
   created_at         DateTime @default(now()) @db.Timestamptz()
+
+  sentry_issue PlatformSentryIssue? @relation(fields: [sentry_issue_id], references: [id], onDelete: SetNull)
 
   @@index([fingerprint, last_seen_at(sort: Desc)], map: "idx_platform_error_fingerprint_seen")
   @@index([occurred_at(sort: Desc)], map: "idx_platform_error_occurred")
@@ -12653,6 +12667,7 @@ model PlatformErrorLog {
   @@index([tenant_id_redacted, last_seen_at(sort: Desc)], map: "idx_platform_error_tenant_seen")
   @@index([endpoint, last_seen_at(sort: Desc)], map: "idx_platform_error_endpoint_seen")
   @@index([http_status, last_seen_at(sort: Desc)], map: "idx_platform_error_status_seen")
+  @@index([sentry_issue_id, last_seen_at(sort: Desc)], map: "idx_platform_error_sentry_issue_seen")
   @@map("platform_error_log")
 }
 
@@ -12721,11 +12736,94 @@ model PlatformDeployEvent {
 
   rollback_of PlatformDeployEvent?  @relation("DeployRollbackOf", fields: [rollback_of_id], references: [id], onDelete: SetNull)
   rollbacks   PlatformDeployEvent[] @relation("DeployRollbackOf")
+  sentry_issues PlatformSentryIssue[]
 
   @@index([deployed_at(sort: Desc)], map: "idx_platform_deploy_events_deployed")
   @@index([sha], map: "idx_platform_deploy_events_sha")
   @@index([status], map: "idx_platform_deploy_events_status")
   @@map("platform_deploy_events")
+}
+
+model PlatformSentryIssue {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sentry_issue_id       String            @unique @db.VarChar(80)
+  sentry_organization   String            @db.VarChar(80)
+  sentry_project        String            @db.VarChar(80)
+  permalink             String            @db.VarChar(500)
+  title                 String            @db.VarChar(500)
+  culprit               String?           @db.Text
+  fingerprint           String[]          @default([])
+  release               String?           @db.VarChar(120)
+  environment           String?           @db.VarChar(40)
+  level                 String?           @db.VarChar(20)
+  state                 SentryIssueState  @default(unresolved)
+  affected_url          String?           @db.Text
+  tenant_id             String?           @db.Uuid
+  first_seen_at         DateTime          @db.Timestamptz()
+  last_seen_at          DateTime          @db.Timestamptz()
+  total_event_count     BigInt            @default(0)
+  affected_user_count   BigInt            @default(0)
+  stack_summary         String?           @db.Text
+  breadcrumb_summary    Json?             @db.JsonB
+  tags                  Json              @db.JsonB
+  correlated_deploy_id  String?           @db.Uuid
+  correlation_ids       String[]          @default([])
+  related_runbook_keys  String[]          @default([])
+  related_topology_keys String[]          @default([])
+  severity_policy_match String?           @db.VarChar(120)
+  last_webhook_at       DateTime          @default(now()) @db.Timestamptz()
+  created_at            DateTime          @default(now()) @db.Timestamptz()
+  updated_at            DateTime          @updatedAt @db.Timestamptz()
+
+  correlated_deploy PlatformDeployEvent?           @relation(fields: [correlated_deploy_id], references: [id], onDelete: SetNull)
+  error_logs        PlatformErrorLog[]
+  events_summary    PlatformSentryEventsSummary[]
+
+  @@index([state, last_seen_at(sort: Desc)], map: "idx_platform_sentry_issues_state_seen")
+  @@index([environment, state], map: "idx_platform_sentry_issues_environment_state")
+  @@index([release], map: "idx_platform_sentry_issues_release")
+  @@index([tenant_id], map: "idx_platform_sentry_issues_tenant")
+  @@index([correlated_deploy_id], map: "idx_platform_sentry_issues_deploy")
+  @@index([fingerprint], type: Gin, map: "idx_platform_sentry_issues_fingerprint")
+  @@map("platform_sentry_issues")
+}
+
+model PlatformSentryEventsSummary {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sentry_issue_id     String   @db.Uuid
+  hour_bucket         DateTime @db.Timestamptz()
+  event_count         BigInt   @default(0)
+  affected_tenant_ids String[] @default([]) @db.Uuid
+  affected_user_count Int      @default(0)
+  sample_event_id     String?  @db.VarChar(64)
+  created_at          DateTime @default(now()) @db.Timestamptz()
+  updated_at          DateTime @updatedAt @db.Timestamptz()
+
+  issue PlatformSentryIssue @relation(fields: [sentry_issue_id], references: [id], onDelete: Cascade)
+
+  @@unique([sentry_issue_id, hour_bucket], map: "platform_sentry_events_issue_hour_key")
+  @@index([hour_bucket(sort: Desc)], map: "idx_platform_sentry_events_hour")
+  @@index([affected_tenant_ids], type: Gin, map: "idx_platform_sentry_events_tenants")
+  @@map("platform_sentry_events_summary")
+}
+
+model PlatformSentryWebhookAudit {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  received_at     DateTime @default(now()) @db.Timestamptz()
+  payload_sha256  String   @db.VarChar(64)
+  payload_kind    String   @db.VarChar(40)
+  signature_valid Boolean
+  replay_detected Boolean  @default(false)
+  sentry_issue_id String?  @db.VarChar(80)
+  source_ip_hash  String?  @db.VarChar(64)
+  processed_at    DateTime? @db.Timestamptz()
+  error_message   String?  @db.Text
+  created_at      DateTime @default(now()) @db.Timestamptz()
+
+  @@index([received_at(sort: Desc)], map: "idx_platform_sentry_webhook_audit_received")
+  @@index([payload_sha256, received_at(sort: Desc)], map: "idx_platform_sentry_webhook_audit_payload")
+  @@index([signature_valid, received_at(sort: Desc)], map: "idx_platform_sentry_webhook_audit_signature")
+  @@map("platform_sentry_webhook_audit")
 }
 
 model PlatformRunbookIndex {

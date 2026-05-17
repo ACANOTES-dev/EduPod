@@ -260,6 +260,8 @@ export class PlatformAiCopilotService {
         return this.evidence.forIncident(context.id);
       case 'queue':
         return this.evidence.forQueue(context.id);
+      case 'sentry_issue':
+        return this.evidence.forSentryIssue(context.id);
       case 'tenant':
         return this.evidence.forTenant(context.id);
     }
@@ -343,7 +345,7 @@ function rowsToEvidence(kind: string, link: string, rows: unknown[]): EvidenceIt
 }
 
 function titleFromContext(context: PlatformCopilotEvidenceContext): string {
-  return `Explain ${context.kind}: ${context.id}`.slice(0, 200);
+  return `Explain ${context.kind.replace('_', ' ')}: ${context.id}`.slice(0, 200);
 }
 
 function textFromMessage(message: Anthropic.Message): string {

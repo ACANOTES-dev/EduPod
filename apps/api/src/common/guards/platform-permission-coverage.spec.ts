@@ -20,6 +20,9 @@ describe('Platform admin permission coverage', () => {
       if (file.endsWith('alert-magic-ack.controller.ts')) {
         return false;
       }
+      if (file.endsWith('sentry-webhook.controller.ts')) {
+        return false;
+      }
       return /@Controller\(['"]v1\/admin/.test(source);
     });
 

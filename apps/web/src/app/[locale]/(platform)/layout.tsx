@@ -8,6 +8,7 @@ import {
   BellOff,
   Bot,
   Building2,
+  Bug,
   CalendarClock,
   ClipboardList,
   DatabaseZap,
@@ -402,6 +403,12 @@ function PlatformSidebarNav({
           label: 'Certificates',
           href: `/${locale}/admin/certificates`,
           permission: 'platform.synthetic.view',
+        },
+        {
+          icon: Bug,
+          label: 'Sentry Issues',
+          href: `/${locale}/admin/sentry`,
+          permission: 'platform.sentry.view',
         },
         {
           icon: Layers,

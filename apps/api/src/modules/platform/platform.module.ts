@@ -71,6 +71,7 @@ import { PlatformOnboardingModule } from './platform-onboarding.module';
 import { PlatformRealtimeModule } from './platform-realtime.module';
 import { PlatformSearchController } from './platform-search.controller';
 import { PlatformSearchService } from './platform-search.service';
+import { PlatformSentryActionsController } from './platform-sentry-actions.controller';
 import { PlatformGateway } from './platform.gateway';
 import { PostmortemGeneratorService } from './postmortem-generator.service';
 import { TenantMetricsController } from './tenant-metrics.controller';
@@ -114,6 +115,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     OnboardingController,
     PlatformObservabilityController,
     PlatformSearchController,
+    PlatformSentryActionsController,
     TenantMetricsController,
     EmergencyContactController,
   ],

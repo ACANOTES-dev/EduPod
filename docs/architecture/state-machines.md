@@ -1658,6 +1658,24 @@ Valid transitions:
 
 Guardrails: route-health/dead-man failure alerts are emitted as security-critical platform alert rules and are not suppressible by maintenance windows or global silences. Magic-link acknowledgements are signed, short-lived, single-use, and bound to a platform user id.
 
+### Platform Sentry issue mirror
+
+**`SentryIssueState`** — 4 values (`unresolved|resolved|ignored|archived`). Introduced by Platform Dashboard Layer 5 Session 5C on `platform_sentry_issues.state`.
+
+Valid transitions:
+
+- `unresolved -> resolved` when a signed `issue_resolved` webhook arrives.
+- `resolved -> unresolved` when a later signed `issue_alert`, `event_alert`, or
+  `metric_alert` reports the issue as active again.
+- `unresolved|resolved -> ignored|archived` only when a future explicit
+  operator/Sentry mirror action ships. Session 5C does not write back to
+  Sentry and does not expose ignore/archive mutation endpoints.
+
+Guardrails: every state change is driven by a signed webhook or a future
+operator-clicked action. The webhook handler stores no raw Sentry payloads,
+fails closed when `SENTRY_WEBHOOK_SECRET` is absent or invalid, and never calls
+AI or the repo-agent triage runbook.
+
 ### Pastoral (auxiliary)
 
 - **`PastoralActionStatus`** — `schema.prisma:7527` — 5 values (`@map` to `pending|in_progress|completed|overdue|cancelled`). Per-action state on pastoral case action plans.

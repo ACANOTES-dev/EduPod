@@ -238,6 +238,18 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Run synthetic checks',
     description: 'Run synthetic checks on demand.',
   },
+  {
+    key: 'platform.sentry.view',
+    category: 'sentry',
+    display_name: 'View Sentry issues',
+    description: 'View mirrored Sentry issue summaries, webhook audit rows, and linked error logs.',
+  },
+  {
+    key: 'platform.sentry.triage',
+    category: 'sentry',
+    display_name: 'Prepare Sentry triage prompts',
+    description: 'Prepare static repo-agent triage prompt packets for mirrored Sentry issues.',
+  },
 ] as const;
 
 export const PLATFORM_ROLE_PERMISSIONS = {
@@ -261,5 +273,7 @@ export const PLATFORM_ROLE_PERMISSIONS = {
     'platform.ai.read',
     'platform.synthetic.view',
     'platform.synthetic.run',
+    'platform.sentry.view',
+    'platform.sentry.triage',
   ],
 } as const;

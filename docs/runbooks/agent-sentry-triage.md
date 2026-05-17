@@ -11,6 +11,8 @@ tags: [sentry, triage, repo-agent]
 
 # Agent runbook — autonomous Sentry triage
 
+<!-- prompt-template-anchor -->
+
 **Purpose.** When the user receives a Sentry alert and tells an AI agent to deal with it, this runbook drives the agent end-to-end: fetch → diagnose → fix → test → commit → deploy → verify → resolve → audit-log. No human-in-the-loop between trigger and close-out.
 
 **Audience.** Any tool-using AI agent running on the user's laptop — Claude Code, GPT/Codex, Cursor, etc. The flow is bash + git + repo test commands only. No MCP dependency, no vendor SDK.
