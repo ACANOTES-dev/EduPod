@@ -341,20 +341,20 @@ When the operator asks the Copilot "what's the latest incident?", the response i
 
 ## Acceptance
 
-- [ ] `IncidentDetectionService` listens to `platform:alerts` and creates/attaches/resolves incidents per the rules.
-- [ ] `PostmortemGeneratorService` generates a markdown postmortem only when manually triggered by the operator.
-- [ ] Postmortem includes Summary, Timeline, Root cause, Impact, Fix applied, Prevention items.
-- [ ] All postmortem claims have citations; uncited claims stripped.
-- [ ] Postmortem runs final-pass redaction.
-- [ ] Operator can edit and save the final version.
-- [ ] Generate/regenerate is rate-limited (1/hr per incident); cost is shown before the AI call.
-- [ ] `generate-prevention` creates 4C recommendation rows linked back to the incident only when manually triggered.
-- [ ] Frontend pages: `/admin/incidents`, `/admin/incidents/[id]` with all tabs.
-- [ ] Dashboard home shows an "Active incidents" widget.
-- [ ] Auto-resolve test passes (alerts cleared + 1h quiet → incident auto-resolved).
-- [ ] Postmortem-no-runbook-write test passes (AI never writes to `docs/runbooks/*.md`).
-- [ ] `docs/architecture/danger-zones.md` gains DZ-AI-Postmortem-Privacy (incidents that quote alerts must run final-pass redaction) and DZ-AI-Runbook-Authority (AI proposes runbook updates; never writes runbook files directly).
-- [ ] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
+- [x] `IncidentDetectionService` listens to `platform:alerts` and creates/attaches/resolves incidents per the rules.
+- [x] `PostmortemGeneratorService` generates a markdown postmortem only when manually triggered by the operator.
+- [x] Postmortem includes Summary, Timeline, Root cause, Impact, Fix applied, Prevention items.
+- [x] All postmortem claims have citations; uncited claims stripped.
+- [x] Postmortem runs final-pass redaction.
+- [x] Operator can edit and save the final version.
+- [x] Generate/regenerate is rate-limited (1/hr per incident); the UI warns about the rate limit and AI budget guard before the call, and generated responses persist cost metadata.
+- [x] `generate-prevention` creates 4C recommendation rows linked back to the incident only when manually triggered.
+- [x] Frontend pages: `/admin/incidents`, `/admin/incidents/[id]` with all tabs.
+- [x] Dashboard home shows an "Active incidents" widget.
+- [x] Auto-resolve test passes (alerts cleared + 1h quiet → incident auto-resolved).
+- [x] Postmortem-no-runbook-write test passes (AI never writes to `docs/runbooks/*.md`).
+- [x] `docs/architecture/danger-zones.md` gains DZ-AI-Postmortem-Privacy (incidents that quote alerts must run final-pass redaction) and DZ-AI-Runbook-Authority (AI proposes runbook updates; never writes runbook files directly).
+- [x] All new code passes `turbo lint` and `turbo type-check`; all new tests pass.
 
 ---
 
@@ -366,3 +366,105 @@ When the operator asks the Copilot "what's the latest incident?", the response i
 - The incident severity inheriting from the seed alert is intentionally simple. Future enhancement: severity escalates if the incident grows beyond a threshold (e.g., >3 affected tenants escalates `warning` to `critical`). Defer until usage shows it matters.
 - Future enhancement (out of scope): export postmortem as a shareable HTML document with redaction preview, useful for status pages or post-incident communication. The data model supports it; the export UI is deferred.
 - Future enhancement (out of scope): cross-incident pattern detection ("the last 3 critical incidents all involved Redis between 14:00-16:00 UTC; consider scheduled work in that window"). The data is there once 5+ incidents accumulate; the analysis pass is a future Layer 5 candidate.
+
+## Commits / CI / Notes
+
+- Implementation commit: `5e6a00f5 feat(platform): add incident postmortems`
+- CI/deploy: GitHub Actions `CI / Deploy` run `25993772385` passed and deployed to production.
+- Local verification:
+  - `pnpm --filter @school/shared type-check`
+  - `pnpm --filter @school/prisma generate`
+  - `pnpm --filter @school/prisma type-check`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - Focused API specs for incident detection, incident service/controller, postmortem generation, alert history, 4C recommendations, and 4D action proposals.
+  - `pnpm --filter @school/api run test:coverage` passed after adding controller/service coverage for the new Session 4E paths; API line coverage was `89.02%`.
+  - Full local `pnpm test` passed before push after snapshot updates.
+  - `DATABASE_URL=postgresql://x:x@localhost:5432/x pnpm --filter @school/prisma exec prisma validate` passed.
+  - API DI compile check returned `DI OK`.
+  - `pnpm --filter @school/web lint:ci`, API focused lint, and full API quiet lint passed.
+  - `pnpm check:migration-safety` still reports pre-existing historical contract-pattern warnings unrelated to Session 4E; the new incident migration is additive and was not flagged.
+  - `pnpm check:arch-docs` exits 0 with known existing drift unrelated to Session 4E.
+- Production smoke on `https://dua.edupod.app`:
+  - Platform admin login succeeded without exposing credentials.
+  - `/api/v1/auth/me`, `/api/v1/admin/dashboard`, `/api/v1/admin/incidents?pageSize=5`, and `/api/v1/admin/incidents?pageSize=1&status=active` returned 200.
+  - Browser smoke confirmed the platform dashboard, `/en/admin/incidents`, incident filters, and the dashboard Active Incidents panel render.
+  - Production currently has zero incident rows, which is valid for the smoke context.
+- Safety notes:
+  - Incident detection is deterministic and does not call AI in the background.
+  - Postmortem generation/regeneration is operator-clicked, rate-limited, cost-guarded, citation-processed, and redacted before persistence.
+  - Prevention recommendation generation creates linked 4C recommendation rows only; it does not execute or apply changes.
+  - No AI code path writes to `docs/runbooks/*.md`; runbook changes remain operator-reviewed recommendations.
+
+## Next Session Prompt
+
+```text
+Implement Session 5A of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5A-synthetic-journey-monitoring.md
+
+Context:
+- Sessions 0 through 4E are complete, deployed, smoke-tested, and accepted.
+- Session 4E shipped structured platform incidents from normal non-AI alert logic, related-alert attachment, conservative monitoring/auto-resolve, operator-clicked postmortem generation, citation enforcement, final-pass redaction, operator-edited final markdown persistence, manual prevention recommendation generation through 4C rows, and no-runbook-write guarantees.
+- Production Copilot generation is configured and verified, but Layer 5 scheduled/background work must not call AI.
+- Streaming remains waived; do not add streaming unless Session 5A specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, Session 4B, Session 4C, Session 4D, and Session 4E closeout notes.
+6. Read Session 5A / Synthetic Journey Monitoring end-to-end.
+7. Inspect existing alerts, alert history, alert evaluation, channels, maintenance windows, owner confirmation, platform evidence, topology, severity policy, queues, workers, cron scheduler, sessions/cache/maintenance, platform dashboard shell conventions, and Session 4E incident integration before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 5A.
+- Layer 5 proactive/background code must be non-AI. Do not import or call Anthropic, OpenAI, PlatformAiCopilotService, recommendation generation, action proposal generation, or any AI generation service from the 5A runner, processors, schedules, or alerting paths.
+- Create the synthetic check definition/result, external dependency status, and certificate check data model exactly within 5A scope.
+- All 5A tables are platform-scoped; do not add tenant RLS policies for these platform-level tables.
+- Build deterministic handlers for the 5A check kinds required by the spec: http_get, http_post, websocket_handshake, queue_canary, notification_self_test, dns_lookup, tls_check, and external_dependency_status.
+- Do not store raw response bodies. Store SHA256 digest plus a redacted <=500 character snippet and structured redacted failure detail.
+- Resolve credentials only from configured env credential keys. Never use operator personal credentials or files under ~/.codex for scheduled synthetic checks. The runner must refuse ~/.codex credential sources.
+- Synthetic platform-admin login must be designed around the dedicated synthetic platform user and env vars, not Ram's owner credentials.
+- Queue canaries must be safe: use the dedicated synthetic canary queue and add sentinel short-circuit guards/tests for per-critical-queue canaries only where required by the 5A spec.
+- Maintenance windows must produce skipped_maintenance results, not failures, for applicable check kinds.
+- Alert emission must reuse existing platform alert logic: warning on single failure, critical after configured consecutive failures, info/recovery on pass after failure, no alert on skipped maintenance.
+- Run-now is operator-triggered, audited, permission-gated, and never bypasses redaction or alert rules.
+- Register and re-register repeatable BullMQ jobs conservatively without duplicating schedules.
+- Follow token-driven UX styling and the platform dashboard shell conventions.
+- Preserve all existing Platform Admin behavior, including Sessions 3A through 4E.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no Layer 5 proactive/background code imports or calls AI services.
+- Verify check execution stores one result per attempt, redacts snippets/failure details, and never stores raw secrets or full response bodies.
+- Verify http_get/http_post/websocket/queue canary/notification self-test/dns/tls/external dependency handlers.
+- Verify maintenance-window suppression records skipped_maintenance and emits no alert.
+- Verify alert emission for warning, critical consecutive failures, and recovery.
+- Verify run-now path is permission-gated and audited.
+- Verify cron registration does not duplicate repeatable jobs and disables schedules when checks are disabled.
+- Verify frontend synthetic checks, result detail, external dependencies, and certificates pages render and use token-driven styling.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 5A acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5A is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
