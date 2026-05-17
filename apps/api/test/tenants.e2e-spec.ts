@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-import { MODULE_KEYS_ARRAY } from '@school/shared';
+import { MODULE_KEYS_ARRAY, MODULE_REGISTRY } from '@school/shared';
 
 import {
   PLATFORM_ADMIN_EMAIL,
@@ -272,12 +272,25 @@ describe('Tenants Admin Endpoints (e2e)', () => {
       platformToken,
     ).expect(200);
 
-    expect(res.body.data).toBeDefined();
-    expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data).toHaveLength(MODULE_KEYS_ARRAY.length);
+    const modulesView = res.body.data;
+    expect(modulesView.tenant_id).toBe(alNoor.id);
+    expect(modulesView.completeness).toEqual({ complete: true, missing: [] });
+    expect(Array.isArray(modulesView.modules)).toBe(true);
+    expect(modulesView.modules).toHaveLength(MODULE_KEYS_ARRAY.length);
 
-    const moduleKeys = res.body.data.map((m: { module_key: string }) => m.module_key);
+    const moduleKeys = modulesView.modules.map((m: { key: string }) => m.key).sort();
     expect(moduleKeys).toEqual([...MODULE_KEYS_ARRAY].sort());
+
+    const websiteModule = modulesView.modules.find((m: { key: string }) => m.key === 'website');
+    const websiteDefinition = MODULE_REGISTRY.find((m) => m.key === 'website');
+    expect(websiteModule).toMatchObject({
+      key: 'website',
+      display_name: websiteDefinition?.display_name,
+      default_enabled: websiteDefinition?.default_enabled,
+      is_enabled: expect.any(Boolean),
+    });
+    expect(websiteModule).toHaveProperty('last_toggled_at');
+    expect(websiteModule).toHaveProperty('last_toggled_by');
   });
 
   // ─── Test 12: Toggle module ──────────────────────────────────────────────────
