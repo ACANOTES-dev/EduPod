@@ -30,7 +30,7 @@ const createBody: CreateAlertSilenceDto = {
   scope: 'single_rule',
   alert_rule_id: RULE_ID,
   reason: 'Pausing a noisy rule during planned remediation.',
-  ends_at: new Date('2026-05-17T12:00:00.000Z'),
+  ends_at: new Date('2026-05-18T12:00:00.000Z'),
 };
 const removeBody: RemoveAlertSilenceDto = {
   reason: 'Remediation complete and alerts should resume.',

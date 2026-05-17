@@ -777,3 +777,12 @@ If Redis is unhealthy at the moment of a credential rotation, the publish silent
 - **Sources**: request logging middleware, platform audit writes, platform error capture, and platform WebSocket emissions that carry a correlation id.
 - **Destination**: `platform_correlation_events`
 - **Side effects**: buffered best-effort insert. Failed writes drop the batch and log a warning; request handling, audit writes, error capture, and WebSocket sends continue.
+
+## Platform AI Supervised Actions (Layer 4 Session 4D)
+
+- **Owner**: API process (`PlatformAiActionProposalsService`)
+- **Trigger**: operator clicks only. There is no cron, queue processor, WebSocket event, alert event, polling loop, or module-init path that creates or approves proposals.
+- **Source**: cited `platform_ai_recommendations` rows plus fresh evidence fetched through `PlatformEvidenceService`.
+- **Destination**: `platform_ai_action_proposals` and, for code-required fixes, `platform_agent_handoff_prompts`.
+- **Side effects**: approved proposals execute through a fixed in-process registry and write platform audit entries. Destructive/sensitive paths call the Layer 1.5C owner-confirmation executor. `run_sentry_triage` creates a handoff that points at `docs/runbooks/agent-sentry-triage.md`; it does not invoke `./scripts/sentry-cli.sh`, bypass guardrails, or append the fix log from the dashboard.
+- **Explicit non-events**: Session 4D adds no BullMQ job, no repeatable job, no cron schedule, no background AI generation path, and no repository-code executor.

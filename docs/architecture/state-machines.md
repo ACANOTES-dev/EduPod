@@ -715,6 +715,24 @@ failed*
 - **Side effects**: The confirmation record stores action, target, payload summary, typed phrase, reason, actor, execution timestamp, and execution result. The confirmation phrase is friction, not authorization; platform RBAC remains the authorization boundary.
 - **Scope**: Platform-level, no tenant RLS. The owner-confirmed action may target a tenant, but the confirmation row itself belongs to the platform audit/control plane.
 
+### PlatformAiActionProposalStatus
+
+```
+awaiting_approval -> [approved, rejected, expired]
+approved          -> [executing, executed, failed]
+executing         -> [executed, failed]
+executed*
+failed*
+rejected*
+expired*
+```
+
+- **Schema**: `packages/prisma/schema.prisma` (`PlatformAiActionProposal.status`).
+- **Guarded by**: `PlatformAiActionProposalsService` only. Proposals are created from cited 4C recommendations, approval re-checks both `platform.ai.approve_action` and the proposal's underlying permission, and destructive/sensitive actions route through Layer 1.5C owner confirmation. The AI is never an approver; `approved_by_user_id` is always the signed-in platform user.
+- **Side effects**: `awaiting_approval -> approved` writes `ai_action_approved`; `awaiting_approval -> rejected` writes `ai_action_rejected`; terminal execution writes `ai_action_executed` plus the underlying domain audit entry where an executor mutates platform state. Owner-confirmed execution stores `owner_confirmation_id`.
+- **Hard stops**: no state transition may execute schema/migration changes, deploy config edits, secret/env-var changes, cron changes, production server configuration changes, Module Gating registry changes, or repository code patches. Code-required fixes create `PlatformAgentHandoffPrompt` rows only.
+- **Scope**: Platform-level, no tenant RLS. The proposal may carry `target_tenant_id` as evidence context, but the approval/execution ledger is part of the platform control plane.
+
 ### PlatformAlertSilence lifecycle
 
 ```

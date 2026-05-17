@@ -1,10 +1,20 @@
 'use client';
 
-import { Bot, CheckCircle2, Lightbulb, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Lightbulb,
+  RefreshCw,
+  ShieldCheck,
+  XCircle,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
+import type { PlatformAuditActionDto } from '@school/shared';
 import {
   Button,
   Input,
@@ -19,6 +29,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { OwnerActionConfirmDialog } from '@/components/platform/owner-action-confirm-dialog';
 import { apiClient } from '@/lib/api-client';
 
 type ContextKind = 'alert' | 'correlation' | 'deploy' | 'error' | 'health' | 'queue' | 'tenant';
@@ -59,6 +70,41 @@ interface Recommendation {
   status: RecommendationStatus;
   generated_at: string;
   last_refreshed_at: string;
+}
+
+type ActionProposalStatus =
+  | 'approved'
+  | 'awaiting_approval'
+  | 'executed'
+  | 'executing'
+  | 'expired'
+  | 'failed'
+  | 'rejected';
+
+interface ActionProposal {
+  id: string;
+  recommendation_id: string | null;
+  action_kind: string;
+  action_payload: unknown;
+  target_resource_type: string | null;
+  target_resource_id: string | null;
+  target_tenant_id: string | null;
+  reasoning: string;
+  required_permission: string;
+  requires_owner_confirmation: boolean;
+  evidence: EvidenceItem[];
+  status: ActionProposalStatus;
+  execution_result: unknown | null;
+  proposed_at: string;
+}
+
+interface AgentHandoff {
+  id: string;
+  recommendation_id: string | null;
+  title: string;
+  prompt_markdown: string;
+  suspected_repo_areas: string[];
+  created_at: string;
 }
 
 interface GenerationResult {
@@ -102,10 +148,13 @@ export default function PlatformRecommendationsPage() {
   const searchParams = useSearchParams();
   const locale = (params?.locale as string) ?? 'en';
   const [recommendations, setRecommendations] = React.useState<Recommendation[]>([]);
+  const [proposals, setProposals] = React.useState<ActionProposal[]>([]);
+  const [handoffs, setHandoffs] = React.useState<Record<string, AgentHandoff>>({});
   const [brief, setBrief] = React.useState<BriefMessage | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [briefing, setBriefing] = React.useState(false);
+  const [workingIds, setWorkingIds] = React.useState<Record<string, boolean>>({});
   const queryContextKind = searchParams?.get('context_kind') ?? null;
   const [contextKind, setContextKind] = React.useState<ContextKind>(
     isContextKind(queryContextKind) ? queryContextKind : 'health',
@@ -117,8 +166,12 @@ export default function PlatformRecommendationsPage() {
   const loadRecommendations = React.useCallback(async () => {
     try {
       setLoading(true);
-      const rows = await apiClient<Recommendation[]>('/api/v1/admin/copilot/recommendations');
+      const [rows, proposalRows] = await Promise.all([
+        apiClient<Recommendation[]>('/api/v1/admin/copilot/recommendations'),
+        apiClient<ActionProposal[]>('/api/v1/admin/copilot/action-proposals'),
+      ]);
       setRecommendations(rows);
+      setProposals(proposalRows);
     } catch (err: unknown) {
       console.error('[PlatformRecommendationsPage.loadRecommendations]', err);
       toast.error(getErrorMessage(err, 'Failed to load recommendations.'));
@@ -156,6 +209,78 @@ export default function PlatformRecommendationsPage() {
     } finally {
       setGenerating(false);
     }
+  }
+
+  async function createProposal(recommendation: Recommendation) {
+    try {
+      setWorking(recommendation.id, true);
+      const proposal = await apiClient<ActionProposal>('/api/v1/admin/copilot/action-proposals', {
+        body: JSON.stringify({ recommendation_id: recommendation.id }),
+        method: 'POST',
+      });
+      setProposals((current) => [proposal, ...current]);
+      toast.success('Supervised action proposal created.');
+    } catch (err: unknown) {
+      console.error('[PlatformRecommendationsPage.createProposal]', err);
+      toast.error(getErrorMessage(err, 'Failed to create action proposal.'));
+    } finally {
+      setWorking(recommendation.id, false);
+    }
+  }
+
+  async function approveProposal(proposal: ActionProposal, reason: string) {
+    try {
+      setWorking(proposal.id, true);
+      await apiClient(`/api/v1/admin/copilot/action-proposals/${proposal.id}/approve`, {
+        body: JSON.stringify({ reason }),
+        method: 'POST',
+      });
+      toast.success('Supervised action approved and executed.');
+      await loadRecommendations();
+    } catch (err: unknown) {
+      console.error('[PlatformRecommendationsPage.approveProposal]', err);
+      toast.error(getErrorMessage(err, 'Failed to approve action proposal.'));
+    } finally {
+      setWorking(proposal.id, false);
+    }
+  }
+
+  async function rejectProposal(proposal: ActionProposal, reason: string) {
+    try {
+      setWorking(proposal.id, true);
+      await apiClient(`/api/v1/admin/copilot/action-proposals/${proposal.id}/reject`, {
+        body: JSON.stringify({ reason }),
+        method: 'POST',
+      });
+      toast.success('Supervised action rejected.');
+      await loadRecommendations();
+    } catch (err: unknown) {
+      console.error('[PlatformRecommendationsPage.rejectProposal]', err);
+      toast.error(getErrorMessage(err, 'Failed to reject action proposal.'));
+    } finally {
+      setWorking(proposal.id, false);
+    }
+  }
+
+  async function createHandoff(recommendation: Recommendation) {
+    try {
+      setWorking(`handoff-${recommendation.id}`, true);
+      const handoff = await apiClient<AgentHandoff>('/api/v1/admin/copilot/agent-handoffs', {
+        body: JSON.stringify({ recommendation_id: recommendation.id }),
+        method: 'POST',
+      });
+      setHandoffs((current) => ({ ...current, [recommendation.id]: handoff }));
+      toast.success('Repo-agent handoff prompt generated.');
+    } catch (err: unknown) {
+      console.error('[PlatformRecommendationsPage.createHandoff]', err);
+      toast.error(getErrorMessage(err, 'Failed to generate repo-agent handoff.'));
+    } finally {
+      setWorking(`handoff-${recommendation.id}`, false);
+    }
+  }
+
+  function setWorking(id: string, value: boolean) {
+    setWorkingIds((current) => ({ ...current, [id]: value }));
   }
 
   async function generateBrief() {
@@ -307,14 +432,26 @@ export default function PlatformRecommendationsPage() {
         {recommendations.map((recommendation) => (
           <RecommendationCard
             key={recommendation.id}
+            handoff={handoffs[recommendation.id]}
             locale={locale}
+            proposal={proposals.find(
+              (proposal) => proposal.recommendation_id === recommendation.id,
+            )}
             recommendation={recommendation}
             reason={reasons[recommendation.id] ?? ''}
+            working={Boolean(workingIds[recommendation.id])}
+            workingHandoff={Boolean(workingIds[`handoff-${recommendation.id}`])}
+            workingProposal={(id) => Boolean(workingIds[id])}
+            onApproveProposal={(proposal, reason) => void approveProposal(proposal, reason)}
+            onCreateHandoff={() => void createHandoff(recommendation)}
+            onCreateProposal={() => void createProposal(recommendation)}
             onReasonChange={(value) =>
               setReasons((current) => ({ ...current, [recommendation.id]: value }))
             }
             onAccept={() => void resolveRecommendation(recommendation, 'accept')}
             onDismiss={() => void resolveRecommendation(recommendation, 'dismiss')}
+            onProposalConfirmed={() => void loadRecommendations()}
+            onRejectProposal={(proposal, reason) => void rejectProposal(proposal, reason)}
           />
         ))}
       </section>
@@ -344,19 +481,39 @@ function DailyBriefCard({ brief, locale }: { brief: BriefMessage; locale: string
 }
 
 function RecommendationCard({
+  handoff,
   locale,
   onAccept,
+  onApproveProposal,
+  onCreateHandoff,
+  onCreateProposal,
   onDismiss,
   onReasonChange,
+  onProposalConfirmed,
+  onRejectProposal,
   reason,
+  proposal,
   recommendation,
+  working,
+  workingHandoff,
+  workingProposal,
 }: {
+  handoff?: AgentHandoff;
   locale: string;
   onAccept: () => void;
+  onApproveProposal: (proposal: ActionProposal, reason: string) => void;
+  onCreateHandoff: () => void;
+  onCreateProposal: () => void;
   onDismiss: () => void;
   onReasonChange: (value: string) => void;
+  onProposalConfirmed: () => void;
+  onRejectProposal: (proposal: ActionProposal, reason: string) => void;
   reason: string;
+  proposal?: ActionProposal;
   recommendation: Recommendation;
+  working: boolean;
+  workingHandoff: boolean;
+  workingProposal: (id: string) => boolean;
 }) {
   const evidenceById = new Map(recommendation.evidence.map((item) => [item.id, item] as const));
   return (
@@ -403,7 +560,8 @@ function RecommendationCard({
 
       {recommendation.requires_repo_agent_handoff ? (
         <div className="rounded-lg border border-info-text/20 bg-info-bg p-3 text-sm text-info-text">
-          Repo-agent handoff candidate. Session 4C does not inspect or change repository code.
+          Repo-agent handoff candidate. The dashboard generates a prompt only; repository changes
+          stay in the normal repo-agent workflow.
         </div>
       ) : null}
 
@@ -416,15 +574,44 @@ function RecommendationCard({
       <div className="border-t border-border pt-4">
         <Textarea
           className="min-h-20 text-base"
-          placeholder="Reason for accepting or dismissing this recommendation"
+          placeholder="Reason for accepting, rejecting, or executing this recommendation"
           value={reason}
           onChange={(event) => onReasonChange(event.target.value)}
         />
+        {proposal ? (
+          <ActionProposalCard
+            locale={locale}
+            onApprove={onApproveProposal}
+            onConfirmed={onProposalConfirmed}
+            onReject={onRejectProposal}
+            proposal={proposal}
+            reason={reason}
+            working={workingProposal(proposal.id)}
+          />
+        ) : null}
+        {handoff ? <RepoAgentHandoffPanel handoff={handoff} /> : null}
         <div className="mt-3 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={onDismiss}>
             <XCircle className="me-2 h-4 w-4" />
             Dismiss
           </Button>
+          {recommendation.requires_repo_agent_handoff ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={workingHandoff}
+              onClick={onCreateHandoff}
+            >
+              <FileText className="me-2 h-4 w-4" />
+              {workingHandoff ? 'Generating...' : 'Repo-Agent Prompt'}
+            </Button>
+          ) : null}
+          {!proposal ? (
+            <Button type="button" variant="outline" disabled={working} onClick={onCreateProposal}>
+              <ClipboardList className="me-2 h-4 w-4" />
+              {working ? 'Creating...' : 'Create Proposal'}
+            </Button>
+          ) : null}
           <Button type="button" onClick={onAccept}>
             <CheckCircle2 className="me-2 h-4 w-4" />
             Accept Manually
@@ -454,6 +641,119 @@ function Badge({
     >
       {children}
     </span>
+  );
+}
+
+function ActionProposalCard({
+  locale,
+  onApprove,
+  onConfirmed,
+  onReject,
+  proposal,
+  reason,
+  working,
+}: {
+  locale: string;
+  onApprove: (proposal: ActionProposal, reason: string) => void;
+  onConfirmed: () => void;
+  onReject: (proposal: ActionProposal, reason: string) => void;
+  proposal: ActionProposal;
+  reason: string;
+  working: boolean;
+}) {
+  const canSubmit = reason.trim().length >= 12;
+  const confirmationPhrase = `APPROVE ${proposal.action_kind.toUpperCase()}`;
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-surface-secondary p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+            Supervised action proposal
+          </p>
+          <h3 className="mt-1 text-sm font-semibold text-text-primary">
+            {labelize(proposal.action_kind)}
+          </h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            Requires {proposal.required_permission}
+          </p>
+        </div>
+        <Badge tone={proposal.requires_owner_confirmation ? 'danger' : 'info'}>
+          {proposal.requires_owner_confirmation ? 'Owner confirmation' : proposal.status}
+        </Badge>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-text-primary">{proposal.reasoning}</p>
+      <pre className="mt-3 max-h-36 overflow-auto rounded-lg bg-background p-3 text-xs text-text-secondary">
+        {JSON.stringify(proposal.action_payload, null, 2)}
+      </pre>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {proposal.evidence.slice(0, 6).map((item) => (
+          <Link
+            key={`${proposal.id}-${item.id}`}
+            href={`/${locale}${item.link}`}
+            className="rounded-full border border-border bg-surface px-2 py-1 text-xs font-medium text-text-secondary hover:bg-surface-hover"
+            title={item.snippet}
+          >
+            {item.kind}:{item.id}
+          </Link>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={working || !canSubmit}
+          onClick={() => onReject(proposal, reason.trim())}
+        >
+          Reject Proposal
+        </Button>
+        {proposal.requires_owner_confirmation ? (
+          <OwnerActionConfirmDialog
+            action={ownerAuditActionForProposal(proposal)}
+            confirmationPhrase={confirmationPhrase}
+            endpoint={`/api/v1/admin/copilot/action-proposals/${proposal.id}/approve`}
+            payload={proposal.action_payload}
+            summary={proposal.reasoning}
+            targetLabel={proposal.target_resource_id ?? proposal.action_kind}
+            targetResourceId={proposal.target_resource_id ?? undefined}
+            targetResourceType={proposal.target_resource_type ?? proposal.action_kind}
+            targetTenantId={proposal.target_tenant_id ?? undefined}
+            title={`Approve ${labelize(proposal.action_kind)}`}
+            onExecuted={onConfirmed}
+          >
+            <Button type="button" variant="destructive" disabled={working}>
+              <ShieldCheck className="me-2 h-4 w-4" />
+              Owner Confirm
+            </Button>
+          </OwnerActionConfirmDialog>
+        ) : (
+          <Button
+            type="button"
+            disabled={working || !canSubmit}
+            onClick={() => onApprove(proposal, reason.trim())}
+          >
+            <CheckCircle2 className="me-2 h-4 w-4" />
+            Approve and Execute
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RepoAgentHandoffPanel({ handoff }: { handoff: AgentHandoff }) {
+  return (
+    <div className="mt-4 rounded-lg border border-info-text/20 bg-info-bg p-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-info-text">
+        <FileText className="h-4 w-4" />
+        {handoff.title}
+      </div>
+      <p className="mt-1 text-xs text-info-text">
+        Generated {new Date(handoff.created_at).toLocaleString()}.
+      </p>
+      <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-surface p-3 text-xs leading-5 text-text-primary">
+        {handoff.prompt_markdown}
+      </pre>
+    </div>
   );
 }
 
@@ -494,6 +794,12 @@ function riskTone(risk: Recommendation['risk_level']): 'danger' | 'info' | 'warn
   if (risk === 'destructive') return 'danger';
   if (risk === 'caution') return 'warning';
   return 'info';
+}
+
+function ownerAuditActionForProposal(proposal: ActionProposal): PlatformAuditActionDto {
+  if (proposal.action_kind === 'clean_queue') return 'queue_cleaned';
+  if (proposal.action_kind === 'flush_global_cache') return 'cache_flushed_global';
+  return 'cache_flushed_global';
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {

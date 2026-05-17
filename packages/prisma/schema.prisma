@@ -235,6 +235,25 @@ enum PlatformAiRecommendationResolution {
   @@map("platform_ai_recommendation_resolution")
 }
 
+enum PlatformAiActionProposalSource {
+  recommendation_engine
+  copilot_conversation
+
+  @@map("platform_ai_action_proposal_source")
+}
+
+enum PlatformAiActionProposalStatus {
+  awaiting_approval
+  approved
+  rejected
+  executing
+  executed
+  failed
+  expired
+
+  @@map("platform_ai_action_proposal_status")
+}
+
 enum PlatformAuditActionType {
   password_reset
   mfa_reset
@@ -1910,6 +1929,9 @@ model User {
   platform_ai_conversations              PlatformAiConversation[]          @relation("platform_ai_conversation_creator")
   platform_ai_recommendations_generated  PlatformAiRecommendation[]        @relation("platform_ai_recommendation_generator")
   platform_ai_recommendations_resolved   PlatformAiRecommendation[]        @relation("platform_ai_recommendation_resolver")
+  platform_ai_action_proposals_approved  PlatformAiActionProposal[]        @relation("platform_ai_action_proposal_approver")
+  platform_ai_action_proposals_rejected  PlatformAiActionProposal[]        @relation("platform_ai_action_proposal_rejecter")
+  platform_agent_handoff_prompts_created PlatformAgentHandoffPrompt[]      @relation("platform_agent_handoff_prompt_creator")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -12472,42 +12494,102 @@ model PlatformAiMessage {
 }
 
 model PlatformAiRecommendation {
-  id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category                      PlatformAiRecommendationCategory
-  title                         String                             @db.VarChar(200)
-  summary                       String                             @db.Text
-  detailed_reasoning            String                             @db.Text
-  raw_reasoning                 String                             @db.Text
-  confidence                    PlatformAiRecommendationConfidence
-  risk_level                    PlatformAiRecommendationRisk
-  requires_owner_confirmation   Boolean                            @default(false)
-  requires_repo_agent_handoff   Boolean                            @default(false)
-  proposed_action               Json?                              @db.JsonB
-  target_resource_type          String?                            @db.VarChar(60)
-  target_resource_id            String?                            @db.VarChar(255)
-  target_tenant_id              String?                            @db.Uuid
-  evidence                      Json                               @db.JsonB
-  evidence_fingerprint          String                             @db.VarChar(64)
-  related_runbook_id            String?                            @db.Uuid
-  generated_by_user_id          String                             @db.Uuid
-  trigger_source                PlatformAiRecommendationTrigger
-  status                        PlatformAiRecommendationStatus     @default(active)
-  generated_at                  DateTime                           @default(now()) @db.Timestamptz()
-  last_refreshed_at             DateTime                           @default(now()) @db.Timestamptz()
-  expires_at                    DateTime                           @db.Timestamptz()
-  resolved_at                   DateTime?                          @db.Timestamptz()
-  resolved_by_user_id           String?                            @db.Uuid
-  resolution_type               PlatformAiRecommendationResolution?
-  resolution_reason             String?                            @db.Text
+  id                          String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category                    PlatformAiRecommendationCategory
+  title                       String                              @db.VarChar(200)
+  summary                     String                              @db.Text
+  detailed_reasoning          String                              @db.Text
+  raw_reasoning               String                              @db.Text
+  confidence                  PlatformAiRecommendationConfidence
+  risk_level                  PlatformAiRecommendationRisk
+  requires_owner_confirmation Boolean                             @default(false)
+  requires_repo_agent_handoff Boolean                             @default(false)
+  proposed_action             Json?                               @db.JsonB
+  target_resource_type        String?                             @db.VarChar(60)
+  target_resource_id          String?                             @db.VarChar(255)
+  target_tenant_id            String?                             @db.Uuid
+  evidence                    Json                                @db.JsonB
+  evidence_fingerprint        String                              @db.VarChar(64)
+  related_runbook_id          String?                             @db.Uuid
+  generated_by_user_id        String                              @db.Uuid
+  trigger_source              PlatformAiRecommendationTrigger
+  status                      PlatformAiRecommendationStatus      @default(active)
+  generated_at                DateTime                            @default(now()) @db.Timestamptz()
+  last_refreshed_at           DateTime                            @default(now()) @db.Timestamptz()
+  expires_at                  DateTime                            @db.Timestamptz()
+  resolved_at                 DateTime?                           @db.Timestamptz()
+  resolved_by_user_id         String?                             @db.Uuid
+  resolution_type             PlatformAiRecommendationResolution?
+  resolution_reason           String?                             @db.Text
 
-  generated_by User  @relation("platform_ai_recommendation_generator", fields: [generated_by_user_id], references: [id], onDelete: Restrict)
-  resolved_by  User? @relation("platform_ai_recommendation_resolver", fields: [resolved_by_user_id], references: [id], onDelete: Restrict)
+  generated_by     User                         @relation("platform_ai_recommendation_generator", fields: [generated_by_user_id], references: [id], onDelete: Restrict)
+  resolved_by      User?                        @relation("platform_ai_recommendation_resolver", fields: [resolved_by_user_id], references: [id], onDelete: Restrict)
+  action_proposals PlatformAiActionProposal[]
+  handoff_prompts  PlatformAgentHandoffPrompt[]
 
   @@index([status, expires_at], map: "idx_platform_ai_recommendations_status_expiry")
   @@index([evidence_fingerprint, status], map: "idx_platform_ai_recommendations_fingerprint_status")
   @@index([generated_by_user_id, generated_at(sort: Desc)], map: "idx_platform_ai_recommendations_generator_generated")
   @@index([target_tenant_id, generated_at(sort: Desc)], map: "idx_platform_ai_recommendations_tenant_generated")
   @@map("platform_ai_recommendations")
+}
+
+model PlatformAiActionProposal {
+  id                          String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recommendation_id           String?                        @db.Uuid
+  proposed_by                 PlatformAiActionProposalSource
+  proposed_at                 DateTime                       @default(now()) @db.Timestamptz()
+  action_kind                 String                         @db.VarChar(40)
+  action_payload              Json                           @db.JsonB
+  target_resource_type        String?                        @db.VarChar(60)
+  target_resource_id          String?                        @db.VarChar(255)
+  target_tenant_id            String?                        @db.Uuid
+  reasoning                   String                         @db.Text
+  required_permission         String                         @db.VarChar(120)
+  requires_owner_confirmation Boolean                        @default(false)
+  evidence                    Json                           @db.JsonB
+  status                      PlatformAiActionProposalStatus @default(awaiting_approval)
+  approved_by_user_id         String?                        @db.Uuid
+  approved_at                 DateTime?                      @db.Timestamptz()
+  rejected_by_user_id         String?                        @db.Uuid
+  rejected_at                 DateTime?                      @db.Timestamptz()
+  rejection_reason            String?                        @db.Text
+  owner_confirmation_id       String?                        @db.Uuid
+  executed_at                 DateTime?                      @db.Timestamptz()
+  execution_result            Json?                          @db.JsonB
+  execution_failed_at         DateTime?                      @db.Timestamptz()
+  expires_at                  DateTime                       @db.Timestamptz()
+
+  approved_by    User?                     @relation("platform_ai_action_proposal_approver", fields: [approved_by_user_id], references: [id], onDelete: Restrict)
+  recommendation PlatformAiRecommendation? @relation(fields: [recommendation_id], references: [id], onDelete: SetNull)
+  rejected_by    User?                     @relation("platform_ai_action_proposal_rejecter", fields: [rejected_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([status, expires_at], map: "idx_platform_ai_action_proposals_status_expiry")
+  @@index([recommendation_id], map: "idx_platform_ai_action_proposals_recommendation")
+  @@index([target_tenant_id], map: "idx_platform_ai_action_proposals_tenant")
+  @@map("platform_ai_action_proposals")
+}
+
+model PlatformAgentHandoffPrompt {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by_user_id   String   @db.Uuid
+  recommendation_id    String?  @db.Uuid
+  incident_id          String?  @db.Uuid
+  title                String   @db.VarChar(200)
+  summary              String   @db.Text
+  hypothesis           String   @db.Text
+  prompt_markdown      String   @db.Text
+  evidence             Json     @db.JsonB
+  suspected_repo_areas String[] @default([])
+  created_at           DateTime @default(now()) @db.Timestamptz()
+
+  created_by     User                      @relation("platform_agent_handoff_prompt_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  recommendation PlatformAiRecommendation? @relation(fields: [recommendation_id], references: [id], onDelete: SetNull)
+
+  @@index([created_by_user_id, created_at(sort: Desc)], map: "idx_platform_agent_handoff_prompts_creator_created")
+  @@index([recommendation_id], map: "idx_platform_agent_handoff_prompts_recommendation")
+  @@index([incident_id], map: "idx_platform_agent_handoff_prompts_incident")
+  @@map("platform_agent_handoff_prompts")
 }
 
 model TenantOnboardingStep {

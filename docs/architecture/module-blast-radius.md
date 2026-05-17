@@ -659,3 +659,38 @@ Driver-based annual financial models + event/trip budgets + variance tracking
 * **Blast radius**: LOW (no external consumers); MEDIUM during deploy
   because impl 02's driver engine ships in `@school/shared` so all three
   apps rebuild on changes.
+
+### PlatformModule — AI supervised actions
+
+Layer 4 Session 4D adds supervised action proposals to the existing platform
+control plane rather than creating a new module.
+
+- **Imports**: no new Nest module imports. The new service is registered inside
+  PlatformModule and uses existing providers from Prisma, platform RBAC, audit,
+  evidence, alerts, maintenance windows, queues, owner confirmation, and Redis.
+
+- **Exports**: none. Supervised-action creation, approval, rejection, and
+  repo-agent handoff prompts are platform-admin controller surfaces only.
+
+- **Cross-module writes**:
+  - alert silence and acknowledgement use existing platform alert services.
+  - queue retry uses the existing queue-management service.
+  - tenant cache flush uses Redis keys and RLS-scoped tenant membership/domain
+    reads.
+  - maintenance scheduling uses the existing platform maintenance-window
+    service.
+  - destructive `clean_queue` and `flush_global_cache` route through the
+    Layer 1.5C owner-confirmation executor.
+
+- **What breaks if dependencies change**:
+  - `PlatformEvidenceService` shape changes can prevent proposal creation
+    because Session 4D requires cited evidence.
+  - Platform RBAC permission-name changes can block approval because approval
+    checks both `platform.ai.approve_action` and the underlying action
+    permission.
+  - Owner-confirmation payload/response changes can break destructive proposal
+    approval in the recommendations UI.
+
+- **Blast radius**: MEDIUM for platform-admin incident workflows only. No tenant
+  route, worker processor, cron, queue payload, Module Gating registry, deploy
+  config, or repository-code executor is introduced by this session.

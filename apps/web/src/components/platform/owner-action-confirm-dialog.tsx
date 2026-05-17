@@ -35,6 +35,7 @@ interface OwnerActionConfirmDialogProps {
   action: PlatformAuditActionDto;
   children: React.ReactNode;
   confirmationPhrase: string;
+  endpoint?: string;
   payload: unknown;
   summary: string;
   targetLabel: string;
@@ -42,12 +43,13 @@ interface OwnerActionConfirmDialogProps {
   targetResourceType: string;
   targetTenantId?: string;
   title: string;
-  onExecuted?: () => void | Promise<void>;
+  onExecuted?: (result: OwnerActionResponse) => void | Promise<void>;
 }
 
 interface OwnerActionResponse {
-  confirmation_id: string;
-  execution_status: 'executed' | 'failed';
+  confirmation_id?: string;
+  execution_status?: 'executed' | 'failed';
+  status?: string;
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -62,6 +64,7 @@ export function OwnerActionConfirmDialog({
   action,
   children,
   confirmationPhrase,
+  endpoint = '/api/v1/admin/action-confirmations',
   payload,
   summary,
   targetLabel,
@@ -87,28 +90,35 @@ export function OwnerActionConfirmDialog({
   async function submit(values: OwnerActionFormValues) {
     try {
       setSubmitting(true);
-      const result = await apiClient<OwnerActionResponse>('/api/v1/admin/action-confirmations', {
+      const ownerConfirmation = {
+        confirmation_phrase: confirmationPhrase,
+        reason: values.reason,
+        typed_confirmation: values.typed_confirmation,
+      };
+      const result = await apiClient<OwnerActionResponse>(endpoint, {
         method: 'POST',
-        body: JSON.stringify({
-          action,
-          target_resource_type: targetResourceType,
-          target_resource_id: targetResourceId,
-          target_tenant_id: targetTenantId,
-          payload,
-          confirmation_phrase: confirmationPhrase,
-          typed_confirmation: values.typed_confirmation,
-          reason: values.reason,
-        }),
+        body: JSON.stringify(
+          endpoint === '/api/v1/admin/action-confirmations'
+            ? {
+                action,
+                target_resource_type: targetResourceType,
+                target_resource_id: targetResourceId,
+                target_tenant_id: targetTenantId,
+                payload,
+                ...ownerConfirmation,
+              }
+            : { owner_confirmation: ownerConfirmation },
+        ),
       });
 
-      if (result.execution_status === 'failed') {
+      if (result.execution_status === 'failed' || result.status === 'failed') {
         toast.error('Action confirmation was recorded, but execution failed.');
         return;
       }
 
       toast.success('Action executed.');
       setOpen(false);
-      await onExecuted?.();
+      await onExecuted?.(result);
     } catch (err: unknown) {
       console.error('[OwnerActionConfirmDialog.submit]', err);
       toast.error(getErrorMessage(err, 'Could not execute the confirmed action.'));

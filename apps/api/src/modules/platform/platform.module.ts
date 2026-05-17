@@ -43,6 +43,8 @@ import { MaintenanceWindowsController } from './maintenance-windows.controller';
 import { OnboardingController } from './onboarding.controller';
 import { OwnerActionConfirmationService } from './owner-action-confirmation.service';
 import { OwnerActionConfirmationsController } from './owner-action-confirmations.controller';
+import { PlatformAiActionProposalsController } from './platform-ai-action-proposals.controller';
+import { PlatformAiActionProposalsService } from './platform-ai-action-proposals.service';
 import { PlatformAiCopilotController } from './platform-ai-copilot.controller';
 import { PlatformAiCopilotService } from './platform-ai-copilot.service';
 import { PlatformAiCostGuardService } from './platform-ai-cost-guard.service';
@@ -88,6 +90,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertSilencesController,
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
+    PlatformAiActionProposalsController,
     PlatformAiCopilotController,
     PlatformAiRecommendationController,
     OnboardingController,
@@ -104,6 +107,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertSilenceService,
     MaintenanceWindowService,
     OwnerActionConfirmationService,
+    PlatformAiActionProposalsService,
     PlatformAiCopilotService,
     PlatformAiRecommendationService,
     PlatformAiCostGuardService,

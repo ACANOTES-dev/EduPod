@@ -412,6 +412,89 @@ export const generatePlatformDailyBriefSchema = z.object({
 
 export type GeneratePlatformDailyBriefDto = z.infer<typeof generatePlatformDailyBriefSchema>;
 
+export const platformAiActionKindSchema = z.enum([
+  'acknowledge_alert',
+  'clean_queue',
+  'flush_global_cache',
+  'flush_tenant_cache',
+  'generate_repo_agent_handoff',
+  'manual_only',
+  'open_github_issue',
+  'retry_jobs',
+  'run_sentry_triage',
+  'schedule_maintenance',
+  'silence_alert',
+]);
+
+export type PlatformAiActionKindDto = z.infer<typeof platformAiActionKindSchema>;
+
+export const platformAiActionProposalStatusSchema = z.enum([
+  'awaiting_approval',
+  'approved',
+  'rejected',
+  'executing',
+  'executed',
+  'failed',
+  'expired',
+]);
+
+export type PlatformAiActionProposalStatusDto = z.infer<
+  typeof platformAiActionProposalStatusSchema
+>;
+
+export const createPlatformAiActionProposalSchema = z.object({
+  recommendation_id: z.string().uuid().optional(),
+  action_kind: platformAiActionKindSchema.optional(),
+  reasoning: z.string().trim().min(1).max(4000).optional(),
+});
+
+export type CreatePlatformAiActionProposalDto = z.infer<
+  typeof createPlatformAiActionProposalSchema
+>;
+
+export const listPlatformAiActionProposalsQuerySchema = z.object({
+  status: platformAiActionProposalStatusSchema.default('awaiting_approval'),
+  recommendation_id: z.string().uuid().optional(),
+  target_tenant_id: z.string().uuid().optional(),
+});
+
+export type ListPlatformAiActionProposalsQuery = z.infer<
+  typeof listPlatformAiActionProposalsQuerySchema
+>;
+
+export const approvePlatformAiActionProposalSchema = z.object({
+  reason: z.string().trim().min(12).max(4000).optional(),
+  owner_confirmation: z
+    .object({
+      confirmation_phrase: z.string().trim().min(1).max(200),
+      typed_confirmation: z.string().trim().min(1).max(200),
+      reason: z.string().trim().min(12).max(4000),
+    })
+    .optional(),
+});
+
+export type ApprovePlatformAiActionProposalDto = z.infer<
+  typeof approvePlatformAiActionProposalSchema
+>;
+
+export const rejectPlatformAiActionProposalSchema = z.object({
+  reason: z.string().trim().min(12).max(4000),
+});
+
+export type RejectPlatformAiActionProposalDto = z.infer<
+  typeof rejectPlatformAiActionProposalSchema
+>;
+
+export const createPlatformAgentHandoffSchema = z.object({
+  recommendation_id: z.string().uuid(),
+  incident_id: z.string().uuid().optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  summary: z.string().trim().min(1).max(4000).optional(),
+  hypothesis: z.string().trim().min(1).max(4000).optional(),
+});
+
+export type CreatePlatformAgentHandoffDto = z.infer<typeof createPlatformAgentHandoffSchema>;
+
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 
 export const alertComponentSchema = z.enum([

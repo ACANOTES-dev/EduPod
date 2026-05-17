@@ -273,6 +273,55 @@
     "permission": "platform.tenants.view"
   },
   {
+    "method": "GET",
+    "path": "/v1/admin/copilot/action-proposals",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/action-proposals",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/copilot/action-proposals/:id",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/action-proposals/:id/approve",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.approve_action"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/action-proposals/:id/reject",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/agent-handoffs",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/copilot/agent-handoffs/:id",
+    "controller": "PlatformAiActionProposalsController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/copilot/briefs/daily",
     "controller": "PlatformAiRecommendationController",

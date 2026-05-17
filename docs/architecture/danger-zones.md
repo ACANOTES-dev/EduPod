@@ -1702,17 +1702,17 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 **Regression coverage**: `apps/api/src/modules/platform/copilot-response-post-processor.spec.ts` verifies cited-claim preservation, uncited-claim stripping, and malformed citation removal. `apps/api/src/modules/platform/platform-ai-copilot.service.spec.ts` verifies persisted citation/cost metadata. The adversarial prompt-injection suite verifies uncited compliance text is refused.
 
-## DZ-AI-3: AI Recommendation Action Surface Is Manual-Only Until 4D
+## DZ-AI-3: AI Recommendation And Action Surfaces Must Stay Supervised
 
-**Risk**: Session 4C recommendations can describe operational next steps, but they must not become an action executor by accident. A model output that mentions migrations, schema edits, secrets, deploy config, cron jobs, or background AI loops could be mistaken for an approved executable action during an incident.
-**Location**: `apps/api/src/modules/platform/platform-ai-recommendation.service.ts`, `apps/api/src/modules/platform/platform-ai-recommendation.controller.ts`, `apps/web/src/app/[locale]/(platform)/admin/copilot/recommendations/page.tsx`
-**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4C, 2026-05-17)
+**Risk**: Recommendations and supervised action proposals are incident-assistance tools, not autonomous operators. A model output that mentions migrations, schema edits, secrets, deploy config, cron jobs, production server config, Module Gating registry changes, or background AI loops could be mistaken for an approved executable action during an incident.
+**Location**: `apps/api/src/modules/platform/platform-ai-recommendation.service.ts`, `apps/api/src/modules/platform/platform-ai-action-proposals.service.ts`, `apps/api/src/modules/platform/platform-ai-action-proposals.controller.ts`, `apps/web/src/app/[locale]/(platform)/admin/copilot/recommendations/page.tsx`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4D, 2026-05-17)
 
-**Rule**: Recommendation generation is manual-only advice. Do not inject queue, alert, tenant, cache, deploy, schema, migration, secret, cron, or repository mutation services into `PlatformAiRecommendationService`. `proposed_action` records must remain `mode: "manual_only"` in Session 4C. Destructive recommendations may be flagged as requiring owner confirmation, but no owner-confirmed executor is wired until Session 4D.
+**Rule**: No AI path may execute without an operator click and approval. The recommendation prompt, recommendation post-processor, and supervised executor must hard-block schema/migration changes, deploy config, secrets/env vars, cron schedules, production server config, Module Gating registry changes, and repository code patches. Destructive/sensitive actions must use the Layer 1.5C owner confirmation flow, not fake two-person approval. Code-required fixes must produce a repo-agent handoff prompt only.
 
-**Mitigation**: The recommendation service sanitizes model-supplied proposed actions into manual-only payloads and marks blocked terms such as `.env`, `schema.prisma`, migrations, deploy config, cron, background AI, and secrets. The recommendations UI displays guidance and evidence only; accept/dismiss changes recommendation status, not platform state.
+**Mitigation**: `PlatformAiRecommendationService` continues to sanitize model-proposed actions and blocked terms. `PlatformAiActionProposalsService` builds proposals only from cited recommendation evidence via `PlatformEvidenceService`, re-checks `platform.ai.approve_action` plus the underlying action permission at approval time, routes high-blast actions through owner confirmation, records the signed-in platform user as approver, and returns `403 NO_EXECUTOR` with an audit entry for blocked/unknown action kinds.
 
-**Regression coverage**: `apps/api/src/modules/platform/platform-ai-recommendation.service.spec.ts` verifies manual-only proposed actions and repo-handoff candidate marking. `apps/api/src/modules/platform/recommendation-no-background-trigger.spec.ts` verifies the service has no cron, interval, module-init, or alert-fired generation path.
+**Regression coverage**: `apps/api/src/modules/platform/platform-ai-recommendation.service.spec.ts` verifies manual-only sanitization and repo-handoff candidate marking. `apps/api/src/modules/platform/platform-ai-action-proposals.service.spec.ts` covers blocklist refusal, approval-time permission checks, owner-confirmed destructive paths, Sentry runbook handoff, and repo-agent handoff secret scanning. `apps/api/src/modules/platform/proposal-no-two-person.spec.ts` locks out second-account approval.
 
 ## DZ-AI-4: Recommendation Spend Must Stay Operator-Triggered
 

@@ -45,8 +45,13 @@ const BLOCKED_ACTION_TERMS = [
   'background ai',
   'cron',
   'deploy config',
+  'ecosystem.config',
+  'env var',
   'github action',
   'migration',
+  'module gating registry',
+  'module registry',
+  'production server config',
   'schema.prisma',
   'secret',
 ];
@@ -649,7 +654,7 @@ Each item must include: category, title, summary, detailed_reasoning, confidence
 Allowed categories: noise_reduction, known_fix, config_drift, deploy_regression, capacity, cost, security, hygiene.
 Allowed confidence: low, medium, high. Allowed risk_level: safe, caution, destructive.
 Every factual sentence in summary and detailed_reasoning must cite evidence as [E:<id>] using ids from the evidence block.
-Recommendations are manual-only advice. Do not claim an action has been executed. Do not propose background AI, cron model calls, schema edits, migration edits, secret changes, or deploy-config edits as executable actions.
+Recommendations are manual-only advice until Session 4D creates a supervised proposal. Do not claim an action has been executed. Hard-block background AI, cron or schedule changes, schema edits, migration edits, secret or env var changes, production server config, Module Gating registry changes, and deploy-config edits as executable actions.
 Use topology and severity_policy evidence when relevant for blast radius and impact. ${categoryLine}`;
 }
 
