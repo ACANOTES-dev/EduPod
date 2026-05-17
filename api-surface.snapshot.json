@@ -646,7 +646,7 @@
   {
     "method": "GET",
     "path": "/v1/admin/tenants/:id/modules",
-    "controller": "TenantsController",
+    "controller": "TenantModulesAdminController",
     "module": "tenants",
     "permission": "platform.tenants.view"
   },

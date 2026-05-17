@@ -44,7 +44,6 @@ describe('TenantsController', () => {
     getDashboard: jest.Mock;
     impersonate: jest.Mock;
     resetUserMfa: jest.Mock;
-    listModules: jest.Mock;
     toggleModule: jest.Mock;
   };
   let mockSupportService: {
@@ -90,7 +89,6 @@ describe('TenantsController', () => {
       getDashboard: jest.fn(),
       impersonate: jest.fn(),
       resetUserMfa: jest.fn(),
-      listModules: jest.fn(),
       toggleModule: jest.fn(),
     };
     mockSupportService = {
@@ -531,15 +529,6 @@ describe('TenantsController', () => {
     const result = await controller.listAuditActions(query);
     expect(result).toEqual(response);
     expect(mockSupportService.listAuditActions).toHaveBeenCalledWith(query);
-  });
-
-  it('should delegate listModules to the service', async () => {
-    const modules = [{ key: 'finance', is_enabled: true }];
-    mockService.listModules.mockResolvedValueOnce(modules);
-
-    const result = await controller.listModules(TENANT_ID);
-    expect(result).toEqual(modules);
-    expect(mockService.listModules).toHaveBeenCalledWith(TENANT_ID);
   });
 
   it('should delegate toggleModule to the service with actor user ID', async () => {

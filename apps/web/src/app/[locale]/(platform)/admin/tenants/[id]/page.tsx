@@ -291,6 +291,12 @@ function TenantActions({
           </Link>
         </Button>
       )}
+      <Button variant="outline" size="sm" asChild>
+        <Link href={`/en/admin/tenants/${tenant.id}/modules`}>
+          <Settings className="me-1.5 h-3.5 w-3.5" />
+          Module toggles
+        </Link>
+      </Button>
       {tenant.status === 'active' && (
         <Button
           variant="outline"

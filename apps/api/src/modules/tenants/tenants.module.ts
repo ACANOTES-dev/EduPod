@@ -7,6 +7,8 @@ import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { S3Module } from '../s3/s3.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
+import { TenantModulesAdminController } from './admin/tenant-modules-admin.controller';
+import { TenantModulesAdminService } from './admin/tenant-modules-admin.service';
 import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
 import { MaintenanceService } from './maintenance.service';
@@ -30,20 +32,22 @@ import { TenantsService } from './tenants.service';
     SequenceModule,
   ],
   controllers: [
-    TenantsController,
+    TenantModulesAdminController,
     DomainsController,
     PublicTenantsController,
     TenantSelfController,
+    TenantsController,
   ],
   providers: [
-    TenantsService,
+    TenantModulesAdminService,
     DomainsService,
-    PublicTenantsService,
-    TenantReadFacade,
     MaintenanceService,
     PlatformCacheService,
     PlatformSessionService,
     PlatformSupportService,
+    PublicTenantsService,
+    TenantReadFacade,
+    TenantsService,
   ],
   exports: [TenantsService, SequenceModule, TenantReadFacade],
 })

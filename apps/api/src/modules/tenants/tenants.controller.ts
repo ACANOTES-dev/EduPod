@@ -429,12 +429,6 @@ export class TenantsController {
     );
   }
 
-  @Get('tenants/:id/modules')
-  @RequiresPlatformPermission('platform.tenants.view')
-  async listModules(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantsService.listModules(id);
-  }
-
   @Patch('tenants/:id/modules/:key')
   @RequiresPlatformPermission('platform.modules.toggle')
   async toggleModule(

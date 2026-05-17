@@ -4,6 +4,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AuditLogInterceptor } from '../../common/interceptors/audit-log.interceptor';
 
+import { AuditLogReadFacade } from './audit-log-read.facade';
 import { AuditLogController, PlatformAuditLogController } from './audit-log.controller';
 import { AuditLogService } from './audit-log.service';
 import { EngagementController } from './engagement.controller';
@@ -14,6 +15,7 @@ import { SecurityAuditService } from './security-audit.service';
   imports: [BullModule.registerQueue({ name: 'audit-log' })],
   controllers: [AuditLogController, PlatformAuditLogController, EngagementController],
   providers: [
+    AuditLogReadFacade,
     AuditLogService,
     SecurityAuditService,
     {
@@ -21,6 +23,6 @@ import { SecurityAuditService } from './security-audit.service';
       useClass: AuditLogInterceptor,
     },
   ],
-  exports: [AuditLogService, SecurityAuditService],
+  exports: [AuditLogReadFacade, AuditLogService, SecurityAuditService],
 })
 export class AuditLogModule {}
