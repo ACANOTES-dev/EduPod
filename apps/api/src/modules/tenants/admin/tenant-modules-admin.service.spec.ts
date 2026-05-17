@@ -3,11 +3,13 @@ import { Test } from '@nestjs/testing';
 
 import { MODULE_REGISTRY } from '@school/shared/modules';
 
-import { TenantModuleService } from '../../../common/services/tenant-module.service';
+import { withRls } from '../../../common/helpers/with-rls';
 import { AuditLogReadFacade } from '../../audit-log/audit-log-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { TenantModulesAdminService } from './tenant-modules-admin.service';
+
+jest.mock('../../../common/helpers/with-rls');
 
 const TENANT_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const USER_ID = '11111111-2222-4333-8444-555555555555';
@@ -16,6 +18,9 @@ function buildPrisma() {
   return {
     tenant: {
       findUnique: jest.fn(),
+    },
+    tenantModule: {
+      findMany: jest.fn(),
     },
   };
 }
@@ -26,30 +31,26 @@ function buildAuditLogReadFacade() {
   };
 }
 
-function buildTenantModuleService() {
-  return {
-    assertCompleteness: jest.fn(),
-    getModuleRows: jest.fn(),
-  };
-}
-
 describe('TenantModulesAdminService', () => {
   let service: TenantModulesAdminService;
   let prisma: ReturnType<typeof buildPrisma>;
   let auditLogReadFacade: ReturnType<typeof buildAuditLogReadFacade>;
-  let tenantModule: ReturnType<typeof buildTenantModuleService>;
+  const withRlsMock = jest.mocked(withRls);
 
   beforeEach(async () => {
     prisma = buildPrisma();
     auditLogReadFacade = buildAuditLogReadFacade();
-    tenantModule = buildTenantModuleService();
+    withRlsMock.mockImplementation(async (_prisma, _context, fn) => {
+      return fn({
+        tenantModule: prisma.tenantModule,
+      } as Parameters<typeof fn>[0]);
+    });
 
     const module = await Test.createTestingModule({
       providers: [
         TenantModulesAdminService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditLogReadFacade, useValue: auditLogReadFacade },
-        { provide: TenantModuleService, useValue: tenantModule },
       ],
     }).compile();
 
@@ -60,30 +61,34 @@ describe('TenantModulesAdminService', () => {
 
   it('returns the full registry with current enabled state and completeness', async () => {
     prisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
-    tenantModule.getModuleRows.mockResolvedValueOnce([
+    prisma.tenantModule.findMany.mockResolvedValueOnce([
       { id: 'm1', tenant_id: TENANT_ID, module_key: 'finance', is_enabled: true },
       { id: 'm2', tenant_id: TENANT_ID, module_key: 'sen', is_enabled: false },
     ]);
-    tenantModule.assertCompleteness.mockResolvedValueOnce({ complete: true, missing: [] });
     auditLogReadFacade.findManyWithActor.mockResolvedValueOnce([]);
 
     const result = await service.getModulesView(TENANT_ID);
 
+    expect(withRlsMock).toHaveBeenCalledWith(
+      prisma,
+      { tenant_id: TENANT_ID },
+      expect.any(Function),
+    );
     expect(result.tenant_id).toBe(TENANT_ID);
     expect(result.modules).toHaveLength(MODULE_REGISTRY.length);
     expect(result.modules.find((entry) => entry.key === 'finance')?.is_enabled).toBe(true);
     expect(result.modules.find((entry) => entry.key === 'sen')?.is_enabled).toBe(false);
-    expect(result.completeness).toEqual({ complete: true, missing: [] });
+    expect(result.completeness.complete).toBe(false);
+    expect(result.completeness.missing).toContain('admissions');
   });
 
   it('attaches the latest audit toggle metadata per module', async () => {
     const latest = new Date('2026-05-17T10:00:00.000Z');
     const older = new Date('2026-05-16T10:00:00.000Z');
     prisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
-    tenantModule.getModuleRows.mockResolvedValueOnce([
+    prisma.tenantModule.findMany.mockResolvedValueOnce([
       { id: 'm1', tenant_id: TENANT_ID, module_key: 'finance', is_enabled: false },
     ]);
-    tenantModule.assertCompleteness.mockResolvedValueOnce({ complete: false, missing: ['sen'] });
     auditLogReadFacade.findManyWithActor.mockResolvedValueOnce([
       {
         created_at: latest,
@@ -111,11 +116,7 @@ describe('TenantModulesAdminService', () => {
 
   it('returns null last-toggled values when no audit entries exist', async () => {
     prisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
-    tenantModule.getModuleRows.mockResolvedValueOnce([]);
-    tenantModule.assertCompleteness.mockResolvedValueOnce({
-      complete: false,
-      missing: ['finance'],
-    });
+    prisma.tenantModule.findMany.mockResolvedValueOnce([]);
     auditLogReadFacade.findManyWithActor.mockResolvedValueOnce([]);
 
     const result = await service.getModulesView(TENANT_ID);
@@ -129,6 +130,6 @@ describe('TenantModulesAdminService', () => {
     prisma.tenant.findUnique.mockResolvedValueOnce(null);
 
     await expect(service.getModulesView(TENANT_ID)).rejects.toThrow(NotFoundException);
-    expect(tenantModule.getModuleRows).not.toHaveBeenCalled();
+    expect(withRlsMock).not.toHaveBeenCalled();
   });
 });

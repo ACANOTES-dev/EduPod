@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
-import { MODULE_REGISTRY, isModuleKey } from '@school/shared/modules';
+import { MODULE_KEYS_ARRAY, MODULE_REGISTRY, isModuleKey } from '@school/shared/modules';
 import type { ModuleDefinition, ModuleKey } from '@school/shared/modules';
 
-import { TenantModuleService } from '../../../common/services/tenant-module.service';
+import { withRls } from '../../../common/helpers/with-rls';
 import { AuditLogReadFacade } from '../../audit-log/audit-log-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -25,10 +25,14 @@ interface LatestToggle {
   actor: { user_id: string; display_name: string } | null;
 }
 
+interface ModuleRowsWithCompleteness {
+  moduleRows: Array<{ module_key: string; is_enabled: boolean }>;
+  completeness: { complete: boolean; missing: ModuleKey[] };
+}
+
 @Injectable()
 export class TenantModulesAdminService {
   constructor(
-    private readonly tenantModule: TenantModuleService,
     private readonly auditLogReadFacade: AuditLogReadFacade,
     private readonly prisma: PrismaService,
   ) {}
@@ -45,9 +49,8 @@ export class TenantModulesAdminService {
       });
     }
 
-    const [moduleRows, completeness, recentToggles] = await Promise.all([
-      this.tenantModule.getModuleRows(tenantId),
-      this.tenantModule.assertCompleteness(tenantId),
+    const [{ moduleRows, completeness }, recentToggles] = await Promise.all([
+      this.fetchModuleRowsWithCompleteness(tenantId),
       this.fetchLatestToggleEventsByKey(tenantId),
     ]);
     const enabledByKey = new Map(
@@ -69,6 +72,25 @@ export class TenantModulesAdminService {
       }),
       completeness,
     };
+  }
+
+  private async fetchModuleRowsWithCompleteness(
+    tenantId: string,
+  ): Promise<ModuleRowsWithCompleteness> {
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      const moduleRows = await tx.tenantModule.findMany({
+        where: { tenant_id: tenantId },
+        select: { module_key: true, is_enabled: true },
+        orderBy: { module_key: 'asc' },
+      });
+      const present = new Set(moduleRows.map((row) => row.module_key));
+      const missing = MODULE_KEYS_ARRAY.filter((key) => !present.has(key));
+
+      return {
+        moduleRows,
+        completeness: { complete: missing.length === 0, missing },
+      };
+    });
   }
 
   private async fetchLatestToggleEventsByKey(
