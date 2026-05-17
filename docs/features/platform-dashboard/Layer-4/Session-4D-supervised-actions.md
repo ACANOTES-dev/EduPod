@@ -243,16 +243,116 @@ These are starting points from the operator-maintained topology map, not proof:
 
 ## Acceptance
 
-- [ ] `PlatformAiActionProposalsService` exists with create / approve / reject.
-- [ ] At least 9 action executors/handlers registered: silence_alert, acknowledge_alert, retry_jobs, open_github_issue, schedule_maintenance, run_sentry_triage, flush_tenant_cache, generate_repo_agent_handoff, manual_only.
-- [ ] Destructive executors such as flush_global_cache and clean_queue require owner confirmation.
-- [ ] No two-person or second-account approval is required anywhere.
-- [ ] Every approved + executed action emits the full audit chain.
-- [ ] Action blocklist enforced at prompt, post-processor, and executor layers.
-- [ ] Code-change executor explicitly not shipped in this session.
-- [ ] Repo-agent handoff prompt generator exists and stores copyable prompts in `platform_agent_handoff_prompts`.
-- [ ] `run_sentry_triage` executor invokes the existing runbook handoff and returns output to the Copilot.
-- [ ] All tests pass, including no-two-person coverage.
+- [x] `PlatformAiActionProposalsService` exists with create / approve / reject.
+- [x] At least 9 action executors/handlers registered: silence_alert, acknowledge_alert, retry_jobs, open_github_issue, schedule_maintenance, run_sentry_triage, flush_tenant_cache, generate_repo_agent_handoff, manual_only.
+- [x] Destructive executors such as flush_global_cache and clean_queue require owner confirmation.
+- [x] No two-person or second-account approval is required anywhere.
+- [x] Every approved + executed action emits the full audit chain.
+- [x] Action blocklist enforced at prompt, post-processor, and executor layers.
+- [x] Code-change executor explicitly not shipped in this session.
+- [x] Repo-agent handoff prompt generator exists and stores copyable prompts in `platform_agent_handoff_prompts`.
+- [x] `run_sentry_triage` executor invokes the existing runbook handoff and returns output to the Copilot.
+- [x] All tests pass, including no-two-person coverage.
+
+---
+
+## Commits / CI / Notes
+
+Commits:
+
+- `9a9936e2 feat(platform): add supervised ai action proposals`
+- `0a95782c fix(platform): clarify handoff verification prompt`
+
+CI:
+
+- GitHub Actions `25992078697` passed and deployed `9a9936e2`.
+- GitHub Actions `25992706855` passed and deployed `0a95782c`.
+
+Verification:
+
+- Local targeted checks passed: Prisma generate/validate, shared/web/api type-check, web/api lint, focused platform AI action-proposal Jest coverage, API surface snapshot, and full `pnpm test`.
+- Local pre-push `validate:ci` passed for the fix-forward commit.
+- Production smoke on `https://dua.edupod.app` passed after the green deploy. The smoke verified platform-admin login, supervised-action endpoints, manual approval execution with the signed-in operator as approver, owner-confirmation refusal for destructive approval without the Layer 1.5C owner confirmation body, blocklist refusal, Sentry runbook handoff, repo-agent handoff prompt verification/falsification wording, no secret-like prompt content, Cmd+K/global search API, and existing Platform Admin pages: dashboard, Copilot, recommendations, alerts, queues, error log, audit log, deploys, runbooks, topology, severity policies, tenants, sessions/cache, maintenance, platform users, and support users.
+- Production recommendation generation returned valid empty results for live health, queue, error, and tenant contexts during smoke. To exercise 4D's strict "no proposal without cited recommendation evidence" boundary, a short-lived production smoke recommendation with cited queue evidence was inserted through diagnostics and used only for supervised-action verification.
+
+Notes:
+
+- No streaming was added.
+- No autonomous execution was added.
+- No two-person approval flow was introduced.
+- Code-required fixes still produce repo-agent handoff prompts only.
+- `run_sentry_triage` creates the existing runbook handoff and does not run Sentry triage or bypass the Sentry guardrails.
+
+---
+
+## Generated Next-Session Prompt
+
+```text
+Implement Session 4E of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md
+docs/features/platform-dashboard/Layer-4/Session-4E-incident-postmortems.md
+
+Context:
+- Sessions 0 through 4D are complete, deployed, smoke-tested, and accepted.
+- Session 4D shipped supervised action proposals from 4C recommendations, owner-confirmed destructive/sensitive action approval, repo-agent handoff prompts, Sentry runbook handoffs, executor blocklists, and no-two-person/no-autonomous-execution guarantees.
+- Production Copilot generation is configured and verified, but recommendation generation may validly return no recommendations for some evidence contexts.
+- Streaming remains waived; do not add streaming unless Session 4E specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, and Layer 4 plans.
+5. Read Session 4A, Session 4B, Session 4C, and Session 4D closeout notes.
+6. Read Session 4E / Incident Learning + Postmortems end-to-end.
+7. Inspect existing alerts, alert history, alert evaluation, owner confirmation, platform evidence, Copilot, prompt builder, post-processor, citation enforcement, redaction, cost guardrails, recommendations, supervised action proposals, audit log, runbooks, topology, severity policy, queues, sessions/cache/maintenance, and platform dashboard shell conventions before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, and feature-map-maintenance rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 4E.
+- Create structured platform incidents from normal non-AI alert logic; do not run AI in the background.
+- Critical alert fires create or attach to an incident using conservative non-AI matching.
+- Related alerts attach to the same incident without downgrading severity.
+- Auto-resolve must be conservative: only after all contributing alerts are resolved and the incident has been quiet in monitoring for the specified period.
+- Postmortem generation/regeneration must be operator-clicked, cost-guarded, rate-limited, and never automatic.
+- Postmortems are markdown drafts, operator-editable, and persisted only through explicit operator save/publish actions.
+- Reuse PlatformEvidenceService where evidence is needed; do not bypass it.
+- Every postmortem claim must be citation-backed; uncited claims must be stripped or refused.
+- Run the standard redaction pipeline as a final pass before persisting postmortem content.
+- AI must never directly write or modify docs/runbooks/*.md. It may propose runbook updates only as operator-reviewed prevention recommendations.
+- Prevention recommendations must be manually generated and linked back to the incident through existing 4C recommendation rows.
+- Preserve all existing platform admin behavior, including Sessions 3A through 4D.
+- Follow token-driven UX styling.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify incident detection service behavior: new critical alert creates incident, related alert attaches, resolved alerts move incident to monitoring, quiet period auto-resolves.
+- Verify postmortem generation is manual, rate-limited, cost-guarded, citation-enforced, and redacted.
+- Verify postmortem editing/publishing persists final markdown without mutating the AI draft unexpectedly.
+- Verify generate-prevention creates 4C recommendation rows linked to the incident and does not execute or apply changes.
+- Verify no runbook file writes occur from AI generation.
+- Verify existing Platform Admin regressions, especially dashboard, Copilot, recommendations, supervised action proposals, alerts, queues, error log, audit log, deploys, runbooks, topology, severity policies, tenant detail/modules, sessions/cache/maintenance, platform users, Cmd+K global search, and support toolkit access.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 4E acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 4 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 4E is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
