@@ -3,14 +3,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
-import type {
-  AuditLogCategory,
-  AuditLogEntry,
-  AuditLogFilterDto,
-  AuditLogSensitivity,
-  PlatformAuditLogFilterDto,
+import {
+  SYSTEM_USER_SENTINEL,
+  type AuditLogCategory,
+  type AuditLogEntry,
+  type AuditLogFilterDto,
+  type AuditLogSensitivity,
+  type PlatformAuditLogFilterDto,
 } from '@school/shared';
 
+import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const AUDIT_LOG_WRITE_JOB = 'audit-log:write';
@@ -208,30 +210,35 @@ export class AuditLogService {
       end_date,
     });
 
-    const [logs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { created_at: 'desc' },
-        include: {
-          actor: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
+    const [logs, total] = await runWithRlsContext(
+      this.prisma,
+      { platform_admin: true, user_id: SYSTEM_USER_SENTINEL },
+      async (tx) =>
+        Promise.all([
+          tx.auditLog.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { created_at: 'desc' },
+            include: {
+              actor: {
+                select: {
+                  id: true,
+                  first_name: true,
+                  last_name: true,
+                },
+              },
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
-          },
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      }),
-      this.prisma.auditLog.count({ where }),
-    ]);
+          }),
+          tx.auditLog.count({ where }),
+        ]),
+    );
 
     const data = logs.map((log) => ({
       id: log.id,

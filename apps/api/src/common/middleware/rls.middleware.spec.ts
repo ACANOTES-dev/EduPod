@@ -295,6 +295,24 @@ describe('RLS Middleware', () => {
     );
   });
 
+  it('should set platform-admin RLS context when requested', async () => {
+    const mockTx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockPrisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    } as unknown as PrismaClient;
+
+    await runWithRlsContext(mockPrisma, { platform_admin: true }, async () => undefined);
+
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(4);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      4,
+      `SELECT set_config('app.platform_admin', $1, true)`,
+      'true',
+    );
+  });
+
   it('should reject empty RLS context', async () => {
     const mockPrisma = {
       $transaction: jest.fn(),

@@ -14,6 +14,8 @@ const TENANT_ID_2 = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 describe('AuditLogService', () => {
   let service: AuditLogService;
   let mockPrisma: {
+    $executeRawUnsafe: jest.Mock;
+    $transaction: jest.Mock;
     auditLog: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -24,6 +26,10 @@ describe('AuditLogService', () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+      $transaction: jest.fn(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        fn(mockPrisma),
+      ),
       auditLog: {
         create: jest.fn().mockResolvedValue({}),
         findMany: jest.fn().mockResolvedValue([]),
@@ -627,6 +633,16 @@ describe('AuditLogService', () => {
         entity_type: 'tenant',
         action: 'update',
       });
+    });
+
+    it('should use platform-admin RLS context for cross-tenant reads', async () => {
+      await service.listPlatform(baseFilters);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledWith(
+        `SELECT set_config('app.platform_admin', $1, true)`,
+        'true',
+      );
     });
 
     it('should apply tenant_id filter when provided', async () => {

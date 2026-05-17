@@ -39,6 +39,12 @@ export type RlsContext = {
    * route cannot enumerate other tenants' links.
    */
   public_share_token?: string;
+  /**
+   * Platform-admin read context for tightly-scoped platform endpoints that
+   * must inspect tenant rows across the platform while still keeping normal
+   * tenant RLS closed by default.
+   */
+  platform_admin?: boolean;
 };
 
 // The bootstrap RLS policies cast all three settings to UUID, so missing values
@@ -63,7 +69,8 @@ function validateRlsContext(context: RlsContext): void {
     !context.user_id &&
     !context.membership_id &&
     !context.tenant_domain &&
-    !context.public_share_token
+    !context.public_share_token &&
+    !context.platform_admin
   ) {
     throw new Error('RLS context requires at least one setting');
   }
@@ -94,6 +101,10 @@ async function applyRlsContext(tx: RlsPrismaTransaction, context: RlsContext): P
       `SELECT set_config('app.public_share_token', $1, true)`,
       context.public_share_token,
     );
+  }
+
+  if (context.platform_admin) {
+    await tx.$executeRawUnsafe(`SELECT set_config('app.platform_admin', $1, true)`, 'true');
   }
 }
 
