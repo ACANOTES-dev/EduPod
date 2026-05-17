@@ -164,8 +164,43 @@ enum PlatformAuditAction {
   synthetic_check_run_now
   sentry_triage_prompt_prepared
   sentry_agent_handoff_generated
+  evidence_pipeline_created
+  evidence_pipeline_updated
+  evidence_pipeline_deleted
+  evidence_pipeline_check_run_now
+  uptime_reconciliation_acknowledged
 
   @@map("platform_audit_action")
+}
+
+enum EvidencePipelineQueryKind {
+  max_occurred_at_table
+  max_completed_at_health_snapshot
+  max_seen_redis_queue_heartbeat
+  max_deployed_at_deploy_event
+  max_received_at_sentry_webhook
+  max_indexed_at_runbook_index
+  max_updated_at_topology
+  max_updated_at_severity_policy
+  max_logged_at_error_log
+  max_seen_redis_pubsub
+  max_ran_at_synthetic_result
+  max_ran_at_route_health_check
+  max_received_at_backup_capture
+  max_computed_at_backup_readiness
+  max_snapshot_at_readiness_score
+
+  @@map("evidence_pipeline_query_kind")
+}
+
+enum EvidencePipelineStatus {
+  fresh
+  lagging
+  stale
+  silent
+  unknown
+
+  @@map("evidence_pipeline_status")
 }
 
 enum SyntheticCheckKind {
@@ -2005,6 +2040,7 @@ model User {
   platform_ai_action_proposals_rejected  PlatformAiActionProposal[]        @relation("platform_ai_action_proposal_rejecter")
   platform_agent_handoff_prompts_created PlatformAgentHandoffPrompt[]      @relation("platform_agent_handoff_prompt_creator")
   platform_incidents_resolved            PlatformIncident[]                @relation("platform_incident_resolver")
+  platform_uptime_reconciliations_ack    PlatformUptimeReconciliation[]    @relation("platform_uptime_reconciliation_ack")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -12590,6 +12626,69 @@ model PlatformCertificateCheck {
   @@index([days_until_expiry], map: "idx_platform_certificate_checks_expiry")
   @@index([check_status], map: "idx_platform_certificate_checks_status")
   @@map("platform_certificate_checks")
+}
+
+model PlatformEvidencePipeline {
+  id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                         String                    @unique @db.VarChar(120)
+  display_name                String                    @db.VarChar(160)
+  description                 String?                   @db.Text
+  query_kind                  EvidencePipelineQueryKind
+  query_params                Json                      @db.JsonB
+  expected_interval_seconds   Int
+  lagging_threshold_seconds   Int
+  stale_threshold_seconds     Int
+  silent_threshold_seconds    Int
+  alert_severity_lagging      String                    @default("warning") @db.VarChar(20)
+  alert_severity_silent       String                    @default("critical") @db.VarChar(20)
+  related_component           String?                   @db.VarChar(60)
+  is_seeded                   Boolean                   @default(false)
+  enabled                     Boolean                   @default(true)
+  created_at                  DateTime                  @default(now()) @db.Timestamptz()
+  updated_at                  DateTime                  @updatedAt @db.Timestamptz()
+
+  status PlatformEvidencePipelineStatus?
+
+  @@index([enabled], map: "idx_platform_evidence_pipelines_enabled")
+  @@index([related_component], map: "idx_platform_evidence_pipelines_component")
+  @@map("platform_evidence_pipelines")
+}
+
+model PlatformEvidencePipelineStatus {
+  pipeline_id           String                 @id @db.Uuid
+  last_seen_at          DateTime?              @db.Timestamptz()
+  lag_seconds           Int?
+  status                EvidencePipelineStatus @default(unknown)
+  breach_count          Int                    @default(0)
+  last_status_change_at DateTime?              @db.Timestamptz()
+  last_check_at         DateTime?              @db.Timestamptz()
+
+  pipeline PlatformEvidencePipeline @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+
+  @@index([status], map: "idx_platform_evidence_pipeline_status_status")
+  @@map("platform_evidence_pipeline_status")
+}
+
+model PlatformUptimeReconciliation {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_monitor_name   String   @db.VarChar(80)
+  external_target         String   @db.VarChar(255)
+  external_status         String   @db.VarChar(40)
+  external_observed_at    DateTime @db.Timestamptz()
+  internal_check_key      String   @db.VarChar(120)
+  internal_status         String   @db.VarChar(40)
+  internal_observed_at    DateTime @db.Timestamptz()
+  in_disagreement         Boolean
+  disagreement_streak     Int      @default(0)
+  acknowledged_by_user_id String?  @db.Uuid
+  acknowledged_at         DateTime? @db.Timestamptz()
+  detected_at             DateTime @default(now()) @db.Timestamptz()
+
+  acknowledged_by User? @relation("platform_uptime_reconciliation_ack", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([in_disagreement, detected_at(sort: Desc)], map: "idx_platform_uptime_reconciliations_active")
+  @@index([disagreement_streak], map: "idx_platform_uptime_reconciliations_streak")
+  @@map("platform_uptime_reconciliations")
 }
 
 model PlatformAuditLog {

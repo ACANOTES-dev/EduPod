@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
@@ -102,6 +103,7 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
   ],
   imports: [
     SentryModule.forRoot(),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ConfigModule,
     BullModule.forRootAsync({

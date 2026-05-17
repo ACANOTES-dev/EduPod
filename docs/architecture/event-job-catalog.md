@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job payload, cron registration, or approval callback, check here for the live side-effect graph.
 > **Maintenance**: Update when adding processors, changing job payload contracts, or introducing/removing dispatch paths.
-> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added runbook indexing, deploy-event capture, and platform correlation event ingestion); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added API-process evidence freshness, BullMQ queue heartbeat, Redis pub/sub heartbeat, and UptimeRobot reconciliation timers; all non-AI and not BullMQ-driven). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added runbook indexing, deploy-event capture, and platform correlation event ingestion); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — PlatformModule collects daily tenant analytics snapshots after 02:00 UTC and extends redacted error diagnostics without adding worker jobs); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2C — QueueAdminModule now introspects all BullMQ queues and publishes `platform:queues` metrics every 10s); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2A — alert evaluation now understands configurable health, queue, disk, error-rate, and latency metric keys from `condition_config`); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — alert evaluation now records silence/maintenance-window suppression and exempts security-critical rules from global/window suppression); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added API-process platform error retention and platform audit hash-chain verification intervals); previously: 2026-05-13 (queue + cron audit — corrected inbox fallback cadence, added EXAM_SCHEDULING queue, removed three unimplemented Communications cron entries, fixed false claim that behaviour ack-reminders / exclusion-deadline-check are registered as crons); previously: 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -21,6 +21,10 @@
 - `platform:tenant-metrics-collection` -> hourly API-process check in `TenantMetricsService` (Session 2D); executes once per UTC day after `02:00`. Iterates active tenants through `TenantReadFacade`, reads cross-domain aggregates through the owning read facades plus `TenantModuleService`, counts redacted tenant errors from `platform_error_log`, and upserts one `platform_tenant_metrics` snapshot per tenant/date. It does not enqueue jobs or publish WebSocket messages.
 - `platform:error-log-retention` -> hourly API-process check in `PlatformErrorLogMaintenanceService`; executes once per UTC day after `04:00` when an active `platform_owner` actor can be resolved. Deletes `platform_error_log` rows where `last_seen_at` is older than 90 days and writes a blocking `platform_error_retention_purged` audit entry with the cutoff and purge count.
 - `platform:audit-chain-verification` -> same hourly API-process maintenance loop; executes once per UTC day after `04:00`. Calls `PlatformAuditService.verifyChainIntegrity()` and publishes a critical `platform:alerts` message with `type='audit_integrity_broken'` if the append-only hash chain has a broken link.
+- `platform:evidence-freshness` -> every `60s` in the API process via `EvidenceFreshnessScheduledTask` (Session 5D). Reads enabled `platform_evidence_pipelines`, dispatches to pinned query-kind handlers only, upserts `platform_evidence_pipeline_status`, and emits transition-only alert records through the existing platform alert/routing path. It is intentionally a NestJS scheduled task, not a BullMQ job, so BullMQ outages cannot stop the checker that detects BullMQ silence. Warning-level transitions may be maintenance-suppressed; `silent` transitions are critical and non-suppressible.
+- `platform:queue-snapshot-heartbeat` -> every `60s` in the API process via `QueueSnapshotHeartbeatTask` (Session 5D). Calls the existing QueueAdmin/BullMQ introspection surface and writes `platform:resilience:bullmq:last_seen_at` to Redis only after successful queue inspection. If introspection fails, the Redis key is left stale so the `bullmq.snapshots` evidence pipeline naturally transitions through `lagging` -> `stale` -> `silent`.
+- `platform:redis-pubsub-heartbeat` -> every `10s` in the API process via `RedisPubSubHeartbeatService` (Session 5D). Publishes a heartbeat on the existing platform health pub/sub channel and updates `platform:resilience:pubsub:last_seen_at` only after the subscriber receives the round trip. It does not persist database rows; the evidence pipeline reads the Redis key.
+- `platform:uptime-reconciliation` -> every `5 min` in the API process via `UptimeReconciliationService` (Session 5D). When `UPTIMEROBOT_API_KEY` is configured, reads UptimeRobot monitor state and compares it with latest internal synthetic check results, appending `platform_uptime_reconciliations` rows and emitting warning alerts only after disagreement streaks reach two cycles. When the key is absent, it logs at debug level and skips without failing platform startup or evidence freshness.
 
 ### Core rules
 
@@ -905,3 +909,54 @@ retention timer, or alert-emission path imports or calls Anthropic, OpenAI,
 `AiModule`, `PlatformAiCopilotService`, recommendation generation, action
 proposal generation, repo-agent handoff generation, Sentry write-back, shell,
 git, or repository-file mutation.
+
+## Platform Evidence Completeness (Layer 5 Session 5D)
+
+### Evidence freshness timer
+
+- **Owner**: API process (`EvidenceFreshnessScheduledTask`,
+  `EvidenceFreshnessService`)
+- **Schedule**: every 60 seconds via NestJS Schedule, explicitly not BullMQ
+- **Source**: seeded/operator-managed `platform_evidence_pipelines`, pinned
+  `EvidencePipelineQueryKind` handlers, Redis heartbeat keys, and existing
+  platform evidence tables
+- **Destination**: `platform_evidence_pipeline_status` plus transition-only
+  `platform_alert_history` rows
+- **Side effects**: computes `unknown`, `fresh`, `lagging`, `stale`, or
+  `silent`; publishes `platform:alerts`; warning-level transitions may write
+  suppressed history during active platform maintenance windows; `silent`
+  transitions remain critical and non-suppressible.
+
+### Queue and Redis heartbeat bridges
+
+- **Owner**: API process (`QueueSnapshotHeartbeatTask`,
+  `RedisPubSubHeartbeatService`)
+- **Schedules**: queue heartbeat every 60 seconds; Redis pub/sub heartbeat every
+  10 seconds
+- **Source**: QueueAdmin/BullMQ introspection and the platform Redis pub/sub
+  channel
+- **Destination**: Redis keys `platform:resilience:bullmq:last_seen_at` and
+  `platform:resilience:pubsub:last_seen_at`
+- **Side effects**: successful checks refresh Redis timestamps. Failed checks do
+  not refresh the keys, allowing the freshness service to detect lag without a
+  queue snapshot database table.
+
+### Uptime reconciliation timer
+
+- **Owner**: API process (`UptimeReconciliationService`)
+- **Schedule**: every 5 minutes
+- **Source**: UptimeRobot `getMonitors` when `UPTIMEROBOT_API_KEY` is present,
+  and latest internal synthetic results
+- **Destination**: `platform_uptime_reconciliations`
+- **Side effects**: records internal/external disagreements and emits warning
+  alerts only when the same target disagrees for at least two consecutive
+  cycles. Missing UptimeRobot configuration degrades to a no-op.
+
+### Non-events
+
+No evidence freshness timer, heartbeat bridge, query-kind handler, uptime
+reconciliation path, alert-emission branch, shell banner, or Copilot freshness
+indicator imports or calls Anthropic, OpenAI, `AiModule`,
+`PlatformAiCopilotService`, recommendation generation, action proposal
+generation, repo-agent handoff generation, shell, git, or repository-file
+mutation.

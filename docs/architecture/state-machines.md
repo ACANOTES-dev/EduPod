@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: documented owner confirmation execution status plus alert silence and maintenance-window lifecycle fields). Previously: 2026-05-16 (Session 1D platform onboarding tracker: documented `BillingStatus` and `OnboardingStepStatus`). Previously: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
+> **Last verified**: 2026-05-18 (Session 5D evidence completeness: documented `EvidencePipelineStatus` freshness transitions and alert side effects). Previously: 2026-05-16 (Session 1.5C platform confirmation/alert silencing: documented owner confirmation execution status plus alert silence and maintenance-window lifecycle fields). Previously: 2026-05-16 (Session 1D platform onboarding tracker: documented `BillingStatus` and `OnboardingStepStatus`). Previously: 2026-05-13 (drift sweep against `packages/prisma/schema.prisma`: corrected `NotificationStatus` (the `bounced`/`complained` states never actually entered the enum — bounce/complaint tracking lives on `notification_suppression_list`; documented the dormant `claimed` value); flagged synthetic lifecycles as "not a Prisma enum"; disclosed `@map` translations on `CriticalIncidentStatus`; added a Catalog Index for the ~50 enums not previously documented and promoted seven high-traffic ones to full sections.); 2026-04-27 (Communications Overhaul rebuild — Impl 14 sign-off baseline).
 
 ---
 
@@ -772,6 +772,23 @@ expired*
 - **Storage model**: This is timestamp-derived plus `cancelled_at`, not a Prisma enum. A window is active when `cancelled_at IS NULL`, `starts_at <= now`, and `ends_at > now`.
 - **Guarded by**: `MaintenanceWindowService.create()` validates the time bounds. `cancel()` requires a reason and records actor/cancellation metadata.
 - **Side effects**: Active windows cause `AlertEvaluationService` to write suppressed alert history with `suppressed_by_maintenance_window_id` and publish an alert-suppressed platform realtime event. Security-critical alert rules are always exempt.
+
+### EvidencePipelineStatus
+
+```
+unknown -> [fresh, lagging, stale, silent]
+fresh   -> [lagging, stale, silent]
+lagging -> [fresh, stale, silent]
+stale   -> [fresh, lagging, silent]
+silent  -> [fresh, lagging, stale]
+```
+
+- **Schema**: `packages/prisma/schema.prisma` (`PlatformEvidencePipelineStatus.status`).
+- **Guarded by**: `EvidenceFreshnessService.checkPipeline()` only. Operators can edit enabled state and thresholds, but status itself is derived from the pinned query-kind handler's `last_seen_at` result plus each pipeline's lag/stale/silent thresholds.
+- **Unknown semantics**: `unknown` means the pipeline has not produced any timestamp yet or the source is intentionally event-triggered/empty. Production Sentry webhook receipts and future 5E/5F evidence sources may legitimately remain `unknown` until those external deliveries or future sessions are provisioned.
+- **Side effects**: status rows track `last_seen_at`, `lag_seconds`, `last_check_at`, `last_status_change_at`, and consecutive `breach_count`. Alerts are emitted only when the status changes. `fresh` recoveries emit info/recovery records; `lagging` and `stale` emit warning records; `silent` emits a critical record.
+- **Suppression boundary**: active platform maintenance windows may suppress warning-level freshness transitions where appropriate by writing suppressed alert history. `silent` is non-suppressible because the monitoring pipeline itself may be broken.
+- **Non-AI boundary**: transitions are deterministic threshold math and never call Layer 4 Copilot, recommendations, action proposals, or repo-agent handoff generation.
 
 ### MembershipStatus
 
@@ -1675,6 +1692,13 @@ Guardrails: every state change is driven by a signed webhook or a future
 operator-clicked action. The webhook handler stores no raw Sentry payloads,
 fails closed when `SENTRY_WEBHOOK_SECRET` is absent or invalid, and never calls
 AI or the repo-agent triage runbook.
+
+### Platform evidence completeness
+
+**`EvidencePipelineStatus`** — 5 values (`fresh|lagging|stale|silent|unknown`). Introduced by Platform Dashboard Layer 5 Session 5D on `platform_evidence_pipeline_status.status`.
+
+- See the Platform & Infrastructure section above for valid transitions and alert side effects.
+- The status is a derived freshness signal. It should not be directly mutated outside `EvidenceFreshnessService`.
 
 ### Pastoral (auxiliary)
 

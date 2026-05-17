@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   Bell,
   BellRing,
@@ -411,6 +412,12 @@ function PlatformSidebarNav({
           permission: 'platform.sentry.view',
         },
         {
+          icon: AlertTriangle,
+          label: 'Evidence Completeness',
+          href: `/${locale}/admin/evidence-completeness`,
+          permission: 'platform.evidence.view',
+        },
+        {
           icon: Layers,
           label: 'Queue Manager',
           href: `/${locale}/admin/queues`,
@@ -653,6 +660,7 @@ function PlatformShell({
           </div>
         </header>
         <ActiveSuppressionBanner />
+        <EvidenceCompletenessBanner locale={pathname?.split('/')[1] ?? 'en'} />
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">
           <ErrorBoundary resetKeys={[pathname]}>
             <div className="mx-auto max-w-content">{children}</div>
@@ -678,6 +686,77 @@ interface PlatformMaintenanceWindowSummary {
   starts_at: string;
   ends_at: string;
   cancelled_at: string | null;
+}
+
+interface CopilotFreshnessSummary {
+  overall_status: 'all_fresh' | 'some_lagging' | 'some_silent' | 'some_stale';
+  pipelines: Array<{
+    display_name: string;
+    key: string;
+    lag_seconds: number | null;
+    last_seen_at: string | null;
+    status: 'fresh' | 'lagging' | 'stale' | 'silent' | 'unknown';
+  }>;
+}
+
+function EvidenceCompletenessBanner({ locale }: { locale: string }) {
+  const [summary, setSummary] = React.useState<CopilotFreshnessSummary | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const result = await apiClient<CopilotFreshnessSummary>(
+          '/api/v1/admin/copilot/freshness-summary',
+          { silent: true },
+        );
+        if (!cancelled) setSummary(result);
+      } catch (err: unknown) {
+        console.error('[EvidenceCompletenessBanner.load]', err);
+      }
+    }
+
+    void load();
+    const interval = setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (!summary || summary.overall_status === 'all_fresh') {
+    return null;
+  }
+
+  const silent = summary.pipelines.filter((pipeline) => pipeline.status === 'silent');
+  const stale = summary.pipelines.filter((pipeline) => pipeline.status === 'stale');
+  const lagging = summary.pipelines.filter((pipeline) => pipeline.status === 'lagging');
+  const rows = silent.length > 0 ? silent : stale.length > 0 ? stale : lagging;
+  const label =
+    silent.length > 0
+      ? `${silent.length} evidence pipeline${silent.length === 1 ? '' : 's'} silent`
+      : stale.length > 0
+        ? `${stale.length} evidence pipeline${stale.length === 1 ? '' : 's'} stale`
+        : `${lagging.length} evidence pipeline${lagging.length === 1 ? '' : 's'} lagging`;
+  const names = rows
+    .slice(0, 3)
+    .map((pipeline) => pipeline.display_name)
+    .join(', ');
+
+  return (
+    <Link
+      href={`/${locale}/admin/evidence-completeness`}
+      className={cn(
+        'block border-b px-6 py-2 text-xs font-medium',
+        silent.length > 0
+          ? 'border-danger-text bg-danger-bg text-danger-text'
+          : 'border-warning-200 bg-warning-bg text-warning-text',
+      )}
+    >
+      {label}: {names}
+    </Link>
+  );
 }
 
 function ActiveSuppressionBanner() {

@@ -5,8 +5,15 @@ import { PlatformModule } from '../platform/platform.module';
 import { PlatformAuditModule } from '../platform-audit/platform-audit.module';
 import { PlatformErrorLogModule } from '../platform-error-log/platform-error-log.module';
 import { PlatformUsersModule } from '../platform-users/platform-users.module';
+import { QueueAdminModule } from '../queue-admin/queue-admin.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { EvidenceCompletenessController } from './evidence-completeness.controller';
+import { EvidenceFreshnessScheduledTask } from './evidence-freshness-scheduled.task';
+import { EvidenceFreshnessService } from './evidence-freshness.service';
+import { EvidenceQueryHandlersService } from './evidence-query-handlers.service';
+import { QueueSnapshotHeartbeatTask } from './queue-snapshot-heartbeat.task';
+import { RedisPubSubHeartbeatService } from './redis-pubsub-heartbeat.service';
 import { SentryAlertEmitterService } from './sentry/sentry-alert-emitter.service';
 import { SentryCorrelationService } from './sentry/sentry-correlation.service';
 import { SentryIngestionService } from './sentry/sentry-ingestion.service';
@@ -23,6 +30,7 @@ import { SyntheticCheckSchedulerService } from './synthetic-check-scheduler.serv
 import { SyntheticChecksController } from './synthetic-checks.controller';
 import { SyntheticChecksService } from './synthetic-checks.service';
 import { SyntheticCredentialResolverService } from './synthetic-credential-resolver.service';
+import { UptimeReconciliationService } from './uptime-reconciliation.service';
 
 @Module({
   imports: [
@@ -31,10 +39,21 @@ import { SyntheticCredentialResolverService } from './synthetic-credential-resol
     PlatformModule,
     PlatformRealtimeModule,
     PlatformUsersModule,
+    QueueAdminModule,
     TenantsModule,
   ],
-  controllers: [SentryIssuesController, SentryWebhookController, SyntheticChecksController],
+  controllers: [
+    EvidenceCompletenessController,
+    SentryIssuesController,
+    SentryWebhookController,
+    SyntheticChecksController,
+  ],
   providers: [
+    EvidenceFreshnessScheduledTask,
+    EvidenceFreshnessService,
+    EvidenceQueryHandlersService,
+    QueueSnapshotHeartbeatTask,
+    RedisPubSubHeartbeatService,
     SentryAlertEmitterService,
     SentryCorrelationService,
     SentryIngestionService,
@@ -48,6 +67,7 @@ import { SyntheticCredentialResolverService } from './synthetic-credential-resol
     SyntheticCheckSchedulerService,
     SyntheticChecksService,
     SyntheticCredentialResolverService,
+    UptimeReconciliationService,
   ],
 })
 export class PlatformResilienceModule {}

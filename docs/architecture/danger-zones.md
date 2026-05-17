@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4B — added DZ-AI-1 and DZ-AI-2 for read-only Copilot prompt-injection and citation controls); previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-18 (Platform Dashboard Layer 5 Session 5D — added DZ-RES-7 for deterministic evidence freshness and pinned query kinds). Previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4B — added DZ-AI-1 and DZ-AI-2 for read-only Copilot prompt-injection and citation controls); previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1862,6 +1862,46 @@ operator-clicked only.
 `sentry-triage-template.spec.ts`, `synthetic-no-ai-import.spec.ts`, and
 `alert-routing-no-ai-import.spec.ts` cover signature failure, missing secret,
 replay handling, redaction, static prompt alignment, and the non-AI import
+boundary.
+
+## DZ-RES-7: Evidence Freshness Must Not Depend On The Pipelines It Monitors
+
+**Risk**: Evidence completeness is the monitor of the monitoring system. If it
+runs through BullMQ, stores freeform SQL, treats empty event-driven sources as
+failures, or invokes AI to classify evidence freshness, the checker can either
+stop exactly when the monitored system is broken or become a privacy/cost risk
+during incidents.
+**Location**: `apps/api/src/modules/platform-resilience/evidence-*.ts`,
+`apps/api/src/modules/platform-resilience/*heartbeat*.ts`,
+`apps/api/src/modules/platform-resilience/uptime-reconciliation.service.ts`,
+`packages/prisma/schema.prisma` (`PlatformEvidencePipeline`,
+`PlatformEvidencePipelineStatus`, `PlatformUptimeReconciliation`)
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5D, 2026-05-18)
+
+**Rule**: The freshness checker runs via NestJS Schedule in the API process, not
+BullMQ. Pipeline definitions use `EvidencePipelineQueryKind` plus validated
+`query_params`; they must never store or execute operator-provided freeform SQL.
+Seeded canonical pipelines are undeletable. `silent` transitions are critical
+and non-suppressible; warning-level `lagging`/`stale` transitions may be
+maintenance-suppressed. Freshness, heartbeat, reconciliation, and alerting paths
+must not import or call Layer 4 AI services, Anthropic, OpenAI, recommendation
+generation, action proposals, or repo-agent handoff generation.
+
+**Mitigation**: The migration seeds 14 canonical pipelines and adds a database
+trigger rejecting deletion of `is_seeded = true` rows. `EvidenceQueryHandlersService`
+contains the only query-kind dispatch and whitelists table/column combinations
+for the generic max-timestamp handler. Queue and Redis pub/sub freshness are
+bridged through Redis heartbeat keys that refresh only after successful
+introspection or pub/sub round trip. UptimeRobot reconciliation degrades to a
+no-op when `UPTIMEROBOT_API_KEY` is absent.
+
+**Regression coverage**: `evidence-query-handlers.service.spec.ts`,
+`evidence-freshness.service.spec.ts`, `queue-snapshot-heartbeat.task.spec.ts`,
+`redis-pubsub-heartbeat.service.spec.ts`,
+`uptime-reconciliation.service.spec.ts`, and
+`synthetic-no-ai-import.spec.ts` cover query-kind validation, seeded-delete
+protection, transition-only alerting, maintenance suppression, non-suppressible
+silent alerts, Redis heartbeat behavior, disagreement streaks, and the non-AI
 boundary.
 
 ---

@@ -135,6 +135,11 @@ export const platformAuditActionSchema = z.enum([
   'synthetic_check_run_now',
   'sentry_triage_prompt_prepared',
   'sentry_agent_handoff_generated',
+  'evidence_pipeline_created',
+  'evidence_pipeline_updated',
+  'evidence_pipeline_deleted',
+  'evidence_pipeline_check_run_now',
+  'uptime_reconciliation_acknowledged',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -537,6 +542,118 @@ export const sentryWebhookAuditQuerySchema = z.object({
 });
 
 export type SentryWebhookAuditQuery = z.infer<typeof sentryWebhookAuditQuerySchema>;
+
+// ─── Platform Evidence Completeness ────────────────────────────────────────
+
+export const evidencePipelineQueryKindSchema = z.enum([
+  'max_occurred_at_table',
+  'max_completed_at_health_snapshot',
+  'max_seen_redis_queue_heartbeat',
+  'max_deployed_at_deploy_event',
+  'max_received_at_sentry_webhook',
+  'max_indexed_at_runbook_index',
+  'max_updated_at_topology',
+  'max_updated_at_severity_policy',
+  'max_logged_at_error_log',
+  'max_seen_redis_pubsub',
+  'max_ran_at_synthetic_result',
+  'max_ran_at_route_health_check',
+  'max_received_at_backup_capture',
+  'max_computed_at_backup_readiness',
+  'max_snapshot_at_readiness_score',
+]);
+
+export type EvidencePipelineQueryKindDto = z.infer<typeof evidencePipelineQueryKindSchema>;
+
+export const evidencePipelineStatusSchema = z.enum([
+  'fresh',
+  'lagging',
+  'stale',
+  'silent',
+  'unknown',
+]);
+
+export type EvidencePipelineStatusDto = z.infer<typeof evidencePipelineStatusSchema>;
+
+export const evidencePipelineListQuerySchema = z.object({
+  status: evidencePipelineStatusSchema.optional(),
+  enabled: z.coerce.boolean().optional(),
+});
+
+export type EvidencePipelineListQuery = z.infer<typeof evidencePipelineListQuerySchema>;
+
+const evidencePipelineBaseObjectSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(3)
+    .max(120)
+    .regex(/^[a-z0-9._-]+$/, 'Use lower-case letters, numbers, dots, underscores, or hyphens.'),
+  display_name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(2000).optional(),
+  query_kind: evidencePipelineQueryKindSchema,
+  query_params: z.record(z.unknown()).default({}),
+  expected_interval_seconds: z.coerce.number().int().min(0).max(31_536_000),
+  lagging_threshold_seconds: z.coerce.number().int().min(1).max(31_536_000),
+  stale_threshold_seconds: z.coerce.number().int().min(1).max(31_536_000),
+  silent_threshold_seconds: z.coerce.number().int().min(1).max(31_536_000),
+  alert_severity_lagging: z.enum(['info', 'warning', 'critical']).default('warning'),
+  alert_severity_silent: z.enum(['info', 'warning', 'critical']).default('critical'),
+  related_component: z.string().trim().min(1).max(60).optional(),
+  enabled: z.boolean().default(true),
+});
+
+const evidencePipelineBaseSchema = evidencePipelineBaseObjectSchema.superRefine((value, ctx) => {
+  if (value.lagging_threshold_seconds > value.stale_threshold_seconds) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Lagging threshold must be less than or equal to stale threshold.',
+      path: ['lagging_threshold_seconds'],
+    });
+  }
+  if (value.stale_threshold_seconds > value.silent_threshold_seconds) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Stale threshold must be less than or equal to silent threshold.',
+      path: ['stale_threshold_seconds'],
+    });
+  }
+});
+
+export const createEvidencePipelineSchema = evidencePipelineBaseSchema;
+
+export type CreateEvidencePipelineDto = z.infer<typeof createEvidencePipelineSchema>;
+
+export const updateEvidencePipelineSchema = evidencePipelineBaseObjectSchema
+  .omit({ key: true })
+  .partial()
+  .superRefine((value, ctx) => {
+    const lagging = value.lagging_threshold_seconds;
+    const stale = value.stale_threshold_seconds;
+    const silent = value.silent_threshold_seconds;
+    if (lagging !== undefined && stale !== undefined && lagging > stale) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Lagging threshold must be less than or equal to stale threshold.',
+        path: ['lagging_threshold_seconds'],
+      });
+    }
+    if (stale !== undefined && silent !== undefined && stale > silent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Stale threshold must be less than or equal to silent threshold.',
+        path: ['stale_threshold_seconds'],
+      });
+    }
+  });
+
+export type UpdateEvidencePipelineDto = z.infer<typeof updateEvidencePipelineSchema>;
+
+export const uptimeReconciliationListQuerySchema = z.object({
+  active_only: z.coerce.boolean().default(true),
+});
+
+export type UptimeReconciliationListQuery = z.infer<typeof uptimeReconciliationListQuerySchema>;
 
 // ─── Platform Incidents + Postmortems ───────────────────────────────────────
 

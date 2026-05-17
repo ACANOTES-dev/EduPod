@@ -250,6 +250,25 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Prepare Sentry triage prompts',
     description: 'Prepare static repo-agent triage prompt packets for mirrored Sentry issues.',
   },
+  {
+    key: 'platform.evidence.view',
+    category: 'evidence',
+    display_name: 'View evidence completeness',
+    description: 'View evidence pipeline freshness and uptime reconciliation disagreements.',
+  },
+  {
+    key: 'platform.evidence.manage',
+    category: 'evidence',
+    display_name: 'Manage evidence completeness',
+    description:
+      'Create, edit, delete custom evidence pipelines and acknowledge uptime reconciliation disagreements.',
+  },
+  {
+    key: 'platform.evidence.run',
+    category: 'evidence',
+    display_name: 'Run evidence freshness checks',
+    description: 'Run evidence pipeline freshness checks on demand.',
+  },
 ] as const;
 
 export const PLATFORM_ROLE_PERMISSIONS = {
@@ -275,5 +294,7 @@ export const PLATFORM_ROLE_PERMISSIONS = {
     'platform.synthetic.run',
     'platform.sentry.view',
     'platform.sentry.triage',
+    'platform.evidence.view',
+    'platform.evidence.run',
   ],
 } as const;

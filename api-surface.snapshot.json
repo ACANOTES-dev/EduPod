@@ -463,6 +463,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/copilot/freshness-summary",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/copilot/recommendations",
     "controller": "PlatformAiRecommendationController",
     "module": "platform",
@@ -551,6 +558,48 @@
     "controller": "TenantMetricsController",
     "module": "platform",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/evidence-pipelines",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/evidence-pipelines",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/evidence-pipelines/:id",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/evidence-pipelines/:id",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/evidence-pipelines/:key",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/evidence-pipelines/:key/run-check-now",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.run"
   },
   {
     "method": "GET",
@@ -1181,6 +1230,20 @@
     "controller": "TenantMetricsController",
     "module": "platform",
     "permission": "platform.tenants.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/uptime-reconciliations",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/uptime-reconciliations/:id/acknowledge",
+    "controller": "EvidenceCompletenessController",
+    "module": "platform-resilience",
+    "permission": "platform.evidence.manage"
   },
   {
     "method": "GET",

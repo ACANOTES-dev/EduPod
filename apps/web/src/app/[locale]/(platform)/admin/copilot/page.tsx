@@ -56,6 +56,16 @@ interface CopilotContext {
   id: string;
 }
 
+interface FreshnessSummary {
+  overall_status: 'all_fresh' | 'some_lagging' | 'some_silent' | 'some_stale';
+  pipelines: Array<{
+    display_name: string;
+    key: string;
+    lag_seconds: number | null;
+    status: 'fresh' | 'lagging' | 'stale' | 'silent' | 'unknown';
+  }>;
+}
+
 export default function PlatformCopilotPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -67,6 +77,7 @@ export default function PlatformCopilotPage() {
   const [input, setInput] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [sending, setSending] = React.useState(false);
+  const [freshnessSummary, setFreshnessSummary] = React.useState<FreshnessSummary | null>(null);
   const autoSentRef = React.useRef(false);
 
   const queryContext = React.useMemo(() => parseContext(searchParams), [searchParams]);
@@ -92,6 +103,22 @@ export default function PlatformCopilotPage() {
   React.useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
+
+  React.useEffect(() => {
+    async function loadFreshnessSummary() {
+      try {
+        setFreshnessSummary(
+          await apiClient<FreshnessSummary>('/api/v1/admin/copilot/freshness-summary', {
+            silent: true,
+          }),
+        );
+      } catch (err: unknown) {
+        console.error('[PlatformCopilotPage.loadFreshnessSummary]', err);
+      }
+    }
+
+    void loadFreshnessSummary();
+  }, []);
 
   React.useEffect(() => {
     if (!queryContext || autoSentRef.current) return;
@@ -209,6 +236,8 @@ export default function PlatformCopilotPage() {
           </Button>
         }
       />
+
+      <CopilotFreshnessIndicator summary={freshnessSummary} />
 
       <div className="grid min-h-[680px] gap-4 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
         <aside className="rounded-lg border border-border bg-surface">
@@ -338,6 +367,53 @@ function EmptyState({ onStart }: { onStart: () => void }) {
         <MessageSquare className="me-2 h-4 w-4" />
         Start conversation
       </Button>
+    </div>
+  );
+}
+
+function CopilotFreshnessIndicator({ summary }: { summary: FreshnessSummary | null }) {
+  if (!summary) {
+    return null;
+  }
+  const unknown = summary.pipelines.filter((pipeline) => pipeline.status === 'unknown');
+  if (summary.overall_status === 'all_fresh') {
+    if (unknown.length > 0) {
+      return (
+        <div className="rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm font-medium text-text-secondary">
+          Some evidence pipelines have unknown freshness:{' '}
+          {unknown.map((pipeline) => pipeline.display_name).join(', ')}.
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-lg border border-success-text bg-success-bg px-4 py-3 text-sm font-medium text-success-text">
+        The Copilot is operating with fresh evidence.
+      </div>
+    );
+  }
+
+  const silent = summary.pipelines.filter((pipeline) => pipeline.status === 'silent');
+  const stale = summary.pipelines.filter((pipeline) => pipeline.status === 'stale');
+  const lagging = summary.pipelines.filter((pipeline) => pipeline.status === 'lagging');
+  const affected = silent.length > 0 ? silent : stale.length > 0 ? stale : lagging;
+  const label =
+    silent.length > 0
+      ? 'Some evidence pipelines are silent'
+      : stale.length > 0
+        ? 'Some evidence pipelines are stale'
+        : 'Some evidence pipelines are lagging';
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border px-4 py-3 text-sm font-medium',
+        silent.length > 0
+          ? 'border-danger-text bg-danger-bg text-danger-text'
+          : 'border-warning-200 bg-warning-bg text-warning-text',
+      )}
+    >
+      {label}: {affected.map((pipeline) => pipeline.display_name).join(', ')}. Answers may be
+      incomplete.
     </div>
   );
 }
