@@ -330,21 +330,130 @@ The last row is the meta-monitoring case: if the freshness check throws, the cat
 
 ## Acceptance
 
-- [ ] All three new tables exist; **14 seeded pipelines** inserted by migration (9 covering Layer 1-4 sources + 5 covering Layer 5's own pipelines).
-- [ ] `EvidenceFreshnessService` runs every 60s via NestJS `@Cron` (NOT BullMQ).
-- [ ] `QueueSnapshotHeartbeatTask` runs every 60s, calls 2C's `QueueSnapshotService.captureAll()`, updates Redis key on success.
-- [ ] Status transitions detected and alerted; severity mapping respected.
-- [ ] Maintenance-window suppression respected for `warning`; `critical` (silent) NOT suppressible.
-- [ ] Redis pub/sub heartbeat publisher + subscriber wired in; the `redis.pubsub` pipeline detects when Redis is unreachable.
-- [ ] Layer 5's own pipelines (synthetic.results, alert.route_health, backup.capture, backup.readiness.computed, readiness.score.snapshots) seeded and verified — turning off any of them transitions the corresponding pipeline through `lagging` → `silent`.
-- [ ] Uptime reconciliation cron runs every 5 min; UptimeRobot disagreements ≥ 2 cycles raise warnings.
-- [ ] `/admin/evidence-completeness` page renders with real data.
-- [ ] Header banner appears when any pipeline is `silent`.
-- [ ] Copilot freshness-summary endpoint exists and returns correct shape; Layer 4B's UI consumes it.
-- [ ] Seeded pipelines cannot be deleted (409 returned).
-- [ ] No-AI guard test passes.
-- [ ] Meta-monitoring fallback (catch block writes alert directly when freshness service throws) covered by test.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] All three new tables exist; **14 seeded pipelines** inserted by migration (9 covering Layer 1-4 sources + 5 covering Layer 5's own pipelines).
+- [x] `EvidenceFreshnessService` runs every 60s via NestJS `@Cron` (NOT BullMQ).
+- [x] `QueueSnapshotHeartbeatTask` runs every 60s, calls 2C's queue snapshot service, updates Redis key on success.
+- [x] Status transitions detected and alerted; severity mapping respected.
+- [x] Maintenance-window suppression respected for `warning`; `critical` (silent) NOT suppressible.
+- [x] Redis pub/sub heartbeat publisher + subscriber wired in; the `redis.pubsub` pipeline detects when Redis is unreachable.
+- [x] Layer 5's own pipelines (synthetic.results, alert.route_health, backup.capture, backup.readiness.computed, readiness.score.snapshots) seeded and verified — turning off any of them transitions the corresponding pipeline through `lagging` → `silent`.
+- [x] Uptime reconciliation cron runs every 5 min; UptimeRobot disagreements >= 2 cycles raise warnings.
+- [x] `/admin/evidence-completeness` page renders with real data.
+- [x] Header banner appears when any pipeline is `silent`.
+- [x] Copilot freshness-summary endpoint exists and returns correct shape; Layer 4B's UI consumes it.
+- [x] Seeded pipelines cannot be deleted (409 returned).
+- [x] No-AI guard test passes.
+- [x] Meta-monitoring fallback (catch block writes alert directly when freshness service throws) covered by test.
+- [x] All new code passes lint + type-check; no regressions.
+
+---
+
+## Commits / CI / Notes
+
+**Implementation commit:** `5ca7ea3e feat(platform): add evidence completeness monitoring`
+
+**CI / deployment:** GitHub Actions run `26002186760` passed all jobs and deployed to production via the standard `git push origin main` path.
+
+**Local verification completed:**
+
+- Prisma generation, Prisma validation, and schema snapshot.
+- Shared, API, and web type-checks.
+- API lint and web lint.
+- Nest application DI compile check.
+- Targeted 5D unit tests for freshness transitions, query-kind validation, seeded-row protection, maintenance suppression, non-suppressible `silent` alerts, queue heartbeat, Redis pub/sub heartbeat, uptime reconciliation, scheduled task behavior, and controller coverage.
+- Full API/workspace tests and API coverage gate.
+- Static no-AI scan across the 5D freshness, scheduled task, heartbeat, reconciliation, and controller files.
+
+**Production smoke completed on `https://dua.edupod.app`:**
+
+- `/en/admin/evidence-completeness` renders 14 seeded evidence pipelines with real status data.
+- Production freshness state after the first scheduled checks: 8 `fresh`, 0 `lagging`, 0 `stale`, 1 `silent`, 5 `unknown`.
+- `bullmq.snapshots` and `redis.pubsub` both refreshed from their Redis heartbeat bridges.
+- Sentry and future backup/readiness inputs remain `unknown` where production evidence is not yet provisioned, which is expected for 5D.
+- The platform shell renders the silent-pipeline banner and links back to Evidence Completeness.
+- Incident Copilot renders the read-only freshness warning before any operator question.
+- `/en/admin/uptime-reconciliations` renders with no active disagreements.
+- Existing Platform Admin pages smoke-tested: dashboard, health, alerts, Sentry issues, and synthetic checks.
+
+**Operational note:** Production currently has one real `silent` evidence pipeline, `error.log.writes`, because `platform_error_log` has not received a row for more than the configured 12-hour silent threshold. That is a legitimate 5D signal, not a deployment failure. Sentry webhook freshness remains `unknown` until Sentry delivery is provisioned.
+
+---
+
+## Generated Next-Session Prompt
+
+Implement Session 5E of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5E-backup-restore-readiness.md
+
+Context:
+
+- Sessions 0 through 5D are complete, deployed, smoke-tested, and accepted for code delivery.
+- Session 5A shipped synthetic journey monitoring, external dependency/certificate surfaces, synthetic result history, alert emission, and no-AI guarantees.
+- Session 5B shipped deterministic alert routing and escalation models, route health checks, acknowledgement flows, emergency contact profile UI, quiet-hours evaluation, dead-man sink separation, surviving-route dispatch, rate-limited synthetic test alerts, and no-AI guarantees.
+- Session 5C shipped signed Sentry webhook intake, redacted Sentry issue mirrors, hourly event summaries, webhook audit receipts, replay protection, error-log cross-links, Layer 4 operator-clicked Sentry actions, static triage prompt preparation, and no-AI webhook/background guarantees.
+- Session 5D shipped evidence completeness monitoring, 14 canonical evidence pipelines, seeded-pipeline deletion protection, pinned query kinds, NestJS scheduled freshness checks, BullMQ and Redis pub/sub heartbeat bridges, UptimeRobot reconciliation, shell silent-pipeline banner, Copilot freshness indicator, and no-AI freshness/background guarantees.
+- Production currently has zero alert channels/routes/escalation policies configured; do not assume real urgent routes exist until operator/sink destinations are provisioned.
+- Production currently has no mirrored Sentry issues or webhook receipts; treat Sentry freshness as `unknown` or empty until Sentry webhook delivery is provisioned.
+- Production currently has one real silent evidence signal, `error.log.writes`, because `platform_error_log` is quiet beyond its 12-hour threshold; do not treat that as a 5D deployment failure.
+- Layer 5 monitoring/background work must not call AI.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, 4B, 4C, 4D, 4E, 5A, 5B, 5C, and 5D closeout notes.
+6. Read Session 5E / Backup Restore Readiness end-to-end.
+7. Inspect production deployment scripts, current pg_dump backup flow, backup/restore runbooks, deploy event capture patterns, owner-confirmation primitives, audit ledger, alert emission/routing hooks, maintenance-window suppression, Evidence Completeness seeded backup pipelines, service topology/runbook index surfaces, Platform Admin shell conventions, and relevant backup/storage environment handling before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rules as relevant.
+
+Implementation requirements:
+
+- Stay strictly within Session 5E.
+- Backup readiness, replication polling, alerting, and dashboard status code must be non-AI.
+- Add the 5E backup/restore readiness models/enums and API contracts.
+- Implement internal-token-gated, idempotent `POST /v1/admin/_internal/backup-events`.
+- Extend `scripts/deploy-production.sh` to best-effort POST backup evidence after the existing pg_dump backup step, with retries, without making successful backups fail if evidence capture is unavailable.
+- Add deterministic backup-key/idempotency handling; never create duplicate rows for the same physical backup artifact.
+- Add offsite replication polling that reads storage metadata only; do not write, delete, move, or mutate backup artifacts.
+- Add restore-drill recording UI and API; do not add any endpoint or UI that executes a restore.
+- Gate suspicious restore-drill deletion or destructive drill-record changes with the existing owner-confirmation primitive.
+- Implement `BackupReadinessService` on a NestJS scheduled task, not BullMQ, and have it compute backup age, replication lag, restore-point age, and restore-drill age.
+- Emit alerts on backup freshness/replication/drill threshold breaches only on threshold transitions where appropriate.
+- Integrate 5E backup readiness into `/admin/backups` and link it from the Platform Admin shell.
+- Wire 5E timestamps into the existing 5D evidence pipelines for `backup.capture` and `backup.readiness.computed`.
+- Preserve Platform Admin behavior through 5D.
+
+Verification:
+
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no 5E scheduled/background/readiness/polling/capture code imports or calls AI services.
+- Verify internal-token validation, idempotent backup capture, deploy-script best-effort behavior, replication metadata parsing, readiness calculations, alert transitions, owner-confirmed drill deletion, and Evidence Completeness backup pipeline freshness.
+- Verify Backup / Restore Readiness UI in production.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+
+- Commit to main and push to origin main only.
+- Watch GitHub Actions.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+
+- Tick the Session 5E acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5E is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
 
 ---
 
