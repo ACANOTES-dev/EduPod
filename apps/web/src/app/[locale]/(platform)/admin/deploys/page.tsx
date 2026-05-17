@@ -4,7 +4,7 @@ import { ExternalLink, GitCommit, RefreshCw } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
 
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 
 interface DeployEvent {
@@ -105,6 +105,12 @@ export default function PlatformDeploysPage() {
                     label="Explain"
                     locale={locale}
                     question={`Explain deploy ${deploy.short_sha}. What changed, did errors or alerts appear nearby, and what cited evidence supports that?`}
+                  />
+                  <RecommendFixButton
+                    contextId={deploy.id}
+                    contextKind="deploy"
+                    label="Recommend Fix"
+                    locale={locale}
                   />
                   <a
                     href={deploy.deploy_run_url}

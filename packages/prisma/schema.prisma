@@ -178,6 +178,63 @@ enum PlatformAiMessageRole {
   @@map("platform_ai_message_role")
 }
 
+enum PlatformAiRecommendationTrigger {
+  copilot_question
+  explain_page
+  recommendation_button
+  daily_brief
+
+  @@map("platform_ai_recommendation_trigger")
+}
+
+enum PlatformAiRecommendationCategory {
+  noise_reduction
+  known_fix
+  config_drift
+  deploy_regression
+  capacity
+  cost
+  security
+  hygiene
+
+  @@map("platform_ai_recommendation_category")
+}
+
+enum PlatformAiRecommendationConfidence {
+  low
+  medium
+  high
+
+  @@map("platform_ai_recommendation_confidence")
+}
+
+enum PlatformAiRecommendationRisk {
+  safe
+  caution
+  destructive
+
+  @@map("platform_ai_recommendation_risk")
+}
+
+enum PlatformAiRecommendationStatus {
+  active
+  resolved
+  dismissed
+  expired
+  superseded
+
+  @@map("platform_ai_recommendation_status")
+}
+
+enum PlatformAiRecommendationResolution {
+  accepted_for_action
+  dismissed_not_applicable
+  dismissed_acknowledged_no_action
+  expired
+
+  @@map("platform_ai_recommendation_resolution")
+}
+
 enum PlatformAuditActionType {
   password_reset
   mfa_reset
@@ -1851,6 +1908,8 @@ model User {
   tenant_maintenance_windows_created     TenantMaintenanceWindow[]         @relation("tenant_maintenance_window_creator")
   onboarding_steps_completed             TenantOnboardingStep[]            @relation("onboarding_completer")
   platform_ai_conversations              PlatformAiConversation[]          @relation("platform_ai_conversation_creator")
+  platform_ai_recommendations_generated  PlatformAiRecommendation[]        @relation("platform_ai_recommendation_generator")
+  platform_ai_recommendations_resolved   PlatformAiRecommendation[]        @relation("platform_ai_recommendation_resolver")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -12410,6 +12469,45 @@ model PlatformAiMessage {
 
   @@index([conversation_id, created_at], map: "idx_platform_ai_messages_conversation_created")
   @@map("platform_ai_messages")
+}
+
+model PlatformAiRecommendation {
+  id                            String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category                      PlatformAiRecommendationCategory
+  title                         String                             @db.VarChar(200)
+  summary                       String                             @db.Text
+  detailed_reasoning            String                             @db.Text
+  raw_reasoning                 String                             @db.Text
+  confidence                    PlatformAiRecommendationConfidence
+  risk_level                    PlatformAiRecommendationRisk
+  requires_owner_confirmation   Boolean                            @default(false)
+  requires_repo_agent_handoff   Boolean                            @default(false)
+  proposed_action               Json?                              @db.JsonB
+  target_resource_type          String?                            @db.VarChar(60)
+  target_resource_id            String?                            @db.VarChar(255)
+  target_tenant_id              String?                            @db.Uuid
+  evidence                      Json                               @db.JsonB
+  evidence_fingerprint          String                             @db.VarChar(64)
+  related_runbook_id            String?                            @db.Uuid
+  generated_by_user_id          String                             @db.Uuid
+  trigger_source                PlatformAiRecommendationTrigger
+  status                        PlatformAiRecommendationStatus     @default(active)
+  generated_at                  DateTime                           @default(now()) @db.Timestamptz()
+  last_refreshed_at             DateTime                           @default(now()) @db.Timestamptz()
+  expires_at                    DateTime                           @db.Timestamptz()
+  resolved_at                   DateTime?                          @db.Timestamptz()
+  resolved_by_user_id           String?                            @db.Uuid
+  resolution_type               PlatformAiRecommendationResolution?
+  resolution_reason             String?                            @db.Text
+
+  generated_by User  @relation("platform_ai_recommendation_generator", fields: [generated_by_user_id], references: [id], onDelete: Restrict)
+  resolved_by  User? @relation("platform_ai_recommendation_resolver", fields: [resolved_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([status, expires_at], map: "idx_platform_ai_recommendations_status_expiry")
+  @@index([evidence_fingerprint, status], map: "idx_platform_ai_recommendations_fingerprint_status")
+  @@index([generated_by_user_id, generated_at(sort: Desc)], map: "idx_platform_ai_recommendations_generator_generated")
+  @@index([target_tenant_id, generated_at(sort: Desc)], map: "idx_platform_ai_recommendations_tenant_generated")
+  @@map("platform_ai_recommendations")
 }
 
 model TenantOnboardingStep {

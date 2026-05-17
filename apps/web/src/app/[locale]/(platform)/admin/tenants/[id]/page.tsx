@@ -31,7 +31,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
@@ -296,6 +296,12 @@ function TenantActions({
         label="Explain Tenant"
         locale={locale}
         question={`Explain tenant ${tenant.name}. Summarize tenant modules, recent errors, audit context, health signals, and cited evidence only.`}
+      />
+      <RecommendFixButton
+        contextId={tenant.id}
+        contextKind="tenant"
+        label="Recommend Fix"
+        locale={locale}
       />
       {tenant.status === 'active' && (
         <Button variant="outline" size="sm" asChild>

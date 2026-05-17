@@ -6,7 +6,7 @@ import * as React from 'react';
 import { Skeleton } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 import { usePlatformSocket } from '@/hooks/use-platform-socket';
 import { apiClient } from '@/lib/api-client';
 
@@ -195,13 +195,21 @@ export default function PlatformHealthPage() {
         title="Platform Health"
         description="Live dependency status, latency, and 24-hour trends for the platform admin surface."
         actions={
-          <ExplainButton
-            contextId="overall"
-            contextKind="health"
-            label="Explain Health"
-            locale={locale}
-            question="Explain the current platform health using only cited health, queue, deploy, alert, and topology evidence."
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <ExplainButton
+              contextId="overall"
+              contextKind="health"
+              label="Explain Health"
+              locale={locale}
+              question="Explain the current platform health using only cited health, queue, deploy, alert, and topology evidence."
+            />
+            <RecommendFixButton
+              contextId="overall"
+              contextKind="health"
+              label="Recommend Fix"
+              locale={locale}
+            />
+          </div>
         }
       />
 

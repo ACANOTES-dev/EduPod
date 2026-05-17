@@ -6,6 +6,7 @@ import { ActiveAlertsPanel } from './_components/active-alerts-panel';
 import { ActivityFeed } from './_components/activity-feed';
 import { HealthStrip } from './_components/health-strip';
 import { QuickActions } from './_components/quick-actions';
+import { RecentRecommendations } from './_components/recent-recommendations';
 import { TenantCards } from './_components/tenant-cards';
 
 export default function PlatformDashboardPage() {
@@ -26,6 +27,7 @@ export default function PlatformDashboardPage() {
 
         <div className="flex min-w-0 flex-col gap-6">
           <QuickActions />
+          <RecentRecommendations />
           <ActivityFeed />
         </div>
       </div>

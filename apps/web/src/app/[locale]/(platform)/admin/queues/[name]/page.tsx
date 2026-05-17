@@ -7,7 +7,7 @@ import * as React from 'react';
 import { Button, cn, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 
 import { QueueStatusBadge } from '../_components/queue-status-badge';
@@ -211,6 +211,12 @@ export default function QueueDetailPage({ params }: { params: { locale: string; 
               label="Explain Queue"
               locale={params.locale}
               question={`Explain queue ${queueName}. What failed or stalled jobs are visible, what services are affected, and which cited evidence supports the diagnosis?`}
+            />
+            <RecommendFixButton
+              contextId={queueName}
+              contextKind="queue"
+              label="Retry Safe?"
+              locale={params.locale}
             />
           </div>
         }

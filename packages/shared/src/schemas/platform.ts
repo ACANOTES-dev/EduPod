@@ -342,6 +342,76 @@ export type ListPlatformCopilotConversationsQuery = z.infer<
   typeof listPlatformCopilotConversationsQuerySchema
 >;
 
+export const platformAiRecommendationCategorySchema = z.enum([
+  'noise_reduction',
+  'known_fix',
+  'config_drift',
+  'deploy_regression',
+  'capacity',
+  'cost',
+  'security',
+  'hygiene',
+]);
+
+export type PlatformAiRecommendationCategoryDto = z.infer<
+  typeof platformAiRecommendationCategorySchema
+>;
+
+export const platformAiRecommendationStatusSchema = z.enum([
+  'active',
+  'resolved',
+  'dismissed',
+  'expired',
+  'superseded',
+]);
+
+export type PlatformAiRecommendationStatusDto = z.infer<
+  typeof platformAiRecommendationStatusSchema
+>;
+
+export const platformAiRecommendationTriggerSchema = z.enum([
+  'copilot_question',
+  'explain_page',
+  'recommendation_button',
+  'daily_brief',
+]);
+
+export type PlatformAiRecommendationTriggerDto = z.infer<
+  typeof platformAiRecommendationTriggerSchema
+>;
+
+export const generatePlatformRecommendationSchema = z.object({
+  category: platformAiRecommendationCategorySchema.optional(),
+  context: platformCopilotEvidenceContextSchema.optional(),
+  trigger_source: platformAiRecommendationTriggerSchema.default('recommendation_button'),
+});
+
+export type GeneratePlatformRecommendationDto = z.infer<
+  typeof generatePlatformRecommendationSchema
+>;
+
+export const listPlatformRecommendationsQuerySchema = z.object({
+  category: platformAiRecommendationCategorySchema.optional(),
+  status: platformAiRecommendationStatusSchema.default('active'),
+  target_tenant_id: z.string().uuid().optional(),
+});
+
+export type ListPlatformRecommendationsQuery = z.infer<
+  typeof listPlatformRecommendationsQuerySchema
+>;
+
+export const resolvePlatformRecommendationSchema = z.object({
+  reason: z.string().trim().min(1).max(2000),
+});
+
+export type ResolvePlatformRecommendationDto = z.infer<typeof resolvePlatformRecommendationSchema>;
+
+export const generatePlatformDailyBriefSchema = z.object({
+  since_hours: z.coerce.number().int().min(1).max(168).default(24),
+});
+
+export type GeneratePlatformDailyBriefDto = z.infer<typeof generatePlatformDailyBriefSchema>;
+
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 
 export const alertComponentSchema = z.enum([

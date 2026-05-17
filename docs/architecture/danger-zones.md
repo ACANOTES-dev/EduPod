@@ -1702,6 +1702,30 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 **Regression coverage**: `apps/api/src/modules/platform/copilot-response-post-processor.spec.ts` verifies cited-claim preservation, uncited-claim stripping, and malformed citation removal. `apps/api/src/modules/platform/platform-ai-copilot.service.spec.ts` verifies persisted citation/cost metadata. The adversarial prompt-injection suite verifies uncited compliance text is refused.
 
+## DZ-AI-3: AI Recommendation Action Surface Is Manual-Only Until 4D
+
+**Risk**: Session 4C recommendations can describe operational next steps, but they must not become an action executor by accident. A model output that mentions migrations, schema edits, secrets, deploy config, cron jobs, or background AI loops could be mistaken for an approved executable action during an incident.
+**Location**: `apps/api/src/modules/platform/platform-ai-recommendation.service.ts`, `apps/api/src/modules/platform/platform-ai-recommendation.controller.ts`, `apps/web/src/app/[locale]/(platform)/admin/copilot/recommendations/page.tsx`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4C, 2026-05-17)
+
+**Rule**: Recommendation generation is manual-only advice. Do not inject queue, alert, tenant, cache, deploy, schema, migration, secret, cron, or repository mutation services into `PlatformAiRecommendationService`. `proposed_action` records must remain `mode: "manual_only"` in Session 4C. Destructive recommendations may be flagged as requiring owner confirmation, but no owner-confirmed executor is wired until Session 4D.
+
+**Mitigation**: The recommendation service sanitizes model-supplied proposed actions into manual-only payloads and marks blocked terms such as `.env`, `schema.prisma`, migrations, deploy config, cron, background AI, and secrets. The recommendations UI displays guidance and evidence only; accept/dismiss changes recommendation status, not platform state.
+
+**Regression coverage**: `apps/api/src/modules/platform/platform-ai-recommendation.service.spec.ts` verifies manual-only proposed actions and repo-handoff candidate marking. `apps/api/src/modules/platform/recommendation-no-background-trigger.spec.ts` verifies the service has no cron, interval, module-init, or alert-fired generation path.
+
+## DZ-AI-4: Recommendation Spend Must Stay Operator-Triggered
+
+**Risk**: AI recommendation generation can become expensive if it runs from alert events, cron jobs, or hidden dashboard polling. The Layer 4 cost model assumes every model call is tied to an operator click or explicit question; violating that assumption can create unbounded token spend and noisy model traffic during incidents.
+**Location**: `apps/api/src/modules/platform/platform-ai-recommendation.service.ts`, `apps/api/src/modules/platform/platform-ai-cost-guard.service.ts`, `apps/web/src/app/[locale]/(platform)/admin/copilot/recommendations/page.tsx`, `apps/web/src/app/[locale]/(platform)/admin/_components/recent-recommendations.tsx`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4C, 2026-05-17)
+
+**Rule**: Do not call Anthropic from background recommendation paths. The only allowed Session 4C model calls are `POST /v1/admin/copilot/recommendations/generate` and `POST /v1/admin/copilot/briefs/daily`, both protected by `platform.ai.read` and existing per-request/per-day Copilot cost guardrails. Dashboard widgets may list existing recommendations but must not generate new ones.
+
+**Mitigation**: Recommendation generation creates a recommendation conversation for spend accounting, runs `PlatformAiCostGuardService.assertCanSpend()` before the model call, persists the assistant message cost, and applies spend after completion. The dashboard "Recent Recommendations" widget performs a read-only list call only.
+
+**Regression coverage**: `apps/api/src/modules/platform/platform-ai-recommendation.service.spec.ts` verifies the cost guard is used for recommendations and daily briefs. `apps/api/src/modules/platform/recommendation-no-background-trigger.spec.ts` locks out background trigger patterns.
+
 ---
 
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)

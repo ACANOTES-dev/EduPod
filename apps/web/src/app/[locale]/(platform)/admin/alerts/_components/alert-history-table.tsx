@@ -2,7 +2,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button, Skeleton } from '@school/ui';
 
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 
 import { AlertSeverityBadge, AlertStatusBadge } from './alert-severity-badge';
 
@@ -135,6 +135,12 @@ export function AlertHistoryTable({
                         contextKind="alert"
                         locale={locale}
                         question={`Explain alert ${alert.rule?.name ?? alert.id}. What changed nearby, what is affected, and which cited runbook applies?`}
+                      />
+                      <RecommendFixButton
+                        contextId={alert.id}
+                        contextKind="alert"
+                        label="Recommend"
+                        locale={locale}
                       />
                       {alert.status === 'fired' ? (
                         <Button

@@ -5,7 +5,7 @@ import * as React from 'react';
 
 import { Badge } from '@school/ui';
 
-import { ExplainButton } from '@/components/platform/explain-button';
+import { ExplainButton, RecommendFixButton } from '@/components/platform/explain-button';
 import { formatDateTime } from '@/lib/format-date';
 
 export interface PlatformErrorLog {
@@ -112,6 +112,12 @@ export function ErrorDetailRow({ deployHint, error, locale, tenantName }: ErrorD
                   label="Explain Error"
                   locale={locale}
                   question={`Explain this error fingerprint ${error.fingerprint}. What nearby deploys, alerts, request context, and cited runbooks are relevant?`}
+                />
+                <RecommendFixButton
+                  contextId={error.fingerprint}
+                  contextKind="error"
+                  label="Recommend Fix"
+                  locale={locale}
                 />
                 <InfoField label="Fingerprint" value={error.fingerprint} />
                 <InfoField label="User ID" value={error.user_id_redacted ?? 'N/A'} />

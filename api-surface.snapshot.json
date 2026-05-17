@@ -273,6 +273,13 @@
     "permission": "platform.tenants.view"
   },
   {
+    "method": "POST",
+    "path": "/v1/admin/copilot/briefs/daily",
+    "controller": "PlatformAiRecommendationController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
     "method": "GET",
     "path": "/v1/admin/copilot/conversations",
     "controller": "PlatformAiCopilotController",
@@ -297,6 +304,41 @@
     "method": "POST",
     "path": "/v1/admin/copilot/conversations/:id/messages",
     "controller": "PlatformAiCopilotController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/copilot/recommendations",
+    "controller": "PlatformAiRecommendationController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/copilot/recommendations/:id",
+    "controller": "PlatformAiRecommendationController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/recommendations/:id/accept",
+    "controller": "PlatformAiRecommendationController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/recommendations/:id/dismiss",
+    "controller": "PlatformAiRecommendationController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/recommendations/generate",
+    "controller": "PlatformAiRecommendationController",
     "module": "platform",
     "permission": "platform.ai.read"
   },

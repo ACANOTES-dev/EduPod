@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertTriangle, Building2, Plus, Workflow } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, Lightbulb, Plus, Workflow } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -34,6 +34,12 @@ const actions = [
     description: 'Open dependency health',
     href: '/admin/health',
     icon: Activity,
+  },
+  {
+    label: 'Fix Recommendations',
+    description: 'Generate cited manual advice',
+    href: '/admin/copilot/recommendations',
+    icon: Lightbulb,
   },
 ];
 

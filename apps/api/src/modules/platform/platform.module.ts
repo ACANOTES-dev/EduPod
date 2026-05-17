@@ -46,6 +46,8 @@ import { OwnerActionConfirmationsController } from './owner-action-confirmations
 import { PlatformAiCopilotController } from './platform-ai-copilot.controller';
 import { PlatformAiCopilotService } from './platform-ai-copilot.service';
 import { PlatformAiCostGuardService } from './platform-ai-cost-guard.service';
+import { PlatformAiRecommendationController } from './platform-ai-recommendation.controller';
+import { PlatformAiRecommendationService } from './platform-ai-recommendation.service';
 import { PlatformEvidenceService } from './platform-evidence.service';
 import { PlatformObservabilityController } from './platform-observability.controller';
 import { PlatformObservabilityService } from './platform-observability.service';
@@ -87,6 +89,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
     PlatformAiCopilotController,
+    PlatformAiRecommendationController,
     OnboardingController,
     PlatformObservabilityController,
     PlatformSearchController,
@@ -102,6 +105,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     MaintenanceWindowService,
     OwnerActionConfirmationService,
     PlatformAiCopilotService,
+    PlatformAiRecommendationService,
     PlatformAiCostGuardService,
     CopilotPromptBuilderService,
     CopilotResponsePostProcessor,
