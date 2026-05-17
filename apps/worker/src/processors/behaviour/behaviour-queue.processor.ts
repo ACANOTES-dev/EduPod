@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { isSyntheticCriticalQueueCanary, syntheticCanaryResult } from '../../base/synthetic-canary';
 import {
   ATTACHMENT_SCAN_JOB,
   AttachmentScanProcessor,
@@ -113,7 +114,11 @@ export class BehaviourQueueDispatcher extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<unknown> {
+    if (isSyntheticCriticalQueueCanary(job)) {
+      return syntheticCanaryResult(job);
+    }
+
     switch (job.name) {
       case BEHAVIOUR_ACK_REMINDERS_JOB:
         await this.behaviourAckReminders.process(job);

@@ -274,6 +274,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/certificates",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/copilot/action-proposals",
     "controller": "PlatformAiActionProposalsController",
     "module": "platform",
@@ -432,6 +439,13 @@
     "controller": "TenantMetricsController",
     "module": "platform",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/external-dependencies",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
   },
   {
     "method": "GET",
@@ -803,6 +817,62 @@
     "controller": "PlatformObservabilityController",
     "module": "platform",
     "permission": "platform.audit_log.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/synthetic-checks",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/synthetic-checks",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/admin/synthetic-checks/:id",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/synthetic-checks/:id",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/admin/synthetic-checks/:id",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/synthetic-checks/:id/results",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/synthetic-checks/:id/run-now",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.run"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/synthetic-checks/results/:resultId",
+    "controller": "SyntheticChecksController",
+    "module": "platform-resilience",
+    "permission": "platform.synthetic.view"
   },
   {
     "method": "GET",

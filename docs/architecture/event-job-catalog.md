@@ -795,3 +795,37 @@ If Redis is unhealthy at the moment of a credential rotation, the publish silent
 - **Destination**: `platform_incidents`, `platform_incident_timeline_events`, nullable `platform_alert_history.incident_id`, and manually generated prevention rows in `platform_ai_recommendations`.
 - **Side effects**: critical alert fires create or attach to an incident; related warning/critical alerts attach to open incidents by conservative component/queue/scope matching; resolved contributing alerts move incidents to `monitoring`; a 5-minute API-process timer auto-resolves monitoring incidents only after all contributing alerts remain resolved and quiet for 1 hour.
 - **Explicit non-events**: no alert event, cron, timer, WebSocket path, or module-init path calls Anthropic. `regenerate-postmortem` and `generate-prevention` are operator-clicked, budget/rate guarded, and never write `docs/runbooks/*.md`.
+
+## Platform Synthetic Monitoring (Layer 5 Session 5A)
+
+### Synthetic check scheduler
+
+- **Owner**: API process (`SyntheticCheckSchedulerService`)
+- **Queue**: `platform-synthetic-checks`
+- **Job name**: `resilience:run-synthetic-check`
+- **Repeat job id**: `cron:synthetic:{definition.key}`
+- **Source**: enabled rows in `platform_synthetic_check_definitions`
+- **Destination**: one `platform_synthetic_check_results` row per attempt
+- **Side effects**: TLS checks upsert `platform_certificate_checks`; external
+  dependency checks upsert `platform_external_dependency_status`; warning,
+  critical, and recovery states write `platform_alert_history` through the
+  existing platform alert path.
+
+### Queue canaries
+
+- **Dedicated queue**: `synthetic-canary`
+- **Dedicated job**: `synthetic-canary:ping`
+- **Critical queue sentinel job**: `synthetic:critical-queue-canary`
+- **Critical queues**: `notifications`, `behaviour`, `finance`, `payroll`,
+  `pastoral`
+- **Safety contract**: critical queue processors short-circuit only when
+  `_synthetic === true`, `tenant_id` equals the sentinel all-zero UUID, and a
+  `canary_id` string is present. No tenant RLS work or domain side effects run
+  for sentinel canaries.
+
+### Non-events
+
+No synthetic scheduler, runner, canary processor, or alert-emission path imports
+or calls Anthropic, OpenAI, `PlatformAiCopilotService`, recommendation
+generation, action proposal generation, repo-agent handoff generation, or any
+Layer 4 model-backed service.

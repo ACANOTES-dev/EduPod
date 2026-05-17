@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { isSyntheticCriticalQueueCanary, syntheticCanaryResult } from '../../base/synthetic-canary';
 
 import { CHECKIN_ALERT_JOB, CheckinAlertProcessor } from './checkin-alert.processor';
 import { ESCALATION_TIMEOUT_JOB, EscalationTimeoutProcessor } from './escalation-timeout.processor';
@@ -53,7 +54,11 @@ export class PastoralQueueDispatcher extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<unknown> {
+    if (isSyntheticCriticalQueueCanary(job)) {
+      return syntheticCanaryResult(job);
+    }
+
     switch (job.name) {
       case CHECKIN_ALERT_JOB:
         await this.checkinAlert.process(job);

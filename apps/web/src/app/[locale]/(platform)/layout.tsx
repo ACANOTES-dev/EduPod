@@ -367,6 +367,24 @@ function PlatformSidebarNav({
           permission: 'platform.alerts.view',
         },
         {
+          icon: MonitorDot,
+          label: 'Synthetic Checks',
+          href: `/${locale}/admin/synthetic-checks`,
+          permission: 'platform.synthetic.view',
+        },
+        {
+          icon: Network,
+          label: 'Dependencies',
+          href: `/${locale}/admin/external-dependencies`,
+          permission: 'platform.synthetic.view',
+        },
+        {
+          icon: ShieldCheck,
+          label: 'Certificates',
+          href: `/${locale}/admin/certificates`,
+          permission: 'platform.synthetic.view',
+        },
+        {
           icon: Layers,
           label: 'Queue Manager',
           href: `/${locale}/admin/queues`,

@@ -106,6 +106,7 @@ import { InboxFallbackScanTenantProcessor } from './processors/inbox/inbox-fallb
 import { InboxFallbackTemplatesInit } from './processors/inbox/inbox-fallback-templates.init';
 import { CanaryProcessor } from './processors/monitoring/canary.processor';
 import { DlqMonitorProcessor } from './processors/monitoring/dlq-monitor.processor';
+import { SyntheticCanaryProcessor } from './processors/monitoring/synthetic-canary.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
 import { NotificationsQueueDispatcher } from './processors/notifications/notifications-queue.processor';
 import { ParentDailyDigestProcessor } from './processors/notifications/parent-daily-digest.processor';
@@ -371,6 +372,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         },
       },
       {
+        name: QUEUE_NAMES.SYNTHETIC_CANARY,
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 10,
+          removeOnFail: 50,
+        },
+      },
+      {
         name: QUEUE_NAMES.WELLBEING,
         defaultJobOptions: {
           attempts: 3,
@@ -552,6 +562,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Monitoring processors
     CanaryProcessor,
     DlqMonitorProcessor,
+    SyntheticCanaryProcessor,
     // Security queue processors
     KeyRotationProcessor,
     AnomalyScanProcessor,

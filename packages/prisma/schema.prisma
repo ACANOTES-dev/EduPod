@@ -149,8 +149,35 @@ enum PlatformAuditAction {
   ai_action_executed
   ai_action_rejected
   ai_conversation_viewed
+  synthetic_check_created
+  synthetic_check_updated
+  synthetic_check_deleted
+  synthetic_check_run_now
 
   @@map("platform_audit_action")
+}
+
+enum SyntheticCheckKind {
+  http_get
+  http_post
+  websocket_handshake
+  queue_canary
+  notification_self_test
+  dns_lookup
+  tls_check
+  external_dependency_status
+
+  @@map("synthetic_check_kind")
+}
+
+enum SyntheticCheckResultStatus {
+  passed
+  degraded
+  failed
+  error
+  skipped_maintenance
+
+  @@map("synthetic_check_result_status")
 }
 
 enum PlatformDeployStatus {
@@ -12327,6 +12354,89 @@ model PlatformMaintenanceWindow {
 
   @@index([starts_at, ends_at], map: "idx_platform_maintenance_windows_window")
   @@map("platform_maintenance_windows")
+}
+
+model PlatformSyntheticCheckDefinition {
+  id                                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key                                    String             @unique @db.VarChar(120)
+  display_name                           String             @db.VarChar(160)
+  description                            String?            @db.Text
+  kind                                   SyntheticCheckKind
+  target                                 Json               @db.JsonB
+  schedule_cron                          String             @db.VarChar(80)
+  timeout_ms                             Int                @default(15000)
+  expected                               Json               @db.JsonB
+  consecutive_failure_threshold_critical Int                @default(3)
+  retry_attempts                         Int                @default(1)
+  related_component                      String?            @db.VarChar(60)
+  related_tenant_id                      String?            @db.Uuid
+  enabled                                Boolean            @default(true)
+  created_by_user_id                     String             @db.Uuid
+  created_at                             DateTime           @default(now()) @db.Timestamptz()
+  updated_at                             DateTime           @updatedAt @db.Timestamptz()
+
+  results PlatformSyntheticCheckResult[]
+
+  @@index([kind], map: "idx_platform_synthetic_checks_kind")
+  @@index([enabled, kind], map: "idx_platform_synthetic_checks_enabled_kind")
+  @@index([related_tenant_id], map: "idx_platform_synthetic_checks_related_tenant")
+  @@map("platform_synthetic_check_definitions")
+}
+
+model PlatformSyntheticCheckResult {
+  id                    String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  definition_id         String                     @db.Uuid
+  ran_at                DateTime                   @default(now()) @db.Timestamptz()
+  status                SyntheticCheckResultStatus
+  latency_ms            Int?
+  response_status_code  Int?
+  response_body_sha256  String?                    @db.VarChar(64)
+  response_body_snippet String?                    @db.Text
+  failure_detail        Json?                      @db.JsonB
+  attempt_number        Int                        @default(1)
+  triggered_by          String                     @default("schedule") @db.VarChar(40)
+  triggered_by_user_id  String?                    @db.Uuid
+  correlation_id        String?                    @db.VarChar(64)
+
+  definition PlatformSyntheticCheckDefinition @relation(fields: [definition_id], references: [id], onDelete: Cascade)
+
+  @@index([definition_id, ran_at(sort: Desc)], map: "idx_platform_synthetic_results_definition_ran")
+  @@index([status, ran_at(sort: Desc)], map: "idx_platform_synthetic_results_status_ran")
+  @@map("platform_synthetic_check_results")
+}
+
+model PlatformExternalDependencyStatus {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_key           String    @db.VarChar(60)
+  display_name           String    @db.VarChar(160)
+  source                 String    @db.VarChar(40)
+  status                 String    @db.VarChar(40)
+  status_detail          String?   @db.Text
+  last_checked_at        DateTime  @default(now()) @db.Timestamptz()
+  last_status_changed_at DateTime? @db.Timestamptz()
+  upstream_url           String?   @db.VarChar(500)
+
+  @@unique([provider_key], map: "platform_external_dependency_status_provider_key_key")
+  @@index([status], map: "idx_platform_external_dependency_status")
+  @@map("platform_external_dependency_status")
+}
+
+model PlatformCertificateCheck {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hostname          String    @db.VarChar(255)
+  issuer            String?   @db.VarChar(255)
+  subject           String?   @db.VarChar(255)
+  not_before        DateTime? @db.Timestamptz()
+  not_after         DateTime? @db.Timestamptz()
+  days_until_expiry Int?
+  last_checked_at   DateTime  @default(now()) @db.Timestamptz()
+  check_status      String    @db.VarChar(40)
+  check_error       String?   @db.Text
+
+  @@unique([hostname], map: "platform_certificate_checks_hostname_key")
+  @@index([days_until_expiry], map: "idx_platform_certificate_checks_expiry")
+  @@index([check_status], map: "idx_platform_certificate_checks_status")
+  @@map("platform_certificate_checks")
 }
 
 model PlatformAuditLog {

@@ -6,6 +6,11 @@ import {
   PAYROLL_SESSION_GENERATION_JOB,
 } from '@school/shared/payroll';
 
+import {
+  SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+  SYNTHETIC_TENANT_SENTINEL,
+} from '../../base/queue.constants';
+
 import { PayrollApprovalCallbackProcessor } from './approval-callback.processor';
 import { PayrollMassExportProcessor } from './mass-export.processor';
 import { PayrollQueueDispatcher } from './payroll-queue.processor';
@@ -68,6 +73,27 @@ describe('PayrollQueueDispatcher', () => {
     const job = { id: 'job-unknown', name: 'monitoring:canary-ping', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('short-circuits the synthetic critical queue canary without side effects', async () => {
+    const harness = buildDispatcher();
+    const job = {
+      id: 'synthetic-payroll',
+      name: SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+      data: {
+        _synthetic: true,
+        canary_id: 'payroll-canary',
+        tenant_id: SYNTHETIC_TENANT_SENTINEL,
+      },
+    } as Job;
+
+    await expect(harness.dispatcher.process(job)).resolves.toEqual({
+      canary_id: 'payroll-canary',
+      ok: true,
+    });
+    expect(harness.payrollApprovalCallback.process).not.toHaveBeenCalled();
+    expect(harness.payrollMassExport.process).not.toHaveBeenCalled();
+    expect(harness.payrollSessionGeneration.process).not.toHaveBeenCalled();
   });
 
   it('completes non-canary unknown jobs silently (logs warning)', async () => {

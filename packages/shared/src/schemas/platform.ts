@@ -120,6 +120,10 @@ export const platformAuditActionSchema = z.enum([
   'ai_action_executed',
   'ai_action_rejected',
   'ai_conversation_viewed',
+  'synthetic_check_created',
+  'synthetic_check_updated',
+  'synthetic_check_deleted',
+  'synthetic_check_run_now',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -938,6 +942,227 @@ export const alertMaintenanceWindowQuerySchema = z.object({
 });
 
 export type AlertMaintenanceWindowQuery = z.infer<typeof alertMaintenanceWindowQuerySchema>;
+
+// ─── Platform Synthetic Monitoring ──────────────────────────────────────────
+
+export const syntheticCheckKindSchema = z.enum([
+  'http_get',
+  'http_post',
+  'websocket_handshake',
+  'queue_canary',
+  'notification_self_test',
+  'dns_lookup',
+  'tls_check',
+  'external_dependency_status',
+]);
+
+export type SyntheticCheckKindDto = z.infer<typeof syntheticCheckKindSchema>;
+
+export const syntheticCheckResultStatusSchema = z.enum([
+  'passed',
+  'degraded',
+  'failed',
+  'error',
+  'skipped_maintenance',
+]);
+
+export type SyntheticCheckResultStatusDto = z.infer<typeof syntheticCheckResultStatusSchema>;
+
+const secretLikePatterns = [
+  /~\/\.codex/i,
+  /\/\.codex\//i,
+  /\bAKIA[0-9A-Z]{16}\b/,
+  /\bsk_(live|test)_[A-Za-z0-9]{24,}\b/,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+  /\bAC[a-f0-9]{32}\b/i,
+];
+
+function assertNoRawSecrets(value: unknown, ctx: z.RefinementCtx, path: Array<string | number>) {
+  if (typeof value === 'string') {
+    if (secretLikePatterns.some((pattern) => pattern.test(value))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Synthetic check definitions must reference env keys, not raw secrets or ~/.codex paths',
+        path,
+      });
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertNoRawSecrets(entry, ctx, [...path, index]));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, entry] of Object.entries(value)) {
+      assertNoRawSecrets(entry, ctx, [...path, key]);
+    }
+  }
+}
+
+const envReferenceSchema = z.object({
+  env: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[A-Z0-9_]+$/, 'Env credential keys must be uppercase env var names'),
+});
+
+export const httpSyntheticTargetSchema = z.object({
+  url: z.string().trim().url().max(1000),
+  headers: z.record(z.string()).optional(),
+  headers_env: z.record(z.string().regex(/^[A-Z0-9_]+$/)).optional(),
+  body: z
+    .record(z.union([z.string(), z.number(), z.boolean(), z.null(), envReferenceSchema]))
+    .optional(),
+});
+
+export const websocketSyntheticTargetSchema = z.object({
+  url: z.string().trim().url().max(1000),
+  auth_env: z.record(z.string().regex(/^[A-Z0-9_]+$/)).optional(),
+  welcome_event: z.string().trim().max(120).optional(),
+});
+
+export const queueSyntheticTargetSchema = z.discriminatedUnion('queue_kind', [
+  z.object({ queue_kind: z.literal('synthetic_canary') }),
+  z.object({
+    queue_kind: z.literal('critical_queue_canary'),
+    queue_name: z.enum(['notifications', 'behaviour', 'finance', 'payroll', 'pastoral']),
+  }),
+]);
+
+export const notificationSyntheticTargetSchema = z.object({
+  channel: z.enum(['resend', 'twilio_sms', 'twilio_whatsapp', 'telegram']),
+  sink_env: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9_]+$/),
+});
+
+export const dnsSyntheticTargetSchema = z.object({
+  hostname: z.string().trim().min(1).max(255),
+  record_type: z.enum(['A', 'AAAA', 'CNAME', 'MX', 'TXT']).default('A'),
+});
+
+export const tlsSyntheticTargetSchema = z.object({
+  hostname: z.string().trim().min(1).max(255),
+  port: z.coerce.number().int().min(1).max(65535).default(443),
+});
+
+export const externalDependencySyntheticTargetSchema = z.object({
+  provider_key: z.string().trim().min(1).max(60),
+  display_name: z.string().trim().min(1).max(160),
+  source: z.enum(['status_page', 'health_endpoint']),
+  url: z.string().trim().url().max(500),
+});
+
+export const syntheticCheckTargetSchema = z.union([
+  httpSyntheticTargetSchema,
+  websocketSyntheticTargetSchema,
+  queueSyntheticTargetSchema,
+  notificationSyntheticTargetSchema,
+  dnsSyntheticTargetSchema,
+  tlsSyntheticTargetSchema,
+  externalDependencySyntheticTargetSchema,
+]);
+
+export const syntheticCheckExpectedSchema = z
+  .object({
+    status_codes: z.array(z.coerce.number().int().min(100).max(599)).min(1).max(20).optional(),
+    max_latency_ms: z.coerce.number().int().min(1).max(120_000).optional(),
+    body_regex: z.string().trim().min(1).max(500).optional(),
+    logout_url: z.string().trim().url().max(1000).optional(),
+    record_count_min: z.coerce.number().int().min(0).max(1000).optional(),
+    warning_days: z.coerce.number().int().min(1).max(3650).optional(),
+    critical_days: z.coerce.number().int().min(0).max(3650).optional(),
+    operational_indicators: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  })
+  .passthrough();
+
+export const syntheticCheckListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  kind: syntheticCheckKindSchema.optional(),
+  status: syntheticCheckResultStatusSchema.optional(),
+  related_component: z.string().trim().min(1).max(60).optional(),
+});
+
+export type SyntheticCheckListQuery = z.infer<typeof syntheticCheckListQuerySchema>;
+
+export const syntheticCheckResultsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: syntheticCheckResultStatusSchema.optional(),
+});
+
+export type SyntheticCheckResultsQuery = z.infer<typeof syntheticCheckResultsQuerySchema>;
+
+const syntheticDefinitionBaseObject = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(2)
+    .max(120)
+    .regex(/^[a-z0-9._:-]+$/),
+  display_name: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(4000).optional(),
+  kind: syntheticCheckKindSchema,
+  target: z.unknown(),
+  schedule_cron: z.string().trim().min(9).max(80),
+  timeout_ms: z.coerce.number().int().min(100).max(120_000).default(15_000),
+  expected: syntheticCheckExpectedSchema.default({}),
+  consecutive_failure_threshold_critical: z.coerce.number().int().min(1).max(20).default(3),
+  retry_attempts: z.coerce.number().int().min(1).max(5).default(1),
+  related_component: z.string().trim().min(1).max(60).optional(),
+  related_tenant_id: z.string().uuid().optional(),
+  enabled: z.boolean().default(true),
+});
+
+function validateSyntheticDefinitionTarget(
+  value: { kind?: SyntheticCheckKindDto; target?: unknown; expected?: unknown },
+  ctx: z.RefinementCtx,
+) {
+  assertNoRawSecrets(value.target, ctx, ['target']);
+  assertNoRawSecrets(value.expected, ctx, ['expected']);
+  if (!value.kind || value.target === undefined) return;
+  const targetByKind: Record<SyntheticCheckKindDto, z.ZodTypeAny> = {
+    dns_lookup: dnsSyntheticTargetSchema,
+    external_dependency_status: externalDependencySyntheticTargetSchema,
+    http_get: httpSyntheticTargetSchema.omit({ body: true }),
+    http_post: httpSyntheticTargetSchema,
+    notification_self_test: notificationSyntheticTargetSchema,
+    queue_canary: queueSyntheticTargetSchema,
+    tls_check: tlsSyntheticTargetSchema,
+    websocket_handshake: websocketSyntheticTargetSchema,
+  };
+  const parsed = targetByKind[value.kind].safeParse(value.target);
+  if (!parsed.success) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Target does not match the selected synthetic check kind',
+      path: ['target'],
+    });
+  }
+}
+
+const syntheticDefinitionBaseSchema = syntheticDefinitionBaseObject.superRefine(
+  validateSyntheticDefinitionTarget,
+);
+
+export const createSyntheticCheckDefinitionSchema = syntheticDefinitionBaseSchema;
+
+export type CreateSyntheticCheckDefinitionDto = z.infer<
+  typeof createSyntheticCheckDefinitionSchema
+>;
+
+export const updateSyntheticCheckDefinitionSchema = syntheticDefinitionBaseObject
+  .partial()
+  .superRefine(validateSyntheticDefinitionTarget);
+
+export type UpdateSyntheticCheckDefinitionDto = z.infer<
+  typeof updateSyntheticCheckDefinitionSchema
+>;
 
 // ─── Tenant Onboarding ───────────────────────────────────────────────────────
 

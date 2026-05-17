@@ -1,6 +1,12 @@
 import { Job } from 'bullmq';
 
-import { CANARY_CHECK_JOB, CANARY_ECHO_JOB, CANARY_PING_JOB } from '../../base/queue.constants';
+import {
+  CANARY_CHECK_JOB,
+  CANARY_ECHO_JOB,
+  CANARY_PING_JOB,
+  SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+  SYNTHETIC_TENANT_SENTINEL,
+} from '../../base/queue.constants';
 import {
   ADMISSIONS_APPLICATION_RECEIVED_JOB,
   AdmissionsApplicationReceivedProcessor,
@@ -243,6 +249,49 @@ describe('NotificationsQueueDispatcher', () => {
     const job = { id: 'job-unknown', name: 'monitoring:canary-ping', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('short-circuits the synthetic critical queue canary without side effects', async () => {
+    const harness = buildDispatcher();
+    const job = {
+      id: 'synthetic-notifications',
+      name: SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+      data: {
+        _synthetic: true,
+        canary_id: 'notifications-canary',
+        tenant_id: SYNTHETIC_TENANT_SENTINEL,
+      },
+    } as Job;
+
+    await expect(harness.dispatcher.process(job)).resolves.toEqual({
+      canary_id: 'notifications-canary',
+      ok: true,
+    });
+
+    const targets = [
+      'admissionsApplicationReceived',
+      'admissionsApplicationWithdrawn',
+      'admissionsPaymentLink',
+      'digestNotifications',
+      'behaviourParentNotification',
+      'announcementApprovalCallback',
+      'dispatchNotifications',
+      'inboxDispatchChannels',
+      'inquiryNotification',
+      'ipCleanup',
+      'publishAnnouncement',
+      'retryFailedNotifications',
+      'staleInquiryDetection',
+      'inboxFallbackCheck',
+      'inboxFallbackScanTenant',
+      'canary',
+      'dlqMonitor',
+      'dispatchQueued',
+      'parentDailyDigest',
+    ] as const;
+    for (const key of targets) {
+      expect(harness[key].process).not.toHaveBeenCalled();
+    }
   });
 
   it('completes non-canary unknown jobs silently (logs warning)', async () => {

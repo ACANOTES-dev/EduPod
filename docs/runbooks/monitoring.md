@@ -130,9 +130,46 @@ Use the dashboard as the first stop for triage, then jump to logs, PM2, or provi
 Review these at least weekly:
 
 - UptimeRobot failures or latency spikes
+- Synthetic check failures, dependency status rows, and certificate rows in
+  `/en/admin/synthetic-checks`, `/en/admin/external-dependencies`, and
+  `/en/admin/certificates`
 - deploy failures and automatic rollbacks
 - queue alert history from the health endpoint
 - Loki error bursts grouped by `service`
 - any stale backup replication or restore-drill evidence
 
 Use [weekly-ops-review.md](./weekly-ops-review.md) as the recurring review template, and treat any stale recovery-drill evidence from [recovery-drills.md](./recovery-drills.md) as an ops issue.
+
+---
+
+## 7. Synthetic Journey Monitoring
+
+Layer 5 Session 5A adds in-platform synthetic checks alongside UptimeRobot.
+These checks are deterministic and non-AI: scheduled jobs run through the API,
+worker queues, notification provider, DNS, TLS, and external dependency status
+endpoints, then write one result row per attempt.
+
+Default coverage:
+
+- platform admin login using only `SYNTHETIC_PLATFORM_USER_EMAIL` and
+  `SYNTHETIC_PLATFORM_USER_PASSWORD`
+- API readiness, tenant login page render, DNS apex lookup, and platform TLS
+- dedicated `synthetic-canary` worker queue
+- critical queue canaries for `notifications`, `behaviour`, `finance`,
+  `payroll`, and `pastoral`
+- Resend notification self-test using `SYNTHETIC_RESEND_SINK_EMAIL`
+- external dependency status for Resend, Twilio, Stripe, Sentry, S3-compatible
+  object storage, Meilisearch, and registrar/DNS
+
+Operational rules:
+
+- Missing synthetic credentials should be treated as monitoring
+  misconfiguration, not as a user-account issue.
+- Synthetic checks must never point at files under `~/.codex`; scheduled checks
+  resolve credentials from environment variable keys only.
+- Response bodies are not stored. Inspect `response_body_sha256`, the redacted
+  snippet, and structured failure detail.
+- Active platform maintenance windows produce `skipped_maintenance` results and
+  no alert for applicable checks.
+- A single failure emits a warning; configured consecutive failures emit a
+  critical alert; the first pass after a failure emits a recovery alert.

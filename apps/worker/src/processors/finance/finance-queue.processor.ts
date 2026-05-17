@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { isSyntheticCriticalQueueCanary, syntheticCanaryResult } from '../../base/synthetic-canary';
 
 import {
   INVOICE_APPROVAL_CALLBACK_JOB,
@@ -35,7 +36,11 @@ export class FinanceQueueDispatcher extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<unknown> {
+    if (isSyntheticCriticalQueueCanary(job)) {
+      return syntheticCanaryResult(job);
+    }
+
     switch (job.name) {
       case INVOICE_APPROVAL_CALLBACK_JOB:
         await this.invoiceApprovalCallback.process(job);

@@ -151,6 +151,13 @@ const EXPECTED_QUEUE_CONFIGS: Record<QueueKey, ExpectedQueueConfig> = {
     removeOnComplete: 10,
     removeOnFail: 50,
   },
+  SYNTHETIC_CANARY: {
+    attempts: 2,
+    backoffType: 'exponential',
+    backoffDelay: 1000,
+    removeOnComplete: 10,
+    removeOnFail: 50,
+  },
   WELLBEING: {
     attempts: 3,
     backoffType: 'exponential',
@@ -302,9 +309,9 @@ describe('BullMQ queue configuration — drift detection', () => {
     expect(extraInExpected).toEqual([]);
   });
 
-  it('should register exactly 25 queues in worker.module.ts', () => {
+  it('should register exactly 26 queues in worker.module.ts', () => {
     const parsedCount = Object.keys(parsedConfigs).length;
-    expect(parsedCount).toBe(25);
+    expect(parsedCount).toBe(26);
   });
 
   it('should have a parsed config for every QUEUE_NAMES key', () => {

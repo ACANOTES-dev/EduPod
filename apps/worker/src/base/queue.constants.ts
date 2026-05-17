@@ -23,6 +23,7 @@ export const QUEUE_NAMES = {
   EXAM_SCHEDULING: 'exam-scheduling',
   SEARCH_SYNC: 'search-sync',
   SECURITY: 'security',
+  SYNTHETIC_CANARY: 'synthetic-canary',
   WELLBEING: 'wellbeing',
 } as const;
 
@@ -33,6 +34,9 @@ export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 export const CANARY_PING_JOB = 'monitoring:canary-ping';
 export const CANARY_ECHO_JOB = 'monitoring:canary-echo';
 export const CANARY_CHECK_JOB = 'monitoring:canary-check';
+export const SYNTHETIC_CANARY_JOB = 'synthetic-canary:ping';
+export const SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB = 'synthetic:critical-queue-canary';
+export const SYNTHETIC_TENANT_SENTINEL = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Critical queues monitored by canary jobs.

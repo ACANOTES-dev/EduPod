@@ -1,5 +1,10 @@
 import { Job } from 'bullmq';
 
+import {
+  SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+  SYNTHETIC_TENANT_SENTINEL,
+} from '../../base/queue.constants';
+
 import { FinanceQueueDispatcher } from './finance-queue.processor';
 import {
   INVOICE_APPROVAL_CALLBACK_JOB,
@@ -68,6 +73,27 @@ describe('FinanceQueueDispatcher', () => {
     const job = { id: 'job-unknown', name: 'monitoring:canary-ping', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('short-circuits the synthetic critical queue canary without side effects', async () => {
+    const harness = buildDispatcher();
+    const job = {
+      id: 'synthetic-finance',
+      name: SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+      data: {
+        _synthetic: true,
+        canary_id: 'finance-canary',
+        tenant_id: SYNTHETIC_TENANT_SENTINEL,
+      },
+    } as Job;
+
+    await expect(harness.dispatcher.process(job)).resolves.toEqual({
+      canary_id: 'finance-canary',
+      ok: true,
+    });
+    expect(harness.invoiceApprovalCallback.process).not.toHaveBeenCalled();
+    expect(harness.overdueDetection.process).not.toHaveBeenCalled();
+    expect(harness.stripeRefundReconciliation.process).not.toHaveBeenCalled();
   });
 
   it('completes non-canary unknown jobs silently (logs warning)', async () => {

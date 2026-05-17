@@ -202,6 +202,24 @@ export const PLATFORM_PERMISSIONS: PlatformPermissionSeed[] = [
     display_name: 'Approve AI-proposed supervised actions (Layer 4D)',
     description: 'Approve supervised AI-proposed actions.',
   },
+  {
+    key: 'platform.synthetic.view',
+    category: 'synthetic',
+    display_name: 'View synthetic monitoring',
+    description: 'View synthetic checks, results, dependency status, and certificate inventory.',
+  },
+  {
+    key: 'platform.synthetic.manage',
+    category: 'synthetic',
+    display_name: 'Manage synthetic checks',
+    description: 'Create, edit, disable, and delete synthetic check definitions.',
+  },
+  {
+    key: 'platform.synthetic.run',
+    category: 'synthetic',
+    display_name: 'Run synthetic checks',
+    description: 'Run synthetic checks on demand.',
+  },
 ] as const;
 
 export const PLATFORM_ROLE_PERMISSIONS = {
@@ -221,5 +239,7 @@ export const PLATFORM_ROLE_PERMISSIONS = {
     'platform.alerts.acknowledge',
     'platform.platform_users.view',
     'platform.ai.read',
+    'platform.synthetic.view',
+    'platform.synthetic.run',
   ],
 } as const;

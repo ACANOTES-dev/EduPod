@@ -694,3 +694,38 @@ control plane rather than creating a new module.
 - **Blast radius**: MEDIUM for platform-admin incident workflows only. No tenant
   route, worker processor, cron, queue payload, Module Gating registry, deploy
   config, or repository-code executor is introduced by this session.
+
+### PlatformResilienceModule — synthetic journey monitoring
+
+Layer 5 Session 5A adds deterministic synthetic monitoring in a dedicated
+platform module instead of extending the AI-bearing PlatformModule.
+
+- **Imports**: PlatformAuditModule, PlatformErrorLogModule,
+  PlatformRealtimeModule, PlatformUsersModule, PrismaModule, ConfigModule.
+
+- **Exports**: none. Synthetic check CRUD, run-now execution, dependency status,
+  and certificate inventory are platform-admin controller surfaces only.
+
+- **Cross-module writes**:
+  - writes platform-scoped synthetic definitions/results, external dependency
+    status, and certificate rows;
+  - writes platform audit entries for create/update/delete/run-now;
+  - emits warning/critical/recovery alerts by creating platform alert history
+    rows and publishing the existing `platform:alerts` event.
+
+- **Worker coupling**: adds the dedicated `synthetic-canary` queue and sentinel
+  short-circuit guards to the notifications, behaviour, finance, payroll, and
+  pastoral queue dispatchers. The sentinel tenant id is never a real tenant id
+  and is accepted only for the canary job name.
+
+- **What breaks if dependencies change**:
+  - platform RBAC permission-name changes can hide or block the new admin pages;
+  - alert history shape or `platform:alerts` payload changes can break synthetic
+    alert emission and incident attachment;
+  - BullMQ repeatable job APIs or queue names changing can stop scheduled check
+    registration;
+  - error redaction changes affect result snippets and failure detail.
+
+- **Blast radius**: MEDIUM for platform operations visibility and worker
+  liveness checks. No tenant-scoped table, tenant RLS policy, autonomous AI
+  path, repo executor, or production-server mutation is introduced.

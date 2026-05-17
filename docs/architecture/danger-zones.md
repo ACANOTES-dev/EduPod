@@ -1750,6 +1750,38 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 
 **Regression coverage**: `apps/api/src/modules/platform/postmortem-generator.service.spec.ts` verifies prevention generation creates 4C recommendation rows and does not call the AI client or any file-writing path.
 
+## DZ-RES-3: Synthetic Monitoring Must Stay Deterministic And Secret-Safe
+
+**Risk**: Synthetic monitoring runs on a schedule. If it imports an AI service,
+uses an operator's personal credential file, stores raw response bodies, or
+allows queue canaries to execute real domain work, a monitoring feature can
+become a cost, privacy, or production-side-effect incident.
+**Location**:
+`apps/api/src/modules/platform-resilience/**`,
+`apps/worker/src/base/synthetic-canary.ts`,
+critical queue dispatcher guards in `apps/worker/src/processors/**`
+**Status**: ACTIVE (Platform Dashboard Layer 5 Session 5A, 2026-05-17)
+
+**Rule**: Scheduled synthetic checks may only use deterministic handlers. They
+resolve credentials from configured env var keys, refuse `~/.codex` sources,
+store SHA256 digests plus redacted snippets instead of raw bodies, and emit
+alerts through the existing platform alert path. Critical queue canaries must
+short-circuit only on the synthetic sentinel payload and must not run tenant
+domain logic.
+
+**Mitigation**: `SyntheticCredentialResolverService` rejects non-env credential
+references and `~/.codex` values; `SyntheticCheckRunnerService` redacts snippets
+and failure detail before persistence; `synthetic-no-ai-import.spec.ts` scans
+the resilience module for AI imports; each critical queue dispatcher has a
+sentinel guard test.
+
+**Regression coverage**:
+`apps/api/src/modules/platform-resilience/synthetic-*.spec.ts`,
+`packages/shared/src/schemas/platform-synthetic.schema.spec.ts`, and the five
+critical queue dispatcher specs cover the non-AI boundary, credential-source
+guard, redacted result storage, maintenance skip behavior, repeatable schedule
+dedupe, alert emission, and sentinel short-circuiting.
+
 ---
 
 ## i18n hard-error parity gate (added 2026-04-28, Multi-Language Expansion impl 02)

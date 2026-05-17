@@ -1,6 +1,10 @@
 import { Job } from 'bullmq';
 
 import {
+  SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+  SYNTHETIC_TENANT_SENTINEL,
+} from '../../base/queue.constants';
+import {
   ATTACHMENT_SCAN_JOB,
   AttachmentScanProcessor,
 } from '../safeguarding/attachment-scan.processor';
@@ -247,6 +251,49 @@ describe('BehaviourQueueDispatcher', () => {
     const job = { id: 'job-unknown', name: 'monitoring:canary-ping', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('short-circuits the synthetic critical queue canary without side effects', async () => {
+    const harness = buildDispatcher();
+    const job = {
+      id: 'synthetic-behaviour',
+      name: SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+      data: {
+        _synthetic: true,
+        canary_id: 'behaviour-canary',
+        tenant_id: SYNTHETIC_TENANT_SENTINEL,
+      },
+    } as Job;
+
+    await expect(harness.dispatcher.process(job)).resolves.toEqual({
+      canary_id: 'behaviour-canary',
+      ok: true,
+    });
+
+    const targets = [
+      'behaviourAckReminders',
+      'behaviourCheckAwards',
+      'behaviourCronDispatch',
+      'detectPatterns',
+      'documentReady',
+      'evaluatePolicy',
+      'behaviourExclusionDeadlineCheck',
+      'behaviourGuardianRestrictionCheck',
+      'notificationReconciliation',
+      'partitionMaintenance',
+      'refreshMV',
+      'retentionCheck',
+      'stuckNotificationAlert',
+      'behaviourSuspensionReturn',
+      'behaviourTaskReminders',
+      'attachmentScan',
+      'breakGlassExpiry',
+      'criticalEscalation',
+      'slaCheck',
+    ] as const;
+    for (const key of targets) {
+      expect(harness[key].process).not.toHaveBeenCalled();
+    }
   });
 
   it('completes non-canary unknown jobs silently (logs warning)', async () => {

@@ -1,5 +1,10 @@
 import { Job } from 'bullmq';
 
+import {
+  SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+  SYNTHETIC_TENANT_SENTINEL,
+} from '../../base/queue.constants';
+
 import { CHECKIN_ALERT_JOB, CheckinAlertProcessor } from './checkin-alert.processor';
 import { ESCALATION_TIMEOUT_JOB, EscalationTimeoutProcessor } from './escalation-timeout.processor';
 import {
@@ -122,6 +127,39 @@ describe('PastoralQueueDispatcher', () => {
     const job = { id: 'job-unknown', name: 'monitoring:canary-ping', data: {} } as Job;
 
     await expect(dispatcher.process(job)).resolves.toBeUndefined();
+  });
+
+  it('short-circuits the synthetic critical queue canary without side effects', async () => {
+    const harness = buildDispatcher();
+    const job = {
+      id: 'synthetic-pastoral',
+      name: SYNTHETIC_CRITICAL_QUEUE_CANARY_JOB,
+      data: {
+        _synthetic: true,
+        canary_id: 'pastoral-canary',
+        tenant_id: SYNTHETIC_TENANT_SENTINEL,
+      },
+    } as Job;
+
+    await expect(harness.dispatcher.process(job)).resolves.toEqual({
+      canary_id: 'pastoral-canary',
+      ok: true,
+    });
+
+    const targets = [
+      'checkinAlert',
+      'escalationTimeout',
+      'interventionReviewReminder',
+      'notifyConcern',
+      'overdueActions',
+      'pastoralCronDispatch',
+      'precomputeAgenda',
+      'syncBehaviourSafeguarding',
+      'wellbeingFlagExpiry',
+    ] as const;
+    for (const key of targets) {
+      expect(harness[key].process).not.toHaveBeenCalled();
+    }
   });
 
   it('completes non-canary unknown jobs silently (logs warning)', async () => {

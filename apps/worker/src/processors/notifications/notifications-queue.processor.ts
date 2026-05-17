@@ -8,6 +8,7 @@ import {
   CANARY_PING_JOB,
   QUEUE_NAMES,
 } from '../../base/queue.constants';
+import { isSyntheticCriticalQueueCanary, syntheticCanaryResult } from '../../base/synthetic-canary';
 import {
   ADMISSIONS_APPLICATION_RECEIVED_JOB,
   AdmissionsApplicationReceivedProcessor,
@@ -116,7 +117,11 @@ export class NotificationsQueueDispatcher extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<unknown> {
+    if (isSyntheticCriticalQueueCanary(job)) {
+      return syntheticCanaryResult(job);
+    }
+
     switch (job.name) {
       case ADMISSIONS_APPLICATION_RECEIVED_JOB:
         await this.admissionsApplicationReceived.process(job);

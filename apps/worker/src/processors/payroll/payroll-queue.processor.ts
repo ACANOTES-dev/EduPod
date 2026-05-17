@@ -9,6 +9,7 @@ import {
 } from '@school/shared/payroll';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { isSyntheticCriticalQueueCanary, syntheticCanaryResult } from '../../base/synthetic-canary';
 
 import { PayrollApprovalCallbackProcessor } from './approval-callback.processor';
 import { PayrollMassExportProcessor } from './mass-export.processor';
@@ -41,7 +42,11 @@ export class PayrollQueueDispatcher extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<unknown> {
+    if (isSyntheticCriticalQueueCanary(job)) {
+      return syntheticCanaryResult(job);
+    }
+
     switch (job.name) {
       case PAYROLL_ON_APPROVAL_JOB:
         await this.payrollApprovalCallback.process(job);
