@@ -331,20 +331,100 @@ All alerts respect Layer 1.5C maintenance windows when the window's affected com
 
 ## Acceptance
 
-- [ ] All four new tables exist; migration applies cleanly.
-- [ ] `SyntheticCheckRunnerService` exists with one handler per `SyntheticCheckKind`.
-- [ ] At least 13 default check definitions seeded: platform admin login (using dedicated synthetic platform user), tenant login (per pilot tenant), tenant API readiness `/api/health/ready`, tenant page render `/en/login`, worker liveness, **6 queue canaries (dedicated `synthetic-canary` + per-critical-queue: notifications, behaviour, finance, payroll, pastoral)**, notification self-test (Resend), DNS lookup for the apex.
-- [ ] Each of the 5 critical-queue processors carries the synthetic-sentinel short-circuit guard; unit test per processor asserts the guard returns early without side effects.
-- [ ] No synthetic check resolves credentials from `~/.codex/` or any operator-personal path; runner refuses such paths.
-- [ ] At least one TLS certificate per active tenant domain monitored.
-- [ ] At least 7 external dependencies polled: Resend, Twilio, Stripe, Sentry, S3, Meilisearch, registrar/DNS.
-- [ ] Cron registers per-definition; toggling `enabled` re-registers cleanly.
-- [ ] "Run now" button works and audit-logs.
-- [ ] Maintenance-window suppression respected; route-health checks (5B) are NOT suppressible.
-- [ ] Alerts emitted via Layer 1C/2B; consecutive-failure threshold escalates to `critical`.
-- [ ] All four frontend pages render with real data.
-- [ ] No-AI guard test passes; no Layer 4 service imported.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] All four new tables exist; migration applies cleanly.
+- [x] `SyntheticCheckRunnerService` exists with one handler per `SyntheticCheckKind`.
+- [x] At least 13 default check definitions seeded: platform admin login (using dedicated synthetic platform user), tenant login (per pilot tenant), tenant API readiness `/api/health/ready`, tenant page render `/en/login`, worker liveness, **6 queue canaries (dedicated `synthetic-canary` + per-critical-queue: notifications, behaviour, finance, payroll, pastoral)**, notification self-test (Resend), DNS lookup for the apex.
+- [x] Each of the 5 critical-queue processors carries the synthetic-sentinel short-circuit guard; unit test per processor asserts the guard returns early without side effects.
+- [x] No synthetic check resolves credentials from `~/.codex/` or any operator-personal path; runner refuses such paths.
+- [x] At least one TLS certificate per active tenant domain monitored.
+- [x] At least 7 external dependencies polled: Resend, Twilio, Stripe, Sentry, S3, Meilisearch, registrar/DNS.
+- [x] Cron registers per-definition; toggling `enabled` re-registers cleanly.
+- [x] "Run now" button works and audit-logs.
+- [x] Maintenance-window suppression respected; route-health checks (5B) are NOT suppressible.
+- [x] Alerts emitted via Layer 1C/2B; consecutive-failure threshold escalates to `critical`.
+- [x] All four frontend pages render with real data.
+- [x] No-AI guard test passes; no Layer 4 service imported.
+- [x] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+
+## Commits / CI / Notes
+
+- Implementation: `6095447f feat(platform): add synthetic journey monitoring`.
+- Fix-forward: `ef218336 fix(platform): use colon-free synthetic job ids`.
+- CI / deploy: [25996201467](https://github.com/ACANOTES-dev/EduPod/actions/runs/25996201467) passed after the implementation commit; [25996679519](https://github.com/ACANOTES-dev/EduPod/actions/runs/25996679519) passed after the BullMQ job-id fix and deployed to production.
+- Local verification covered targeted API, worker, shared, frontend, Prisma, lint, type-check, DI compile, architecture checks, no-AI static scan, focused platform-resilience specs, worker canary specs, root `pnpm test`, and serial integration tests.
+- Production smoke on `https://dua.edupod.app` confirmed platform-admin login, 24 synthetic checks, 7 external dependencies, 6 certificate rows, and a successful run-now execution of `worker.liveness.synthetic_canary`. The stored result contained no response body, no digest, no snippet, and no failure detail, as expected for the queue canary.
+- Production UI smoke confirmed `/en/admin/synthetic-checks`, `/en/admin/synthetic-checks/:id`, `/en/admin/external-dependencies`, and `/en/admin/certificates` render with live rows.
+- The first production smoke exposed BullMQ's restriction that custom `jobId` values cannot contain `:`. The fix-forward commit switched synthetic run and schedule job ids to colon-free values, and the next scheduled canary runs recovered to `passed`.
+- GitHub Actions emitted a Node 20 deprecation annotation for `actions/cache@v4` / `actions/download-artifact@v4`; this is workflow maintenance, not a 5A blocker.
+
+## Next Session Prompt
+
+```text
+Implement Session 5B of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5B-alert-routing-escalation.md
+
+Context:
+- Sessions 0 through 5A are complete, deployed, smoke-tested, and accepted.
+- Session 5A shipped deterministic synthetic journey monitoring, platform-scoped synthetic check/result/external dependency/certificate tables, safe queue canaries, maintenance-aware skips, run-now auditing, alert emission through existing alert logic, frontend synthetic checks/dependencies/certificates pages, and no-AI guarantees.
+- Layer 5 scheduled/background work must not call AI. Do not import or call Anthropic, OpenAI, PlatformAiCopilotService, recommendation generation, action proposal generation, or any AI generation service from 5B routing, escalation, dead-man checks, schedules, processors, or alerting paths.
+- Streaming remains waived; do not add streaming unless Session 5B specifically requires it.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, Layer 4, and Layer 5 plans.
+5. Read Session 4A, Session 4B, Session 4C, Session 4D, Session 4E, and Session 5A closeout notes.
+6. Read Session 5B / Alert Routing + Escalation end-to-end.
+7. Inspect existing alert rules, alert history, alert channels, alert dispatch, maintenance windows, owner confirmation, platform audit, severity policy, queues/workers, cron scheduler, Session 5A synthetic alert emission, platform dashboard shell conventions, and existing operator notification code before designing anything new.
+8. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 5B.
+- Layer 5 proactive/background code must be non-AI. Do not import or call Anthropic, OpenAI, PlatformAiCopilotService, recommendation generation, action proposal generation, or any AI generation service from 5B routing, escalation, dead-man checks, schedules, processors, or alerting paths.
+- Create the alert route, escalation policy, route health check, alert acknowledgement, and emergency contact data model exactly within 5B scope.
+- All 5B tables are platform-scoped; do not add tenant RLS policies for these platform-level tables.
+- Add the required alert-history/channel modifications, escalation state machine, and acknowledgement tracking without regressing existing Layer 1C/2B alert behavior.
+- Dead-man checks must target sink destinations only, never operator destinations, and must route failed-route alerts through surviving routes only.
+- Test alert buttons are operator-triggered, audited, permission-gated, rate-limited, clearly marked as synthetic tests, and never create normal alert-history incidents.
+- Quiet hours must use IANA timezone wall-clock evaluation with critical override support.
+- Magic-link acknowledgements must be signed, short-lived, single-use, and record operator identity plus route context.
+- Maintenance windows may suppress normal routed alerts, but route-health and signature/watchdog failures must be non-suppressible.
+- Credentials for Resend, Twilio, Telegram, and push remain env-only; route rows store only credential-key references and structured destinations.
+- Register and re-register repeatable BullMQ jobs conservatively without duplicating schedules.
+- Follow token-driven UX styling and the platform dashboard shell conventions.
+- Preserve all existing Platform Admin behavior, including Sessions 3A through 5A.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify no Layer 5 proactive/background code imports or calls AI services.
+- Verify route CRUD, escalation policy CRUD, acknowledgement, magic-link ack, quiet-hours evaluation, dead-man route-health checks, sink-vs-operator destination separation, surviving-route dispatch, and rate limits.
+- Verify normal alerts route through the first escalation step, advance after the ack window, halt on acknowledgement, auto-resolve when the condition resolves, and expire when policy steps are exhausted.
+- Verify route-health failures are non-suppressible and normal alerts respect maintenance windows.
+- Verify all 5B frontend pages render and use token-driven styling.
+- Verify existing Platform Admin regressions.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 5B acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 5 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 5B is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
