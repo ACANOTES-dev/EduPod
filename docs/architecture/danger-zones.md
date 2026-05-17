@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
+> **Last verified**: 2026-05-17 (Platform Dashboard Layer 4 Session 4B — added DZ-AI-1 and DZ-AI-2 for read-only Copilot prompt-injection and citation controls); previously: 2026-05-17 (Platform Dashboard Layer 4 Session 4A — added DZ-AI-Internal for internal deploy-event capture); previously: 2026-05-16 (Platform Dashboard Layer 2 Session 2D — added DZ-PA-5 for error-diagnostics capture/redaction boundaries); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5C — added DZ-PA-4 for solo-owner confirmation safety); previously: 2026-05-16 (Platform Dashboard Layer 1.5 Session 1.5B — added DZ-PA-2 for append-only platform audit logs and DZ-PA-3 for destructive platform error redaction); previously: 2026-05-13 (post-rollout sweep — added DZ-i18n-3 covering notification catalogue parity for tenant `supported_locales` expansions, and DZ-i18n-4 covering the tier-routes/tier-scopes contract that DZ-i18n-1 left implicit); previously: 2026-04-27 (Communications rebuild baseline); reviewed 2026-04-30 for New Languages implementation 11 — Italian Tier 2 route guard added so incomplete Tier 2 catalogues redirect out-of-scope school routes to the tenant default locale before rendering; reviewed 2026-05-03 for implementation 12.5 — PDF rendering now routes through explicit per-locale template bundles.
 
 ---
 
@@ -1673,6 +1673,34 @@ Any tenant with `_configured=false` for a channel they expect to use is the caus
 **Mitigation**: The endpoint validates `X-Internal-Token` against `DEPLOY_EVENT_INTERNAL_TOKEN` when present, falling back to the server-side `JWT_SECRET` for CI-only local server calls. The deploy script posts only after API restart/smoke and logs capture failures as non-blocking.
 
 **Regression coverage**: `apps/api/src/modules/platform/platform-observability.service.spec.ts` covers token acceptance/rejection and deploy-event append shape. Production smoke verifies `/admin/deploys` after deploy.
+
+---
+
+## DZ-AI-1: Copilot Evidence Is Data, Never Instructions
+
+**Risk**: The platform Copilot reads strings from redacted errors, audit rows, correlation events, queue failures, runbooks, deploy metadata, and tenant-facing labels. Some of those strings originate from user input or external systems. If the model treats evidence text as instructions, a prompt-injection string embedded in an error message could override the system prompt, request secrets, fabricate actions, or leak operational data.
+**Location**: `apps/api/src/modules/platform/platform-ai-copilot.service.ts`, `apps/api/src/modules/platform/copilot-prompt-builder.service.ts`, `apps/api/src/modules/platform/copilot-injection-scanner.ts`, `apps/api/src/modules/platform/prompts/copilot-system-prompt.ts`, `apps/api/src/modules/platform/platform-evidence.service.ts`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4B, 2026-05-17)
+
+**Rule**: Copilot evidence must only enter the model through `PlatformEvidenceService` and must be wrapped in `<evidence>` with explicit data-not-instructions framing. Do not pass raw logs, error rows, audit payloads, runbook text, tenant fields, or deploy metadata directly to an AI client. Do not add an AI path that interprets evidence as commands or executable workflow steps in Session 4B.
+
+**Mitigation**: `CopilotPromptBuilderService` separates the system prompt, evidence block, and operator question. `CopilotInjectionScanner` flags instruction-shaped evidence and publishes a platform alert tripwire while still treating the evidence as data. The read-only Copilot service has no executor dependency and no supervised action surface.
+
+**Regression coverage**: `apps/api/src/modules/platform/prompts/__tests__/prompt-injection-adversarial.spec.ts` covers common prompt-injection strings. `apps/api/src/modules/platform/copilot-prompt-builder.service.spec.ts` verifies the evidence wrapper and cache markers. `apps/api/src/modules/platform/copilot-injection-scanner.spec.ts` verifies alert emission for suspicious evidence.
+
+---
+
+## DZ-AI-2: Copilot Answers Need Citations Or Refusal
+
+**Risk**: A plausible but uncited AI answer can mislead the platform operator during an incident. The model may infer causality from timing, invent a root cause, or summarize evidence that was never supplied. In operations, a confident uncited sentence is worse than a refusal because it can send the operator down the wrong path.
+**Location**: `apps/api/src/modules/platform/copilot-response-post-processor.ts`, `apps/api/src/modules/platform/platform-ai-copilot.service.ts`, `apps/web/src/app/[locale]/(platform)/admin/copilot/page.tsx`, `apps/web/src/components/platform/explain-button.tsx`
+**Status**: ACTIVE (Platform Dashboard Layer 4 Session 4B, 2026-05-17)
+
+**Rule**: Every factual Copilot claim must include a valid `[E:<evidence-id>]` citation from the evidence bundle used for that turn. If the post-processor cannot preserve a cited answer, the assistant response must become a refusal. Frontend citation chips must link back to the underlying dashboard view so the operator can inspect the evidence.
+
+**Mitigation**: `CopilotResponsePostProcessor` strips uncited claim-like paragraphs and removes citations that do not match the current evidence bundle. The persisted assistant message stores both the raw model output and the stripped operator-visible content, plus citation ids and stripped-claim counts. The Copilot UI renders citation chips and a right-hand evidence rail from persisted message evidence.
+
+**Regression coverage**: `apps/api/src/modules/platform/copilot-response-post-processor.spec.ts` verifies cited-claim preservation, uncited-claim stripping, and malformed citation removal. `apps/api/src/modules/platform/platform-ai-copilot.service.spec.ts` verifies persisted citation/cost metadata. The adversarial prompt-injection suite verifies uncited compliance text is refused.
 
 ---
 

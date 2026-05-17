@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { Badge } from '@school/ui';
 
+import { ExplainButton } from '@/components/platform/explain-button';
 import { formatDateTime } from '@/lib/format-date';
 
 export interface PlatformErrorLog {
@@ -30,10 +31,11 @@ export interface PlatformErrorLog {
 interface ErrorDetailRowProps {
   deployHint?: { short_sha: string; deployed_at: string } | null;
   error: PlatformErrorLog;
+  locale: string;
   tenantName?: string;
 }
 
-export function ErrorDetailRow({ deployHint, error, tenantName }: ErrorDetailRowProps) {
+export function ErrorDetailRow({ deployHint, error, locale, tenantName }: ErrorDetailRowProps) {
   const [expanded, setExpanded] = React.useState(false);
   const statusTone =
     error.http_status && error.http_status >= 500
@@ -104,6 +106,13 @@ export function ErrorDetailRow({ deployHint, error, tenantName }: ErrorDetailRow
                 </div>
               </div>
               <div className="space-y-3">
+                <ExplainButton
+                  contextId={error.fingerprint}
+                  contextKind="error"
+                  label="Explain Error"
+                  locale={locale}
+                  question={`Explain this error fingerprint ${error.fingerprint}. What nearby deploys, alerts, request context, and cited runbooks are relevant?`}
+                />
                 <InfoField label="Fingerprint" value={error.fingerprint} />
                 <InfoField label="User ID" value={error.user_id_redacted ?? 'N/A'} />
                 <InfoField label="First seen" value={formatDateTime(error.first_seen_at)} />

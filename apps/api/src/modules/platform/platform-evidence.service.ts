@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { QueueManagementService } from '../queue-admin/queue-management.service';
 
 export interface EvidenceItem {
   kind: string;
@@ -17,7 +18,10 @@ export interface EvidenceBundle {
 
 @Injectable()
 export class PlatformEvidenceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly queueManagement: QueueManagementService,
+  ) {}
 
   async forCorrelationId(correlationId: string): Promise<EvidenceBundle> {
     const events = await this.prisma.platformCorrelationEvent.findMany({
@@ -132,6 +136,78 @@ export class PlatformEvidenceService {
     };
   }
 
+  async forDeploy(deployId: string): Promise<EvidenceBundle> {
+    const deploy = await this.prisma.platformDeployEvent.findUnique({
+      where: { id: deployId },
+    });
+    if (!deploy) return { items: [] };
+    return {
+      items: [
+        {
+          kind: 'deploy_event',
+          id: deploy.id,
+          link: `/admin/deploys?deploy=${encodeURIComponent(deploy.id)}`,
+          occurred_at: deploy.deployed_at.toISOString(),
+          snippet: `${deploy.status} deploy ${deploy.short_sha}`,
+          raw: deploy,
+        },
+      ],
+    };
+  }
+
+  async forHealth(component?: string): Promise<EvidenceBundle> {
+    const snapshots = await this.prisma.platformHealthSnapshot.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 24,
+    });
+    return {
+      items: snapshots.map((snapshot) => ({
+        kind: 'health_snapshot',
+        id: snapshot.id,
+        link: component
+          ? `/admin/health?component=${encodeURIComponent(component)}`
+          : '/admin/health',
+        occurred_at: snapshot.created_at.toISOString(),
+        snippet: component
+          ? `${component} health snapshot: ${snapshot.status}`
+          : `Platform health snapshot: ${snapshot.status}`,
+        raw: snapshot,
+      })),
+    };
+  }
+
+  async forQueue(queueName: string): Promise<EvidenceBundle> {
+    const [queues, failedJobs] = await Promise.all([
+      this.queueManagement.listQueues(),
+      this.queueManagement
+        .listJobs(queueName, { order: 'desc', page: 1, pageSize: 10, status: 'failed' })
+        .catch(() => ({ data: [], meta: { page: 1, pageSize: 10, total: 0 } })),
+    ]);
+    const queue = queues.find((candidate) => candidate.name === queueName);
+    if (!queue) return { items: [] };
+    const now = new Date().toISOString();
+    return {
+      items: [
+        {
+          kind: 'queue_state',
+          id: `queue-${queue.name}`,
+          link: `/admin/queues/${encodeURIComponent(queue.name)}`,
+          occurred_at: now,
+          snippet: `${queue.name}: ${queue.counts.failed} failed, ${queue.counts.waiting} waiting, ${queue.counts.active} active`,
+          raw: queue,
+        },
+        ...failedJobs.data.map((job) => ({
+          kind: 'queue_job',
+          id: `queue-${queue.name}-job-${job.id}`,
+          link: `/admin/queues/${encodeURIComponent(queue.name)}?job=${encodeURIComponent(job.id)}`,
+          occurred_at: new Date(job.timestamp).toISOString(),
+          snippet: `${queue.name}/${job.name} failed: ${job.failed_reason ?? 'no failure reason'}`,
+          raw: job,
+        })),
+      ],
+    };
+  }
+
   async forTenant(tenantId: string, opts?: { since?: Date }): Promise<EvidenceBundle> {
     const since = opts?.since ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [metrics, errors, audit] = await Promise.all([
@@ -215,6 +291,8 @@ export class PlatformEvidenceService {
       if (item.kind === 'deploy_event') components.add('api');
       if (item.kind === 'error_fingerprint') components.add('api');
       if (item.kind === 'alert') components.add('bullmq');
+      if (item.kind === 'health_snapshot') components.add('api');
+      if (item.kind === 'queue_state' || item.kind === 'queue_job') components.add('bullmq');
     }
     return this.prisma.platformServiceTopology.findMany({
       where: components.size ? { related_components: { hasSome: [...components] } } : {},

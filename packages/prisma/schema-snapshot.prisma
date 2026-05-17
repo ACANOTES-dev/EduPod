@@ -148,6 +148,7 @@ enum PlatformAuditAction {
   ai_action_approved
   ai_action_executed
   ai_action_rejected
+  ai_conversation_viewed
 
   @@map("platform_audit_action")
 }
@@ -159,6 +160,22 @@ enum PlatformDeployStatus {
   rolled_back
 
   @@map("platform_deploy_status")
+}
+
+enum PlatformAiConversationType {
+  diagnostic
+  recommendation
+  postmortem
+
+  @@map("platform_ai_conversation_type")
+}
+
+enum PlatformAiMessageRole {
+  operator
+  assistant
+  system
+
+  @@map("platform_ai_message_role")
 }
 
 enum PlatformAuditActionType {
@@ -1833,6 +1850,7 @@ model User {
   platform_maintenance_windows_cancelled PlatformMaintenanceWindow[]       @relation("platform_maintenance_window_canceller")
   tenant_maintenance_windows_created     TenantMaintenanceWindow[]         @relation("tenant_maintenance_window_creator")
   onboarding_steps_completed             TenantOnboardingStep[]            @relation("onboarding_completer")
+  platform_ai_conversations              PlatformAiConversation[]          @relation("platform_ai_conversation_creator")
 
   // Communications Overhaul (Impl 01) — created_by audit columns
   email_configs_created    TenantEmailConfig[]    @relation("EmailConfigsCreated")
@@ -12349,6 +12367,49 @@ model PlatformSeverityPolicy {
   @@index([component], map: "idx_platform_severity_policies_component")
   @@index([severity], map: "idx_platform_severity_policies_severity")
   @@map("platform_severity_policies")
+}
+
+model PlatformAiConversation {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by_user_id  String                     @db.Uuid
+  conversation_type   PlatformAiConversationType @default(diagnostic)
+  title               String?                    @db.VarChar(200)
+  total_tokens_input  Int                        @default(0)
+  total_tokens_output Int                        @default(0)
+  total_tokens_cached Int                        @default(0)
+  total_cost_usd      Decimal                    @default(0) @db.Decimal(10, 6)
+  is_locked           Boolean                    @default(false)
+  locked_reason       String?                    @db.Text
+  created_at          DateTime                   @default(now()) @db.Timestamptz()
+  last_message_at     DateTime                   @default(now()) @db.Timestamptz()
+
+  created_by User                @relation("platform_ai_conversation_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  messages   PlatformAiMessage[]
+
+  @@index([created_by_user_id, last_message_at(sort: Desc)], map: "idx_platform_ai_conversations_creator_last")
+  @@map("platform_ai_conversations")
+}
+
+model PlatformAiMessage {
+  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id           String                @db.Uuid
+  role                      PlatformAiMessageRole
+  content                   String                @db.Text
+  raw_content               String?               @db.Text
+  evidence                  Json                  @db.JsonB
+  citations                 Json                  @db.JsonB
+  tokens_input              Int                   @default(0)
+  tokens_output             Int                   @default(0)
+  tokens_cached             Int                   @default(0)
+  cost_usd                  Decimal               @default(0) @db.Decimal(10, 6)
+  stripped_claims_count     Int                   @default(0)
+  prompt_injection_attempts Int                   @default(0)
+  created_at                DateTime              @default(now()) @db.Timestamptz()
+
+  conversation PlatformAiConversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id, created_at], map: "idx_platform_ai_messages_conversation_created")
+  @@map("platform_ai_messages")
 }
 
 model TenantOnboardingStep {

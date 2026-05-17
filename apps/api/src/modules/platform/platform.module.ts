@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
@@ -27,6 +28,9 @@ import { AlertRulesService } from './alert-rules.service';
 import { AlertSilenceService } from './alert-silence.service';
 import { AlertSilencesController } from './alert-silences.controller';
 import { ChannelDispatchService } from './channel-dispatch.service';
+import { CopilotInjectionScanner } from './copilot-injection-scanner';
+import { CopilotPromptBuilderService } from './copilot-prompt-builder.service';
+import { CopilotResponsePostProcessor } from './copilot-response-post-processor';
 import { CorrelationEventIngesterService } from './correlation-event-ingester.service';
 import { EmailAlertDispatcher } from './dispatchers/email-alert.dispatcher';
 import { PushAlertDispatcher } from './dispatchers/push-alert.dispatcher';
@@ -39,6 +43,9 @@ import { MaintenanceWindowsController } from './maintenance-windows.controller';
 import { OnboardingController } from './onboarding.controller';
 import { OwnerActionConfirmationService } from './owner-action-confirmation.service';
 import { OwnerActionConfirmationsController } from './owner-action-confirmations.controller';
+import { PlatformAiCopilotController } from './platform-ai-copilot.controller';
+import { PlatformAiCopilotService } from './platform-ai-copilot.service';
+import { PlatformAiCostGuardService } from './platform-ai-cost-guard.service';
 import { PlatformEvidenceService } from './platform-evidence.service';
 import { PlatformObservabilityController } from './platform-observability.controller';
 import { PlatformObservabilityService } from './platform-observability.service';
@@ -52,6 +59,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
 
 @Module({
   imports: [
+    AiModule,
     AttendanceModule,
     AuthModule,
     CommunicationsModule,
@@ -78,6 +86,7 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertSilencesController,
     MaintenanceWindowsController,
     OwnerActionConfirmationsController,
+    PlatformAiCopilotController,
     OnboardingController,
     PlatformObservabilityController,
     PlatformSearchController,
@@ -92,6 +101,11 @@ import { TenantMetricsService } from './tenant-metrics.service';
     AlertSilenceService,
     MaintenanceWindowService,
     OwnerActionConfirmationService,
+    PlatformAiCopilotService,
+    PlatformAiCostGuardService,
+    CopilotPromptBuilderService,
+    CopilotResponsePostProcessor,
+    CopilotInjectionScanner,
     CorrelationEventIngesterService,
     PlatformEvidenceService,
     PlatformObservabilityService,

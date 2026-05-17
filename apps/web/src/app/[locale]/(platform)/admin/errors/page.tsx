@@ -1,6 +1,7 @@
 'use client';
 
 import { RefreshCw, Search } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -40,6 +41,8 @@ interface DeployResponse {
 const PAGE_SIZE = 20;
 
 export default function ErrorDiagnosticsPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'en';
   const [rows, setRows] = React.useState<PlatformErrorLog[]>([]);
   const [tenants, setTenants] = React.useState<TenantOption[]>([]);
   const [tenantFilter, setTenantFilter] = React.useState('all');
@@ -216,6 +219,7 @@ export default function ErrorDiagnosticsPage() {
                   key={row.id}
                   error={row}
                   deployHint={findDeployHint(row, recentDeploys)}
+                  locale={locale}
                   tenantName={
                     row.tenant_id_redacted
                       ? (tenantById.get(row.tenant_id_redacted) ?? row.tenant_id_redacted)

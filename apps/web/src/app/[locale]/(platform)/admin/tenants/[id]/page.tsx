@@ -31,6 +31,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { ExplainButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
@@ -99,6 +100,7 @@ export default function TenantDetailPage() {
   const params = useParams();
   const router = useRouter();
   const tenantId = params?.id as string;
+  const locale = (params?.locale as string) ?? 'en';
 
   const [tenant, setTenant] = React.useState<TenantDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -146,7 +148,7 @@ export default function TenantDetailPage() {
       <div>
         <div className="mb-6">
           <Link
-            href="/en/admin/tenants"
+            href={`/${locale}/admin/tenants`}
             className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -174,7 +176,7 @@ export default function TenantDetailPage() {
     <div>
       <div className="mb-6">
         <Link
-          href="/en/admin/tenants"
+          href={`/${locale}/admin/tenants`}
           className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -190,9 +192,10 @@ export default function TenantDetailPage() {
           </StatusBadge>
         </div>
         <TenantActions
+          locale={locale}
           tenant={tenant}
           onUpdate={fetchTenant}
-          onArchived={() => router.push('/en/admin/tenants')}
+          onArchived={() => router.push(`/${locale}/admin/tenants`)}
         />
       </div>
 
@@ -221,7 +224,9 @@ export default function TenantDetailPage() {
         {activeTab === 'modules' && <ModulesTab tenant={tenant} onUpdate={fetchTenant} />}
         {activeTab === 'onboarding' && <OnboardingTracker tenantId={tenant.id} />}
         {activeTab === 'analytics' && <AnalyticsTab tenantId={tenant.id} />}
-        {activeTab === 'errors' && <ErrorsTab tenantId={tenant.id} tenantName={tenant.name} />}
+        {activeTab === 'errors' && (
+          <ErrorsTab locale={locale} tenantId={tenant.id} tenantName={tenant.name} />
+        )}
       </div>
 
       <div className="mt-6 grid gap-6">
@@ -252,10 +257,12 @@ export default function TenantDetailPage() {
 // ---------- Tenant Actions ----------
 
 function TenantActions({
+  locale,
   tenant,
   onUpdate,
   onArchived,
 }: {
+  locale: string;
   tenant: TenantDetail;
   onUpdate: () => void;
   onArchived: () => void;
@@ -283,16 +290,23 @@ function TenantActions({
 
   return (
     <div className="flex items-center gap-2">
+      <ExplainButton
+        contextId={tenant.id}
+        contextKind="tenant"
+        label="Explain Tenant"
+        locale={locale}
+        question={`Explain tenant ${tenant.name}. Summarize tenant modules, recent errors, audit context, health signals, and cited evidence only.`}
+      />
       {tenant.status === 'active' && (
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/en/admin/tenants/${tenant.id}/locales`}>
+          <Link href={`/${locale}/admin/tenants/${tenant.id}/locales`}>
             <Globe className="me-1.5 h-3.5 w-3.5" />
             Languages
           </Link>
         </Button>
       )}
       <Button variant="outline" size="sm" asChild>
-        <Link href={`/en/admin/tenants/${tenant.id}/modules`}>
+        <Link href={`/${locale}/admin/tenants/${tenant.id}/modules`}>
           <Settings className="me-1.5 h-3.5 w-3.5" />
           Module toggles
         </Link>

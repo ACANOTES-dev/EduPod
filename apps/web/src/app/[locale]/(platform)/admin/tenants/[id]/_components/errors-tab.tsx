@@ -13,6 +13,7 @@ import {
 } from '../../../errors/_components/error-detail-row';
 
 interface ErrorsTabProps {
+  locale: string;
   tenantId: string;
   tenantName: string;
 }
@@ -24,7 +25,7 @@ interface ErrorResponse {
 
 const PAGE_SIZE = 10;
 
-export function ErrorsTab({ tenantId, tenantName }: ErrorsTabProps) {
+export function ErrorsTab({ locale, tenantId, tenantName }: ErrorsTabProps) {
   const [rows, setRows] = React.useState<PlatformErrorLog[]>([]);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
@@ -102,7 +103,9 @@ export function ErrorsTab({ tenantId, tenantName }: ErrorsTabProps) {
                 </td>
               </tr>
             ) : (
-              rows.map((row) => <ErrorDetailRow key={row.id} error={row} tenantName={tenantName} />)
+              rows.map((row) => (
+                <ErrorDetailRow key={row.id} error={row} locale={locale} tenantName={tenantName} />
+              ))
             )}
           </tbody>
         </table>

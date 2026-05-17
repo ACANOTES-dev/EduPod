@@ -2,6 +2,8 @@ import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button, Skeleton } from '@school/ui';
 
+import { ExplainButton } from '@/components/platform/explain-button';
+
 import { AlertSeverityBadge, AlertStatusBadge } from './alert-severity-badge';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -30,6 +32,7 @@ interface AlertHistoryTableProps {
   pageSize: number;
   total: number;
   loading: boolean;
+  locale: string;
   onPageChange: (page: number) => void;
   onAcknowledge: (id: string) => void;
 }
@@ -48,6 +51,7 @@ function formatRelativeTime(value: string): string {
 
 export function AlertHistoryTable({
   alerts,
+  locale,
   loading,
   onAcknowledge,
   onPageChange,
@@ -125,14 +129,24 @@ export function AlertHistoryTable({
                     <AlertStatusBadge status={alert.status} />
                   </td>
                   <td className="px-4 py-3 text-end">
-                    {alert.status === 'fired' ? (
-                      <Button size="sm" variant="secondary" onClick={() => onAcknowledge(alert.id)}>
-                        <CheckCircle2 className="me-1.5 h-4 w-4" />
-                        Ack
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-text-tertiary">No action</span>
-                    )}
+                    <div className="flex justify-end gap-2">
+                      <ExplainButton
+                        contextId={alert.id}
+                        contextKind="alert"
+                        locale={locale}
+                        question={`Explain alert ${alert.rule?.name ?? alert.id}. What changed nearby, what is affected, and which cited runbook applies?`}
+                      />
+                      {alert.status === 'fired' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => onAcknowledge(alert.id)}
+                        >
+                          <CheckCircle2 className="me-1.5 h-4 w-4" />
+                          Ack
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))

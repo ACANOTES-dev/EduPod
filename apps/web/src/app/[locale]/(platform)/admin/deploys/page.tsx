@@ -1,8 +1,10 @@
 'use client';
 
 import { ExternalLink, GitCommit, RefreshCw } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 
+import { ExplainButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 
 interface DeployEvent {
@@ -23,6 +25,8 @@ interface PaginatedDeploys {
 }
 
 export default function PlatformDeploysPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'en';
   const [deploys, setDeploys] = React.useState<DeployEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -94,15 +98,24 @@ export default function PlatformDeploysPage() {
                     {new Date(deploy.deployed_at).toLocaleString()}
                   </p>
                 </div>
-                <a
-                  href={deploy.deploy_run_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                >
-                  Workflow
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <ExplainButton
+                    contextId={deploy.id}
+                    contextKind="deploy"
+                    label="Explain"
+                    locale={locale}
+                    question={`Explain deploy ${deploy.short_sha}. What changed, did errors or alerts appear nearby, and what cited evidence supports that?`}
+                  />
+                  <a
+                    href={deploy.deploy_run_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                  >
+                    Workflow
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
               </article>
             ))}
           </div>

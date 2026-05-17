@@ -1,6 +1,7 @@
 'use client';
 
 import { Bell, ListChecks } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { cn, toast } from '@school/ui';
@@ -99,6 +100,8 @@ function historyRowFromEvent(event: AlertFiredEvent): PlatformAlertHistory {
 }
 
 export default function PlatformAlertsPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'en';
   const { subscribe } = usePlatformSocket();
   const [activeTab, setActiveTab] = React.useState<AlertsTab>('history');
   const [alerts, setAlerts] = React.useState<PlatformAlertHistory[]>([]);
@@ -204,6 +207,7 @@ export default function PlatformAlertsPage() {
         {activeTab === 'history' ? (
           <AlertHistoryTable
             alerts={alerts}
+            locale={locale}
             loading={alertsLoading}
             onAcknowledge={handleAcknowledge}
             onPageChange={(page) => void loadHistory(page)}

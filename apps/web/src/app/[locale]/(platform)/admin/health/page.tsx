@@ -1,10 +1,12 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Skeleton } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { ExplainButton } from '@/components/platform/explain-button';
 import { usePlatformSocket } from '@/hooks/use-platform-socket';
 import { apiClient } from '@/lib/api-client';
 
@@ -126,6 +128,8 @@ function buildSparklineData(history: PlatformHealthSnapshot[], component: Compon
 }
 
 export default function PlatformHealthPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'en';
   const { connected, subscribe } = usePlatformSocket();
   const [currentHealth, setCurrentHealth] = React.useState<FullHealthResult | null>(null);
   const [history, setHistory] = React.useState<PlatformHealthSnapshot[]>([]);
@@ -190,6 +194,15 @@ export default function PlatformHealthPage() {
       <PageHeader
         title="Platform Health"
         description="Live dependency status, latency, and 24-hour trends for the platform admin surface."
+        actions={
+          <ExplainButton
+            contextId="overall"
+            contextKind="health"
+            label="Explain Health"
+            locale={locale}
+            question="Explain the current platform health using only cited health, queue, deploy, alert, and topology evidence."
+          />
+        }
       />
 
       {error ? (

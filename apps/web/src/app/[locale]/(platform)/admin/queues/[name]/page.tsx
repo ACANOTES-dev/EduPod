@@ -7,6 +7,7 @@ import * as React from 'react';
 import { Button, cn, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { ExplainButton } from '@/components/platform/explain-button';
 import { apiClient } from '@/lib/api-client';
 
 import { QueueStatusBadge } from '../_components/queue-status-badge';
@@ -204,6 +205,13 @@ export default function QueueDetailPage({ params }: { params: { locale: string; 
               <RefreshCw className="me-1.5 h-3.5 w-3.5" />
               Refresh
             </Button>
+            <ExplainButton
+              contextId={queueName}
+              contextKind="queue"
+              label="Explain Queue"
+              locale={params.locale}
+              question={`Explain queue ${queueName}. What failed or stalled jobs are visible, what services are affected, and which cited evidence supports the diagnosis?`}
+            />
           </div>
         }
       />

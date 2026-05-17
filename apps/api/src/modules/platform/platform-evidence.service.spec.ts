@@ -50,6 +50,12 @@ function buildService() {
           deployed_at: NOW,
         },
       ]),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'deploy-1',
+        short_sha: 'abcdef1',
+        status: 'succeeded',
+        deployed_at: NOW,
+      }),
     },
     platformErrorLog: {
       findMany: jest.fn().mockResolvedValue([
@@ -71,6 +77,15 @@ function buildService() {
     platformSeverityPolicy: {
       findMany: jest.fn().mockResolvedValue([{ id: 'severity-1', severity: 'critical' }]),
     },
+    platformHealthSnapshot: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'health-1',
+          status: 'healthy',
+          created_at: NOW,
+        },
+      ]),
+    },
     platformTenantMetric: {
       findMany: jest.fn().mockResolvedValue([
         {
@@ -81,9 +96,65 @@ function buildService() {
     },
   };
   return {
+    queueManagement: {
+      listJobs: jest.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'job-1',
+            name: 'reports:render',
+            status: 'failed',
+            timestamp: NOW.getTime(),
+            failed_reason: 'Timeout',
+          },
+        ],
+        meta: { page: 1, pageSize: 10, total: 1 },
+      }),
+      listQueues: jest.fn().mockResolvedValue([
+        {
+          name: 'reports',
+          is_paused: false,
+          counts: {
+            active: 1,
+            completed: 4,
+            delayed: 0,
+            failed: 2,
+            paused: 0,
+            waiting: 3,
+          },
+        },
+      ]),
+    },
     prisma,
     service: new PlatformEvidenceService(
       prisma as unknown as ConstructorParameters<typeof PlatformEvidenceService>[0],
+      {
+        listJobs: jest.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'job-1',
+              name: 'reports:render',
+              status: 'failed',
+              timestamp: NOW.getTime(),
+              failed_reason: 'Timeout',
+            },
+          ],
+          meta: { page: 1, pageSize: 10, total: 1 },
+        }),
+        listQueues: jest.fn().mockResolvedValue([
+          {
+            name: 'reports',
+            is_paused: false,
+            counts: {
+              active: 1,
+              completed: 4,
+              delayed: 0,
+              failed: 2,
+              paused: 0,
+              waiting: 3,
+            },
+          },
+        ]),
+      } as unknown as ConstructorParameters<typeof PlatformEvidenceService>[1],
     ),
   };
 }
@@ -104,6 +175,9 @@ describe('PlatformEvidenceService', () => {
     );
     const error = await service.forErrorFingerprint('fingerprint-1');
     const alert = await service.forAlert('alert-1');
+    const deploy = await service.forDeploy('deploy-1');
+    const health = await service.forHealth('redis');
+    const queue = await service.forQueue('reports');
     const tenant = await service.forTenant(TENANT_ID, {
       since: new Date('2026-05-17T00:00:00.000Z'),
     });
@@ -119,6 +193,9 @@ describe('PlatformEvidenceService', () => {
     ]);
     expect(error.items[0].link).toBe('/admin/errors?fingerprint=fingerprint-1');
     expect(alert.items[0].snippet).toBe('critical alert from API latency');
+    expect(deploy.items[0]).toMatchObject({ kind: 'deploy_event' });
+    expect(health.items[0]).toMatchObject({ kind: 'health_snapshot' });
+    expect(queue.items.map((item) => item.kind)).toEqual(['queue_state', 'queue_job']);
     expect(tenant.items.map((item) => item.kind)).toEqual([
       'tenant_metric',
       'error_fingerprint',

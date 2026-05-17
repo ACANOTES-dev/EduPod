@@ -119,6 +119,7 @@ export const platformAuditActionSchema = z.enum([
   'ai_action_approved',
   'ai_action_executed',
   'ai_action_rejected',
+  'ai_conversation_viewed',
 ]);
 
 export type PlatformAuditActionDto = z.infer<typeof platformAuditActionSchema>;
@@ -285,6 +286,61 @@ export const platformSeverityPolicyQuerySchema = z.object({
 });
 
 export type PlatformSeverityPolicyQuery = z.infer<typeof platformSeverityPolicyQuerySchema>;
+
+// ─── Platform AI Copilot ────────────────────────────────────────────────────
+
+export const platformAiConversationTypeSchema = z.enum([
+  'diagnostic',
+  'recommendation',
+  'postmortem',
+]);
+
+export type PlatformAiConversationTypeDto = z.infer<typeof platformAiConversationTypeSchema>;
+
+export const platformCopilotEvidenceContextKindSchema = z.enum([
+  'alert',
+  'correlation',
+  'deploy',
+  'error',
+  'health',
+  'queue',
+  'tenant',
+]);
+
+export type PlatformCopilotEvidenceContextKind = z.infer<
+  typeof platformCopilotEvidenceContextKindSchema
+>;
+
+export const platformCopilotEvidenceContextSchema = z.object({
+  kind: platformCopilotEvidenceContextKindSchema,
+  id: z.string().trim().min(1).max(255),
+});
+
+export type PlatformCopilotEvidenceContext = z.infer<typeof platformCopilotEvidenceContextSchema>;
+
+export const startPlatformCopilotConversationSchema = z.object({
+  type: platformAiConversationTypeSchema.default('diagnostic'),
+  context: platformCopilotEvidenceContextSchema.optional(),
+});
+
+export type StartPlatformCopilotConversationDto = z.infer<
+  typeof startPlatformCopilotConversationSchema
+>;
+
+export const sendPlatformCopilotMessageSchema = z.object({
+  content: z.string().trim().min(1).max(4000),
+  context: platformCopilotEvidenceContextSchema.optional(),
+});
+
+export type SendPlatformCopilotMessageDto = z.infer<typeof sendPlatformCopilotMessageSchema>;
+
+export const listPlatformCopilotConversationsQuerySchema = z.object({
+  operator_id: z.string().uuid().optional(),
+});
+
+export type ListPlatformCopilotConversationsQuery = z.infer<
+  typeof listPlatformCopilotConversationsQuerySchema
+>;
 
 // ─── Platform Alert Rules ────────────────────────────────────────────────────
 

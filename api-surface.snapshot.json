@@ -274,6 +274,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/admin/copilot/conversations",
+    "controller": "PlatformAiCopilotController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/conversations",
+    "controller": "PlatformAiCopilotController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admin/copilot/conversations/:id",
+    "controller": "PlatformAiCopilotController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/copilot/conversations/:id/messages",
+    "controller": "PlatformAiCopilotController",
+    "module": "platform",
+    "permission": "platform.ai.read"
+  },
+  {
+    "method": "GET",
     "path": "/v1/admin/correlation/:id",
     "controller": "PlatformObservabilityController",
     "module": "platform",

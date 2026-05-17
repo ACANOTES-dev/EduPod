@@ -14,6 +14,10 @@ interface CreateMessageOptions {
   timeoutMs?: number;
 }
 
+interface CreatePlatformMessageOptions {
+  timeoutMs?: number;
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 /**
@@ -44,11 +48,27 @@ export class AnthropicClientService {
     return this.client;
   }
 
+  private getPlatformClient(): Anthropic {
+    const apiKey =
+      this.configService.get<string>('PLATFORM_ANTHROPIC_API_KEY') ??
+      this.configService.get<string>('ANTHROPIC_API_KEY');
+    if (!apiKey) throw new Error('PLATFORM_ANTHROPIC_API_KEY is not configured');
+    return new Anthropic({ apiKey });
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────────
 
   /** Whether the API key is configured and the client can be used. */
   get isConfigured(): boolean {
     return !!this.configService.get<string>('ANTHROPIC_API_KEY');
+  }
+
+  /** Whether the platform-scoped API key (or fallback shared key) is configured. */
+  get isPlatformConfigured(): boolean {
+    return Boolean(
+      this.configService.get<string>('PLATFORM_ANTHROPIC_API_KEY') ??
+      this.configService.get<string>('ANTHROPIC_API_KEY'),
+    );
   }
 
   /**
@@ -71,6 +91,31 @@ export class AnthropicClientService {
     const timeoutMs = options.timeoutMs ?? 30_000;
 
     return this.circuitBreaker.exec('anthropic', async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        return await client.messages.create(params, {
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    });
+  }
+
+  /**
+   * Platform-admin AI calls are not tenant-scoped and are guarded by platform
+   * RBAC plus Layer 4 cost controls. They intentionally bypass tenant AI flags.
+   */
+  async createPlatformMessage(
+    params: NonStreamingParams,
+    options: CreatePlatformMessageOptions = {},
+  ): Promise<Anthropic.Message> {
+    const client = this.getPlatformClient();
+    const timeoutMs = options.timeoutMs ?? 30_000;
+
+    return this.circuitBreaker.exec('anthropic-platform', async () => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
