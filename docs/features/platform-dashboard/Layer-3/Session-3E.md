@@ -286,17 +286,17 @@ A "Apply preset: Standard" dropdown that, on selection, calls the toggle endpoin
 
 ## 8. Acceptance Criteria
 
-- [ ] `GET /v1/admin/tenants/:id/modules` returns the full module view payload (20 entries + completeness object) for any tenant the operator can access.
-- [ ] Page at `/[locale]/(platform)/admin/tenants/[id]/modules` renders all 20 modules grouped by category (Academic, Finance/Ops, People Care, Communications, Operations, Compliance).
-- [ ] Each card shows display_name, description, default_enabled hint, current state, last toggled by/on.
-- [ ] Toggling a card PATCHes `/v1/admin/tenants/:id/modules/:key` with `{ is_enabled: boolean }` and visually reflects success (optimistic + persisted) or failure (revert + toast).
-- [ ] Disabling a parent module with currently-enabled dependents triggers `<DependentModulesWarningDialog>` with the three options.
-- [ ] Enabling `compliance_advanced` triggers `<JurisdictionWarningDialog>`; toggle is blocked until checkbox is ticked.
-- [ ] `<ModuleCompletenessBanner>` renders only when `completeness.complete === false`.
-- [ ] Audit log integration verified: a flip creates an `audit_logs` row with `action = 'module_toggle'`, `entity_type = 'tenant_config'`, `entity_id = '<tenantId>'`, and metadata includes `module_key` and `is_enabled`. (No new code — verify the existing Module Gating impl 06 handler still does this after registering the new admin route.)
-- [ ] Within 60s of a toggle, an open browser tab on the SAME page sees the new state without manual refresh (per the polling subscriber from Module Gating impl 06).
-- [ ] Unit tests + controller tests + frontend page tests all pass.
-- [ ] Smoke test on NHQS in production: navigate, toggle a non-critical module (e.g., `staff_wellbeing`) off, observe the school user's nav update on next /me poll, toggle back on.
+- [x] `GET /v1/admin/tenants/:id/modules` returns the full module view payload (20 entries + completeness object) for any tenant the operator can access.
+- [x] Page at `/[locale]/(platform)/admin/tenants/[id]/modules` renders all 20 modules grouped by category (Academic, Finance/Ops, People Care, Communications, Operations, Compliance).
+- [x] Each card shows display_name, description, default_enabled hint, current state, last toggled by/on.
+- [x] Toggling a card PATCHes `/v1/admin/tenants/:id/modules/:key` with `{ is_enabled: boolean }` and visually reflects success (optimistic + persisted) or failure (revert + toast).
+- [x] Disabling a parent module with currently-enabled dependents triggers `<DependentModulesWarningDialog>` with the three options.
+- [x] Enabling `compliance_advanced` triggers `<JurisdictionWarningDialog>`; toggle is blocked until checkbox is ticked.
+- [x] `<ModuleCompletenessBanner>` renders only when `completeness.complete === false`.
+- [x] Audit log integration verified: a flip creates an `audit_logs` row with `action = 'module_toggle'`, `entity_type = 'tenant_config'`, `entity_id = '<tenantId>'`, and metadata includes `module_key` and `is_enabled`. (No new code — verify the existing Module Gating impl 06 handler still does this after registering the new admin route.)
+- [x] Within 60s of a toggle, an open browser tab on the SAME page sees the new state without manual refresh (per the polling subscriber from Module Gating impl 06).
+- [x] Unit tests + controller tests + frontend page tests all pass.
+- [x] Smoke test on NHQS in production: navigate, toggle a non-critical module (e.g., `staff_wellbeing`) off, observe the school user's nav update on next /me poll, toggle back on.
 
 ---
 
@@ -316,3 +316,81 @@ A "Apply preset: Standard" dropdown that, on selection, calls the toggle endpoin
 - The "Modules" tab on the existing `/admin/tenants/[id]/` page is the natural entry point. It complements the existing Locales tab (added in the i18n expansion) and the existing tenant detail surface. Do not move the existing module toggle UI from the tenant detail page in this session — leave it as a fallback, deprecate cleanly in a follow-up after the new page proves itself.
 - Reuse the existing audit-log viewer (Layer 1 § Compliance) for full per-module toggle history filtered by `action = 'module_toggle'` and `metadata_json.module_key`.
 - The page intentionally has no live WebSocket subscription (yet). The polling fallback (60s) is sufficient for V1; switch to push when the WebSocket infrastructure from §3.1 of the master spec ships and the Module Gating cache-bus subscriber is upgraded (Module Gating impl 21 documents the migration path).
+
+## 11. Commits / CI / Notes
+
+### Commits
+
+- `d003eb91 feat(platform): add tenant module toggles UI`
+- `ef266a53 test(platform): update tenant modules e2e contract`
+- `0ff5912c fix(platform): scope tenant module admin reads`
+- `62d65a6c fix(platform): scope tenant module audit reads`
+- `bcfafa15 fix(platform): scope tenant module toggles`
+- `4f202dd1 fix(platform): audit tenant module toggles under rls`
+
+### CI
+
+- GitHub Actions run `25979797169` passed on `main`, including build, unit shards, backend parallel integration, backend serial integration, visual smoke, coverage merge, and deploy.
+
+### Verification Notes
+
+- Local targeted backend tests passed for `tenant-modules-admin.service.spec.ts`, `tenants.service.spec.ts`, and `tenants.e2e-spec.ts`.
+- Local type-check, lint, Prisma validation, and `git diff --check` passed. A full local pre-push gate hit one unrelated serial `p5-gradebook.e2e-spec.ts` 403 flake; the isolated `p5-gradebook.e2e-spec.ts` run passed immediately after.
+- Production smoke on `https://dua.edupod.app` verified the modules page renders 20 registry modules, completeness is true, `website` can toggle off and back on, audit `last_toggled_at` / `last_toggled_by` is populated, dependency and Irish jurisdiction warnings open and cancel safely, mobile width has no horizontal overflow, and `staff_wellbeing` disappears/reappears from the NHQS school user's `/me` enabled modules after toggle/restore.
+- Regression smoke verified Platform Dashboard, sessions/cache/maintenance, platform users, Cmd+K global search, support user search, and tenant detail support panel still load with platform navigation.
+
+## 12. Next Session Prompt
+
+```text
+Implement Session 4A of the Platform Admin Dashboard build. Server access granted for diagnostics.
+
+Spec:
+docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md
+
+Context:
+- Sessions 0, 1A, 1B, 1C, 1D, 1.5A, 1.5B, 1.5C, 2A, 2B, 2C, 2D, 3A, 3B, 3C, 3D, and 3E are complete, deployed, smoke-tested, and accepted.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main.
+
+Before coding:
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 1, Layer 1.5, Layer 2, Layer 3, and Layer 4 plans.
+5. Read the Session 4A / Observability Context sections of docs/features/platform-dashboard/Layer-4/Layer-4-Plan.md end-to-end.
+6. Read Session-3E.md and the Layer 3 closeout notes.
+7. Inspect existing platform admin health, alerts, queues, error log, audit log, deploy workflow, worker logging, and correlation/logging conventions before designing anything new.
+8. Load backend, frontend, prisma, worker, testing, code-quality, architecture-policing, and feature-map-maintenance rule packs as relevant.
+
+Implementation requirements:
+- Stay strictly within Session 4A.
+- Build the observability context foundation for Layer 4: correlation event capture, deploy event visibility, runbook index, service topology, and severity policies as described in the Layer 4 plan.
+- Keep all new Layer 4 foundation tables platform-level; do not add tenant RLS to platform-managed tables.
+- Tenant-scoped operations still use existing RLS-aware transaction patterns.
+- Do not build the AI chat/copilot UI, recommendations, supervised actions, or incident postmortems in Session 4A.
+- Do not add always-on AI generation.
+- Preserve existing platform admin behavior, including Sessions 3A through 3E.
+- Follow token-driven UX styling.
+
+Verification:
+- Run targeted backend/frontend checks, type-check, lint, Prisma validation, and relevant tests.
+- Verify the new observability context pages/endpoints in production after deploy.
+- Verify deploy event capture from the CI deployment where feasible.
+- Verify existing Platform Admin regressions, especially dashboard, alerts, queues, error log, audit log, tenant detail/modules, sessions/cache/maintenance, platform users, Cmd+K global search, and support toolkit access.
+
+Deployment:
+- Commit to main and push to origin main only.
+- Watch GitHub Actions with gh run watch / gh run view.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy.
+
+Completion:
+- Tick the Session 4A acceptance criteria after green CI and production smoke.
+- Add "Commits / CI / Notes" to the relevant Layer 4 session documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether Session 4A is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
