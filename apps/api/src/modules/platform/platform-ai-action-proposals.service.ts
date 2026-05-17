@@ -956,7 +956,7 @@ function buildHandoffPrompt(input: {
 
 Investigate and fix the incident described below in the EduPod repository.
 
-## Critical Instruction
+## Independent Verification / Falsification
 
 The admin Copilot hypothesis is NOT authoritative. First gather repo context, logs, tests, and relevant source code. Independently verify or falsify the hypothesis before implementing. If your investigation reaches a different conclusion, stop and report the mismatch to Ram before making code changes.
 

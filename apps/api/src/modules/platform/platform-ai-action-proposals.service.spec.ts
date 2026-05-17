@@ -534,6 +534,7 @@ describe('PlatformAiActionProposalsService', () => {
       audit,
     );
 
+    expect(handoff.prompt_markdown).toContain('Independent Verification / Falsification');
     expect(handoff.prompt_markdown).toContain('Independently verify or falsify');
     expect(handoff.prompt_markdown).toContain('Do not print or commit secrets');
     expect(handoff.prompt_markdown).not.toContain('sk-');
