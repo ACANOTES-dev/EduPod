@@ -979,20 +979,30 @@ export class TenantsService {
       });
     }
 
-    const existing = await this.prisma.tenantModule.findFirst({
-      where: { tenant_id: tenantId, module_key: moduleKey },
+    const prismaWithRls = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      ...(actorUserId ? { user_id: actorUserId } : {}),
     });
 
-    if (!existing) {
-      throw new NotFoundException({
-        code: 'MODULE_NOT_FOUND',
-        message: `Module "${moduleKey}" not found for this tenant`,
+    const { existing, result } = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      const existingModule = await db.tenantModule.findFirst({
+        where: { tenant_id: tenantId, module_key: moduleKey },
       });
-    }
 
-    const result = await this.prisma.tenantModule.update({
-      where: { id: existing.id },
-      data: { is_enabled: isEnabled },
+      if (!existingModule) {
+        throw new NotFoundException({
+          code: 'MODULE_NOT_FOUND',
+          message: `Module "${moduleKey}" not found for this tenant`,
+        });
+      }
+
+      const updatedModule = await db.tenantModule.update({
+        where: { id: existingModule.id },
+        data: { is_enabled: isEnabled },
+      });
+
+      return { existing: existingModule, result: updatedModule };
     });
 
     if (actorUserId) {

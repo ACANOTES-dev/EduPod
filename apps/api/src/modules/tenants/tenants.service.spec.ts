@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MODULE_REGISTRY, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { TenantModuleCacheBusService } from '../../common/services/tenant-module-cache-bus.service';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
@@ -1428,6 +1429,10 @@ describe('TenantsService', () => {
       const result = await service.toggleModule(TENANT_ID, 'sen', true, USER_ID);
 
       expect(result).toEqual(updated);
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, {
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+      });
       expect(mockPrisma.tenantModule.update).toHaveBeenCalledWith({
         where: { id: 'mod-1' },
         data: { is_enabled: true },
@@ -1524,6 +1529,7 @@ describe('TenantsService', () => {
 
       await service.toggleModule(TENANT_ID, 'finance', false);
 
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
       expect(mockSecurityAuditService.logModuleToggle).not.toHaveBeenCalled();
       expect(mockTenantModuleService.invalidateCache).toHaveBeenCalledWith(TENANT_ID);
       expect(mockTenantModuleCacheBusService.publishInvalidation).toHaveBeenCalledWith(
