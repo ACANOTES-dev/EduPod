@@ -1168,6 +1168,10 @@ export class TenantsService {
     );
 
     const client = this.redis.getClient();
+    if (domains.length === 0) {
+      return;
+    }
+
     const pipeline = client.pipeline();
     for (const d of domains) {
       pipeline.del(`tenant_domain:${d.domain}`);
@@ -1180,6 +1184,9 @@ export class TenantsService {
    */
   private async invalidateAllTenantSessions(tenantId: string) {
     const memberships = await this.rbacReadFacade.findMembershipUserIds(tenantId);
+    if (memberships.length === 0) {
+      return;
+    }
 
     const client = this.redis.getClient();
 

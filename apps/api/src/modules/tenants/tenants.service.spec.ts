@@ -878,6 +878,26 @@ describe('TenantsService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(`tenant:${TENANT_ID}:suspended`, 'true');
     });
 
+    it('should skip empty cache invalidation pipelines for a tenant with no users or domains', async () => {
+      const tenant = { id: TENANT_ID, name: 'School', status: 'active' };
+      const updated = { ...tenant, status: 'suspended' };
+
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
+      mockPrisma.tenant.update.mockResolvedValueOnce(updated);
+      mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
+      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      mockPipelineInstance.exec.mockRejectedValueOnce(new Error('empty pipeline'));
+
+      try {
+        await expect(service.suspendTenant(TENANT_ID, USER_ID)).resolves.toEqual(updated);
+
+        expect(mockRedisClient.pipeline).not.toHaveBeenCalled();
+      } finally {
+        mockPipelineInstance.exec.mockReset();
+        mockPipelineInstance.exec.mockResolvedValue([]);
+      }
+    });
+
     it('should throw NotFoundException when tenant does not exist', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(null);
 
@@ -1101,6 +1121,26 @@ describe('TenantsService', () => {
         where: { id: TENANT_ID },
         data: { status: 'archived' },
       });
+    });
+
+    it('should skip empty cache invalidation pipelines when archiving a tenant with no users or domains', async () => {
+      const tenant = { id: TENANT_ID, status: 'active' };
+      const updated = { ...tenant, status: 'archived' };
+
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
+      mockPrisma.tenant.update.mockResolvedValueOnce(updated);
+      mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
+      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      mockPipelineInstance.exec.mockRejectedValueOnce(new Error('empty pipeline'));
+
+      try {
+        await expect(service.archiveTenant(TENANT_ID, USER_ID)).resolves.toEqual(updated);
+
+        expect(mockRedisClient.pipeline).not.toHaveBeenCalled();
+      } finally {
+        mockPipelineInstance.exec.mockReset();
+        mockPipelineInstance.exec.mockResolvedValue([]);
+      }
     });
 
     it('should archive a suspended tenant', async () => {
