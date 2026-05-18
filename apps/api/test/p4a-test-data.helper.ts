@@ -48,6 +48,34 @@ export async function setupP4ATestData(
   const domain = options?.domain ?? 'al-noor.edupod.app';
   const teacherEmailToMatch = options?.teacherEmail ?? 'teacher@alnoor.test';
   const ownerFallbackEmail = options?.ownerEmail ?? 'owner@alnoor.test';
+  let ownerToken: string | undefined;
+
+  const getOwnerToken = async (): Promise<string> => {
+    ownerToken ??= await getAuthToken(app, ownerFallbackEmail, domain);
+    return ownerToken;
+  };
+
+  const setupPost = async (url: string, body: Record<string, unknown>) => {
+    const adminRes = await authPost(app, url, adminToken, body, domain);
+    if (adminRes.status !== 403) return adminRes;
+
+    const setupToken = await getOwnerToken();
+    return authPost(app, url, setupToken, body, domain);
+  };
+
+  const expectSetupPost = async (
+    url: string,
+    body: Record<string, unknown>,
+    expectedStatus = 201,
+  ) => {
+    const res = await setupPost(url, body);
+    if (res.status !== expectedStatus) {
+      throw new Error(
+        `Failed setup POST ${url}: expected ${expectedStatus}, got ${res.status}: ${JSON.stringify(res.body)}`,
+      );
+    }
+    return res;
+  };
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -69,18 +97,12 @@ export async function setupP4ATestData(
   // 1. Create academic year
   let academicYearId: string | undefined;
   for (let attempt = 0; attempt < 25; attempt += 1) {
-    const ayRes = await authPost(
-      app,
-      '/api/v1/academic-years',
-      adminToken,
-      {
-        name: `P4A Test Year ${ts}-${baseYear}`,
-        start_date: `${baseYear}-09-01`,
-        end_date: `${baseYear + 1}-06-30`,
-        status: 'active',
-      },
-      domain,
-    );
+    const ayRes = await setupPost('/api/v1/academic-years', {
+      name: `P4A Test Year ${ts}-${baseYear}`,
+      start_date: `${baseYear}-09-01`,
+      end_date: `${baseYear + 1}-06-30`,
+      status: 'active',
+    });
 
     if (ayRes.status === 201) {
       academicYearId = ayRes.body.data.id as string;
@@ -99,48 +121,30 @@ export async function setupP4ATestData(
   }
 
   // 2. Create year group
-  const ygRes = await authPost(
-    app,
-    '/api/v1/year-groups',
-    adminToken,
-    {
-      name: `Test YG ${ts}`,
-      display_order: 1,
-    },
-    domain,
-  ).expect(201);
+  const ygRes = await expectSetupPost('/api/v1/year-groups', {
+    name: `Test YG ${ts}`,
+    display_order: 1,
+  });
   const yearGroupId = ygRes.body.data.id;
 
   // 3. Create class
-  const classRes = await authPost(
-    app,
-    '/api/v1/classes',
-    adminToken,
-    {
-      academic_year_id: academicYearId,
-      year_group_id: yearGroupId,
-      name: `P4A Test Class ${ts}`,
-      max_capacity: 30,
-      class_type: 'floating',
-      status: 'active',
-    },
-    domain,
-  ).expect(201);
+  const classRes = await expectSetupPost('/api/v1/classes', {
+    academic_year_id: academicYearId,
+    year_group_id: yearGroupId,
+    name: `P4A Test Class ${ts}`,
+    max_capacity: 30,
+    class_type: 'floating',
+    status: 'active',
+  });
   const classId = classRes.body.data.id;
 
   // 4. Create room
-  const roomRes = await authPost(
-    app,
-    '/api/v1/rooms',
-    adminToken,
-    {
-      name: `P4A Test Room ${ts}`,
-      room_type: 'classroom',
-      capacity: 30,
-      is_exclusive: true,
-    },
-    domain,
-  ).expect(201);
+  const roomRes = await expectSetupPost('/api/v1/rooms', {
+    name: `P4A Test Room ${ts}`,
+    room_type: 'classroom',
+    capacity: 30,
+    is_exclusive: true,
+  });
   const roomId = roomRes.body.data.id;
 
   // 5. Find teacher staff profile — try the dedicated teacher email first,
@@ -166,7 +170,7 @@ export async function setupP4ATestData(
   // Last resort: create a staff profile via the API using owner credentials
   // (admin may not have users.manage permission required by POST /staff-profiles)
   if (!teacherProfile) {
-    const ownerToken = await getAuthToken(app, ownerFallbackEmail, domain);
+    const ownerToken = await getOwnerToken();
     // Get the teacher role ID for role_id (required field)
     const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, domain).expect(200);
     const roles: Array<Record<string, unknown>> = rolesRes.body.data ?? rolesRes.body ?? [];
@@ -195,66 +199,42 @@ export async function setupP4ATestData(
 
   // 6. Assign teacher to class
   if (teacherStaffProfileId) {
-    const assignRes = await authPost(
-      app,
-      `/api/v1/classes/${classId}/staff`,
-      adminToken,
-      {
-        staff_profile_id: teacherStaffProfileId,
-        assignment_role: 'teacher',
-      },
-      domain,
-    );
+    const assignRes = await setupPost(`/api/v1/classes/${classId}/staff`, {
+      staff_profile_id: teacherStaffProfileId,
+      assignment_role: 'teacher',
+    });
     if (assignRes.status !== 201 && assignRes.status !== 409) {
       throw new Error(`Failed to assign teacher to class: ${JSON.stringify(assignRes.body)}`);
     }
   }
 
   // 7. Create a household for the student
-  const hhRes = await authPost(
-    app,
-    '/api/v1/households',
-    adminToken,
-    {
-      household_name: `P4A Test Family ${ts}`,
-      emergency_contacts: [
-        { contact_name: 'Emergency Contact', phone: '+971501234567', display_order: 1 },
-      ],
-    },
-    domain,
-  ).expect(201);
+  const hhRes = await expectSetupPost('/api/v1/households', {
+    household_name: `P4A Test Family ${ts}`,
+    emergency_contacts: [
+      { contact_name: 'Emergency Contact', phone: '+971501234567', display_order: 1 },
+    ],
+  });
   const householdId = hhRes.body.data.id;
 
   // 8. Create a student
-  const studentRes = await authPost(
-    app,
-    '/api/v1/students',
-    adminToken,
-    {
-      household_id: householdId,
-      first_name: 'P4A',
-      last_name: `Student${ts}`,
-      date_of_birth: '2015-05-15',
-      gender: 'male',
-      status: 'active',
-      national_id: `NID-P4A-${ts}`,
-      nationality: 'Irish',
-    },
-    domain,
-  ).expect(201);
+  const studentRes = await expectSetupPost('/api/v1/students', {
+    household_id: householdId,
+    first_name: 'P4A',
+    last_name: `Student${ts}`,
+    date_of_birth: '2015-05-15',
+    gender: 'male',
+    status: 'active',
+    national_id: `NID-P4A-${ts}`,
+    nationality: 'Irish',
+  });
   const studentId = studentRes.body.data.id;
 
   // 9. Enrol student in class
-  await authPost(
-    app,
-    `/api/v1/classes/${classId}/enrolments`,
-    adminToken,
-    {
-      student_id: studentId,
-      start_date: dateInYear(9, 1),
-    },
-    domain,
-  ).expect(201);
+  await expectSetupPost(`/api/v1/classes/${classId}/enrolments`, {
+    student_id: studentId,
+    start_date: dateInYear(9, 1),
+  });
 
   return {
     academicYearId,
