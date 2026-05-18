@@ -370,9 +370,9 @@ After Layer 5 ships, update:
 
 Layer 5 is complete when ALL of the following are true:
 
-- [ ] At least 13 synthetic checks defined and running on schedule: platform admin login (using a dedicated synthetic platform user — never the operator's owner account), tenant login (per pilot tenant), tenant API readiness, tenant page render, worker liveness, **6 queue canaries (1 dedicated `synthetic-canary` + 5 per-critical-queue: notifications, behaviour, finance, payroll, pastoral)**, notification self-test (Resend / Twilio with sink address), DNS resolution
-- [ ] At least one TLS certificate per active tenant domain monitored; expiry alerts at 14 / 3 days
-- [ ] External dependency status polled for Resend, Twilio, Stripe, Sentry, AWS S3, Meilisearch, and the registrar/DNS provider; non-operational status surfaces a card and an alert
+- [ ] At least 13 synthetic checks defined and running on schedule: platform admin login (using a dedicated synthetic platform user — never the operator's owner account), tenant login (per pilot tenant), tenant API readiness, tenant page render, worker liveness, **6 queue canaries (1 dedicated `synthetic-canary` + 5 per-critical-queue: notifications, behaviour, finance, payroll, pastoral)**, notification self-test (Resend / Twilio with sink address), DNS resolution. **Closeout note 2026-05-18:** production has 24 definitions and 16 latest passes; `platform.admin.login` and `notification.resend.self_test` have no result yet, and six external dependency checks are failing/unknown, so this remains open until synthetic credentials/sinks and provider parsers are provisioned.
+- [x] At least one TLS certificate per active tenant domain monitored; expiry alerts at 14 / 3 days
+- [x] External dependency status polled for Resend, Twilio, Stripe, Sentry, AWS S3, Meilisearch, and the registrar/DNS provider; non-operational status surfaces a card and an alert
 - [ ] Multi-channel alert routing extended with at least one urgent path enabled in production (SMS / WhatsApp / Telegram / push) plus email
 - [ ] "Test alert" button exists for each route AND for "all routes at once"; both actions audit-log
 - [ ] Escalation policy lifecycle works end-to-end: critical alert fires → primary route → ack window → secondary route → operator acknowledges → escalation halts
@@ -381,20 +381,55 @@ Layer 5 is complete when ALL of the following are true:
 - [ ] Sentry webhook ingest verifies signatures; unsigned payloads rejected with 401 and audited
 - [ ] Sentry issues correlate with deploy events / correlation ids / topology / runbooks from Layer 4A
 - [ ] Sentry issue detail page shows three operator buttons: "Explain with Copilot", "Generate repo-agent handoff", "Prepare Sentry triage prompt"; **none** of these run autonomously
-- [ ] Evidence completeness monitors **14 seeded pipelines**: 9 for Layer 1–4 sources (health snapshots, BullMQ queue heartbeat, deploy events, Sentry intake, runbook indexing, topology updates, severity policy refresh, error logging, Redis pubsub) **plus 5 for Layer 5's own pipelines** (synthetic results, alert route health, backup capture, backup readiness, readiness score snapshots) — and renders a banner when any pipeline transitions to `silent`. The bullmq.snapshots pipeline reads a Redis key updated by 5D's `QueueSnapshotHeartbeatTask` (Layer 2C has no DB table — heartbeat is the bridge).
+- [x] Evidence completeness monitors **14 seeded pipelines**: 9 for Layer 1–4 sources (health snapshots, BullMQ queue heartbeat, deploy events, Sentry intake, runbook indexing, topology updates, severity policy refresh, error logging, Redis pubsub) **plus 5 for Layer 5's own pipelines** (synthetic results, alert route health, backup capture, backup readiness, readiness score snapshots) — and renders a banner when any pipeline transitions to `silent`. The bullmq.snapshots pipeline reads a Redis key updated by 5D's `QueueSnapshotHeartbeatTask` (Layer 2C has no DB table — heartbeat is the bridge).
 - [ ] Uptime reconciliation table compares UptimeRobot results vs internal health checks; disagreements lasting ≥ 2 cycles raise warnings
-- [ ] Backup readiness panel shows last successful DB backup, last offsite replication, restore-point age, last restore drill, with alert thresholds enforced
+- [ ] Backup readiness panel shows last successful DB backup, last offsite replication, restore-point age, last restore drill, with alert thresholds enforced. **Closeout note 2026-05-18:** production shows one captured `pg_dump` predeploy backup and restore-point age; offsite replication metadata and restore-drill evidence are still unprovisioned, so readiness remains red.
 - [ ] Restore drill history is operator-recorded — no automatic restore execution from Layer 5
-- [ ] Readiness score (0–100) renders on the dashboard home and on `/admin/readiness`; per-dimension breakdown identifies the worst-contributing dimension; sourced from live computation, not yesterday's snapshot
-- [ ] **Live evaluation cron runs every 5 minutes** (computes in-memory, fires alerts on debounced crossings) AND daily snapshot cron runs at 00:05 UTC (persists for trend chart only — does not drive alerts)
-- [ ] Per-dimension weights are operator-tunable; weight changes audit-log via Layer 1.5B
-- [ ] **No file under `apps/api/src/modules/platform-resilience/**`imports`AnthropicClientService`, `PlatformAiCopilotService`, or any Layer 4 generation service\*\* — verified by static-analysis test
-- [ ] **No file under `apps/api/src/modules/platform-resilience/**` performs git, child_process git, or repo file writes\*\* — verified by static-analysis test
+- [x] Readiness score (0–100) renders on the dashboard home and on `/admin/readiness`; per-dimension breakdown identifies the worst-contributing dimension; sourced from live computation, not yesterday's snapshot
+- [x] **Live evaluation cron runs every 5 minutes** (computes in-memory, fires alerts on debounced crossings) AND daily snapshot cron runs at 00:05 UTC (persists for trend chart only — does not drive alerts)
+- [x] Per-dimension weights are operator-tunable; weight changes audit-log via Layer 1.5B
+- [x] **No file under `apps/api/src/modules/platform-resilience/**`imports`AnthropicClientService`, `PlatformAiCopilotService`, or any Layer 4 generation service\*\* — verified by static-analysis test
+- [x] **No file under `apps/api/src/modules/platform-resilience/**` performs git, child_process git, or repo file writes\*\* — verified by static-analysis test
 - [ ] Layer 4 deeplink buttons (Explain with Copilot, Generate repo-agent handoff) only render when Layer 4 is deployed; otherwise hidden gracefully
-- [ ] All new code passes `turbo lint` and `turbo type-check`
-- [ ] All new tests pass and no existing tests regress
-- [ ] `docs/architecture/danger-zones.md` gains DZ-RES-1 through DZ-RES-5 (per §10)
-- [ ] `docs/runbooks/monitoring.md` updated to point operators at the new readiness surfaces while retaining UptimeRobot as the external monitor of last resort
+- [x] All new code passes `turbo lint` and `turbo type-check`
+- [x] All new tests pass and no existing tests regress
+- [x] `docs/architecture/danger-zones.md` gains DZ-RES-1 through DZ-RES-5 (per §10)
+- [x] `docs/runbooks/monitoring.md` updated to point operators at the new readiness surfaces while retaining UptimeRobot as the external monitor of last resort
+
+### Operational Closeout Snapshot -- 2026-05-18
+
+Live production data from `https://dua.edupod.app` shows Layer 5 is code-complete but not operationally complete. The red readiness posture is honest: missing data is penalised as `0`, and empty provisioning surfaces render without hiding the gap.
+
+**Readiness score:** `37.45 / 100`, worst dimension `alert_route_health`.
+
+| Surface               | Live production state                                                                                                                                                                                                    | Closeout decision                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Synthetic checks      | 24 definitions; latest statuses: 16 `passed`, 6 `failed`, 2 with no result. Queue canaries are healthy. `platform.admin.login` and `notification.resend.self_test` have not produced rows yet.                           | Provision synthetic credentials/sinks before checking the main synthetic acceptance item.                  |
+| TLS certificates      | 6 certificate rows, all `ok`, minimum 88 days until expiry.                                                                                                                                                              | Accepted.                                                                                                  |
+| External dependencies | 7 provider rows. Sentry is `operational`; registrar/DNS and Twilio report `minor`; Meilisearch, Resend, S3, and Stripe are `unknown`. Critical alert rows are being recorded, but no alert routes exist to deliver them. | Polling path accepted; provider parser/config gaps remain operational.                                     |
+| Alert routing         | 0 channels, 0 routes, 0 route-health rows, 0 escalation policies, no emergency contact profile.                                                                                                                          | Provisioning gap; not a deployment failure.                                                                |
+| Sentry intake         | 0 mirrored issues and 0 webhook audit receipts.                                                                                                                                                                          | Provision Sentry webhook delivery and signing secret before accepting Sentry operational criteria.         |
+| Evidence completeness | 14 seeded pipelines. 11 `fresh`, 2 `unknown` (`alert.route_health`, `sentry.webhook`), and 1 `silent` (`error.log.writes`). Shell banner renders the silent pipeline.                                                    | Core evidence monitoring accepted; alert/Sentry/error-log pipeline states require operations follow-up.    |
+| Uptime reconciliation | 0 disagreement rows.                                                                                                                                                                                                     | Leave open until UptimeRobot API/key mapping is provisioned and at least one comparison cycle is observed. |
+| Backups               | 1 captured `pg_dump` backup from the deploy pipeline, age under 1 hour at smoke time, local storage only, integrity not recorded. 0 offsite replications, 0 restore drills.                                              | Backup capture accepted; offsite and drill readiness remain open.                                          |
+| Readiness history     | 1 daily snapshot at `2026-05-18T00:05:00Z`; live score computation and dashboard rendering work.                                                                                                                         | Accepted.                                                                                                  |
+
+Manual provisioning steps, because external-service/operator provisioning access was not granted in this closeout:
+
+1. Create at least one email alert channel and one urgent channel (Telegram, WhatsApp, SMS, or push) in `/en/admin/alerts/channels`.
+2. Create alert routes in `/en/admin/alerts/routes` with distinct operator and sink destinations. Never reuse the operator destination as the route-health sink.
+3. Create a critical escalation policy in `/en/admin/alerts/escalation` with the email route first and the urgent route second; run per-route test alerts only after confirming destinations are safe to receive live test messages.
+4. Configure Sentry webhook delivery to `POST /api/v1/admin/_internal/sentry-webhook`, set/verify `SENTRY_WEBHOOK_SECRET` through the normal production secret process, then confirm signed receipts appear in `/en/admin/sentry/audit`.
+5. Configure read-only offsite backup metadata polling for the backup target; do not mutate backup artefacts from Layer 5.
+6. Run the restore drill from `docs/runbooks/recovery-drills.md`, then record the result in `/en/admin/backups`.
+7. Revisit `/en/admin/readiness`; the score should improve only as the real dimension inputs improve.
+
+## Commits / CI / Notes
+
+- Operational closeout documentation: this docs closeout commit (`docs(platform): close out layer 5 readiness`).
+- CI/deploy: documentation-only closeout commit pushed through the standard `main` workflow.
+- Production smoke on 2026-05-18 confirmed `/en/admin`, `/en/admin/readiness`, `/en/admin/alerts/routes`, `/en/admin/alerts/escalation`, `/en/admin/sentry`, `/en/admin/evidence-completeness`, and `/en/admin/backups` render without application errors.
+- Static scan on 2026-05-18 found no AI or repo-access imports/calls under `apps/api/src/modules/platform-resilience/**`.
 
 ---
 

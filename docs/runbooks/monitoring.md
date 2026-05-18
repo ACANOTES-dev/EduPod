@@ -183,7 +183,7 @@ First stops:
 
 - `/en/admin/sentry` for the issue list, filters, state, release, and tenant
   context.
-- `/en/admin/sentry/_audit` for the last webhook receipts, signature status,
+- `/en/admin/sentry/audit` for the last webhook receipts, signature status,
   replay detection, and processing errors.
 - Sentry issue detail pages for deploy, correlation-id, runbook, topology,
   severity-policy, histogram, and linked `platform_error_log` evidence.
@@ -203,3 +203,49 @@ Operational rules:
   handoff creates a prompt for review, and Prepare triage prompt renders the
   static wrapper for [agent-sentry-triage.md](./agent-sentry-triage.md). The
   dashboard never executes the runbook.
+
+## 9. Layer 5 Operational Provisioning Closeout
+
+Layer 5 code is live, but operational readiness stays red until real operator
+destinations, Sentry delivery, offsite backup metadata, and restore-drill
+evidence are provisioned. Treat these as setup gaps, not deploy failures.
+
+First-stop pages:
+
+- `/en/admin/readiness` — live readiness score, reasons, dimension weights, and
+  90-day snapshot history.
+- `/en/admin/alerts/channels`, `/en/admin/alerts/routes`, and
+  `/en/admin/alerts/escalation` — alert destinations, route-health sinks, and
+  escalation policies.
+- `/en/admin/sentry` and `/en/admin/sentry/audit` — mirrored issues and webhook
+  receipts.
+- `/en/admin/evidence-completeness` — freshness of the 14 seeded evidence
+  pipelines, including Layer 5's own monitoring pipelines.
+- `/en/admin/backups` — latest captured backup, offsite replication metadata,
+  restore drill records, and backup readiness reasons.
+
+Provisioning order:
+
+1. Configure an email alert channel and at least one urgent route (Telegram,
+   WhatsApp, SMS, or push).
+2. Give every enabled route a distinct health-check sink destination. The sink
+   must not be the operator's real destination.
+3. Add a critical escalation policy that starts with email and falls through to
+   the urgent route after the acknowledgement window.
+4. Run route tests only when the destination owner expects a live synthetic test
+   message.
+5. Configure Sentry webhook delivery with the production signing secret, then
+   verify signed receipts in `/en/admin/sentry/audit`.
+6. Configure read-only offsite backup metadata polling. Layer 5 must never
+   write, move, delete, or restore backup artefacts.
+7. Run a real restore drill using [recovery-drills.md](./recovery-drills.md),
+   then record the result in `/en/admin/backups`.
+
+Readiness score interpretation:
+
+- Missing alert routes, missing Sentry receipts, missing offsite replication,
+  and missing restore drills are scored as real readiness gaps.
+- Empty production tables for event-triggered sources can be `unknown`; that is
+  honest evidence state, not a hidden pass.
+- Score improvements should be explainable by the underlying dimension inputs.
+  Do not adjust weights to hide unprovisioned operational paths.
