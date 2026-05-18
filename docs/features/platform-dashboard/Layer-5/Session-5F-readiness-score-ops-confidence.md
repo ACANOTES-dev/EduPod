@@ -310,17 +310,140 @@ All alerts respect maintenance windows for `warning`; `critical` is NOT suppress
 
 ### Acceptance
 
-- [ ] Both new tables exist; default weights seeded; migration applies cleanly.
-- [ ] `ReadinessScoreService.compute()` returns deterministic results given fixture inputs.
-- [ ] Live evaluation cron runs every 5 minutes; computes in-memory; does NOT write rows.
-- [ ] Daily snapshot cron runs at 00:05 UTC; snapshot row created; does NOT fire alerts.
-- [ ] Hero card renders on dashboard home with current score + breakdown (sourced from live computation, not yesterday's snapshot).
-- [ ] `/admin/readiness` page renders breakdown table + 90-day trend (sourced from snapshots).
-- [ ] Weight editor visible only to `platform_owner`; large changes require Layer 1.5C owner confirmation; all changes audit-log.
-- [ ] Alerts fire on score crossings, debounced across 2 consecutive 5-minute live evaluations (≈ 10 min). Daily snapshots do NOT drive alerts.
-- [ ] Disabled dimensions excluded from the score; missing data treated as 0 (not skipped).
-- [ ] No-AI guard test passes.
-- [ ] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+- [x] Both new tables exist; default weights seeded; migration applies cleanly.
+- [x] `ReadinessScoreService.compute()` returns deterministic results given fixture inputs.
+- [x] Live evaluation cron runs every 5 minutes; computes in-memory; does NOT write rows.
+- [x] Daily snapshot cron runs at 00:05 UTC; snapshot row created; does NOT fire alerts.
+- [x] Hero card renders on dashboard home with current score + breakdown (sourced from live computation, not yesterday's snapshot).
+- [x] `/admin/readiness` page renders breakdown table + 90-day trend (sourced from snapshots).
+- [x] Weight editor visible only to `platform_owner`; large changes require Layer 1.5C owner confirmation; all changes audit-log.
+- [x] Alerts fire on score crossings, debounced across 2 consecutive 5-minute live evaluations (≈ 10 min). Daily snapshots do NOT drive alerts.
+- [x] Disabled dimensions excluded from the score; missing data treated as 0 (not skipped).
+- [x] No-AI guard test passes.
+- [x] All new code passes `turbo lint` + `turbo type-check`; no regressions.
+
+---
+
+## Commits / CI / Notes
+
+- Implementation commit: `8147d6eb feat(platform): add readiness score dashboard`
+- GitHub Actions: `CI / Deploy` run `26006222932` passed all jobs and deployed to production.
+- Local verification passed:
+  - `pnpm --filter @school/prisma generate`
+  - `pnpm run snapshot:schema`
+  - Prisma validation
+  - `pnpm run snapshot:api`
+  - `pnpm --filter @school/api type-check`
+  - `pnpm --filter @school/web type-check`
+  - `pnpm --filter @school/api lint:ci`
+  - `pnpm --filter @school/web lint`
+  - targeted readiness/evidence Jest suite
+  - `pnpm validate:fast`
+  - `pnpm test`
+  - API + worker coverage gate
+- Production smoke on `https://dua.edupod.app` passed:
+  - Platform admin login succeeded with the local platform-admin smoke account.
+  - `/en/admin` renders the readiness hero card from live computation.
+  - `/en/admin/readiness` renders the readiness hero, 90-day trend empty state, dimension breakdown, and owner weight editor.
+  - Readiness APIs return HTTP 200 for current score, 90-day history, and dimension weights. Current production score at smoke time was `35.21` with 10 editable dimensions and 0 daily snapshots, which is expected immediately after first deploy before the next 00:05 UTC snapshot.
+  - Regression smoke covered `/en/admin/backups` and `/en/admin/evidence-completeness`.
+- Production readiness notes:
+  - Current red score is expected because production still has no real alert routes/escalation policies, no Sentry webhook receipts, no offsite replication metadata, and no restore drill. These are operational provisioning gaps, not Session 5F deployment failures.
+  - Daily snapshots are expected to appear after the next 00:05 UTC scheduled run.
+  - Layer 5 readiness/background/snapshot/dashboard code remains deterministic and non-AI.
+
+---
+
+## Next Implementation Session Prompt
+
+```md
+Implement the Layer 5 Operational Provisioning & Readiness Closeout session for the Platform Admin Dashboard build. Server access granted for diagnostics only unless Ram explicitly grants provisioning access for external services.
+
+Spec:
+docs/features/platform-dashboard/Layer-5/Layer-5-Plan.md
+docs/features/platform-dashboard/Layer-5/Session-5A-synthetic-journey-monitoring.md
+docs/features/platform-dashboard/Layer-5/Session-5B-alert-routing-escalation.md
+docs/features/platform-dashboard/Layer-5/Session-5C-sentry-intake-agent-handoff.md
+docs/features/platform-dashboard/Layer-5/Session-5D-evidence-completeness.md
+docs/features/platform-dashboard/Layer-5/Session-5E-backup-restore-readiness.md
+docs/features/platform-dashboard/Layer-5/Session-5F-readiness-score-ops-confidence.md
+
+Context:
+
+- Sessions 5A through 5F are implemented, deployed through CI, smoke-tested, and accepted for code delivery.
+- Production currently starts with intentionally red/empty readiness inputs until operations are provisioned:
+  - no real alert channels/routes/escalation policies are configured yet;
+  - no mirrored Sentry issues or webhook receipts exist until Sentry webhook delivery is configured;
+  - backup readiness remains red/partial until offsite metadata is configured and a restore drill is recorded;
+  - the first readiness snapshot appears only after the next 00:05 UTC scheduled snapshot run.
+- Layer 5 monitoring/background/readiness work must not call AI.
+- Platform admin host: https://dua.edupod.app
+- Credentials are stored locally at /Users/ram/.codex/secrets/edupod-platform-admin.env
+- Do not print, commit, log, or screenshot secrets.
+- Deploy through CI only by pushing to origin main if code or documentation changes are required.
+
+Before acting:
+
+1. Read AGENTS.md.
+2. Read docs/plans/context.md.
+3. Read docs/plans/ux-redesign-final-spec.md.
+4. Read Layer 5 plan and all Session 5A-5F closeout notes end-to-end.
+5. Inspect existing 5A-5F services, alert routing hooks, maintenance-window suppression, evidence freshness pipelines, backup readiness, readiness score, Platform Admin dashboard conventions, audit ledger, and owner-confirmation primitives before changing anything.
+6. Load backend, frontend, prisma, testing, worker, code-quality, architecture-policing, feature-map-maintenance, and pre-launch-tracking rules as relevant.
+
+Implementation / operations requirements:
+
+- Stay strictly within Layer 5 operational closeout.
+- Do not invent new product features.
+- First produce a production readiness gap report from live data:
+  - synthetic checks and latest results;
+  - alert channels, routes, route health, escalation policies, emergency contacts;
+  - Sentry webhook audit receipts and mirrored issue counts;
+  - evidence pipeline status, including Layer 5 self-monitoring pipelines;
+  - backup runs, offsite replication metadata, restore drills, and backup readiness summary;
+  - readiness score, dimension breakdown, weights, and 90-day snapshot history.
+- Treat known empty states as provisioning gaps, not deployment failures.
+- If Ram grants external-service/operator provisioning access, configure the missing operational pieces using existing UI/API paths:
+  - at least one email route and at least one urgent route;
+  - distinct route health-check sink destinations;
+  - a critical escalation policy;
+  - Sentry webhook delivery and signing-secret validation;
+  - offsite replication metadata polling;
+  - one recorded restore drill if a real drill has been performed.
+- If provisioning access is not granted, document exact manual steps and verify all code paths continue to handle empty states honestly.
+- Verify no Layer 5 scheduled/background/readiness code imports or calls AI services.
+- Update the Layer 5 plan acceptance checklist only for criteria actually satisfied in production; leave external provisioning criteria unchecked if real destinations are not configured.
+- Update relevant runbooks/docs with operational notes if needed, but do not edit production `.env` or rotate credentials.
+
+Verification:
+
+- Run targeted backend/frontend checks if any code changes are made.
+- Run Prisma validation and relevant tests if database-facing docs/code changed.
+- Production smoke:
+  - `/en/admin`
+  - `/en/admin/readiness`
+  - `/en/admin/alerts/routes`
+  - `/en/admin/alerts/escalation`
+  - `/en/admin/sentry`
+  - `/en/admin/evidence-completeness`
+  - `/en/admin/backups`
+- Verify readiness score changes are explainable by real dimension inputs and missing data remains penalised as 0.
+
+Deployment:
+
+- Commit to main and push to origin main only if code or documentation changes are made.
+- Watch GitHub Actions.
+- Fix forward if CI fails.
+- Production smoke on https://dua.edupod.app after green deploy when runtime-affecting changes are shipped.
+
+Completion:
+
+- Add "Commits / CI / Notes" to the relevant Layer 5 documentation.
+- Generate the prompt for the next implementation session in this same style.
+  Include this same instruction that the next agent should generate the following prompt when it finishes.
+- Final response should say whether the Layer 5 operational closeout is complete and whether the repo is ready for next work.
+- Final response should include the generated next-session prompt.
+```
 
 ---
 
