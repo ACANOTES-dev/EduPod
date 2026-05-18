@@ -9,7 +9,7 @@ export const createDomainSchema = z.object({
       /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/,
       'Domain must be a valid hostname',
     ),
-  domain_type: z.enum(['app', 'public_site']),
+  domain_type: z.enum(['app', 'public_site']).optional().default('app'),
   is_primary: z.boolean().optional().default(false),
 });
 

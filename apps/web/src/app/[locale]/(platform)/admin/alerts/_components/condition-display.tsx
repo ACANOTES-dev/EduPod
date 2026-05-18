@@ -22,6 +22,30 @@ const METRIC_LABELS: Record<AlertMetric, string> = {
   stuck_jobs: 'Stuck jobs',
 };
 
+function humaniseToken(value: string): string {
+  return value
+    .replace(/^synthetic\.check\./, 'synthetic check ')
+    .replace(/^sentry\./, 'Sentry ')
+    .replace(/[:._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function formatMetric(metric: AlertMetric): string {
+  return METRIC_LABELS[metric] ?? humaniseToken(metric);
+}
+
+function formatLegacyCondition(config: AlertConditionConfig): string {
+  const entries = Object.entries(config as unknown as Record<string, unknown>).filter(
+    ([, value]) => value !== undefined && value !== null,
+  );
+  if (entries.length === 0) {
+    return 'configured condition';
+  }
+  return entries.map(([key, value]) => `${humaniseToken(key)} ${String(value)}`).join(', ');
+}
+
 function formatThreshold(metric: AlertMetric, config: AlertConditionConfig): string {
   if (metric === 'health_status') {
     if (config.threshold === 0) return 'up';
@@ -42,8 +66,12 @@ function formatThreshold(metric: AlertMetric, config: AlertConditionConfig): str
 
 export function describeAlertCondition(rule: PlatformAlertRule): string {
   const config = rule.condition_config;
-  const metric = METRIC_LABELS[rule.metric];
-  const operator = OPERATOR_LABELS[config.operator];
+  const metric = formatMetric(rule.metric);
+  if (!config.operator || config.threshold === undefined) {
+    return `${metric}: ${formatLegacyCondition(config)}`;
+  }
+
+  const operator = OPERATOR_LABELS[config.operator] ?? config.operator;
   const threshold = formatThreshold(rule.metric, config);
   const scope = config.queue
     ? ` on ${config.queue}`

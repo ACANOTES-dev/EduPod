@@ -4,6 +4,7 @@ import type { ModuleCategory, ModuleDefinition, ModuleKey } from '@school/shared
 import { apiClient } from '@/lib/api-client';
 
 export interface ModuleView extends ModuleDefinition {
+  has_row: boolean;
   is_enabled: boolean;
   last_toggled_at: string | null;
   last_toggled_by: { user_id: string; display_name: string } | null;
@@ -104,7 +105,7 @@ export function buildStandardPresetChanges(modules: ModuleView[]): Array<{
 }> {
   const defaults = new Map(MODULE_REGISTRY.map((module) => [module.key, module.default_enabled]));
   return modules
-    .filter((module) => module.is_enabled !== defaults.get(module.key))
+    .filter((module) => !module.has_row || module.is_enabled !== defaults.get(module.key))
     .map((module) => ({ key: module.key, nextState: defaults.get(module.key) ?? false }));
 }
 

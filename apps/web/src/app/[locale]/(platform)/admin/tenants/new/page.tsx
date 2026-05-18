@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -84,7 +84,9 @@ interface FormState {
 }
 
 export default function CreateTenantPage() {
+  const params = useParams();
   const router = useRouter();
+  const locale = (params?.locale as string | undefined) ?? 'en';
   const [slugManuallyEdited, setSlugManuallyEdited] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -121,7 +123,7 @@ export default function CreateTenantPage() {
     try {
       setSubmitting(true);
       setError(null);
-      const result = await apiClient<{ data: { id: string } }>('/api/v1/admin/tenants', {
+      const result = await apiClient<{ id: string }>('/api/v1/admin/tenants', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name.trim(),
@@ -133,7 +135,7 @@ export default function CreateTenantPage() {
           academic_year_start_month: Number(form.academic_year_start_month),
         }),
       });
-      router.push(`/en/admin/tenants/${result.data.id}`);
+      router.push(`/${locale}/admin/tenants/${result.id}`);
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
@@ -151,7 +153,7 @@ export default function CreateTenantPage() {
     <div>
       <div className="mb-6">
         <Link
-          href="/en/admin/tenants"
+          href={`/${locale}/admin/tenants`}
           className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -294,7 +296,11 @@ export default function CreateTenantPage() {
             {submitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             Create Tenant
           </Button>
-          <Button type="button" variant="outline" onClick={() => router.push('/en/admin/tenants')}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(`/${locale}/admin/tenants`)}
+          >
             Cancel
           </Button>
         </div>

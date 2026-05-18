@@ -1,12 +1,16 @@
-import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 
+import { withRls } from '../../common/helpers/with-rls';
 import { OnboardingService } from '../platform/onboarding.service';
 import { PlatformAuditService } from '../platform-audit/platform-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { DomainsService } from './domains.service';
+
+jest.mock('../../common/helpers/with-rls');
 
 const TENANT_ID = 'tenant-uuid-1';
 const DOMAIN_ID = 'domain-uuid-1';
@@ -44,8 +48,15 @@ const mockPlatformAuditService = {
 
 describe('DomainsService', () => {
   let service: DomainsService;
+  const withRlsMock = jest.mocked(withRls);
 
   beforeEach(async () => {
+    withRlsMock.mockImplementation(async (_prisma, _context, fn) =>
+      fn({
+        tenantDomain: mockPrisma.tenantDomain,
+      } as Parameters<typeof fn>[0]),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DomainsService,
@@ -88,7 +99,6 @@ describe('DomainsService', () => {
 
   it('should create a new domain when it is unique', async () => {
     mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
-    mockPrisma.tenantDomain.findUnique.mockResolvedValueOnce(null);
     const created = { id: DOMAIN_ID, domain: 'new.example.com' };
     mockPrisma.tenantDomain.create.mockResolvedValueOnce(created);
 
@@ -107,7 +117,12 @@ describe('DomainsService', () => {
 
   it('should throw ConflictException when domain is already taken', async () => {
     mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
-    mockPrisma.tenantDomain.findUnique.mockResolvedValueOnce({ id: 'other', domain: 'taken.com' });
+    mockPrisma.tenantDomain.create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        clientVersion: 'test',
+        code: 'P2002',
+      }),
+    );
 
     await expect(
       service.addDomain(TENANT_ID, {

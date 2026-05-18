@@ -8,6 +8,7 @@ import { withRls } from '../../../common/helpers/with-rls';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface ModuleView extends ModuleDefinition {
+  has_row: boolean;
   is_enabled: boolean;
   last_toggled_at: string | null;
   last_toggled_by: { user_id: string; display_name: string } | null;
@@ -54,6 +55,9 @@ export class TenantModulesAdminService {
         .filter((row) => isModuleKey(row.module_key))
         .map((row) => [row.module_key as ModuleKey, row.is_enabled]),
     );
+    const presentKeys = new Set(
+      moduleRows.filter((row) => isModuleKey(row.module_key)).map((row) => row.module_key),
+    );
 
     return {
       tenant_id: tenantId,
@@ -61,6 +65,7 @@ export class TenantModulesAdminService {
         const latestToggle = recentToggles.get(definition.key);
         return {
           ...definition,
+          has_row: presentKeys.has(definition.key),
           is_enabled: enabledByKey.get(definition.key) ?? false,
           last_toggled_at: latestToggle?.created_at.toISOString() ?? null,
           last_toggled_by: latestToggle?.actor ?? null,

@@ -12,6 +12,7 @@ function buildModule(overrides: Partial<ModuleView> & Pick<ModuleView, 'key'>): 
     default_enabled: true,
     description: `${overrides.key} description`,
     display_name: `${overrides.key} name`,
+    has_row: true,
     is_enabled: false,
     last_toggled_at: null,
     last_toggled_by: null,
@@ -58,6 +59,18 @@ describe('tenant modules page helpers', () => {
     expect(changes).toEqual([
       { key: 'finance', nextState: true },
       { key: 'compliance_advanced', nextState: false },
+    ]);
+  });
+
+  it('includes missing rows when applying Standard defaults', () => {
+    const changes = buildStandardPresetChanges([
+      buildModule({ key: 'finance', default_enabled: true, has_row: false, is_enabled: false }),
+      buildModule({ key: 'sen', default_enabled: false, has_row: false, is_enabled: false }),
+    ]);
+
+    expect(changes).toEqual([
+      { key: 'finance', nextState: true },
+      { key: 'sen', nextState: false },
     ]);
   });
 });

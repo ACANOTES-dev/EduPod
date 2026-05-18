@@ -70,6 +70,7 @@ const mockTenantModuleCacheBusService = {
 
 const mockOnboardingService = {
   seedDefaultSteps: jest.fn().mockResolvedValue(undefined),
+  autoCompleteStep: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPlatformAuditService = {
@@ -80,6 +81,7 @@ const mockPrisma = {
   tenant: {
     findUnique: jest.fn(),
     create: jest.fn(),
+    delete: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
@@ -101,6 +103,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    upsert: jest.fn(),
   },
   auditLog: {
     create: jest.fn(),
@@ -1427,7 +1430,8 @@ describe('TenantsService', () => {
       };
       mockPrisma.tenantModule.findFirst.mockResolvedValueOnce(existingModule);
       const updated = { ...existingModule, is_enabled: true };
-      mockPrisma.tenantModule.update.mockResolvedValueOnce(updated);
+      mockPrisma.tenantModule.upsert.mockResolvedValueOnce(updated);
+      mockPrisma.tenantModule.findMany.mockResolvedValueOnce([]);
 
       const result = await service.toggleModule(TENANT_ID, 'sen', true, USER_ID);
 
@@ -1436,9 +1440,19 @@ describe('TenantsService', () => {
         tenant_id: TENANT_ID,
         user_id: USER_ID,
       });
-      expect(mockPrisma.tenantModule.update).toHaveBeenCalledWith({
-        where: { id: 'mod-1' },
-        data: { is_enabled: true },
+      expect(mockPrisma.tenantModule.upsert).toHaveBeenCalledWith({
+        where: {
+          idx_tenant_modules_tenant_module: {
+            tenant_id: TENANT_ID,
+            module_key: 'sen',
+          },
+        },
+        update: { is_enabled: true },
+        create: {
+          tenant_id: TENANT_ID,
+          module_key: 'sen',
+          is_enabled: true,
+        },
       });
       expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -1462,7 +1476,7 @@ describe('TenantsService', () => {
         'sen',
         true,
       );
-      const updateOrder = firstInvocationOrder(mockPrisma.tenantModule.update);
+      const updateOrder = firstInvocationOrder(mockPrisma.tenantModule.upsert);
       const auditOrder = firstInvocationOrder(mockPrisma.auditLog.create);
       const invalidateOrder = firstInvocationOrder(mockTenantModuleService.invalidateCache);
       const publishOrder = firstInvocationOrder(
@@ -1483,7 +1497,8 @@ describe('TenantsService', () => {
       };
       mockPrisma.tenantModule.findFirst.mockResolvedValueOnce(existingModule);
       const updated = { ...existingModule, is_enabled: false };
-      mockPrisma.tenantModule.update.mockResolvedValueOnce(updated);
+      mockPrisma.tenantModule.upsert.mockResolvedValueOnce(updated);
+      mockPrisma.tenantModule.findMany.mockResolvedValueOnce([]);
 
       const result = await service.toggleModule(TENANT_ID, 'finance', false, USER_ID);
 
@@ -1512,19 +1527,28 @@ describe('TenantsService', () => {
       }
     });
 
-    it('should throw NotFoundException when module row does not exist for this tenant', async () => {
+    it('should recreate a missing module row during toggle', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID });
       mockPrisma.tenantModule.findFirst.mockResolvedValueOnce(null);
+      const created = {
+        id: 'mod-created',
+        tenant_id: TENANT_ID,
+        module_key: 'finance',
+        is_enabled: true,
+      };
+      mockPrisma.tenantModule.upsert.mockResolvedValueOnce(created);
+      mockPrisma.tenantModule.findMany.mockResolvedValueOnce([]);
 
-      try {
-        await service.toggleModule(TENANT_ID, 'finance', true);
-        fail('Expected NotFoundException');
-      } catch (err) {
-        expect(err).toBeInstanceOf(NotFoundException);
-        expect((err as NotFoundException).getResponse()).toMatchObject({
-          code: 'MODULE_NOT_FOUND',
-        });
-      }
+      await expect(service.toggleModule(TENANT_ID, 'finance', true)).resolves.toEqual(created);
+      expect(mockPrisma.tenantModule.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            module_key: 'finance',
+            is_enabled: true,
+          }),
+        }),
+      );
     });
 
     it('should skip security audit when actorUserId is not provided', async () => {
@@ -1535,10 +1559,13 @@ describe('TenantsService', () => {
         module_key: 'finance',
         is_enabled: true,
       });
-      mockPrisma.tenantModule.update.mockResolvedValueOnce({
+      mockPrisma.tenantModule.upsert.mockResolvedValueOnce({
         id: 'mod-1',
+        tenant_id: TENANT_ID,
+        module_key: 'finance',
         is_enabled: false,
       });
+      mockPrisma.tenantModule.findMany.mockResolvedValueOnce([]);
 
       await service.toggleModule(TENANT_ID, 'finance', false);
 

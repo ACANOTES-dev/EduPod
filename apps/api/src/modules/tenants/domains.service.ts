@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, type TenantDomain } from '@prisma/client';
 
+import { withRls } from '../../common/helpers/with-rls';
 import { OnboardingService } from '../platform/onboarding.service';
 import {
   PlatformAuditService,
@@ -31,10 +33,12 @@ export class DomainsService {
   async listDomains(tenantId: string) {
     await this.ensureTenantExists(tenantId);
 
-    return this.prisma.tenantDomain.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { created_at: 'asc' },
-    });
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'asc' },
+      }),
+    );
   }
 
   /**
@@ -43,27 +47,29 @@ export class DomainsService {
   async addDomain(tenantId: string, data: CreateDomainDto, audit?: PlatformAuditContext) {
     await this.ensureTenantExists(tenantId);
 
-    // Check domain uniqueness across all tenants
-    const existing = await this.prisma.tenantDomain.findUnique({
-      where: { domain: data.domain },
-    });
-    if (existing) {
-      throw new ConflictException({
-        code: 'DOMAIN_TAKEN',
-        message: `Domain "${data.domain}" is already registered`,
-      });
+    let domain: TenantDomain;
+    try {
+      domain = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+        tx.tenantDomain.create({
+          data: {
+            tenant_id: tenantId,
+            domain: data.domain,
+            domain_type: data.domain_type,
+            is_primary: data.is_primary,
+            verification_status: 'pending',
+            ssl_status: 'pending',
+          },
+        }),
+      );
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException({
+          code: 'DOMAIN_TAKEN',
+          message: `Domain "${data.domain}" is already registered`,
+        });
+      }
+      throw err;
     }
-
-    const domain = await this.prisma.tenantDomain.create({
-      data: {
-        tenant_id: tenantId,
-        domain: data.domain,
-        domain_type: data.domain_type,
-        is_primary: data.is_primary,
-        verification_status: 'pending',
-        ssl_status: 'pending',
-      },
-    });
 
     await this.onboardingService.autoCompleteStep(tenantId, 'domain_configured', {
       domain: domain.domain,
@@ -94,9 +100,11 @@ export class DomainsService {
   ) {
     await this.ensureTenantExists(tenantId);
 
-    const domain = await this.prisma.tenantDomain.findFirst({
-      where: { id: domainId, tenant_id: tenantId },
-    });
+    const domain = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.findFirst({
+        where: { id: domainId, tenant_id: tenantId },
+      }),
+    );
     if (!domain) {
       throw new NotFoundException({
         code: 'DOMAIN_NOT_FOUND',
@@ -104,10 +112,12 @@ export class DomainsService {
       });
     }
 
-    const updated = await this.prisma.tenantDomain.update({
-      where: { id: domainId },
-      data,
-    });
+    const updated = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.update({
+        where: { id: domainId },
+        data,
+      }),
+    );
 
     // Invalidate the cached domain→tenant mapping
     await this.invalidateDomainCache(domain.domain);
@@ -138,9 +148,11 @@ export class DomainsService {
   async removeDomain(tenantId: string, domainId: string, audit?: PlatformAuditContext) {
     await this.ensureTenantExists(tenantId);
 
-    const domain = await this.prisma.tenantDomain.findFirst({
-      where: { id: domainId, tenant_id: tenantId },
-    });
+    const domain = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.findFirst({
+        where: { id: domainId, tenant_id: tenantId },
+      }),
+    );
     if (!domain) {
       throw new NotFoundException({
         code: 'DOMAIN_NOT_FOUND',
@@ -150,9 +162,11 @@ export class DomainsService {
 
     // Cannot remove the last primary domain
     if (domain.is_primary) {
-      const primaryCount = await this.prisma.tenantDomain.count({
-        where: { tenant_id: tenantId, is_primary: true },
-      });
+      const primaryCount = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+        tx.tenantDomain.count({
+          where: { tenant_id: tenantId, is_primary: true },
+        }),
+      );
       if (primaryCount <= 1) {
         throw new BadRequestException({
           code: 'LAST_PRIMARY_DOMAIN',
@@ -161,7 +175,9 @@ export class DomainsService {
       }
     }
 
-    await this.prisma.tenantDomain.delete({ where: { id: domainId } });
+    await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.delete({ where: { id: domainId } }),
+    );
 
     // Invalidate the cached domain→tenant mapping
     await this.invalidateDomainCache(domain.domain);
@@ -199,4 +215,8 @@ export class DomainsService {
     const client = this.redis.getClient();
     await client.del(`tenant_domain:${domain}`);
   }
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 }

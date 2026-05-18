@@ -226,6 +226,7 @@ export class OnboardingService {
 
   async getForTenant(tenantId: string): Promise<OnboardingTrackerResponse> {
     await this.ensureTenantExists(tenantId);
+    await this.seedDefaultSteps(tenantId);
     await this.autoCompleteOwnerAccountOnRead(tenantId);
 
     const steps = await this.fetchSteps(tenantId);
@@ -299,6 +300,7 @@ export class OnboardingService {
 
   async resetForTenant(tenantId: string, audit?: PlatformAuditContext): Promise<void> {
     await this.ensureTenantExists(tenantId);
+    await this.seedDefaultSteps(tenantId);
     const before = await this.fetchSteps(tenantId);
     await this.prisma.tenantOnboardingStep.updateMany({
       where: { tenant_id: tenantId },

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { ALERT_METRICS, ALERT_SEVERITIES, type CreateAlertRuleDto } from '@school/shared';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast } from '@school/ui';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { apiClient } from '@/lib/api-client';
 
 import { AlertRuleList, type AlertMetric, type PlatformAlertRule } from './alert-rule-list';
@@ -39,6 +40,7 @@ export function AlertRulesManager() {
   const [metricFilter, setMetricFilter] = React.useState<'all' | AlertMetric>('all');
   const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [deleteRuleId, setDeleteRuleId] = React.useState<string | null>(null);
 
   const loadRules = React.useCallback(async () => {
     try {
@@ -95,13 +97,10 @@ export function AlertRulesManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Delete this alert rule and its alert history?')) {
-      return;
-    }
-
     try {
       await apiClient<void>(`/api/v1/admin/alerts/rules/${id}`, { method: 'DELETE' });
       setRules((current) => current.filter((rule) => rule.id !== id));
+      setDeleteRuleId(null);
       toast.success('Alert rule deleted.');
     } catch (err: unknown) {
       console.error('[AlertRulesManager.handleDelete]', err);
@@ -146,6 +145,8 @@ export function AlertRulesManager() {
     setEditingRule(rule);
     setShowRuleForm(true);
   }
+
+  const deleteRule = rules.find((rule) => rule.id === deleteRuleId) ?? null;
 
   return (
     <div className="space-y-5">
@@ -202,7 +203,7 @@ export function AlertRulesManager() {
       <AlertRuleList
         loading={rulesLoading}
         onAdd={startCreate}
-        onDelete={(id) => void handleDelete(id)}
+        onDelete={setDeleteRuleId}
         onEdit={startEdit}
         onToggle={(id, enabled) => void handleToggle(id, enabled)}
         rules={filteredRules}
@@ -219,6 +220,25 @@ export function AlertRulesManager() {
         }}
         onSubmit={handleSubmitRule}
         open={showRuleForm}
+      />
+
+      <ConfirmDialog
+        open={deleteRule !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteRuleId(null);
+        }}
+        title="Delete Alert Rule"
+        description={
+          deleteRule
+            ? `Delete "${deleteRule.name}" and its alert history? This cannot be undone.`
+            : 'Delete this alert rule and its alert history? This cannot be undone.'
+        }
+        confirmLabel="Delete rule"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteRuleId) void handleDelete(deleteRuleId);
+        }}
       />
     </div>
   );

@@ -69,7 +69,9 @@ describe('TenantModulesAdminService', () => {
     expect(result.tenant_id).toBe(TENANT_ID);
     expect(result.modules).toHaveLength(MODULE_REGISTRY.length);
     expect(result.modules.find((entry) => entry.key === 'finance')?.is_enabled).toBe(true);
+    expect(result.modules.find((entry) => entry.key === 'finance')?.has_row).toBe(true);
     expect(result.modules.find((entry) => entry.key === 'sen')?.is_enabled).toBe(false);
+    expect(result.modules.find((entry) => entry.key === 'admissions')?.has_row).toBe(false);
     expect(result.completeness.complete).toBe(false);
     expect(result.completeness.missing).toContain('admissions');
   });

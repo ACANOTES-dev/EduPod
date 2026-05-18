@@ -6,7 +6,7 @@ import { Button, Skeleton, Switch } from '@school/ui';
 import { AlertSeverityBadge, type AlertSeverity } from './alert-severity-badge';
 import { ConditionDisplay } from './condition-display';
 
-export type AlertMetric = CreateAlertRuleDto['metric'];
+export type AlertMetric = CreateAlertRuleDto['metric'] | (string & {});
 
 export interface AlertConditionConfig {
   operator: CreateAlertRuleDto['condition_config']['operator'];

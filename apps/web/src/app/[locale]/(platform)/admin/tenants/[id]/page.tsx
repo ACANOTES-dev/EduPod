@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import { MODULE_REGISTRY, type ModuleKey } from '@school/shared/modules';
 import {
   Button,
   Input,
@@ -28,6 +29,7 @@ import {
   Skeleton,
   StatusBadge,
   Switch,
+  toast,
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
@@ -47,13 +49,14 @@ import { OnboardingTracker } from './_components/onboarding-tracker';
 interface TenantDomain {
   id: string;
   domain: string;
+  domain_type: 'app' | 'public_site';
   is_primary: boolean;
 }
 
 interface TenantModule {
-  key: string;
-  label: string;
-  enabled: boolean;
+  id: string;
+  module_key: string;
+  is_enabled: boolean;
 }
 
 interface TenantDetail {
@@ -111,8 +114,8 @@ export default function TenantDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient<{ data: TenantDetail }>(`/api/v1/admin/tenants/${tenantId}`);
-      setTenant(result.data);
+      const result = await apiClient<TenantDetail>(`/api/v1/admin/tenants/${tenantId}`);
+      setTenant(result);
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
@@ -264,7 +267,7 @@ function TenantActions({
 }: {
   locale: string;
   tenant: TenantDetail;
-  onUpdate: () => void;
+  onUpdate: () => Promise<void>;
   onArchived: () => void;
 }) {
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
@@ -278,11 +281,18 @@ function TenantActions({
       if (action === 'archive') {
         onArchived();
       } else {
-        onUpdate();
+        await onUpdate();
       }
-    } catch (err) {
-      // Error handling — could add toast
+      toast.success(
+        action === 'reactivate'
+          ? 'Tenant reactivated.'
+          : action === 'suspend'
+            ? 'Tenant suspended.'
+            : 'Tenant archived.',
+      );
+    } catch (err: unknown) {
       console.error('[onUpdate]', err);
+      toast.error(getApiErrorMessage(err, `Failed to ${action} tenant.`));
     } finally {
       setActionLoading(null);
     }
@@ -399,6 +409,7 @@ function OverviewTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () 
       });
       setEditing(false);
       onUpdate();
+      toast.success('Tenant updated.');
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
@@ -626,7 +637,7 @@ function DomainsTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () =
       setError(null);
       await apiClient(`/api/v1/admin/tenants/${tenant.id}/domains`, {
         method: 'POST',
-        body: JSON.stringify({ domain: newDomain.trim() }),
+        body: JSON.stringify({ domain: newDomain.trim(), domain_type: 'app' }),
       });
       setNewDomain('');
       onUpdate();
@@ -748,8 +759,11 @@ function DomainsTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () =
 function ModulesTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () => void }) {
   const [togglingKey, setTogglingKey] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const moduleRowsByKey = React.useMemo(() => {
+    return new Map(tenant.modules.map((moduleRow) => [moduleRow.module_key, moduleRow]));
+  }, [tenant.modules]);
 
-  const handleToggle = async (moduleKey: string, enabled: boolean) => {
+  const handleToggle = async (moduleKey: ModuleKey, enabled: boolean) => {
     try {
       setTogglingKey(moduleKey);
       setError(null);
@@ -786,29 +800,42 @@ function ModulesTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () =
         </div>
       )}
 
-      {tenant.modules.length === 0 ? (
-        <div className="px-6 py-12 text-center">
-          <Settings className="mx-auto h-8 w-8 text-text-tertiary" />
-          <p className="mt-2 text-sm text-text-tertiary">No modules available</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-border">
-          {tenant.modules.map((mod) => (
-            <div key={mod.key} className="flex items-center justify-between px-6 py-4">
-              <div>
-                <p className="text-sm font-medium text-text-primary">{mod.label}</p>
-                <p className="mt-0.5 text-xs text-text-secondary font-mono">{mod.key}</p>
+      <div className="divide-y divide-border">
+        {MODULE_REGISTRY.map((moduleDefinition) => {
+          const row = moduleRowsByKey.get(moduleDefinition.key);
+          return (
+            <div key={moduleDefinition.key} className="flex items-center justify-between px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary">
+                  {moduleDefinition.display_name}
+                </p>
+                <p className="mt-0.5 font-mono text-xs text-text-secondary">
+                  {moduleDefinition.key}
+                </p>
+                {!row ? (
+                  <p className="mt-1 text-xs text-warning-text">
+                    Missing row; toggling will recreate it.
+                  </p>
+                ) : null}
               </div>
               <Switch
-                checked={mod.enabled}
-                onCheckedChange={(checked) => handleToggle(mod.key, checked)}
-                disabled={togglingKey === mod.key}
-                aria-label={`Toggle ${mod.label}`}
+                checked={row?.is_enabled ?? false}
+                onCheckedChange={(checked) => handleToggle(moduleDefinition.key, checked)}
+                disabled={togglingKey === moduleDefinition.key}
+                aria-label={`Toggle ${moduleDefinition.display_name}`}
               />
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
+}
+
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'error' in err) {
+    const message = (err as { error?: { message?: unknown } }).error?.message;
+    if (typeof message === 'string') return message;
+  }
+  return fallback;
 }

@@ -22,6 +22,7 @@ import {
   type RoleTier,
 } from '@school/shared';
 
+import { withRls } from '../../common/helpers/with-rls';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { TenantModuleCacheBusService } from '../../common/services/tenant-module-cache-bus.service';
 import { TenantModuleService } from '../../common/services/tenant-module.service';
@@ -256,6 +257,12 @@ export class TenantsService {
       });
     }
 
+    const allPermissions = await this.rbacReadFacade.findAllPermissions();
+    const permissionMap = new Map<string, string>();
+    for (const p of allPermissions) {
+      permissionMap.set(p.permission_key, p.id);
+    }
+
     // Create tenant record
     const tenant = await this.prisma.tenant.create({
       data: {
@@ -269,122 +276,117 @@ export class TenantsService {
       },
     });
 
-    // Create fallback domain
-    const fallbackDomain = `${data.slug}.edupod.app`;
-    await this.prisma.tenantDomain.create({
-      data: {
-        tenant_id: tenant.id,
-        domain: fallbackDomain,
-        domain_type: 'app',
-        verification_status: 'verified',
-        ssl_status: 'active',
-        is_primary: true,
-      },
-    });
-
-    // Create default branding
-    await this.prisma.tenantBranding.create({
-      data: {
-        tenant_id: tenant.id,
-        school_name_display: data.name,
-      },
-    });
-
-    // Create default settings (via interactive transaction — cross-module write)
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tenantSetting.create({
-        data: {
-          tenant_id: tenant.id,
-          settings: DEFAULT_SETTINGS,
-        },
-      });
-    });
-
-    // Create module rows for every supported gateable module from the canonical registry.
-    for (const moduleDefinition of MODULE_REGISTRY) {
-      await this.prisma.tenantModule.create({
-        data: {
-          tenant_id: tenant.id,
-          module_key: moduleDefinition.key,
-          is_enabled: moduleDefinition.default_enabled,
-        },
-      });
-    }
-
-    // Create notification settings (all enabled, email channel) — cross-module write
-    await this.prisma.$transaction(async (tx) => {
-      for (const notificationType of NOTIFICATION_TYPES) {
-        await tx.tenantNotificationSetting.create({
+    try {
+      await withRls(this.prisma, { tenant_id: tenant.id }, async (tx) => {
+        // Create fallback domain
+        const fallbackDomain = `${data.slug}.edupod.app`;
+        await tx.tenantDomain.create({
           data: {
             tenant_id: tenant.id,
-            notification_type: notificationType,
-            is_enabled: true,
-            channels: ['email'],
-          },
-        });
-      }
-    });
-
-    // Create sequences
-    for (const sequenceType of SEQUENCE_TYPES) {
-      await this.prisma.tenantSequence.create({
-        data: {
-          tenant_id: tenant.id,
-          sequence_type: sequenceType,
-          current_value: 0,
-        },
-      });
-    }
-
-    // Create tenant-scoped system roles + assign permissions
-    const allPermissions = await this.rbacReadFacade.findAllPermissions();
-    const permissionMap = new Map<string, string>();
-    for (const p of allPermissions) {
-      permissionMap.set(p.permission_key, p.id);
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const roleDef of TENANT_SYSTEM_ROLES) {
-        const role = await tx.role.create({
-          data: {
-            tenant_id: tenant.id,
-            role_key: roleDef.role_key,
-            display_name: roleDef.display_name,
-            is_system_role: true,
-            role_tier: roleDef.role_tier,
+            domain: fallbackDomain,
+            domain_type: 'app',
+            verification_status: 'verified',
+            ssl_status: 'active',
+            is_primary: true,
           },
         });
 
-        const permKeys = SYSTEM_ROLE_PERMISSIONS[roleDef.role_key] ?? [];
-        for (const permKey of permKeys) {
-          const permId = permissionMap.get(permKey);
-          if (permId) {
-            await tx.rolePermission.create({
-              data: {
-                role_id: role.id,
-                permission_id: permId,
-                tenant_id: tenant.id,
-              },
-            });
+        // Create default branding
+        await tx.tenantBranding.create({
+          data: {
+            tenant_id: tenant.id,
+            school_name_display: data.name,
+          },
+        });
+
+        await tx.tenantSetting.create({
+          data: {
+            tenant_id: tenant.id,
+            settings: DEFAULT_SETTINGS,
+          },
+        });
+
+        // Create module rows for every supported gateable module from the canonical registry.
+        for (const moduleDefinition of MODULE_REGISTRY) {
+          await tx.tenantModule.create({
+            data: {
+              tenant_id: tenant.id,
+              module_key: moduleDefinition.key,
+              is_enabled: moduleDefinition.default_enabled,
+            },
+          });
+        }
+
+        // Create notification settings (all enabled, email channel).
+        for (const notificationType of NOTIFICATION_TYPES) {
+          await tx.tenantNotificationSetting.create({
+            data: {
+              tenant_id: tenant.id,
+              notification_type: notificationType,
+              is_enabled: true,
+              channels: ['email'],
+            },
+          });
+        }
+
+        // Create sequences
+        for (const sequenceType of SEQUENCE_TYPES) {
+          await tx.tenantSequence.create({
+            data: {
+              tenant_id: tenant.id,
+              sequence_type: sequenceType,
+              current_value: 0,
+            },
+          });
+        }
+
+        // Create tenant-scoped system roles + assign permissions
+        for (const roleDef of TENANT_SYSTEM_ROLES) {
+          const role = await tx.role.create({
+            data: {
+              tenant_id: tenant.id,
+              role_key: roleDef.role_key,
+              display_name: roleDef.display_name,
+              is_system_role: true,
+              role_tier: roleDef.role_tier,
+            },
+          });
+
+          const permKeys = SYSTEM_ROLE_PERMISSIONS[roleDef.role_key] ?? [];
+          for (const permKey of permKeys) {
+            const permId = permissionMap.get(permKey);
+            if (permId) {
+              await tx.rolePermission.create({
+                data: {
+                  role_id: role.id,
+                  permission_id: permId,
+                  tenant_id: tenant.id,
+                },
+              });
+            }
           }
         }
-      }
-    });
 
-    // Seed inbox defaults (tenant_settings_inbox row, 81-row messaging policy
-    // matrix, starter safeguarding keyword list). Idempotent — safe to re-run.
-    await seedInboxDefaultsForTenant(this.prisma, tenant.id);
+        // Seed inbox defaults (tenant_settings_inbox row, 81-row messaging policy
+        // matrix, starter safeguarding keyword list). Idempotent — safe to re-run.
+        await seedInboxDefaultsForTenant(tx, tenant.id);
 
-    // Seed wellbeing defaults (per-module AI flags off by default, wellbeing
-    // notification channel preferences, 31 default behaviour categories when
-    // the tenant has none). Idempotent — count checks short-circuit re-runs.
-    await seedWellbeingDefaultsForTenant(this.prisma, tenant.id);
+        // Seed wellbeing defaults (per-module AI flags off by default, wellbeing
+        // notification channel preferences, 31 default behaviour categories when
+        // the tenant has none). Idempotent — count checks short-circuit re-runs.
+        await seedWellbeingDefaultsForTenant(tx, tenant.id);
 
-    // Seed reports defaults (three reports_* AI flag rows, all enabled=false).
-    // Tenants opt in via Settings → Reports; they absorb the Anthropic cost.
-    await seedReportsDefaultsForTenant(this.prisma, tenant.id);
+        // Seed reports defaults (three reports_* AI flag rows, all enabled=false).
+        // Tenants opt in via Settings → Reports; they absorb the Anthropic cost.
+        await seedReportsDefaultsForTenant(tx, tenant.id);
+      });
 
-    await this.onboardingService.seedDefaultSteps(tenant.id);
+      await this.onboardingService.seedDefaultSteps(tenant.id);
+      await this.onboardingService.autoCompleteStep(tenant.id, 'modules_configured');
+    } catch (err) {
+      await this.deleteFailedTenantShell(tenant.id, err);
+      throw err;
+    }
 
     // Backfill inbox.* and safeguarding.* permission grants for the new
     // tenant's admin-tier roles immediately. Without this, a tenant
@@ -991,16 +993,19 @@ export class TenantsService {
         where: { tenant_id: tenantId, module_key: moduleKey },
       });
 
-      if (!existingModule) {
-        throw new NotFoundException({
-          code: 'MODULE_NOT_FOUND',
-          message: `Module "${moduleKey}" not found for this tenant`,
-        });
-      }
-
-      const updatedModule = await db.tenantModule.update({
-        where: { id: existingModule.id },
-        data: { is_enabled: isEnabled },
+      const updatedModule = await db.tenantModule.upsert({
+        where: {
+          idx_tenant_modules_tenant_module: {
+            tenant_id: tenantId,
+            module_key: moduleKey,
+          },
+        },
+        update: { is_enabled: isEnabled },
+        create: {
+          tenant_id: tenantId,
+          module_key: moduleKey,
+          is_enabled: isEnabled,
+        },
       });
 
       if (actorUserId) {
@@ -1027,6 +1032,7 @@ export class TenantsService {
 
     await this.tenantModuleService.invalidateCache(tenantId);
     await this.tenantModuleCacheBusService.publishInvalidation(tenantId, moduleKey, isEnabled);
+    await this.autoCompleteModulesConfiguredIfComplete(tenantId);
     if (audit) {
       await this.platformAuditService.log({
         ...audit,
@@ -1042,6 +1048,35 @@ export class TenantsService {
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
+
+  private async deleteFailedTenantShell(tenantId: string, originalError: unknown): Promise<void> {
+    try {
+      await this.prisma.tenant.delete({ where: { id: tenantId } });
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to clean up tenant ${tenantId} after provisioning error: ${
+          cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+        }. Original error: ${
+          originalError instanceof Error ? originalError.message : String(originalError)
+        }`,
+      );
+    }
+  }
+
+  private async autoCompleteModulesConfiguredIfComplete(tenantId: string): Promise<void> {
+    const completeness = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      const rows = await tx.tenantModule.findMany({
+        where: { tenant_id: tenantId },
+        select: { module_key: true },
+      });
+      const present = new Set(rows.map((row) => row.module_key));
+      return MODULE_REGISTRY.every((definition) => present.has(definition.key));
+    });
+
+    if (completeness) {
+      await this.onboardingService.autoCompleteStep(tenantId, 'modules_configured');
+    }
+  }
 
   private summarizeOnboardingSteps(
     steps: Array<{ status: string }>,
@@ -1125,10 +1160,12 @@ export class TenantsService {
    * Invalidate all cached domain → tenant mappings for a tenant.
    */
   private async invalidateTenantDomainCaches(tenantId: string) {
-    const domains = await this.prisma.tenantDomain.findMany({
-      where: { tenant_id: tenantId },
-      select: { domain: true },
-    });
+    const domains = await withRls(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantDomain.findMany({
+        where: { tenant_id: tenantId },
+        select: { domain: true },
+      }),
+    );
 
     const client = this.redis.getClient();
     const pipeline = client.pipeline();

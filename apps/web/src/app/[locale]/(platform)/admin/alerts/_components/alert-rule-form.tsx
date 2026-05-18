@@ -38,6 +38,13 @@ interface AlertRuleFormProps {
 }
 
 const COMPONENTS = ['postgresql', 'redis', 'meilisearch', 'bullmq', 'disk'] as const;
+const FORM_ALERT_METRICS: readonly CreateAlertRuleDto['metric'][] = [
+  ...ALERT_METRICS,
+  'component_latency',
+  'component_status',
+  'disk_free_gb',
+  'bullmq_stuck_jobs',
+];
 const METRIC_LABELS: Record<(typeof ALERT_METRICS)[number], string> = {
   api_latency_p95: 'API latency p95',
   disk_usage_percent: 'Disk usage percent',
@@ -75,6 +82,10 @@ function isPlatformAlertQueueName(
   return PLATFORM_ALERT_QUEUE_NAMES.some((queueName) => queueName === value);
 }
 
+function isFormAlertMetric(value: string | undefined): value is CreateAlertRuleDto['metric'] {
+  return FORM_ALERT_METRICS.some((metric) => metric === value);
+}
+
 function buildDefaults(initialData?: PlatformAlertRule | null): CreateAlertRuleDto {
   const queue = isPlatformAlertQueueName(initialData?.condition_config.queue)
     ? initialData.condition_config.queue
@@ -82,7 +93,7 @@ function buildDefaults(initialData?: PlatformAlertRule | null): CreateAlertRuleD
 
   return {
     name: initialData?.name ?? '',
-    metric: initialData?.metric ?? 'health_status',
+    metric: isFormAlertMetric(initialData?.metric) ? initialData.metric : 'health_status',
     condition_config: {
       component: initialData?.condition_config.component ?? 'postgresql',
       operator: initialData?.condition_config.operator ?? 'gt',
