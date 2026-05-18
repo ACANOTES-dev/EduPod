@@ -424,12 +424,44 @@ Manual provisioning steps, because external-service/operator provisioning access
 6. Run the restore drill from `docs/runbooks/recovery-drills.md`, then record the result in `/en/admin/backups`.
 7. Revisit `/en/admin/readiness`; the score should improve only as the real dimension inputs improve.
 
+### External Operational Provisioning Follow-Up -- 2026-05-18
+
+The follow-up verified production again and did not create channels, routes, Sentry
+webhook receipts, backup replication rows, or restore-drill records because no
+real operator destinations, health-check sink destinations, external-provider
+access, live-test approval, offsite metadata, or completed restore-drill evidence
+were supplied. Keeping these rows empty preserves the readiness signal: Layer 5
+must not become green through placeholder data.
+
+Fresh live gap report from `https://dua.edupod.app`:
+
+| Surface               | Live production state                                                                                                                                                                                                                                                      | Follow-up decision                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Readiness score       | `37.45 / 100`; worst dimension remains `alert_route_health`. Missing route health, Sentry intake, unresolved critical alerts, backup offsite/drill evidence, and external dependencies continue to reduce the score.                                                       | Correct; missing inputs remain penalised.                                            |
+| Alerting              | 0 channels, 0 routes, 0 route-health checks, 0 escalation policies, and no emergency contact profile. Latest critical alert rows have `channels_notified: []`.                                                                                                             | Provisioning still required before accepting alert-routing criteria.                 |
+| Sentry intake         | 0 mirrored issues and 0 webhook audit receipts.                                                                                                                                                                                                                            | Sentry webhook delivery and signing-secret validation still required.                |
+| Evidence completeness | 14 seeded pipelines render; `alert.route_health` and `sentry.webhook` remain `unknown`, and `error.log.writes` is `silent`.                                                                                                                                                | Empty states are visible and honest; no deployment fix required.                     |
+| Backups               | One deploy-captured `pg_dump` backup is present; local storage only, integrity not recorded, 0 offsite replication rows, 0 restore drills.                                                                                                                                 | Backup capture works; offsite metadata and a real recorded drill are still required. |
+| Production UI smoke   | `/en/admin`, `/en/admin/readiness`, `/en/admin/alerts/routes`, `/en/admin/alerts/escalation`, `/en/admin/alerts/route-health`, `/en/admin/sentry`, `/en/admin/evidence-completeness`, and `/en/admin/backups` rendered without application errors after live data settled. | UI paths continue to handle empty operational state.                                 |
+
+Provisioning remains blocked until Ram supplies or confirms:
+
+1. Real email operator destination plus a distinct email sink destination.
+2. Real urgent-route destination plus a distinct urgent sink destination.
+3. Permission to send live synthetic test alerts to those destinations.
+4. Sentry project/admin access or confirmation that the webhook URL and signing
+   secret have been configured through the normal production secret process.
+5. Read-only offsite backup metadata source and permission to record its
+   evidence.
+6. Completed restore-drill evidence before any drill record is created.
+
 ## Commits / CI / Notes
 
 - Operational closeout documentation: this docs closeout commit (`docs(platform): close out layer 5 readiness`).
 - CI/deploy: documentation-only closeout commit pushed through the standard `main` workflow.
 - Production smoke on 2026-05-18 confirmed `/en/admin`, `/en/admin/readiness`, `/en/admin/alerts/routes`, `/en/admin/alerts/escalation`, `/en/admin/sentry`, `/en/admin/evidence-completeness`, and `/en/admin/backups` render without application errors.
 - Static scan on 2026-05-18 found no AI or repo-access imports/calls under `apps/api/src/modules/platform-resilience/**`.
+- External provisioning follow-up on 2026-05-18 confirmed the same readiness gaps from live data, verified no Layer 5 resilience code calls AI via `synthetic-no-ai-import.spec.ts`, and made no production provisioning changes because no real external-service/operator destinations or live-test approval were supplied.
 
 ---
 
