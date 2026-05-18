@@ -431,16 +431,31 @@ describe('RbacReadFacade', () => {
   });
 
   describe('findMembershipUserIds', () => {
-    it('should return all membership user IDs for a tenant', async () => {
+    it('should return all membership user IDs inside tenant-pinned RLS', async () => {
       const memberships = [
         { id: 'm1', user_id: 'u1' },
         { id: 'm2', user_id: 'u2' },
       ];
-      mockPrisma.tenantMembership.findMany.mockResolvedValue(memberships);
+      const tx = {
+        tenantMembership: {
+          findMany: jest.fn().mockResolvedValue(memberships),
+        },
+      };
+      const transactionMock = jest.fn(
+        async (callback: (txClient: typeof tx) => Promise<typeof memberships>) => callback(tx),
+      );
+      (createRlsClient as jest.Mock).mockReturnValue({ $transaction: transactionMock });
 
       const result = await facade.findMembershipUserIds(TENANT_ID);
 
       expect(result).toEqual(memberships);
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
+      expect(transactionMock).toHaveBeenCalledTimes(1);
+      expect(tx.tenantMembership.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+        select: { id: true, user_id: true },
+      });
+      expect(mockPrisma.tenantMembership.findMany).not.toHaveBeenCalled();
     });
   });
 

@@ -418,9 +418,13 @@ export class RbacReadFacade {
    * Used by tenant session invalidation.
    */
   async findMembershipUserIds(tenantId: string): Promise<Array<{ id: string; user_id: string }>> {
-    return this.prisma.tenantMembership.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, user_id: true },
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.tenantMembership.findMany({
+        where: { tenant_id: tenantId },
+        select: { id: true, user_id: true },
+      });
     });
   }
 
