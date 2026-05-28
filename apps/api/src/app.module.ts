@@ -10,6 +10,7 @@ import { CommonModule } from './common/common.module';
 import { GuardianRestrictionInterceptorModule } from './common/interceptors/guardian-restriction.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 import { MaintenanceModeMiddleware } from './common/middleware/maintenance-mode.middleware';
+import { ReadOnlyCutoverMiddleware } from './common/middleware/read-only-cutover.middleware';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
@@ -201,6 +202,8 @@ import { WellbeingNotificationsModule } from './modules/wellbeing-notifications/
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(ReadOnlyCutoverMiddleware).forRoutes('*');
+
     // Correlation middleware runs first — assigns X-Request-Id before any other middleware
     consumer
       .apply(CorrelationMiddleware, RequestLoggingMiddleware, MetricsMiddleware)
